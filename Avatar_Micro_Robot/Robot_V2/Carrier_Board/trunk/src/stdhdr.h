@@ -30,6 +30,7 @@ extern void block_ms(unsigned int ms);
 extern void writeI2C( unsigned char add, unsigned char v );
 extern int readI2C( unsigned char add );
 extern void writeI2CReg( unsigned char add, unsigned char v, unsigned char w);
+unsigned char readI2C_Reg(unsigned char add, unsigned char reg);
 
 #include "../HardwareProfile.h"
 

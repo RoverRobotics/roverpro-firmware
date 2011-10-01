@@ -94,8 +94,20 @@
 #define SUS_S5()					_RB5
 #define SUS_S3()					_RE5
 
+#define HUMIDITY_SENSOR_CH       1 
+#define HUMIDITY_SENSOR_EN(a)	_PCFG1 = !a
+
+#define ADC_REF_VOLTAGE          3.3f
+#define ADC_SAMPLE_COUNT         1024
 
 
+
+#define ADXL345_ADDRESS           0x53
+#define TMP112_0_ADDRESS          0x48
+#define TMP112_1_ADDRESS          0x49
+#define HMC5843_ADDRESS           0x1E
+#define EEPROM_ADDRESS            0x50 // to 0x57 (0x50 to 0x53 address four 256-byte blocks
+#define FAN_CONTROLLER_ADDRESS		0x18
 
 //I haven't looked at anything below this
 /*
@@ -235,13 +247,17 @@ void DeviceCarrierInit()
 	MIC_PWR_EN(1);
 	CODEC_PWR_EN(1);
 	COM_EXPRESS_PGOOD_EN(1);
+	HUMIDITY_SENSOR_EN(1);
+
+
 
 
 
 
 	block_ms(50);
 
-	while (1)
+//keep trying to boot COM Express until successful
+while (1)
 	{
 
 		if(DeviceCarrierBoot() == 0)
@@ -260,25 +276,34 @@ void DeviceCarrierInit()
 	MIC_PWR_ON(1);
 	AMP_PWR_ON(1);
 
-	while(1);
 
 
 
-/*	initI2C();
+	initI2C();
 
-	// enable data acquisition 
+
+	block_ms(100);
+
+	writeI2CReg( HMC5843_ADDRESS, 0x02,0x00);
+	block_ms(20);
+	writeI2CReg( ADXL345_ADDRESS, 0x2d,0x08);	
+	block_ms(20);
+	writeI2CReg( ADXL345_ADDRESS, 0x31,0x0b);	
+	block_ms(20);
+
+/*	// enable data acquisition 
 	T1CON=0x0000;//clear register
 	_TCKPS=0b11;//timer stops,1:256 prescale,
 	TMR1=0;//clear timer1 register
 	PR1=625;//interrupt every 10ms
-	T1CONbits.TON=1;
-*/
+	T1CONbits.TON=1;*/
+
 	// enable A/D Converter
-/*	_SSRC = 0x07; // auto-convert
-	_SAMC = 0; // holding (enable this to sample)
+	_SSRC = 0x07; // auto-convert
+	_SAMC = 0x1f; // holding (enable this to sample)
 	_ADON = 1;
 
-	T1InterruptUserFunction = DeviceCarrierGetTelemetry;*/
+	//T1InterruptUserFunction = DeviceCarrierGetTelemetry;
 }
 
 void initI2C(void) // Initialize the I2C interface to the realtime clock
@@ -301,23 +326,25 @@ void initI2C(void) // Initialize the I2C interface to the realtime clock
 
 int DeviceCarrierReadAdxl345Register( unsigned char add, unsigned char reg )
 {
-	int a;
+	int a,b;
+	int c;
 
-	writeI2C(add, reg);
-	a = readI2C(add);
+	a = readI2C_Reg(add,reg);
+	b = readI2C_Reg(add,reg+1);
 
-	return a;
+
+	c = a | (b << 8);
+
+	return c;
 }
 
 int DeviceCarrierReadTmp112Register( unsigned char add, unsigned char reg )
 {
 	int a, b, c;
 
-	writeI2C(add, reg);
-	a = readI2C(add);
+	a = readI2C_Reg(add,reg);
 
-	writeI2C(add, reg + 0x01);
-	b = readI2C(add);
+	b = readI2C_Reg(add,reg+1);
 
 	c = (b >> 4) | (a << 4);
 
@@ -329,11 +356,9 @@ int DeviceCarrierReadHmc5843Register( unsigned char add, unsigned char reg )
 	unsigned char a, b;
 	int c;
 
-	writeI2C(add, reg);
-	a = readI2C(add);
+	a = readI2C_Reg(add,reg);
 
-	writeI2C(add, reg + 0x01);
-	b = readI2C(add);
+	b = readI2C_Reg(add,reg+1);
 
 	c = b | (a << 8);
 
@@ -342,63 +367,56 @@ int DeviceCarrierReadHmc5843Register( unsigned char add, unsigned char reg )
 
 void DeviceCarrierGetTelemetry()
 {
-/*	unsigned char a, b;
+	unsigned char a, b;
 	signed int c;
 	int d;
 
  	IFS0bits.T1IF = 0;	//clear interrupt flag ??
 
-	REG_V5_POWER_GOOD = V5_GOOD();
-	REG_V12_POWER_GOOD = V12_GOOD();
-	REG_PAYLOAD_1_PRESENT = PAYLOAD1_PRESENT();
-	REG_PAYLOAD_2_PRESENT = PAYLOAD2_PRESENT();
-
 	a = DeviceCarrierReadAdxl345Register( ADXL345_ADDRESS, 0x32 ); // Accel X-Axis Data 0
 	b = DeviceCarrierReadAdxl345Register( ADXL345_ADDRESS, 0x33 ); // Accel X-Axis Data 1
 	c = a | (b << 8);
-	REG_ACCEL_X = (float)c * 16.0 / 512.0;
+	REG_ACCEL_X = (float)c * 16.0 / 4096.0;
+
 
 	a = DeviceCarrierReadAdxl345Register( ADXL345_ADDRESS, 0x34 ); // Accel Y-Axis Data 0
 	b = DeviceCarrierReadAdxl345Register( ADXL345_ADDRESS, 0x35 ); // Accel Y-Axis Data 1
 	c = a | (b << 8);
-	REG_ACCEL_Y = (float)c * 16.0 / 512.0;
+	REG_ACCEL_Y = (float)c * 16.0 / 4096.0;
+
 
 	a = DeviceCarrierReadAdxl345Register( ADXL345_ADDRESS, 0x36 ); // Accel Z-Axis Data 0
 	b = DeviceCarrierReadAdxl345Register( ADXL345_ADDRESS, 0x37 ); // Accel Z-Axis Data 1
 	c = a | (b << 8);
-	REG_ACCEL_Z = -(float)c * 16.0 / 512.0;
+	REG_ACCEL_Z = -(float)c * 16.0 / 4096.0;
+
 
 	d = DeviceCarrierReadTmp112Register( TMP112_0_ADDRESS, 0x00 ); // Temp
-	REG_TEMP_INT0 = (float)d / 16.0; // TODO: don't forget to scale
+	REG_TEMP_INT0 = (float)d / 16.0; 
 
-	d = DeviceCarrierReadTmp112Register( TMP112_1_ADDRESS, 0x00 ); // Temp
-	REG_TEMP_INT1 = (float)d / 16.0; // TODO: don't forget to scale
 
 	d = DeviceCarrierReadHmc5843Register( HMC5843_ADDRESS, 0x03 ); // Magnet X-Axis Data
 	REG_MAGNETIC_X = (float)d;
 
+
 	d = DeviceCarrierReadHmc5843Register( HMC5843_ADDRESS, 0x05 ); // Magnet Y-Axis Data 0
 	REG_MAGNETIC_Y = (float)d;
+
 
 	d = DeviceCarrierReadHmc5843Register( HMC5843_ADDRESS, 0x07 ); // Magnet Z-Axis Data 0
 	REG_MAGNETIC_Z = (float)d;
 
-	// Sample Analog input devices
-	_CH0SA = EXTERNAL_TEMP_SENSOR_CH;
-	_SAMP = 1;
 
-	while (!_DONE) { }
-	_DONE = 0;
-	REG_TEMP_EXT0 = ADC1BUF0 * ADC_REF_VOLTAGE / ADC_SAMPLE_COUNT;
-	
+	_ADON = 0;
 	_CH0SA = HUMIDITY_SENSOR_CH;
+	_ADON = 1;
 	_SAMP = 1;
-
+	
 	while (!_DONE) { }
-	_DONE = 0;
+
 	REG_ROBOT_HUMIDITY = ADC1BUF0 * ADC_REF_VOLTAGE / ADC_SAMPLE_COUNT;
 
-	REG_TELEMETRY_COUNT++;*/
+	REG_TELEMETRY_COUNT++;
 }
 
 
@@ -455,7 +473,7 @@ int DeviceCarrierBoot()
 
 }
 
-void DeviceCarrierRun()
+/*void DeviceCarrierRun()
 {
 
 }
@@ -473,10 +491,24 @@ void DeviceCarrierSuspend()
 void DeviceCarrierSuspended()
 {
 
-}
+}*/
 
 void DeviceCarrierProcessIO()
 {
+
+	static unsigned int i = 0;
+
+	i++;
+
+	if(i>10)
+	{
+		i=0;
+		DeviceCarrierGetTelemetry();
+
+	}
+
+	block_ms(10);
+
 /*	switch (gRegCarrierState)
 	{
 		case CARRIER_WAIT:
