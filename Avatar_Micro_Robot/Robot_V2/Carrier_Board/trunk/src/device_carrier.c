@@ -285,11 +285,29 @@ while (1)
 	block_ms(100);
 
 	writeI2CReg( HMC5843_ADDRESS, 0x02,0x00);
-	block_ms(20);
+	block_ms(5);
 	writeI2CReg( ADXL345_ADDRESS, 0x2d,0x08);	
-	block_ms(20);
+	block_ms(5);
 	writeI2CReg( ADXL345_ADDRESS, 0x31,0x0b);	
-	block_ms(20);
+	block_ms(5);
+
+	//set fan configuration
+	writeI2CReg( FAN_CONTROLLER_ADDRESS,0x02,0b00011010);
+	block_ms(5);
+
+	//make thermistor 1 control fan 2, and vice versa
+	writeI2CReg( FAN_CONTROLLER_ADDRESS,0x11,0b00011000);
+	block_ms(5);
+
+	//set fan start duty cycle -> 120/240 = 50%
+	writeI2CReg( FAN_CONTROLLER_ADDRESS,0x07,120);
+	block_ms(5);
+
+	//fan turns on at 50C
+	writeI2CReg( FAN_CONTROLLER_ADDRESS,0x10,50);
+	block_ms(5);
+
+
 
 /*	// enable data acquisition 
 	T1CON=0x0000;//clear register
