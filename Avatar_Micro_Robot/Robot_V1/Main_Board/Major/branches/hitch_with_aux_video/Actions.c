@@ -20,6 +20,8 @@ void Update_Robot_Commands(unsigned char disable_driving)
 	unsigned char L_LR,L_UD,R_LR,R_UD;
 	unsigned char led_on, ocu_robot_talk, payload_button, flipper_up, flipper_down, left_trigger, right_trigger, select1, select0;
 	static unsigned char payload_button_counter = 0;
+	static char last_right_trigger = 0;
+	static char last_video_channel = 0;
 
 	L_LR = Return_Last_Datalink_Message(6);
 	L_UD = Return_Last_Datalink_Message(7);
@@ -32,6 +34,7 @@ void Update_Robot_Commands(unsigned char disable_driving)
 	flipper_down = Return_Last_Datalink_Message(10) & 0b00001000;
 	left_trigger = Return_Last_Datalink_Message(10) & 0b00000100;
 	right_trigger  = Return_Last_Datalink_Message(10) & 0b00000010;
+
 
 	select1 = Return_Last_Datalink_Message(11) & 0b10000000;
 	select0 = Return_Last_Datalink_Message(11) & 0b01000000;
@@ -55,9 +58,26 @@ void Update_Robot_Commands(unsigned char disable_driving)
 		reset_motor_controllers();
 		payload_button_counter = 0;
 	}
-	else if( right_trigger && (select0 == 0) )
+	else if( (right_trigger && (last_right_trigger == 0)) && (select0 == 0) )
 	{
-		select_video_channel(2);		
+
+		if(last_video_channel == 0)
+		{
+			select_video_channel(2);		
+			last_video_channel = 2;
+		}
+		else
+		{
+			select_video_channel(0);
+			last_video_channel = 0;
+		}
+	}
+	else if( (last_video_channel == 2) && (select0 == 0))
+	{
+
+		//this case is so that the else statement doesn't switch the video back to the main 
+		//input until it is toggled back by the previous statement.
+
 	}
 	else
 	{
@@ -66,15 +86,18 @@ void Update_Robot_Commands(unsigned char disable_driving)
 			select_video_channel(1);
 			handle_payload_message();
 			handle_second_payload_message();
+			last_video_channel = 1;
 		}
 		else
 		{
 			stop_payload_motion();
 			select_video_channel(0);
+			last_video_channel = 0;
 	
 		}
 	}
 
+	last_right_trigger = right_trigger;
 
 	//turn off audio if the robot should be driving.
 	//also implements some hysteresis in this behavior (to prevent clicking static as the joystick voltage varies)
