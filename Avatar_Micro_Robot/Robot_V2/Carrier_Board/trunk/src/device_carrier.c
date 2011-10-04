@@ -105,6 +105,9 @@
 
 #define POWER_BUTTON			_RG9
 
+#define GPS_TX_OR				_RP12R
+#define GPS_RX_PIN				11
+
 
 
 
@@ -115,6 +118,10 @@
 #define HMC5843_ADDRESS           0x1E
 #define EEPROM_ADDRESS            0x50 // to 0x57 (0x50 to 0x53 address four 256-byte blocks
 #define FAN_CONTROLLER_ADDRESS		0x18
+
+
+
+unsigned int reg_robot_gps_message[100];
 
 //I haven't looked at anything below this
 /*
@@ -230,6 +237,9 @@ void initI2C( void );
 #define IR_LED		0
 #define WHITE_LED	1
 void set_led_brightness(unsigned char led_type, unsigned char duty_cycle);
+
+void robot_gps_isr(void);
+void robot_gps_init(void);
 
 
 // FUNCTIONS
@@ -367,6 +377,12 @@ while (1)
 
 
 
+	U2RXInterruptUserFunction = robot_gps_isr;
+
+	robot_gps_init();
+	_U2RXIE = 1;
+
+
 	//T1InterruptUserFunction = DeviceCarrierGetTelemetry;
 }
 
@@ -449,6 +465,96 @@ int DeviceCarrierReadHmc5843Register( unsigned char add, unsigned char reg )
 	c = b | (a << 8);
 
 	return c;
+}
+
+
+void robot_gps_init(void)
+{
+	//set GPS tx to U2TX
+	GPS_TX_OR = 5;
+	
+	//set U2RX to GPS rx pin
+	_U2RXR = GPS_RX_PIN;	
+	
+	U2BRG = 103;
+	
+	_U2RXIE = 0;
+	
+	U2MODEbits.UARTEN = 1;
+
+
+}
+
+void robot_gps_isr(void)
+{
+
+	
+
+	static char gps_message_state = 0;
+	static unsigned char gps_message_temp[100];
+
+	//filter for messages starting with $GPGGA
+	unsigned char message_filter[6] = {'$','G','P','G','G','A'};
+	unsigned char i;
+
+	unsigned char new_byte;
+
+	U2STAbits.OERR = 0;
+
+	_U2RXIF = 0;
+
+	new_byte = U2RXREG;
+//	gps_interrupt_counter++;
+	
+
+	if(gps_message_state == 0)
+	{
+
+		if(new_byte == '$')
+		{
+			//gps_message_temp[gps_message_state] = new_byte;
+			gps_message_temp[gps_message_state] = new_byte;
+			//gps_message_temp[0] = 0x26;
+			gps_message_state++;
+			
+
+		}
+
+
+	}
+	else
+	{
+		gps_message_temp[gps_message_state] = new_byte;
+		//gps_message_temp[gps_message_state] = gps_message_state;
+
+		if(gps_message_state == 5)
+		{
+			for(i=0;i<5;i++)
+			{
+				if(gps_message_temp[i] != message_filter[i])
+				{
+					gps_message_state = 0;
+					
+				}
+			}
+		}
+
+		if(gps_message_state >= 95)
+		{
+			for(i=0;i<95;i++)
+			{
+				//gps_message[i] = gps_message_temp[i];
+				reg_robot_gps_message[i] = gps_message_temp[i];
+			}
+				gps_message_state = -1;
+				//IEC0bits.U1RXIE = 0;
+			
+
+		}
+		gps_message_state++;
+	}
+	//gps_message_state_debug = gps_message_state;
+
 }
 
 void DeviceCarrierGetTelemetry()
