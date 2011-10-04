@@ -100,6 +100,13 @@
 #define ADC_REF_VOLTAGE          3.3f
 #define ADC_SAMPLE_COUNT         1024
 
+#define WHITE_LED_OR			_RP25R
+#define IR_LED_OR				_RP22R
+
+#define POWER_BUTTON			_RG9
+
+
+
 
 
 #define ADXL345_ADDRESS           0x53
@@ -219,6 +226,12 @@ int DeviceCarrierBoot();
 void initI2C( void );
 
 
+
+#define IR_LED		0
+#define WHITE_LED	1
+void set_led_brightness(unsigned char led_type, unsigned char duty_cycle);
+
+
 // FUNCTIONS
 
 #pragma code
@@ -321,8 +334,63 @@ while (1)
 	_SAMC = 0x1f; // holding (enable this to sample)
 	_ADON = 1;
 
+
+	//setup LED PWM channels
+
+	T2CONbits.TCKPS = 0;	
+
+
+	WHITE_LED_OR = 18;	//OC1
+	IR_LED_OR	= 19;	//OC2
+
+
+	//AP8803: dimming frequency must be below 500Hz
+	//Choose 400Hz (2.5ms period)
+	//2.5ms = [PR2 + 1]*62.5ns*1
+	PR2 = 40000;	
+	OC1RS = 39999;
+	OC2RS = 39999;
+
+	OC1CON2bits.SYNCSEL = 0x1f;	
+	OC2CON2bits.SYNCSEL = 0x1f;	
+	
+	//use timer 2
+	OC1CON1bits.OCTSEL2 = 0;
+	OC2CON1bits.OCTSEL2 = 0;
+	
+	//edge-aligned pwm mode
+	OC1CON1bits.OCM = 6;
+	OC2CON1bits.OCM = 6;
+	
+	//turn on timer 2
+	T2CONbits.TON = 1;
+
+
+
 	//T1InterruptUserFunction = DeviceCarrierGetTelemetry;
 }
+
+void set_led_brightness(unsigned char led_type, unsigned char duty_cycle)
+{
+
+
+	if(duty_cycle > 100)
+		duty_cycle = 100;
+
+	switch(led_type)
+	{
+		case WHITE_LED:
+			OC1R = 39990 - duty_cycle*399;
+		break;
+		case IR_LED:
+			OC2R = 39990 - duty_cycle*399;
+		break;
+
+	}
+
+
+}
+
 
 void initI2C(void) // Initialize the I2C interface to the realtime clock
 {
