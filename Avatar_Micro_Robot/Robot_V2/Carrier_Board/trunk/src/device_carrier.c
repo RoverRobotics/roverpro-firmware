@@ -103,7 +103,7 @@
 #define WHITE_LED_OR			_RP25R
 #define IR_LED_OR				_RP22R
 
-#define POWER_BUTTON			_RG9
+#define POWER_BUTTON()			_RB4
 
 #define GPS_TX_OR				_RP12R
 #define GPS_RX_PIN				11
@@ -242,6 +242,10 @@ void robot_gps_isr(void);
 void robot_gps_init(void);
 
 
+void init_io(void);
+void de_init_io(void);
+
+
 // FUNCTIONS
 
 #pragma code
@@ -250,34 +254,14 @@ void DeviceCarrierInit()
 {
 	int i = 0;
 
-	AD1PCFGL = 0xffff;
+	de_init_io();
 
-
-	VBAT_DIGI_ON(0);
-	V3V3_ON(0);
-	V5_ON(0);
-	V12_ON(0);
-	AMP_PWR_ON(0);
-	CODEC_PWR_ON(0);
-	COM_EXPRESS_PGOOD_ON(0);
-
-
-	VBAT_DIGI_EN(1);
-	V3V3_EN(1);
-	V5_EN(1);
-	V12_EN(1);
-	AMP_PWR_EN(1);
-	MIC_PWR_EN(1);
-	CODEC_PWR_EN(1);
-	COM_EXPRESS_PGOOD_EN(1);
-	HUMIDITY_SENSOR_EN(1);
-
-
-
-
-
-
+	//wait some time to stabilize voltages
 	block_ms(50);
+	while(POWER_BUTTON());
+
+	init_io();
+
 
 //keep trying to boot COM Express until successful
 while (1)
@@ -404,6 +388,62 @@ void set_led_brightness(unsigned char led_type, unsigned char duty_cycle)
 
 	}
 
+
+}
+
+
+void init_io(void)
+{
+
+	AD1CON1 = 0x0000;
+	AD1CON2 = 0x0000;
+	AD1CON3 = 0x0000;
+
+	AD1PCFGL = 0xffff;
+	TRISB = 0xffff;
+	TRISC = 0xffff;
+	TRISD = 0xffff;
+	TRISE = 0xffff;
+	TRISF = 0xffff;
+	TRISG = 0xffff;
+
+
+	VBAT_DIGI_ON(0);
+	V3V3_ON(0);
+	V5_ON(0);
+	V12_ON(0);
+	AMP_PWR_ON(0);
+	CODEC_PWR_ON(0);
+	COM_EXPRESS_PGOOD_ON(0);
+
+
+	VBAT_DIGI_EN(1);
+	V3V3_EN(1);
+	V5_EN(1);
+	V12_EN(1);
+	AMP_PWR_EN(1);
+	MIC_PWR_EN(1);
+	CODEC_PWR_EN(1);
+	COM_EXPRESS_PGOOD_EN(1);
+	HUMIDITY_SENSOR_EN(1);
+
+
+}
+
+void de_init_io(void)
+{
+
+	AD1CON1 = 0x0000;
+	AD1CON2 = 0x0000;
+	AD1CON3 = 0x0000;
+
+	AD1PCFGL = 0xffff;
+	TRISB = 0xffff;
+	TRISC = 0xffff;
+	TRISD = 0xffff;
+	TRISE = 0xffff;
+	TRISF = 0xffff;
+	TRISG = 0xffff;
 
 }
 
