@@ -87,8 +87,8 @@
 #define MIC_PWR_EN(a)			_TRISG6 = !a
 #define MIC_PWR_ON(a)			_LATG6 = a
 
-#define CODEC_PWR_EN(a)			_TRISG6 = !a
-#define CODEC_PWR_ON(a)			_LATG6 = a
+#define CODEC_PWR_EN(a)			_TRISG7 = !a
+#define CODEC_PWR_ON(a)			_LATG7 = a
 
 
 #define SUS_S5()					_RB5
