@@ -120,8 +120,9 @@
 #define FAN_CONTROLLER_ADDRESS		0x18
 
 
-
+void read_EEPROM_string(void);
 unsigned int reg_robot_gps_message[100];
+unsigned char eeprom_string[78];
 
 //I haven't looked at anything below this
 /*
@@ -273,7 +274,11 @@ while (1)
 			break;
 	}
 
-
+	/*
+	//in case the above is commented out (no COM Express)
+	V3V3_ON(1);
+	V5_ON(1);
+	*/
 
 
 	VBAT_DIGI_ON(1);
@@ -366,6 +371,7 @@ while (1)
 	robot_gps_init();
 	_U2RXIE = 1;
 
+	read_EEPROM_string();
 
 	//T1InterruptUserFunction = DeviceCarrierGetTelemetry;
 }
@@ -444,6 +450,22 @@ void de_init_io(void)
 	TRISE = 0xffff;
 	TRISF = 0xffff;
 	TRISG = 0xffff;
+
+}
+
+//reads PCB information from the EEPROM.  This is pretty inefficient, but it should only run once, while the COM Express
+//is booting.
+void read_EEPROM_string(void)
+{
+	unsigned int i;
+
+	for(i=0;i<78;i++)
+	{
+		eeprom_string[i] = readI2C_Reg(EEPROM_ADDRESS,i);
+		block_ms(5);
+
+	}
+
 
 }
 
