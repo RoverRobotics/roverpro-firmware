@@ -124,94 +124,7 @@ void read_EEPROM_string(void);
 unsigned int reg_robot_gps_message[100];
 unsigned char eeprom_string[78];
 
-//I haven't looked at anything below this
-/*
-#define COM_EXPRESS_ON(a)        _LATF1     = a
-#define COM_EXPRESS_EN(a)        _TRISF1  = !a
 
-#define COM_EXPRESS_PG_ON(a)     _LATB10    = a // PWR_OK
-#define COM_EXPRESS_PG_EN(a)     _TRISB10 = !a
-
-#define GPS_ON(a)                _LATF4     = a
-#define GPS_EN(a)                _TRISF4  = !a
-
-#define RADIO_ON(a)              _LATG9     = a
-#define RADIO_EN(a)              _TRISG9  = !a
-
-#define CAMERA_BOARD_ON(a)       _LATE6     = a
-#define CAMERA_BOARD_EN(a)       _TRISE6  = !a
-
-#define SMBUS_ON(a)              _LATG6     = a
-#define SMBUS_EN(a)              _TRISG6  = !a
-
-#define AUDIO_ON(a)              _LATG7     = !a
-#define AUDIO_EN(a)              _TRISG7  = a
-
-#define NCOM_WAKE0_ON(a)         _LATB15    = !a
-#define NCOM_WAKE0_EN(a)         _TRISB15 = !a
-
-#define NCOM_WAKE1_ON(a)         _LATF0     = !a
-#define NCOM_WAKE1_EN(a)         _TRISF0  = !a
-
-#define NCOM_SYSRST_ON(a)        _LATB9     = !a
-#define NCOM_SYSRST_EN(a)        _TRISB9  = !a
-
-#define PWR_BTN_ON(a)             _LATD8    = !a
-#define PWR_BTN_EN(a)             _TRISD8 = !a
-
-#define PAYLOAD1_PWR_ON(a)       _LATB12    = a
-#define PAYLOAD1_PWR_EN(a)       _TRISB12 = !a
-
-#define PAYLOAD2_PWR_ON(a)       _LATB11    = a
-#define PAYLOAD2_PWR_EN(a)       _TRISB11 = !a
-
-#define MOTOR_CONTROLLER_ON(a)   _LATB13    = a
-#define MOTOR_CONTROLLER_EN(a)   _TRISB13 = !a
-
-#define PWM_IRLED_ON(a)          _LATD3    = !a // digital PWM output 100% duty cycle
-#define PWM_IRLED_EN(a)          _TRISD3 = !a
-
-#define PWM_LED_ON(a)            _LATD4    = !a
-#define PWM_LED_EN(a)            _TRISD4 = !a
-
-
-#define PIC_WAKE0()              (!_RB14)
-#define PAYLOAD1_PRESENT()       (!_RB8)
-#define PAYLOAD2_PRESENT()       (!_RB3)
-#define COMPASS_DRDY()           (!_RB2)
-#define PWR_BTN()                (!_RB4)
-#define EXT_PWR_BUTTON()         (!_RB4)
-#define SUS_S5()                 (!_RB5)
-#define SMB_ALERT()              (!_RC13)
-#define V3V3_GOOD()              (_RD1)
-#define V12_GOOD()               (_RD2)
-#define V5_GOOD()                (_RD6)
-#define SUS_S3()                 (!_RE5)
-#define NC_THRMTRIP()            (!_RE7)
-
-
-#define EXTERNAL_TEMP_SENSOR_CH  0 // CH0 : input wth 100k pull-up (not used)
-#define HUMIDITY_SENSOR_CH       1 // CH1 : analog input (0 - 3V ?)
-#define ADC_REF_VOLTAGE          3.3f
-#define ADC_SAMPLE_COUNT         1024
-
-#define ADC_CH_TO_BIT(a) (2^a)
-
-// board ids
-
-#define GPS_TXD // pin 45 (RP12)
-#define GPS_RXD // pin 46 (RP11)
-#define SMB_SDA // pin 43 (SDA1)
-#define SMB_SCL // pin 44 (SCLK1)
-#define SECURE_PIC // pin 53
-
-
-#define ADXL345_ADDRESS           0x53
-#define TMP112_0_ADDRESS          0x48
-#define TMP112_1_ADDRESS          0x49
-#define HMC5843_ADDRESS           0x1E
-#define EEPROM_ADDRESS            0x50 // to 0x57 (0x50 to 0x53 address four 256-byte blocks
-*/
 // STATE MACHINE
 
 typedef enum
@@ -319,14 +232,6 @@ while (1)
 	writeI2CReg( FAN_CONTROLLER_ADDRESS,0x10,50);
 	block_ms(5);
 
-
-
-/*	// enable data acquisition 
-	T1CON=0x0000;//clear register
-	_TCKPS=0b11;//timer stops,1:256 prescale,
-	TMR1=0;//clear timer1 register
-	PR1=625;//interrupt every 10ms
-	T1CONbits.TON=1;*/
 
 	// enable A/D Converter
 	_SSRC = 0x07; // auto-convert
@@ -727,26 +632,6 @@ int DeviceCarrierBoot()
 
 }
 
-/*void DeviceCarrierRun()
-{
-
-}
-
-void DeviceCarrierShutdown()
-{
-
-}
-
-void DeviceCarrierSuspend()
-{
-
-}
-
-void DeviceCarrierSuspended()
-{
-
-}*/
-
 void DeviceCarrierProcessIO()
 {
 
@@ -763,29 +648,4 @@ void DeviceCarrierProcessIO()
 
 	block_ms(10);
 
-/*	switch (gRegCarrierState)
-	{
-		case CARRIER_WAIT:
-			DeviceCarrierWait();
-			break;
-		case CARRIER_BOOT:
-			DeviceCarrierBoot();
-			break;
-		case CARRIER_RUN:
-			DeviceCarrierRun();
-			break;
-		case CARRIER_SHUTDOWN:
-			DeviceCarrierShutdown();
-			break;
-		case CARRIER_SUSPEND:
-			DeviceCarrierSuspend();
-			break;
-		case CARRIER_SUSPENDED:
-			DeviceCarrierSuspended();
-			break;
-		case CARRIER_INIT:
-		default:
-			DeviceCarrierInit();
-			break;
-	}	*/
 }
