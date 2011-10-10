@@ -121,8 +121,8 @@
 
 
 void read_EEPROM_string(void);
-unsigned int reg_robot_gps_message[100];
-unsigned char eeprom_string[78];
+//unsigned int reg_robot_gps_message[100];
+//unsigned char eeprom_string[78];
 
 
 // STATE MACHINE
@@ -172,13 +172,40 @@ void DeviceCarrierInit()
 
 	//wait some time to stabilize voltages
 	block_ms(50);
-	while(POWER_BUTTON());
+//	while(POWER_BUTTON());
 
 	init_io();
 
 
+
+	const unsigned char build_date[12] = __DATE__; 
+	const unsigned char build_time[12] = __TIME__;
+
+
+
+	for(i=0;i<12;i++)
+	{
+		if((build_date[i] == 0))
+		{
+			REG_ROBOT_FIRMWARE_BUILD.data[i] = ' ';
+		}
+		else
+		{
+			REG_ROBOT_FIRMWARE_BUILD.data[i] = build_date[i];
+		}
+		if(build_time[i] == 0)
+		{
+			REG_ROBOT_FIRMWARE_BUILD.data[i+12] = ' ';
+		}
+		else
+		{
+			REG_ROBOT_FIRMWARE_BUILD.data[i+12] = build_time[i];
+		}
+	}
+
+
 //keep trying to boot COM Express until successful
-while (1)
+/*while (1)
 	{
 
 		if(DeviceCarrierBoot() == 0)
@@ -186,12 +213,12 @@ while (1)
 		else
 			break;
 	}
-
-	/*
+*/
+	
 	//in case the above is commented out (no COM Express)
 	V3V3_ON(1);
 	V5_ON(1);
-	*/
+	
 
 
 	VBAT_DIGI_ON(1);
@@ -366,7 +393,7 @@ void read_EEPROM_string(void)
 
 	for(i=0;i<78;i++)
 	{
-		eeprom_string[i] = readI2C_Reg(EEPROM_ADDRESS,i);
+		REG_ROBOT_BOARD_DATA.data[i] = readI2C_Reg(EEPROM_ADDRESS,i);
 		block_ms(5);
 
 	}
@@ -511,7 +538,7 @@ void robot_gps_isr(void)
 			for(i=0;i<95;i++)
 			{
 				//gps_message[i] = gps_message_temp[i];
-				reg_robot_gps_message[i] = gps_message_temp[i];
+				REG_ROBOT_GPS_MESSAGE.data[i] = gps_message_temp[i];
 			}
 				gps_message_state = -1;
 				//IEC0bits.U1RXIE = 0;
@@ -643,6 +670,8 @@ void DeviceCarrierProcessIO()
 	{
 		i=0;
 		DeviceCarrierGetTelemetry();
+		set_led_brightness(WHITE_LED, REG_WHITE_LED);
+		set_led_brightness(IR_LED, REG_IR_LED);
 
 	}
 
