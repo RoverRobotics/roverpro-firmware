@@ -141,8 +141,8 @@
 //constant for pins
 //input pin mapping
 
-#define M1_TACHO_RPn 20
-#define M2_TACHO_RPn 22
+#define M1_TACHO_RPn 12
+#define M2_TACHO_RPn 16
 
 
 /*
@@ -151,17 +151,17 @@
 */
 
 //XbeeTest Only
-#define U1RX_RPn 3
+//#define U1RX_RPn 3
 //XbeeTest End
 
 //output pin mapping
-#define M1_PWM 	RPOR7bits.RP14R 
-#define M2_PWM 	RPOR10bits.RP21R
-//#define M3_PWM 	RPOR13bits.RP26R 
+#define M1_PWM 	_RP24R
+#define M2_PWM 	_RP2R
+#define M3_PWM 	_RP25R
 
 
 //XbeeTest Only
-#define U1TX_RPn  	RPOR2bits.RP4R
+//#define U1TX_RPn  	RPOR2bits.RP4R
 //XbeeTest End
 
 /*
@@ -169,32 +169,32 @@
 #define I2C_DAT_RPn RPOR12bits.RP25R
 */
 //functional pins
-#define M1_DIRO		PORTDbits.RD4
-#define M1_DIR 		PORTFbits.RF3
-#define M1_BRAKE 	PORTDbits.RD8
-#define M1_MODE 	PORTBbits.RB15
-#define M1_COAST 	PORTDbits.RD1
-#define M1_FF1 		PORTBbits.RB12
-#define M1_FF2  	PORTDbits.RD7
-#define M2_DIRO		PORTDbits.RD2
-#define M2_DIR 		PORTGbits.RG7
-#define M2_BRAKE 	PORTGbits.RG8
-#define M2_MODE 	PORTGbits.RG9
-#define M2_COAST 	PORTEbits.RE5
-#define M2_FF1 		PORTBbits.RB3
-#define M2_FF2  	PORTDbits.RD6
+#define M1_DIRO		_RD0
+#define M1_DIR 		_RD6
+#define M1_BRAKE 	_RD7
+#define M1_MODE 	_RD9
+#define M1_COAST 	_RD10
+#define M1_FF1 		_RC14
+#define M1_FF2  	_RC13
+#define M2_DIRO		_RE5
+#define M2_DIR 		_RB4
+#define M2_BRAKE 	_RB5
+#define M2_MODE 	_RG9
+#define M2_COAST 	_RG8
+#define M2_FF1 		_RG6
+#define M2_FF2  	_RG7
 
-#define M3_DIR 		PORTDbits.RD0
-#define M3_BRAKE 	PORTCbits.RC14
-#define M3_MODE 	PORTDbits.RD11
-#define M3_COAST 	PORTCbits.RC14
+#define M3_DIR 		_RE3
+#define M3_BRAKE 	_RF0
+#define M3_MODE 	_RE4
+#define M3_COAST 	_RF1
  
 
 //#define M3_Fault 	PORTBbits.RB2
-#define Fan1_Fail 	PORTDbits.RD7
-#define Fan2_Fail 	PORTDbits.RD6
-#define Cell_A_MOS 	PORTFbits.RF1
-#define Cell_B_MOS 	PORTFbits.RF0
+#define Fan1_Fail 	
+#define Fan2_Fail 	
+#define Cell_A_MOS 	
+#define Cell_B_MOS 	
 
 
 //other constant
