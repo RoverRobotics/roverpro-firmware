@@ -14,13 +14,9 @@
  */
 
 #include "stdhdr.h"
-#include "device_generic.h"
+
 #include "device_robot_motor.h"
-#include "device_ocu.h"
-#include "device_carrier.h"
-#include "device_arm_base.h"
-#include "device_arm_sholder.h"
-#include "device_arm_hand.h"
+
 
 #include "SA1xLibrary/SA_API.h"
 
@@ -125,7 +121,11 @@ static void InitializeSystem(void)
 
 	device_dsc.idProduct = gpio_id;
 
-	switch (gpio_id)
+
+	//we got rid of the ID pins, so force robot motor to init
+	DeviceRobotMotorInit();
+
+/*	switch (gpio_id)
 	{
 		case DEVICE_OCU:
 			DeviceOcuInit();
@@ -155,7 +155,7 @@ static void InitializeSystem(void)
 		default:
 			DeviceGenericInit();
 			break;
-	}
+	}*/
 
 	// ---------------------------------------------------------------------
 	// GENERIC INITIALIZATION HERE
@@ -176,7 +176,10 @@ void ProcessIO(void)
 	// DEVICE SPECIFIC I/O PROCESS HERE
 	// ---------------------------------------------------------------------
 
-	switch (gpio_id)
+	//we got rid of id pins, so force motor controller to run
+	Device_MotorController_Process();
+
+/*	switch (gpio_id)
 	{
 		case DEVICE_OCU:
 			DeviceOcuProcessIO();
@@ -206,7 +209,7 @@ void ProcessIO(void)
 		default:
 			DeviceGenericProcessIO();
 			break;
-	}
+	}*/
 
 
 	// ---------------------------------------------------------------------
