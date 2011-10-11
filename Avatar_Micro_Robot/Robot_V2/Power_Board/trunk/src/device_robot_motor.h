@@ -165,6 +165,27 @@
 #define U1TX_RPn  	RPOR2bits.RP4R
 //XbeeTest End
 
+
+
+//Analog pins
+#define M1_TEMP_EN(a)		_PCFG2 = !a
+#define M1_CURR_EN(a)		_PCFG3 = !a
+#define M2_TEMP_EN(a)		_PCFG0 = !a
+#define M2_CURR_EN(a)		_PCFG1 = !a
+#define M3_TEMP_EN(a)		_PCFG14 = !a
+#define M3_CURR_EN(a)		_PCFG15 = !a
+
+#define VCELL_A_EN(a)		_PCFG10 = !a
+#define VCELL_B_EN(a)		_PCFG13 = !a
+#define CELL_A_CURR_EN(a)	_PCFG12 = !a
+#define CELL_B_CURR_EN(a)	_PCFG13 = !a
+
+
+//Main power bus MOSFET control pins
+#define CELL_A_MOS_EN(a)	_TRISD3 = !a
+#define CELL_B_MOS_EN(a)	_TRISD2 = !a
+
+
 /*
 #define I2C_CLK_RPn RPOR10bits.RP20R
 #define I2C_DAT_RPn RPOR12bits.RP25R
@@ -196,8 +217,8 @@
 //fan fails aren't connected anymore
 /*#define Fan1_Fail 	
 #define Fan2_Fail 	*/
-#define Cell_A_MOS 	_RD3
-#define Cell_B_MOS 	_RD2
+#define Cell_A_MOS 	_LATD3
+#define Cell_B_MOS 	_LATD2
 
 
 //other constant
