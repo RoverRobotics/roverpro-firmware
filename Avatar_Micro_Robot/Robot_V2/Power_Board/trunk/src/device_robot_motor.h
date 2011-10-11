@@ -143,6 +143,7 @@
 
 #define M1_TACHO_RPn 12
 #define M2_TACHO_RPn 16
+#define M3_TACHO_RPn 20	//is this used in the software?
 
 
 /*
@@ -151,7 +152,7 @@
 */
 
 //XbeeTest Only
-//#define U1RX_RPn 3
+#define U1RX_RPn 3
 //XbeeTest End
 
 //output pin mapping
@@ -161,7 +162,7 @@
 
 
 //XbeeTest Only
-//#define U1TX_RPn  	RPOR2bits.RP4R
+#define U1TX_RPn  	RPOR2bits.RP4R
 //XbeeTest End
 
 /*
@@ -184,6 +185,7 @@
 #define M2_FF1 		_RG6
 #define M2_FF2  	_RG7
 
+//need to add M3_DIRO, M3_FF1, M3_FF2?
 #define M3_DIR 		_RE3
 #define M3_BRAKE 	_RF0
 #define M3_MODE 	_RE4
@@ -191,10 +193,11 @@
  
 
 //#define M3_Fault 	PORTBbits.RB2
-#define Fan1_Fail 	
-#define Fan2_Fail 	
-#define Cell_A_MOS 	
-#define Cell_B_MOS 	
+//fan fails aren't connected anymore
+/*#define Fan1_Fail 	
+#define Fan2_Fail 	*/
+#define Cell_A_MOS 	_RD3
+#define Cell_B_MOS 	_RD2
 
 
 //other constant
