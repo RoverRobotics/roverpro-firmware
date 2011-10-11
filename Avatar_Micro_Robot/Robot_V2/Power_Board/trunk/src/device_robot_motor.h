@@ -181,10 +181,26 @@
 #define CELL_B_CURR_EN(a)	_PCFG13 = !a
 
 
+//Configure outputs
+
 //Main power bus MOSFET control pins
 #define CELL_A_MOS_EN(a)	_TRISD3 = !a
 #define CELL_B_MOS_EN(a)	_TRISD2 = !a
 
+#define M1_DIR_EN(a)		_TRISD6 = !a
+#define M1_BRAKE_EN(a)		_TRISD7 = !a
+#define M1_MODE_EN(a)		_TRISD9 = !a
+#define M1_COAST_EN(a)		_TRISD10 = !a
+
+#define M2_DIR_EN(a)		_TRISB4 = !a
+#define M2_BRAKE_EN(a)		_TRISB5 = !a
+#define M2_MODE_EN(a)		_TRISG9 = !a
+#define M2_COAST_EN(a)		_TRISG8 = !a
+
+#define M3_DIR_EN(a)		_TRISE3 = !a
+#define M3_BRAKE_EN(a)		_TRISF0 = !a
+#define M3_MODE_EN(a)		_TRISE4 = !a
+#define M3_COAST_EN(a)		_TRISF1 = !a
 
 /*
 #define I2C_CLK_RPn RPOR10bits.RP20R

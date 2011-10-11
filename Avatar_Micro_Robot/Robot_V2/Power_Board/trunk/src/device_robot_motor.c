@@ -1724,7 +1724,7 @@ void PinRemap(void)
 	M2_PWM = 19; //19 represents OC2
 
 	// Assign OC3 To Pin M2_AHI
-	//M3_PWM = 20; //20 represents OC3
+	M3_PWM = 20; //20 represents OC3
 
  	// Assign OC4 To Pin M2_BHI
 	//M2_BLO_RPn = 21; //21 represents OC4
@@ -1796,13 +1796,61 @@ void Cell_Ctrl(int Channel, int state)
 
 void MC_Ini(void)//initialzation for the whole program
 {
+	//make sure we start off in a default state
+	AD1CON1 = 0x0000;
+	AD1CON2 = 0x0000;
+	AD1CON3 = 0x0000;
+
+	AD1PCFGL = 0xffff;
+	TRISB = 0xffff;
+	TRISC = 0xffff;
+	TRISD = 0xffff;
+	TRISE = 0xffff;
+	TRISF = 0xffff;
+	TRISG = 0xffff;
+
 	//peripheral pin selection
 	PinRemap();
 	//peripheral pin selection end
 	//*******************************************
 	//initialize I/O port
 	//AN15,AN14,AN1,AN0 are all digital
-	AD1PCFGL|=0b1111000000001000;
+
+
+	//initialize all of the analog inputs
+		AD1PCFG = 0xffff;
+		M1_TEMP_EN(1);
+		M1_CURR_EN(1);
+		M2_TEMP_EN(1);
+		M2_CURR_EN(1);
+		M3_TEMP_EN(1);
+		M3_CURR_EN(1);
+		VCELL_A_EN(1);
+		VCELL_B_EN(1);
+		CELL_A_CURR_EN(1);
+		CELL_B_CURR_EN(1);
+
+	//initialize the digital outputs
+		CELL_A_MOS_EN(1);
+		CELL_B_MOS_EN(1);
+
+		M1_DIR_EN(1);
+		M1_BRAKE_EN(1);
+		M1_MODE_EN(1);
+		M1_COAST_EN(1);
+
+		M2_DIR_EN(1);
+		M2_BRAKE_EN(1);
+		M2_MODE_EN(1);
+		M2_COAST_EN(1);
+
+		M3_DIR_EN(1);
+		M3_BRAKE_EN(1);
+		M3_MODE_EN(1);
+		M3_COAST_EN(1);
+		
+
+/*	AD1PCFGL|=0b1111000000001000;
 	AD1PCFGL&=0b1111000011001111;
 	
 	//PORTB
@@ -1828,6 +1876,7 @@ void MC_Ini(void)//initialzation for the whole program
 	//PORTG
 	TRISG&=0b1111110000111111;	
 	//TRISG|=0b0000000000000000;	
+	*/
 
 //Xbee testing code, remove after testing is done
 	#ifdef XbeeTest
