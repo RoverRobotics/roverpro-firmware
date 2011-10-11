@@ -18,6 +18,12 @@ extern "C" {
       namespace telemetry {
 #endif
 
+#ifdef __C30
+	#define VAR_ATTRIBS far
+#else
+	#define VAR_ATTRIBS
+#endif
+
 // -------- MICROCONTROLLER PRODUCT IDS --------
 
 typedef int16_t DEVICE_NUMBER;
@@ -49,7 +55,7 @@ typedef int16_t DEVICE_NUMBER;
 // -------- TELEMETRY VARIABLE DEFINITIONS --------
 
 #define REGISTER_START()
-#define REGISTER( a, b, c, d, e)       extern e a;
+#define REGISTER( a, b, c, d, e)       extern e a __attribute__((VAR_ATTRIBS));
 #define REGISTER_END()
 #define MESSAGE_START( a )
 #define MEMBER( a )
@@ -90,6 +96,7 @@ extern struct REGISTER registers[];
 // -------- THINGS WE NEED FOR MICROCHIP FIRMWARE INTERFACE --------
 #define USB_SUPPORT_DEVICE
 #define USB_ENABLE_ALL_HANDLERS
+//#define USB_POLL
 #define USB_INTERRUPT
 #define USB_EP0_BUFF_SIZE                    8
 #define USB_MAX_NUM_INT                      1

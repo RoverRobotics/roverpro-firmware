@@ -32,12 +32,11 @@
 #define USB_BUS_SENSE       U1OTGSTATbits.SESVD
 
 
-#define CLOCK_FREQ 20000000
+#define CLOCK_FREQ 32000000
+#define GetInstructionClock() 16000000
 
 /** I/O pin definitions ********************************************/
 #define INPUT_PIN 1
 #define OUTPUT_PIN 0
-
-#define GetInstructionClock() 20000000
 
 #endif  //HARDWARE_PROFILE_H

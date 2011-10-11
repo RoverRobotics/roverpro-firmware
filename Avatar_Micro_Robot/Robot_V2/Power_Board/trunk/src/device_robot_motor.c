@@ -104,6 +104,7 @@ Response from Device to Host:
 #include "interrupt_switch.h"
 
 #define XbeeTest
+//#define BATProtectionON
 
 //variables
 //sub system variables
@@ -739,6 +740,7 @@ void Device_MotorController_Process()
  	if(BATVolCheckingTimerExpired==True)
  	{
  		BATVolCheckingTimerExpired=False;
+ 		#ifdef BATProtectionON
  		if(REG_PWR_BAT_VOLTAGE.a<=BATVoltageLimit || REG_PWR_BAT_VOLTAGE.b<=BATVoltageLimit)//Battery voltage too low, turn off the power bus
  		{
  			Cell_Ctrl(Cell_A,Cell_OFF);
@@ -751,6 +753,7 @@ void Device_MotorController_Process()
  			BATRecoveryTimerEnabled=True;
  			BATRecoveryTimerExpired=False;
  		}
+ 		#endif
  	}
  	if(BATRecoveryTimerExpired==True)
  	{
@@ -1221,25 +1224,22 @@ void Braking(int Channel)
  	switch (Channel)
  	{
  	 	case LMotor:
- 	 	 	PWM1Duty(1023);
- 	 	 	PWM2Duty(1023);
- 	 	 	M1_AHI=LO;
+ 			PWM1Duty(0);
+			M1_COAST=Clear_ActiveLO;
  			Nop();
- 	 	 	M1_BHI=LO;
+ 			M1_BRAKE=Set_ActiveLO;
  	 	 	break;
  	 	case RMotor:
- 	 	 	PWM3Duty(1023);
- 	 	 	PWM4Duty(1023);
- 	 	 	M2_AHI=LO;
+ 	 	 	PWM2Duty(0);
+			M2_COAST=Clear_ActiveLO;
  			Nop();
- 	 	 	M2_BHI=LO;
+ 			M2_BRAKE=Set_ActiveLO;
  	 	 	break;
  	 	case Flipper:
- 	 	 	PWM5Duty(1023);
- 	 	 	PWM6Duty(1023);
- 	 	 	M3_AHI=LO;
+ 			PWM3Duty(0);
+			M3_COAST=Clear_ActiveLO;
  			Nop();
- 	 	 	M3_BHI=LO; 			
+ 			M3_BRAKE=Set_ActiveLO;			
  	 	 	break;
  	} 	
 }
@@ -1257,25 +1257,19 @@ void ProtectHB(int Channel)
 	switch(Channel)
  	{
  	 	case LMotor:
+ 			M1_COAST=Set_ActiveLO;
  			PWM1Duty(0);
- 			PWM2Duty(0);
- 			M1_AHI=LO;
- 			Nop();
- 			M1_BHI=LO;
+ 			M1_BRAKE=Clear_ActiveLO;
  	 		break;
  		case RMotor:
- 			PWM3Duty(0);
- 			PWM4Duty(0);
- 			M2_AHI=LO;
- 			Nop();
- 			M2_BHI=LO;
+ 			M2_COAST=Set_ActiveLO;
+ 			PWM2Duty(0);
+ 			M2_BRAKE=Clear_ActiveLO;
  			break;
  		case Flipper:
- 			PWM5Duty(0);
- 			PWM6Duty(0);
- 			M3_AHI=LO;
- 			Nop();
- 			M3_BHI=LO;
+ 			M3_COAST=Set_ActiveLO;
+ 			PWM3Duty(0);
+ 			M3_BRAKE=Clear_ActiveLO;
  			break;
  	}
 }
@@ -1452,15 +1446,15 @@ void UpdateSpeed(int Channel,int State)
  					Dutycycle=GetDuty(ControlRPM[Channel],TargetParameter[Channel],ControlCurrent[Channel], Channel,SpeedCtrlMode[Channel]);
  				}
  				//printf("PWM2 %d\n",Dutycycle);
- 	 	 	 	M1_AHI=LO;
- 				PWM2Duty(0);
- 				if(OverCurrent==True)
+ 	 	 	 	if(OverCurrent==True)
  				{
- 					M1_BHI=LO;
+ 					M1_COAST=Set_ActiveLO;
  				}else
  				{
- 					M1_BHI=HI;
+ 					M1_COAST=Clear_ActiveLO;
  				}
+ 				M1_BRAKE=Clear_ActiveLO;
+ 				M1_DIR=HI;
  				PWM1Duty(Dutycycle); 				
  	 	 	}
  	 	 	else if (State==Backwards)
@@ -1472,16 +1466,16 @@ void UpdateSpeed(int Channel,int State)
  				{
  					Dutycycle=GetDuty(ControlRPM[Channel],TargetParameter[Channel],ControlCurrent[Channel], Channel,SpeedCtrlMode[Channel]);
  				}
- 				M1_BHI=LO;
- 				PWM1Duty(0);
  				if(OverCurrent==True)
  				{
- 					M1_AHI=LO;
+ 					M1_COAST=Set_ActiveLO;
  				}else
  				{
- 					M1_AHI=HI;
+ 					M1_COAST=Clear_ActiveLO;
  				}
- 				PWM2Duty(Dutycycle);
+ 				M1_BRAKE=Clear_ActiveLO;
+ 				M1_DIR=LO;
+ 				PWM1Duty(Dutycycle);
  	 	 	}
  	 	 	break;
  	 	case RMotor:
@@ -1494,17 +1488,16 @@ void UpdateSpeed(int Channel,int State)
  				{
  					Dutycycle=GetDuty(ControlRPM[Channel],TargetParameter[Channel],ControlCurrent[Channel], Channel,SpeedCtrlMode[Channel]);
  				}
- 				M2_BHI=LO;
- 				PWM3Duty(0);
  				if(OverCurrent==True)
  				{
- 					M2_AHI=LO;
+ 					M2_COAST=Set_ActiveLO;
  				}else
  				{
- 					M2_AHI=HI;
+ 					M2_COAST=Clear_ActiveLO;
  				}
- 				//M2_ALO=HI;
- 				PWM4Duty(Dutycycle);
+ 				M2_BRAKE=Clear_ActiveLO;
+ 				M2_DIR=HI;
+ 				PWM2Duty(Dutycycle);
  	 	 	}
  	 	 	else if (State==Backwards)
  	 	 	{
@@ -1515,36 +1508,38 @@ void UpdateSpeed(int Channel,int State)
  				{
  					Dutycycle=GetDuty(ControlRPM[Channel],TargetParameter[Channel],ControlCurrent[Channel], Channel,SpeedCtrlMode[Channel]);
  				}
- 				//printf("PWM6 %d\n",Dutycycle);
- 	 	 	 	M2_AHI=LO;
- 				PWM4Duty(0);
  				if(OverCurrent==True)
  				{
- 					M2_BHI=LO;
+ 					M2_COAST=Set_ActiveLO;
  				}else
  				{
- 					M2_BHI=HI;
+ 					M2_COAST=Clear_ActiveLO;
  				}
- 				//M2_BLO=HI;
- 				PWM3Duty(Dutycycle); 
+ 				M2_BRAKE=Clear_ActiveLO;
+ 				M2_DIR=LO;
+ 				PWM2Duty(Dutycycle); 
  	 	 	}
  	 	 	break;
  	 	case Flipper:
  	 	 	if(State==Forward)
  	 	 	{
  				Dutycycle=GetDuty(CurrentParameter[Channel],TargetParameter[Channel],ControlCurrent[Channel],Channel,SpeedCtrlMode[Channel]);
- 	 	 	 	M3_AHI=LO;
- 				PWM6Duty(0);
- 				M3_BHI=HI;
- 				PWM5Duty(Dutycycle); 				
+ 				M3_COAST=Clear_ActiveLO;
+ 				Nop();
+ 				M3_BRAKE=Clear_ActiveLO;
+ 				Nop();
+ 				M3_DIR=HI;
+ 				PWM3Duty(Dutycycle); 				
  	 	 	}
  	 	 	else if (State==Backwards)
  	 	 	{
  				Dutycycle=GetDuty(CurrentParameter[Channel],-TargetParameter[Channel],ControlCurrent[Channel],Channel,SpeedCtrlMode[Channel]);
- 				M3_BHI=LO;
- 				PWM5Duty(0);
- 				M3_AHI=HI;
- 				PWM6Duty(Dutycycle); 
+ 				M3_COAST=Clear_ActiveLO;
+ 				Nop();
+ 				M3_BRAKE=Clear_ActiveLO;
+ 				Nop();
+ 				M3_DIR=LO;
+ 				PWM3Duty(Dutycycle); 
  	 	 	}
  	 	 	break;
  	}
@@ -1607,7 +1602,7 @@ void USBInput()
  	Robot_Motor_TargetSpeedUSB[1]=REG_MOTOR_VELOCITY.right;
 	Robot_Motor_TargetSpeedUSB[2]=REG_MOTOR_VELOCITY.flipper;
 /*
-	i=-200;
+	i=-500;
  	Robot_Motor_TargetSpeedUSB[0]=i; 
  	Robot_Motor_TargetSpeedUSB[1]=i;
  	Robot_Motor_TargetSpeedUSB[2]=i;
@@ -1620,6 +1615,9 @@ void USBInput()
  		USBTimeOutTimerExpired=False;
  		USBTimeOutTimerEnabled=False;
  		USBTimeOutTimerCount=0;
+ 		REG_MOTOR_VELOCITY.left=0;
+ 		REG_MOTOR_VELOCITY.right=0;
+ 		REG_MOTOR_VELOCITY.flipper=0;
  		for(i=0;i<3;i++)
  		{
  			Robot_Motor_TargetSpeedUSB[i]=0;
@@ -1693,16 +1691,13 @@ void PinRemap(void)
 	// Configure Input Functions
 	//function=pin
 	// Assign IC1 To L_Encoder_A
-	RPINR7bits.IC1R = L_Encoder_A_RPn; 
+	RPINR7bits.IC1R = M1_TACHO_RPn; 
 	
 	// Assign IC2 To L_Encoder_B
-	RPINR7bits.IC2R = L_Encoder_B_RPn;
+	RPINR7bits.IC2R = M2_TACHO_RPn;
 
 	// Assign IC3 To Encoder_R1A
-	RPINR8bits.IC3R = R_Encoder_A_RPn;
-	
-	// Assign IC4 To Encoder_R1B
-	RPINR8bits.IC4R = R_Encoder_B_RPn;
+	//RPINR8bits.IC3R = M3_TACHO_RPn;
 	
 /*
 	// Assign IC5 To LMotor_In
@@ -1723,22 +1718,22 @@ void PinRemap(void)
 	// Configure Output Functions
 	//pin->function
 	// Assign OC1 To Pin M1_AHI
-	M1_ALO_RPn = 18; //18 represents OC1
+	M1_PWM = 18; //18 represents OC1
 
 	// Assign OC2 To Pin M1_BHI
-	M1_BLO_RPn = 19; //19 represents OC2
+	M2_PWM = 19; //19 represents OC2
 
 	// Assign OC3 To Pin M2_AHI
-	M2_ALO_RPn = 20; //20 represents OC3
+	//M3_PWM = 20; //20 represents OC3
 
  	// Assign OC4 To Pin M2_BHI
-	M2_BLO_RPn = 21; //21 represents OC4
+	//M2_BLO_RPn = 21; //21 represents OC4
 
  	// Assign OC5 To Pin M3_AHI
-	M3_ALO_RPn = 22; //22 represents OC5
+	//M3_ALO_RPn = 22; //22 represents OC5
 
  	// Assign OC6 To Pin M3_BHI
- 	M3_BLO_RPn = 23; //23 represents OC6
+ 	//M3_BLO_RPn = 23; //23 represents OC6
 
 /*
  	// Assign I2C Clock (SPI1 Clock Output) to Pin I2C_CLK
@@ -1807,27 +1802,27 @@ void MC_Ini(void)//initialzation for the whole program
 	//*******************************************
 	//initialize I/O port
 	//AN15,AN14,AN1,AN0 are all digital
-	AD1PCFGL|=0b1100000011000000;
-	AD1PCFGL&=0b1100000011000000;
+	AD1PCFGL|=0b1111000000001000;
+	AD1PCFGL&=0b1111000011001111;
 	
 	//PORTB
 	TRISB&=0b0011111111111111;	
-	//TRISB|=0b0000000000000000;
+	TRISB|=0b0011111100111000;
 	
 	//PORTC
 	TRISC&=0b1001111111111111;	
 	//TRISC|=0b0000000000000000;
 
 	//PORTD
-	TRISD&=0b1111000011111110;	
-	TRISD|=0b0000000011111110;
+	TRISD&=0b1111010011111100;	
+	TRISD|=0b0000010011111100;
 
 	//PORTE
-	TRISE&=0b1111111100111111;	
-	TRISE|=0b0000000000100000;
+	TRISE&=0b1111111111011111;	
+	//TRISE|=0b0000000000100000;
 
 	//PORTF
-	TRISF&=0b1111111111000100;	
+	TRISF&=0b1111111111110111;	
 	//TRISF|=0b0000000000000000;	
 
 	//PORTG
@@ -1848,6 +1843,9 @@ void MC_Ini(void)//initialzation for the whole program
 
  	Cell_Ctrl(Cell_A,Cell_ON);
  	Cell_Ctrl(Cell_B,Cell_ON);
+ 	//Initialize motor drivers
+ 	M1_MODE=1;
+ 	M2_MODE=1;
 	//*******************************************
  	InterruptIni();
  	//initialize AD
@@ -1879,7 +1877,9 @@ void MC_Ini(void)//initialzation for the whole program
  	I2C1Ini();
  	I2C2Ini();
  	I2C3Ini();
+ 	#ifdef XbeeTest
  	UART1Ini();
+ 	#endif
   	TMPSensorICIni();
  	FANCtrlIni();
 
@@ -1888,7 +1888,7 @@ void MC_Ini(void)//initialzation for the whole program
 void InterruptIni()
 {
  	//remap all the interrupt routines
- 	//T2InterruptUserFunction=Motor_T2Interrupt;
+ 	T2InterruptUserFunction=Motor_T2Interrupt;
  	T3InterruptUserFunction=Motor_T3Interrupt;
  	T4InterruptUserFunction=Motor_T4Interrupt;
  	T5InterruptUserFunction=Motor_T5Interrupt;
@@ -2092,7 +2092,7 @@ void PWM1Ini(void)
 	OC1R=0;
 //3. Calculate the desired period and load it into the
 //OCxRS register.
-	OC1RS=Period1000Hz;
+	OC1RS=Period30000Hz;
 //4. Select the current OCx as the sync source by writing
 //0x1F to SYNCSEL<4:0> (OCxCON2<4:0>),
 //and clearing OCTRIG (OCxCON2<7>).
@@ -2100,7 +2100,7 @@ void PWM1Ini(void)
 	OC1CON2bits.OCTRIG=CLEAR;
 //5. Select a clock source by writing the
 //OCTSEL<2:0> (OCxCON<12:10>) bits.
-	OC1CON1bits.OCTSEL=0b001;//Timer2
+	OC1CON1bits.OCTSEL=0b000;//Timer2
 //6. Enable interrupts, if required, for the timer and
 //output compare modules. The output compare
 //interrupt is required for PWM Fault pin utilization.
@@ -2112,7 +2112,7 @@ void PWM1Ini(void)
 //TMRy prescale value and enable the time base by
 //setting the TON (TxCON<15>) bit.
 	//Done in timer Init.
-	Period1=Period1000Hz;//Period is used for all the other PWMxDuty() functions
+	Period1=Period30000Hz;//Period is used for all the other PWMxDuty() functions
 }
 
 //set duty cycle for PWM channel 2
@@ -2128,12 +2128,12 @@ void PWM2Ini(void)
 {
 
 	OC2R=0;
-	OC2RS=Period1000Hz;
+	OC2RS=Period30000Hz;
 	OC2CON2bits.SYNCSEL=0x1F;
 	OC2CON2bits.OCTRIG=CLEAR;
-	OC2CON1bits.OCTSEL=0b001;//Timer2
+	OC2CON1bits.OCTSEL=0b000;//Timer2
 	OC2CON1bits.OCM=0b110;
-	Period2=Period1000Hz;//Period is used for all the other PWMxDuty() functions
+	Period2=Period30000Hz;//Period is used for all the other PWMxDuty() functions
 }
 
 //set duty cycle for PWM channel 2
@@ -2148,12 +2148,12 @@ void PWM2Duty(int Duty)
 void PWM3Ini(void)
 {
 	OC3R=0;
-	OC3RS=Period1000Hz;
+	OC3RS=Period30000Hz;
 	OC3CON2bits.SYNCSEL=0x1F;
 	OC3CON2bits.OCTRIG=CLEAR;
-	OC3CON1bits.OCTSEL=0b001;//Timer2
+	OC3CON1bits.OCTSEL=0b000;//Timer2
 	OC3CON1bits.OCM=0b110;
-	Period3=Period1000Hz;//Period is used for all the other PWMxDuty() functions
+	Period3=Period30000Hz;//Period is used for all the other PWMxDuty() functions
 }
 
 //set duty cycle for PWM channel 3
@@ -2168,12 +2168,12 @@ void PWM3Duty(int Duty)
 void PWM4Ini(void)
 {
 	OC4R=0;
-	OC4RS=Period1000Hz;
+	OC4RS=Period30000Hz;
 	OC4CON2bits.SYNCSEL=0x1F;
 	OC4CON2bits.OCTRIG=CLEAR;
-	OC4CON1bits.OCTSEL=0b001;//Timer2
+	OC4CON1bits.OCTSEL=0b000;//Timer2
 	OC4CON1bits.OCM=0b110;
-	Period4=Period1000Hz;//Period is used for all the other PWMxDuty() functions
+	Period4=Period30000Hz;//Period is used for all the other PWMxDuty() functions
 }
 
 //set duty cycle for PWM channel 4
@@ -2188,12 +2188,12 @@ void PWM4Duty(int Duty)
 void PWM5Ini(void)
 {
 	OC5R=0;
-	OC5RS=Period1000Hz;
+	OC5RS=Period30000Hz;
 	OC5CON2bits.SYNCSEL=0x1F;
 	OC5CON2bits.OCTRIG=CLEAR;
-	OC5CON1bits.OCTSEL=0b001;//Timer2
+	OC5CON1bits.OCTSEL=0b000;//Timer2
 	OC5CON1bits.OCM=0b110;
-	Period5=Period1000Hz;//Period is used for all the other PWMxDuty() functions
+	Period5=Period30000Hz;//Period is used for all the other PWMxDuty() functions
 }
 
 //set duty cycle for PWM channel 5
@@ -2208,12 +2208,12 @@ void PWM5Duty(int Duty)
 void PWM6Ini(void)
 {
 	OC6R=0;
-	OC6RS=Period1000Hz;
+	OC6RS=Period30000Hz;
 	OC6CON2bits.SYNCSEL=0x1F;
 	OC6CON2bits.OCTRIG=CLEAR;
-	OC6CON1bits.OCTSEL=0b001;//Timer2
+	OC6CON1bits.OCTSEL=0b000;//Timer2
 	OC6CON1bits.OCM=0b110;
-	Period6=Period1000Hz;//Period is used for all the other PWMxDuty() functions
+	Period6=Period30000Hz;//Period is used for all the other PWMxDuty() functions
 }
 
 //set duty cycle for PWM channel 6
@@ -2228,12 +2228,12 @@ void PWM6Duty(int Duty)
 void PWM7Ini(void)
 {
 	OC7R=0;
-	OC7RS=Period1000Hz;
+	OC7RS=Period30000Hz;
 	OC7CON2bits.SYNCSEL=0x1F;
 	OC7CON2bits.OCTRIG=CLEAR;
-	OC7CON1bits.OCTSEL=0b001;//Timer2
+	OC7CON1bits.OCTSEL=0b000;//Timer2
 	OC7CON1bits.OCM=0b110;
-	Period7=Period1000Hz;//Period is used for all the other PWMxDuty() functions
+	Period7=Period30000Hz;//Period is used for all the other PWMxDuty() functions
 }
 
 //set duty cycle for PWM channel 7
@@ -2248,12 +2248,12 @@ void PWM7Duty(int Duty)
 void PWM8Ini(void)
 {
 	OC8R=0;
-	OC8RS=Period1000Hz;
+	OC8RS=Period30000Hz;
 	OC8CON2bits.SYNCSEL=0x1F;
 	OC8CON2bits.OCTRIG=CLEAR;
-	OC8CON1bits.OCTSEL=0b001;//Timer2
+	OC8CON1bits.OCTSEL=0b000;//Timer2
 	OC8CON1bits.OCM=0b110;
-	Period8=Period1000Hz;//Period is used for all the other PWMxDuty() functions
+	Period8=Period30000Hz;//Period is used for all the other PWMxDuty() functions
 }
 
 //set duty cycle for PWM channel 8
@@ -2268,12 +2268,12 @@ void PWM8Duty(int Duty)
 void PWM9Ini(void)
 {
 	OC9R=0;
-	OC9RS=Period1000Hz;
+	OC9RS=Period30000Hz;
 	OC9CON2bits.SYNCSEL=0x1F;
 	OC9CON2bits.OCTRIG=CLEAR;
-	OC9CON1bits.OCTSEL=0b001;//Timer2
+	OC9CON1bits.OCTSEL=0b000;//Timer2
 	OC9CON1bits.OCM=0b110;
-	Period9=Period1000Hz;//Period is used for all the other PWMxDuty() functions
+	Period9=Period30000Hz;//Period is used for all the other PWMxDuty() functions
 }
 
 //set duty cycle for PWM channel 9
@@ -2299,23 +2299,25 @@ void IniTimer1()
 void IniTimer2()
 {
 	T2CON=0x0000;//stops timer2,16 bit timer,internal clock (Fosc/2)
- 	T2CONbits.TCKPS=0b01;//1:8 prescale
+ 	T2CONbits.TCKPS=0b00;//1:1 prescale
 	TMR2=0;//clear timer1 register
- 	PR2=Period1000Hz;
+ 	PR2=Period30000Hz;
  	IFS0bits.T2IF=CLEAR;//clear the flag
- 	//IEC0bits.T2IE=SET;// enable the interrupt
+ 	IEC0bits.T2IE=SET;// enable the interrupt
 	T2CONbits.TON=SET;
 }
 void IniTimer3()
 {
 //timer 3 initialize
  	//A/D triger timer, for back emf feedback
+/*
 	T3CON=0x0010;//stops timer3,1:8 prescale,16 bit timer,internal clock (Fosc/2)
 	TMR3=0;//clear timer1 register
  	PR3=Period50000Hz;// timer 3 is 50 times faster than PWM timer (timer 2)
  	IFS0bits.T3IF=CLEAR; //clear interrupt flag
  	IEC0bits.T3IE=SET;//enable the interrupt
 	T3CONbits.TON=SET;//start clock
+*/
 //end timer 3 initialize
 
 }
@@ -2807,10 +2809,7 @@ void  Motor_IC5Interrupt(void)
 		//PWM2Duty(500);
 	}	
 	IC5LastValue=IC5CurrentValue;
- 	//new input comming, clear the USB timer
- 	USBTimeOutTimerCount=0;	
- 	USBTimeOutTimerEnabled=True;
- 	USBTimeOutTimerExpired=False;
+
 }
 
 void  Motor_IC6Interrupt(void)
@@ -2832,10 +2831,7 @@ void  Motor_IC6Interrupt(void)
 		//PWM2Duty(500);
 	}	
 	IC6LastValue=IC6CurrentValue;
- 	//new input comming, clear the USB timer
- 	USBTimeOutTimerCount=0;	
- 	USBTimeOutTimerEnabled=True;
- 	USBTimeOutTimerExpired=False;
+
 }
 
 
@@ -2850,15 +2846,15 @@ void  Motor_T4Interrupt(void)
  	REncoderBOverFlowCount++;
 }
 
-/*
+
 void  Motor_T2Interrupt(void)
 {
- 	
- 	PORTCbits.RC14=~PORTCbits.RC14;
+ 	TRISFbits.TRISF1=0;
+ 	PORTFbits.RF1=~PORTFbits.RF1;
  	IFS0bits.T2IF = 0;	//clear interrupt flag
  	//T3CONbits.TON=SET;
 }
-*/
+
 
 
 
@@ -2870,12 +2866,12 @@ void  Motor_T3Interrupt(void)
  	IFS0bits.T3IF=CLEAR; //clear interrupt flag
  	temp=TMR2;
 // 	Timer3Count++;
-
+/*
  	 if(temp>BackEMFSampleRangeStart && temp<BackEMFSampleRangeEnd)
  	{
-// 	 	BackEMFSampleEnabled=True;
  		AD1CON1bits.ASAM=SET;
  	}
+*/
 /*
  	if(Timer3Count>=5 || BackEMFSampleEnabled==True)
  	{
@@ -2913,25 +2909,18 @@ void  Motor_T5Interrupt(void)
 			ClearCurrentCtrlData(i);
 		}
  			//printf("\n Total current:%ld,\n",TotalCurrent);
- 			//coast left motor
-
+ 		//coast left motor
+ 		M1_COAST=Set_ActiveLO;
  		PWM1Duty(0);
- 		PWM2Duty(0);
- 		M1_AHI=LO;
- 		Nop();
- 		M1_BHI=LO;
+ 		M1_BRAKE=Clear_ActiveLO;
  		//coast right motor
- 		PWM3Duty(0);
- 		PWM4Duty(0);
- 		M2_AHI=LO;
- 		Nop();
- 		M2_BHI=LO;
+ 		M2_COAST=Set_ActiveLO;
+ 		PWM2Duty(0);
+ 		M2_BRAKE=Clear_ActiveLO;
  		//coast flipper
- 		PWM5Duty(0);
- 		PWM6Duty(0);
- 		M3_AHI=LO;
- 		Nop();
- 		M3_BHI=LO; 	
+ 		M3_COAST=Set_ActiveLO;
+ 		PWM1Duty(0);
+ 		M3_BRAKE=Clear_ActiveLO;
 
  	}
  			
@@ -3010,9 +2999,10 @@ void  Motor_ADC1Interrupt(void)
  		//XbeeTest_Temp_u16=REG_MOTOR_FAULT_FLAG.right;
  		//XbeeTest_Temp_u16=REG_MOTOR_TEMP.left;
  		//XbeeTest_Temp_u16=REG_MOTOR_TEMP.right;
- 		XbeeTest_Temp_u16=REG_PWR_BAT_VOLTAGE.a;
+ 		//XbeeTest_Temp_u16=REG_PWR_BAT_VOLTAGE.a;
  		//XbeeTest_Temp_u16=REG_PWR_BAT_VOLTAGE.b;
  		//XbeeTest_Temp_u16=REG_PWR_TOTAL_CURRENT;
+ 		XbeeTest_Temp_u16=TotalCurrent;
 		XbeeTest_UART_Buffer[0]=XbeeTest_UART_DataNO;
  		XbeeTest_UART_Buffer[1]=(XbeeTest_Temp_u16>>8);//load the buffer
  		XbeeTest_UART_Buffer[2]=XbeeTest_Temp_u16;
@@ -3127,6 +3117,7 @@ void  Motor_U1TXInterrupt(void)
 
  	//clear the flag
  	IFS0bits.U1TXIF=0;
+ 	#ifdef XbeeTest
  	//transmit data
  	if(XbeeTest_UART_BufferPointer<XbeeTest_UART_Buffer_Length)
  	{
@@ -3136,6 +3127,7 @@ void  Motor_U1TXInterrupt(void)
  	{
  		XbeeTest_UART_BufferPointer=0;
  	}
+ 	#endif
 }
 
 void Motor_U1RXInterrupt(void)

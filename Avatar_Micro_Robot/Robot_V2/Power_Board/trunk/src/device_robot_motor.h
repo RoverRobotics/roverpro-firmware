@@ -38,6 +38,8 @@
 #define LO 0
 #define True 1
 #define False 0
+#define Set_ActiveLO 0
+#define Clear_ActiveLO 1
 
 
 /*****************************************************************************/
@@ -45,32 +47,33 @@
 /*****************************************************************************/
 //*-----------------------------------PWM------------------------------------*/
 /////constant
-//****define frequency value for PRy, based on 1:8 prescale
-#define Period50Hz 39996
-#define Period67Hz 29848 //15ms
-#define Period200Hz 9999
-#define Period300Hz 6666
-#define Period400Hz 4999
-#define Period500Hz 3999
-#define Period600Hz 3332
-#define Period700Hz 2856
-#define Period800Hz 2499
-#define Period900Hz 2221
-#define Period1000Hz 1999
-#define Period1100Hz 1817
-#define Period1200Hz 1665
-#define Period1300Hz 1537
-#define Period1400Hz 1427
-#define Period1500Hz 1332
-#define Period1600Hz 1249
-#define Period1700Hz 1175
-#define Period1800Hz 1110
-#define Period1900Hz 1051
-#define Period2000Hz 999
-#define Period2100Hz 951
-#define Period10000Hz 199
-#define Period20000Hz 99
-#define Period50000Hz 39
+//****define frequency value for PRy, based on 1:1 prescale
+#define Period50Hz 533332
+#define Period67Hz 319999 //15ms
+#define Period200Hz 79999
+#define Period300Hz 53332
+#define Period400Hz 39999
+#define Period500Hz 31999
+#define Period600Hz 26666
+#define Period700Hz 22856
+#define Period800Hz 19999
+#define Period900Hz 17777
+#define Period1000Hz 15999
+#define Period1100Hz 14544
+#define Period1200Hz 13332
+#define Period1300Hz 12307
+#define Period1400Hz 11428
+#define Period1500Hz 10666
+#define Period1600Hz 9999
+#define Period1700Hz 9411
+#define Period1800Hz 8888
+#define Period1900Hz 8420
+#define Period2000Hz 7999
+#define Period2100Hz 7618
+#define Period10000Hz 1599
+#define Period20000Hz 799
+#define Period30000Hz 532
+#define Period50000Hz 319
 
 /*****************************************************************************/
 //*----------------------------------UART1------------------------------------*/
@@ -105,7 +108,7 @@
 //#define SpeedUpdateTimer 2  	//500Hz
 #define CurrentCtrlTimer 1 	//1K
 #define CurrentSurgeRecoverTimer 10 //10ms
-#define USBTimeOutTimer 1000 	//1Hz--1000ms
+#define USBTimeOutTimer 333 	//3Hz--333ms
 #define SwitchDirectionTimer 10 	//10ms
 #define StateMachineTimer 1 	//1KHz
 #define RPMTimer 1 			//1KHz
@@ -137,15 +140,11 @@
 
 //constant for pins
 //input pin mapping
-/*
-#define R_Encoder_A_RPn 4
-#define R_Encoder_B_RPn 3
-*/
-#define R_Encoder_A_RPn 22
-#define R_Encoder_B_RPn 23
 
-#define L_Encoder_A_RPn 25
-#define L_Encoder_B_RPn 20
+#define M1_TACHO_RPn 20
+#define M2_TACHO_RPn 22
+
+
 /*
 #define Servo2_Input_RPn 19 		
 #define Servo1_Input_RPn 27
@@ -156,12 +155,10 @@
 //XbeeTest End
 
 //output pin mapping
-#define M1_ALO_RPn 	RPOR8bits.RP16R 
-#define M1_BLO_RPn 	RPOR14bits.RP29R
-#define M2_ALO_RPn 	RPOR13bits.RP26R 
-#define M2_BLO_RPn 	RPOR13bits.RP27R
-#define M3_ALO_RPn 	RPOR5bits.RP11R
-#define M3_BLO_RPn 	RPOR6bits.RP12R
+#define M1_PWM 	RPOR7bits.RP14R 
+#define M2_PWM 	RPOR10bits.RP21R
+//#define M3_PWM 	RPOR13bits.RP26R 
+
 
 //XbeeTest Only
 #define U1TX_RPn  	RPOR2bits.RP4R
@@ -172,14 +169,27 @@
 #define I2C_DAT_RPn RPOR12bits.RP25R
 */
 //functional pins
-#define M1_AHI 		PORTBbits.RB14
-#define M1_BHI 		PORTDbits.RD8
-#define M1_Fault 	PORTDbits.RD1
-#define M2_AHI 		PORTGbits.RG6
-#define M2_BHI 		PORTGbits.RG8
-#define M2_Fault 	PORTEbits.RE5
-#define M3_AHI  	PORTCbits.RC13
-#define M3_BHI 		PORTCbits.RC14
+#define M1_DIRO		PORTDbits.RD4
+#define M1_DIR 		PORTFbits.RF3
+#define M1_BRAKE 	PORTDbits.RD8
+#define M1_MODE 	PORTBbits.RB15
+#define M1_COAST 	PORTDbits.RD1
+#define M1_FF1 		PORTBbits.RB12
+#define M1_FF2  	PORTDbits.RD7
+#define M2_DIRO		PORTDbits.RD2
+#define M2_DIR 		PORTGbits.RG7
+#define M2_BRAKE 	PORTGbits.RG8
+#define M2_MODE 	PORTGbits.RG9
+#define M2_COAST 	PORTEbits.RE5
+#define M2_FF1 		PORTBbits.RB3
+#define M2_FF2  	PORTDbits.RD6
+
+#define M3_DIR 		PORTDbits.RD0
+#define M3_BRAKE 	PORTCbits.RC14
+#define M3_MODE 	PORTDbits.RD11
+#define M3_COAST 	PORTCbits.RC14
+ 
+
 //#define M3_Fault 	PORTBbits.RB2
 #define Fan1_Fail 	PORTDbits.RD7
 #define Fan2_Fail 	PORTDbits.RD6
@@ -202,7 +212,7 @@
 #define BackEMFSampleRangeEnd 1840 	//BackEMF sampling range ends about 92% of PWM period
 
 //#define BATVoltageLimit 650 //11.06V, 3.3V-1024, 430K-100K voltage divider, 1024->17.49V
-#define BATVoltageLimit 690 //11.06V, 3.3V-1024, 430K-100K voltage divider, 1024->17.49V
+#define BATVoltageLimit 0 //11.06V, 3.3V-1024, 430K-100K voltage divider, 1024->17.49V
 
 //control mode
 #define SpeedControl 0

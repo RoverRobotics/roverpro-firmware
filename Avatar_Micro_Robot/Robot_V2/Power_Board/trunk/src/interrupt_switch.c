@@ -23,6 +23,7 @@ void (*IC4InterruptUserFunction)(void) = InterruptDummyFunction;
 void (*IC5InterruptUserFunction)(void) = InterruptDummyFunction;
 void (*IC6InterruptUserFunction)(void) = InterruptDummyFunction;
 void (*ADC1InterruptUserFunction)(void) = InterruptDummyFunction;
+void (*I2C1InterruptUserFunction)(void) = InterruptDummyFunction;
 void (*U1TXInterruptUserFunction)(void) = InterruptDummyFunction;
 void (*U1RXInterruptUserFunction)(void) = InterruptDummyFunction;
 
@@ -60,6 +61,7 @@ void  __attribute__((__interrupt__, auto_psv)) _T5Interrupt(void)
 
 void  __attribute__((__interrupt__, auto_psv)) _IC1Interrupt(void)
 {
+
  	IC1InterruptUserFunction();
 }
 
