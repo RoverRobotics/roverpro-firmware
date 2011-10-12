@@ -1601,13 +1601,14 @@ void USBInput()
  	Robot_Motor_TargetSpeedUSB[0]=REG_MOTOR_VELOCITY.left; 
  	Robot_Motor_TargetSpeedUSB[1]=REG_MOTOR_VELOCITY.right;
 	Robot_Motor_TargetSpeedUSB[2]=REG_MOTOR_VELOCITY.flipper;
-/*
+
 	i=-500;
+	//i=20;
  	Robot_Motor_TargetSpeedUSB[0]=i; 
  	Robot_Motor_TargetSpeedUSB[1]=i;
  	Robot_Motor_TargetSpeedUSB[2]=i;
  	gNewData=!gNewData;
-*/
+
 
 	//long time no data, clear everything
  	if(USBTimeOutTimerExpired==True)
@@ -1764,14 +1765,14 @@ void Cell_Ctrl(int Channel, int state)
  			switch(state)
  			{
  				case Cell_ON:
- 					TRISFbits.TRISF1=0;//ground the pin, turn on the mosfet
- 					PORTFbits.RF1=0;
- 					Cell_A_MOS=0;
+ 					//TRISFbits.TRISF1=0;//ground the pin, turn on the mosfet
+ 					//PORTFbits.RF1=0;
+ 					Cell_A_MOS=1;
  					break;
  				case Cell_OFF:
- 					TRISFbits.TRISF1=0;//pin high, turn off the mosfet
- 					PORTFbits.RF1=1;
- 					Cell_A_MOS=1;
+ 					//TRISFbits.TRISF1=0;//pin high, turn off the mosfet
+ 					//PORTFbits.RF1=1;
+ 					Cell_A_MOS=0;
  					break;
  			}
  			break;
@@ -1779,14 +1780,14 @@ void Cell_Ctrl(int Channel, int state)
  			switch(state)
  			{
  				case Cell_ON:
- 					TRISFbits.TRISF0=0;//ground the pin, turn on the mosfet
- 					PORTFbits.RF0=0;
- 					Cell_B_MOS=0;
+ 					//TRISFbits.TRISF0=0;//ground the pin, turn on the mosfet
+ 					//PORTFbits.RF0=0;
+ 					Cell_B_MOS=1;
  					break;
  				case Cell_OFF:
- 					TRISFbits.TRISF0=0;//pin high, turn off the mosfet
- 					PORTFbits.RF0=1;
- 					Cell_A_MOS=1;
+ 					//TRISFbits.TRISF0=0;//pin high, turn off the mosfet
+ 					//PORTFbits.RF0=1;
+ 					Cell_A_MOS=0;
  					break;
  			}
  			break;
@@ -1880,9 +1881,9 @@ void MC_Ini(void)//initialzation for the whole program
 
 //Xbee testing code, remove after testing is done
 	#ifdef XbeeTest
- 		TRISFbits.TRISF5=0;//RF5 output
+ 	/*	TRISFbits.TRISF5=0;//RF5 output
  		TRISDbits.TRISD9=0;//RD9 output
- 		TRISDbits.TRISD10=1;//RD10 input	
+ 		TRISDbits.TRISD10=1;//RD10 input	*/
  	#endif
 
 //
@@ -2359,14 +2360,14 @@ void IniTimer3()
 {
 //timer 3 initialize
  	//A/D triger timer, for back emf feedback
-/*
+
 	T3CON=0x0010;//stops timer3,1:8 prescale,16 bit timer,internal clock (Fosc/2)
 	TMR3=0;//clear timer1 register
  	PR3=Period50000Hz;// timer 3 is 50 times faster than PWM timer (timer 2)
  	IFS0bits.T3IF=CLEAR; //clear interrupt flag
  	IEC0bits.T3IE=SET;//enable the interrupt
 	T3CONbits.TON=SET;//start clock
-*/
+
 //end timer 3 initialize
 
 }
@@ -2898,8 +2899,10 @@ void  Motor_T4Interrupt(void)
 
 void  Motor_T2Interrupt(void)
 {
- 	TRISFbits.TRISF1=0;
- 	PORTFbits.RF1=~PORTFbits.RF1;
+
+//hardcode removed
+// 	TRISFbits.TRISF1=0;
+// 	PORTFbits.RF1=~PORTFbits.RF1;
  	IFS0bits.T2IF = 0;	//clear interrupt flag
  	//T3CONbits.TON=SET;
 }
@@ -2915,12 +2918,14 @@ void  Motor_T3Interrupt(void)
  	IFS0bits.T3IF=CLEAR; //clear interrupt flag
  	temp=TMR2;
 // 	Timer3Count++;
-/*
+
+//TODO: turn on timer
+
  	 if(temp>BackEMFSampleRangeStart && temp<BackEMFSampleRangeEnd)
  	{
  		AD1CON1bits.ASAM=SET;
  	}
-*/
+
 /*
  	if(Timer3Count>=5 || BackEMFSampleEnabled==True)
  	{
