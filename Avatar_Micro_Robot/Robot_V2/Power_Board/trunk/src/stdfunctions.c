@@ -21,10 +21,9 @@ void block_ms(unsigned int ms)
                 unsigned int i;
 
                 unsigned int j;
-
  
 
-                for(i=0;i<800;i++)
+                for(i=0;i<3200;i++)
 
  
 
@@ -35,3 +34,120 @@ void block_ms(unsigned int ms)
                 }
 
 }
+
+
+
+void writeI2C( unsigned char add, unsigned char v) // write an integer v to address add
+{
+	IdleI2C1();
+	StartI2C1();
+	IdleI2C1();
+
+	MasterWriteI2C1(add << 1);
+	IdleI2C1();
+
+	// Write data byte
+	MasterWriteI2C1( v); 
+	IdleI2C1();
+
+	// Terminate command sequence with a stop condition
+	StopI2C1();
+	IdleI2C1();
+
+} //writeI2C
+
+void writeI2CReg( unsigned char add, unsigned char v, unsigned char w) // write an integer v to address add
+{
+	IdleI2C1();
+	StartI2C1();
+	IdleI2C1();
+
+	MasterWriteI2C1(add << 1);
+	IdleI2C1();
+
+	// Write data byte
+	MasterWriteI2C1( v); 
+	IdleI2C1();
+
+	// Write data byte
+	MasterWriteI2C1( w); 
+	IdleI2C1();
+
+	// Terminate command sequence with a stop condition
+	StopI2C1();
+	IdleI2C1();
+
+} //writeI2C
+
+
+int readI2C( unsigned char add)  // read an integer from address add
+{
+	int r;
+
+	IdleI2C1();
+	StartI2C1();
+	IdleI2C1();
+
+	MasterWriteI2C1((add << 1) | 0x01);
+	IdleI2C1();
+
+	__delay_us(100);
+
+	IFS1bits.MI2C1IF = 0;
+
+	r = (unsigned int)(MasterReadI2C1());
+
+	// terminate read sequence (do not send ACK, send  STOP)
+
+	StopI2C1(); 
+	IdleI2C1();
+
+	return r;
+} //readI2C
+
+
+unsigned char readI2C_Reg(unsigned char add, unsigned char reg)  // read an integer from address add
+{
+	unsigned char r;
+
+	IdleI2C1();
+	StartI2C1();
+	IdleI2C1();
+
+	MasterWriteI2C1(add<<1);
+
+	IdleI2C1();
+
+	MasterWriteI2C1(reg);
+
+	IdleI2C1();
+	StopI2C1();
+	IdleI2C1();
+	StartI2C1();
+	IdleI2C1();
+
+	MasterWriteI2C1((add << 1) | 0x01);
+	IdleI2C1();
+
+	__delay_us(100);
+
+	IFS1bits.MI2C1IF = 0;
+
+	//r = (unsigned char)(MasterReadI2C1());
+
+	//AckI2C1();
+
+	//IdleI2C1();
+
+	r = (unsigned char)(MasterReadI2C1());	
+
+	//IdleI2C1();
+	NotAckI2C1();
+
+	// terminate read sequence (do not send ACK, send  STOP)
+	IdleI2C1();
+	StopI2C1(); 
+	IdleI2C1();
+
+	return r;
+} //readI2C
