@@ -259,6 +259,9 @@ int I2C2Channel=Available;
 int I2C3Channel=Available;
 int I2C3XmitReset=False;
 
+unsigned int adc_test_reg = 0;
+
+
 #ifdef XbeeTest
  	#define XbeeTest_BufferLength 3
  	#define XbeeTest_StateIdle 0
@@ -273,6 +276,69 @@ int I2C3XmitReset=False;
  	uint8_t XbeeTest_UART_BufferPointer=0;
  	uint8_t XbeeTest_UART_DataNO=0;
 #endif
+
+
+
+
+
+
+void bringup_board(void)
+{
+
+/*	unsigned int battery1_voltage = 0;
+	unsigned int battery2_voltage = 0;
+	//unsigned char BATTERY_ADDRESS = 0x16;
+	unsigned char BATTERY_ADDRESS = 0x0b;
+	battery1_voltage = 77;
+	unsigned int battery1_rel_SOC = 0;
+	unsigned int battery2_rel_SOC = 0;
+	
+
+	OpenI2C2(I2C_ON & I2C_IDLE_CON & I2C_CLK_HLD & I2C_IPMI_DIS & I2C_7BIT_ADD  
+                & I2C_SLW_DIS & I2C_SM_DIS & I2C_GCALL_DIS & I2C_STR_DIS 
+				& I2C_NACK, 0xff);
+
+	IdleI2C2();
+
+	OpenI2C3(I2C_ON & I2C_IDLE_CON & I2C_CLK_HLD & I2C_IPMI_DIS & I2C_7BIT_ADD  
+                & I2C_SLW_DIS & I2C_SM_DIS & I2C_GCALL_DIS & I2C_STR_DIS 
+				& I2C_NACK, 0xff);
+
+	IdleI2C3();
+
+	block_ms(1000);
+	//set fan configuration
+	writeI2C2Reg( FAN_CONTROLLER_ADDRESS,0x02,0b00011010);
+	block_ms(50);
+
+	//make thermistor 1 control fan 2, and vice versa
+	writeI2C2Reg( FAN_CONTROLLER_ADDRESS,0x11,0b00011000);
+	block_ms(50);
+
+	//set fan start duty cycle -> 120/240 = 50%
+	writeI2C2Reg( FAN_CONTROLLER_ADDRESS,0x07,120);
+	block_ms(50);
+
+	//fan turns on at 40C
+	writeI2C2Reg( FAN_CONTROLLER_ADDRESS,0x10,40);
+	block_ms(50);
+	block_ms(200);
+
+	battery1_voltage = readI2C2_Word(BATTERY_ADDRESS, 0x09);
+	battery2_voltage = readI2C3_Word(BATTERY_ADDRESS, 0x09);
+
+	battery1_rel_SOC = readI2C2_Word(BATTERY_ADDRESS, 0x0d);
+	battery2_rel_SOC = readI2C3_Word(BATTERY_ADDRESS, 0x0d);
+
+
+	while(1);*/
+}
+
+
+
+
+
+
 
 //*********************************************//
 //**chief functions
@@ -1602,11 +1668,13 @@ void USBInput()
  	Robot_Motor_TargetSpeedUSB[1]=REG_MOTOR_VELOCITY.right;
 	Robot_Motor_TargetSpeedUSB[2]=REG_MOTOR_VELOCITY.flipper;
 
-	i=-500;
+	/*i=-500;
 	//i=20;
  	Robot_Motor_TargetSpeedUSB[0]=i; 
  	Robot_Motor_TargetSpeedUSB[1]=i;
- 	Robot_Motor_TargetSpeedUSB[2]=i;
+ 	Robot_Motor_TargetSpeedUSB[2]=i;*/
+	//USBTimeOutTimerCount=0;
+	
  	gNewData=!gNewData;
 
 
@@ -1787,7 +1855,7 @@ void Cell_Ctrl(int Channel, int state)
  				case Cell_OFF:
  					//TRISFbits.TRISF0=0;//pin high, turn off the mosfet
  					//PORTFbits.RF0=1;
- 					Cell_A_MOS=0;
+ 					Cell_B_MOS=0;
  					break;
  			}
  			break;
@@ -1830,6 +1898,8 @@ void MC_Ini(void)//initialzation for the whole program
 		VCELL_B_EN(1);
 		CELL_A_CURR_EN(1);
 		CELL_B_CURR_EN(1);
+		M3_POS_FB_1_EN(1);
+		M3_POS_FB_2_EN(1);
 
 	//initialize the digital outputs
 		CELL_A_MOS_EN(1);
@@ -1890,6 +1960,9 @@ void MC_Ini(void)//initialzation for the whole program
 
 
  	//I/O initializing complete
+
+
+	bringup_board();
 
  	Cell_Ctrl(Cell_A,Cell_ON);
  	Cell_Ctrl(Cell_B,Cell_ON);
@@ -2706,7 +2779,8 @@ void IniAD()
 //f) Select interrupt rate (AD1CON2<5:2>).
  	AD1CON2bits.SMPI=0b1011;//interrupt every 12 samples convert sequence
 //g) scan mode, select input channels (AD1CSSL<15:0>)
- 	AD1CSSL=0b0011111100111111;
+  //AD1CSSL=0b0011111100111111;
+	AD1CSSL=0b1111111100001111;
  	AD1CON2bits.CSCNA=SET;
 //h) Turn on A/D module (AD1CON1<15>).
  	AD1CON1bits.ADON=SET;
@@ -2917,16 +2991,16 @@ void  Motor_T3Interrupt(void)
  	//clear timer3 flage
  	IFS0bits.T3IF=CLEAR; //clear interrupt flag
  	temp=TMR2;
-// 	Timer3Count++;
+ 	Timer3Count++;
 
 //TODO: turn on timer
 
- 	 if(temp>BackEMFSampleRangeStart && temp<BackEMFSampleRangeEnd)
+ /*	 if(temp>BackEMFSampleRangeStart && temp<BackEMFSampleRangeEnd)
  	{
  		AD1CON1bits.ASAM=SET;
  	}
 
-/*
+
  	if(Timer3Count>=5 || BackEMFSampleEnabled==True)
  	{
  		AD1CON1bits.ASAM=SET;
@@ -2934,8 +3008,13 @@ void  Motor_T3Interrupt(void)
  	if(Timer3Count>=5)
  	{
  		Timer3Count=0;
- 	}
-*/
+ 	}*/
+	if(Timer3Count>=0)
+	{
+		Timer3Count = 0;
+		AD1CON1bits.ASAM=SET;
+	}
+
 }
 
 void  Motor_T5Interrupt(void)
@@ -2990,20 +3069,23 @@ void  Motor_ADC1Interrupt(void)
  	//load the value
 // 	if(BackEMFSampleEnabled==True)
 // 	{
- 		BackEMF[LMotor][ChannelB][BackEMFPointer]=1023-ADC1BUF8;
+ 	/*	BackEMF[LMotor][ChannelB][BackEMFPointer]=1023-ADC1BUF8;
  		BackEMF[LMotor][ChannelA][BackEMFPointer]=1023-ADC1BUF9;
  		BackEMF[RMotor][ChannelA][BackEMFPointer]=1023-ADC1BUF5;
- 		BackEMF[RMotor][ChannelB][BackEMFPointer]=1023-ADC1BUF4;
+ 		BackEMF[RMotor][ChannelB][BackEMFPointer]=1023-ADC1BUF4;*/
  		BackEMFSampleEnabled=False;
 // 	}
- 	M3_POSFB_Array[0][M3_POSFB_ArrayPointer]=ADC1BUF7;
- 	M3_POSFB_Array[1][M3_POSFB_ArrayPointer]=ADC1BUFB; 	
- 	MotorCurrentAD[LMotor][MotorCurrentADPointer]=ADC1BUFA;
- 	MotorCurrentAD[RMotor][MotorCurrentADPointer]=ADC1BUF3;
- 	MotorCurrentAD[Flipper][MotorCurrentADPointer]=ADC1BUF6;
-	Total_Cell_Current_Array[Total_Cell_Current_ArrayPointer]=ADC1BUF2;
- 	CellVoltageArray[Cell_A][CellVoltageArrayPointer]=ADC1BUF1;
- 	CellVoltageArray[Cell_B][CellVoltageArrayPointer]=ADC1BUF0;
+
+	//BackEMF[LMotor][ChannelB][BackEMFPointer]=ADC1BUFD;
+ 	M3_POSFB_Array[0][M3_POSFB_ArrayPointer]=ADC1BUF4;
+ 	M3_POSFB_Array[1][M3_POSFB_ArrayPointer]=ADC1BUF5; 	
+ 	MotorCurrentAD[LMotor][MotorCurrentADPointer]=ADC1BUF3;
+ 	MotorCurrentAD[RMotor][MotorCurrentADPointer]=ADC1BUF1;
+ 	MotorCurrentAD[Flipper][MotorCurrentADPointer]=ADC1BUFB;
+	Total_Cell_Current_Array[Total_Cell_Current_ArrayPointer]=ADC1BUF8+ADC1BUF9;
+	adc_test_reg = ADC1BUF9;
+ 	CellVoltageArray[Cell_A][CellVoltageArrayPointer]=ADC1BUF6;
+ 	CellVoltageArray[Cell_B][CellVoltageArrayPointer]=ADC1BUF7;
  	TotalCurrent=MotorCurrentAD[LMotor][MotorCurrentADPointer]+MotorCurrentAD[RMotor][MotorCurrentADPointer]+MotorCurrentAD[Flipper][MotorCurrentADPointer];
 
 //tesing code only

@@ -96,7 +96,6 @@ int PF main(void)
 
 }
 
-
 static void InitializeSystem(void)
 {
 	gpio_id = PORTE & 0x001F; ///< 5-bit board ID (RE0 to RE4)
