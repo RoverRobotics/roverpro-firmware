@@ -152,7 +152,7 @@
 */
 
 //XbeeTest Only
-#define U1RX_RPn 3
+#define U1RX_RPn 6
 //XbeeTest End
 
 //output pin mapping
@@ -162,7 +162,7 @@
 
 
 //XbeeTest Only
-#define U1TX_RPn  	RPOR2bits.RP4R
+#define U1TX_RPn  	_RP7R
 //XbeeTest End
 
 
@@ -176,9 +176,12 @@
 #define M3_CURR_EN(a)		_PCFG15 = !a
 
 #define VCELL_A_EN(a)		_PCFG10 = !a
-#define VCELL_B_EN(a)		_PCFG13 = !a
+#define VCELL_B_EN(a)		_PCFG11 = !a
 #define CELL_A_CURR_EN(a)	_PCFG12 = !a
 #define CELL_B_CURR_EN(a)	_PCFG13 = !a
+
+#define M3_POS_FB_1_EN(a)	_PCFG8 = !a
+#define M3_POS_FB_2_EN(a)	_PCFG9 = !a
 
 
 //Configure outputs
@@ -269,6 +272,7 @@
 #define TMPSensorICAddressR 0b10010011
 #define FANCtrlAddressW 0b00110000
 #define FANCtrlAddressR 0b00110001
+#define FAN_CONTROLLER_ADDRESS		0x18
 
 #define Fan1LowTemp 0x23// 35C fan1 start temperature
 #define Fan2LowTemp 0x23// 35C fan2 start temperature
