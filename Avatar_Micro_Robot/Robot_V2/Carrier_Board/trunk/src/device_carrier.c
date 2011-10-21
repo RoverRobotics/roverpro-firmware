@@ -103,7 +103,7 @@
 #define WHITE_LED_OR			_RP25R
 #define IR_LED_OR				_RP22R
 
-#define POWER_BUTTON()			_RB4
+#define POWER_BUTTON()			!_RB4
 
 #define GPS_TX_OR				_RP12R
 #define GPS_RX_PIN				11
@@ -169,6 +169,19 @@ void DeviceCarrierInit()
 	int i = 0;
 
 	de_init_io();
+
+	//enable software watchdog if power button is not held down.  Otherwise, sleep forever.
+	if(POWER_BUTTON())
+	{
+		_SWDTEN = 0;
+	}
+	else
+	{
+		_SWDTEN = 1;
+	}
+
+	Sleep();
+
 
 	//wait some time to stabilize voltages
 	block_ms(50);
@@ -409,11 +422,11 @@ void initI2C(void) // Initialize the I2C interface to the realtime clock
 	ODCGbits.ODG3 = 1; // SDA1 is set to open drain
 	ODCGbits.ODG2 = 1; // SCL1 is set to open drain
 
-	OpenI2C1(I2C_ON & I2C_IDLE_CON & I2C_CLK_HLD & I2C_IPMI_DIS & I2C_7BIT_ADD  
+	OpenI2C2(I2C_ON & I2C_IDLE_CON & I2C_CLK_HLD & I2C_IPMI_DIS & I2C_7BIT_ADD  
                 & I2C_SLW_DIS & I2C_SM_DIS & I2C_GCALL_DIS & I2C_STR_DIS 
 				& I2C_NACK, I2C_RATE_SETTING);
 
-	IdleI2C1();
+	IdleI2C2();
 
 	// wait a little before continuing...
 	block_ms(100);
