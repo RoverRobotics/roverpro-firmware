@@ -161,6 +161,9 @@ int CurrentCtrlTimerCount=0;
 int CurrentSurgeRecoverTimerEnabled=False;
 int CurrentSurgeRecoverTimerExpired=False;
 int CurrentSurgeRecoverTimerCount=0;
+int I2C2TimerEnabled=True;
+int I2C2TimerExpired=False;
+int I2C2TimerCount=0;
 int I2C3TimerEnabled=True;
 int I2C3TimerExpired=False;
 int I2C3TimerCount=0;
@@ -259,6 +262,7 @@ int8_t I2C3DataMSOut[20];//I2C3DataMSOut[0]--Lock indicator, 0-unlocked 1-locked
 int I2C1Channel=Available;
 int I2C2Channel=Available;
 int I2C3Channel=Available;
+int I2C2XmitReset=False;
 int I2C3XmitReset=False;
 
 unsigned int adc_test_reg = 0;
@@ -593,7 +597,8 @@ void Device_MotorController_Process()
 {
  	int i,j;
  	long temp1,temp2;
- 	
+// 	I2C2Update();
+//	I2C3Update();
  	//Check Timer
  	//Run control loop
 	if(IFS0bits.T1IF==SET)
@@ -643,6 +648,10 @@ void Device_MotorController_Process()
  		if(CurrentSurgeRecoverTimerEnabled==True)
  		{
  			CurrentSurgeRecoverTimerCount++;
+ 		}
+ 		if(I2C2TimerEnabled==True)
+ 		{
+ 			I2C2TimerCount++; 		
  		}
  		if(I2C3TimerEnabled==True)
  		{
@@ -712,9 +721,15 @@ void Device_MotorController_Process()
  	{
  		CurrentSurgeRecoverTimerExpired=True;
  	}
+ 	if(I2C2TimerCount>=I2C2Timer)
+ 	{
+  		I2C2TimerExpired=True;
+ 		I2C2TimerCount=0;
+ 		I2C2XmitReset=True;
+ 	}
  	if(I2C3TimerCount>=I2C3Timer)
  	{
-  		I2C3TimerExpired=True;
+ 		I2C3TimerExpired=True;
  		I2C3TimerCount=0;
  		I2C3XmitReset=True;
  	}
@@ -787,6 +802,11 @@ void Device_MotorController_Process()
  		CurrentSurgeRecoverTimerCount=0;
  		CurrentSurgeRecoverTimerExpired=False;
  		MotorRecovering=False;
+ 	}
+ 	if(I2C2TimerExpired==True)
+ 	{
+ 		//update data on I2C3, reset the I2C data accquiring sequence
+ 		I2C2Update();
  	}
  	if(I2C3TimerExpired==True)
  	{
@@ -1050,6 +1070,18 @@ void Device_MotorController_Process()
 
 //*********************************************//
 //I2C library
+int CheckI2C2Idle()
+{
+
+ 	if(I2C2CONbits.SEN||I2C2CONbits.PEN||I2C2CONbits.RCEN||I2C2CONbits.ACKEN||I2C2STATbits.TRSTAT)
+ 	{
+ 		return False;
+ 	}else
+ 	{
+ 		return True;
+ 	}
+}
+
 int CheckI2C3Idle()
 {
 
@@ -1061,16 +1093,18 @@ int CheckI2C3Idle()
  		return True;
  	}
 }
-//**I2C3 update-temperature sensor, fan controller
-void I2C3Update()
+
+//fan controller, TMP112, battery, EEPROM
+void I2C2Update()
 {
 
  	static int StepNumber=1; 
+	static unsigned char a,b;
  	//static int TMPHigh,TMPLow;
 
- 	if(I2C3XmitReset==True)
+ 	if(I2C2XmitReset==True)
  	{
- 		I2C3XmitReset=False;//clear the flag
+ 		I2C2XmitReset=False;//clear the flag
  		StepNumber=1;//go to step 1, start from the beginning
  		//assume all the data is good
  		REG_MOTOR_TEMP_STATUS.left=1;
@@ -1080,6 +1114,317 @@ void I2C3Update()
  	switch(StepNumber)
  	{
  	 	case 1://make sure the module is idle
+ 			if(CheckI2C2Idle()==True)
+ 			{
+ 				StepNumber++;//run second step
+ 				I2C2CONbits.SEN=1;	// initiate Start on SDA and SCL pins
+ 			}
+ 		 	break;
+ 		case 2://wait until start is complete, then transmit data
+ 			if(I2C2CONbits.SEN==0)
+ 			{
+ 				StepNumber++;//run next step
+ 				I2C2TRN=FANCtrlAddressW;//transmit data
+ 			}
+ 			break;
+ 		case 3://wait for transmit to complete
+ 			if(I2C2STATbits.IWCOL==1)//write collision occurs, go to the first step
+ 			{
+				I2C2STATbits.IWCOL=0;
+ 			 	REG_MOTOR_TEMP_STATUS.left=0;
+ 			}
+ 			if(I2C2STATbits.TRSTAT==0)// wait for the transmitting to complete
+ 			{
+ 				StepNumber++;
+ 			}
+ 			break;
+ 		case 4://make sure the module is idle
+ 			if(CheckI2C2Idle()==True)//make sure the module is idle
+ 			{
+ 				StepNumber++;//run next step
+ 			}
+ 			break;
+ 		case 5://check ACK from slave
+ 			if(I2C2STATbits.ACKSTAT==1)//if no ACK, tell the data is bad
+ 			{
+ 				REG_MOTOR_TEMP_STATUS.left=0;
+ 			}
+ 			StepNumber++;
+ 			break;
+ 		case 6://send data
+ 			I2C2TRN=0x00;//transmit data
+ 			StepNumber++;
+ 			break;
+ 		case 7://wait for transmit to complete
+ 			if(I2C2STATbits.IWCOL==1)//write collision occurs, go to the first step
+ 			{
+ 			 	REG_MOTOR_TEMP_STATUS.left==0;
+ 			}
+ 			if(I2C2STATbits.TRSTAT==0)// wait for the transmitting to complete
+ 			{
+ 				StepNumber++;
+ 			}
+ 			break;
+ 		case 8://make sure the module is idle
+ 			if(CheckI2C2Idle()==True)//make sure the module is idle
+ 			{
+ 				StepNumber++;//run next step
+ 				I2C2CONbits.SEN=1;	// initiate Start on SDA and SCL pins
+ 			}
+ 			break;
+ 		case 9:
+ 			if(I2C2CONbits.SEN==0)
+ 			{
+ 				StepNumber++;//run next step
+ 				I2C2TRN=FANCtrlAddressR;//transmit data
+ 			}
+ 			break;
+ 		case 10:
+ 			if(CheckI2C2Idle()==True)
+ 			{
+ 				StepNumber++;//run second step
+ 				I2C2CONbits.RCEN=1;//enable receive model
+ 			}
+ 			break;
+ 		case 11://wait until receive is completed
+ 			if(I2C2CONbits.RCEN==0)
+ 			{
+ 				StepNumber++;
+ 				I2C2STATbits.I2COV = 0;
+ 				REG_MOTOR_TEMP.left=I2C2RCV;
+ 			}
+ 			break;
+ 		case 12://stop the module
+ 			I2C2CONbits.PEN=1;	// initiate Stop on SDA and SCL pins
+ 			StepNumber++;
+ 			break;
+ 	 	case 13://make sure the module is idle
+ 			if(CheckI2C2Idle()==True)
+ 			{
+ 				StepNumber++;//run second step
+ 				I2C2CONbits.SEN=1;	// initiate Start on SDA and SCL pins
+ 			}
+ 		 	break;
+ 		case 14://wait until start is complete, then transmit data
+ 			if(I2C2CONbits.SEN==0)
+ 			{
+ 				StepNumber++;//run next step
+ 				I2C2TRN=FANCtrlAddressW;//transmit data
+ 			}
+ 			break;
+ 		case 15://wait for transmit to complete
+ 			if(I2C2STATbits.IWCOL==1)//write collision occurs, go to the first step
+ 			{
+ 			 	REG_MOTOR_TEMP_STATUS.right=0;
+ 			}
+ 			if(I2C2STATbits.TRSTAT==0)// wait for the transmitting to complete
+ 			{
+ 				StepNumber++;
+ 			}
+ 			break;
+ 		case 16://make sure the module is idle
+ 			if(CheckI2C2Idle()==True)//make sure the module is idle
+ 			{
+ 				StepNumber++;//run next step
+ 			}
+ 			break;
+ 		case 17://check ACK from slave
+ 			if(I2C2STATbits.ACKSTAT==1)//if no ACK, tell the data is bad
+ 			{
+ 				REG_MOTOR_TEMP_STATUS.right=0;
+ 			}
+ 			StepNumber++;
+ 			break;
+ 		case 18://send data
+ 			I2C2TRN=0x01;//transmit register address data
+ 			StepNumber++;
+ 			break;
+ 		case 19://wait for transmit to complete
+ 			if(I2C2STATbits.IWCOL==1)//write collision occurs, go to the first step
+ 			{
+ 			 	REG_MOTOR_TEMP_STATUS.right=0;
+ 			}
+ 			if(I2C2STATbits.TRSTAT==0)// wait for the transmitting to complete
+ 			{
+ 				StepNumber++;
+ 			}
+ 			break;
+ 		case 20://make sure the module is idle
+ 			if(CheckI2C2Idle()==True)//make sure the module is idle
+ 			{
+ 				StepNumber++;//run next step
+ 				I2C2CONbits.SEN=1;	// initiate Start on SDA and SCL pins
+ 			}
+ 			break;
+ 		case 21:
+ 			if(I2C2CONbits.SEN==0)
+ 			{
+ 				StepNumber++;//run next step
+ 				I2C2TRN=FANCtrlAddressR;//transmit data
+ 			}
+ 			break;
+ 		case 22:
+ 			if(CheckI2C2Idle()==True)
+ 			{
+ 				StepNumber++;//run second step
+ 				I2C2CONbits.RCEN=1;//enable receive model
+ 			}
+ 			break;
+ 		case 23://wait until receive is completed
+ 			if(I2C2CONbits.RCEN==0)
+ 			{
+ 				StepNumber++;
+ 				I2C2STATbits.I2COV = 0;
+ 				REG_MOTOR_TEMP.right=I2C2RCV;
+ 			}
+ 			break;
+ 		case 24://stop the module
+ 			I2C2CONbits.PEN=1;	// initiate Stop on SDA and SCL pins
+ 			StepNumber++;
+ 			break;
+	 	case 25://make sure the module is idle
+ 			if(CheckI2C2Idle()==True)
+ 			{
+ 				StepNumber++;//run second step
+ 				I2C2CONbits.SEN=1;	// initiate Start on SDA and SCL pins
+ 			}
+ 		 	break;
+ 		case 26://wait until start is complete, then transmit data
+ 			if(I2C2CONbits.SEN==0)
+ 			{
+ 				StepNumber++;//run next step
+ 				I2C2TRN=BATTERY_ADDRESS<<1;//transmit data
+ 			}
+ 			break;
+ 		case 27://wait for transmit to complete
+ 			if(I2C2STATbits.IWCOL==1)//write collision occurs, go to the first step
+ 			{
+ 			 	//REG_MOTOR_TEMP_STATUS.left=0;
+				StepNumber = 0;
+ 			}
+ 			if(I2C2STATbits.TRSTAT==0)// wait for the transmitting to complete
+ 			{
+ 				StepNumber++;
+ 			}
+ 			break;
+ 		case 28://make sure the module is idle
+ 			if(CheckI2C2Idle()==True)//make sure the module is idle
+ 			{
+ 				StepNumber++;//run next step
+ 			}
+ 			break;
+ 		case 29://check ACK from slave
+ 			if(I2C2STATbits.ACKSTAT==1)//if no ACK, tell the data is bad
+ 			{
+ 				//REG_MOTOR_TEMP_STATUS.left=0;
+ 			}
+ 			StepNumber++;
+ 			break;
+ 		case 30://send data
+ 			I2C2TRN=0x0d;//transmit data
+ 			StepNumber++;
+ 			break;
+ 		case 31://wait for transmit to complete
+ 			if(I2C2STATbits.IWCOL==1)//write collision occurs, go to the first step
+ 			{
+				I2C2STATbits.IWCOL = 0;
+ 			 	//REG_MOTOR_TEMP_STATUS.left==0;
+ 			}
+ 			if(I2C2STATbits.TRSTAT==0)// wait for the transmitting to complete
+ 			{
+ 				StepNumber++;
+ 			}
+ 			break;
+ 		case 32://make sure the module is idle
+ 			if(CheckI2C2Idle()==True)//make sure the module is idle
+ 			{
+ 				StepNumber++;//run next step
+ 				I2C2CONbits.SEN=1;	// initiate Start on SDA and SCL pins
+ 			}
+ 			break;
+ 		case 33:
+ 			if(I2C2CONbits.SEN==0)
+ 			{
+ 				StepNumber++;//run next step
+ 				I2C2TRN=(BATTERY_ADDRESS<<1)+1;//transmit data
+ 			}
+ 			break;
+ 		case 34:
+ 			if(CheckI2C2Idle()==True)
+ 			{
+ 				StepNumber++;//run second step
+ 				I2C2CONbits.RCEN=1;//enable receive model
+ 			}
+ 			break;
+ 		case 35://wait until receive is completed
+ 			if(I2C2CONbits.RCEN==0)
+ 			{
+ 				StepNumber++;
+ 				I2C2STATbits.I2COV = 0;
+ 				a=I2C2RCV;
+				I2C2CONbits.ACKDT = 0; //ACK
+				I2C2CONbits.ACKEN = 1;
+ 			}
+ 			break;
+		case 36:
+		 	if(CheckI2C2Idle()==True)
+ 			{
+ 				StepNumber++;//run second step
+ 				I2C2CONbits.RCEN=1;//enable receive model
+ 			}
+		break;
+		case 37:
+		 	if(I2C2CONbits.RCEN==0)
+ 			{
+ 				StepNumber++;
+ 				I2C2STATbits.I2COV = 0;
+ 				b=I2C2RCV;
+				REG_ROBOT_REL_SOC_A = a  + (b<<8);
+				I2C2CONbits.ACKDT = 1; //NACK
+				I2C2CONbits.ACKEN = 1;
+ 			}
+		break;		
+ 		case 38://stop the module
+			I2C2CONbits.ACKDT = 0; //ACK
+ 			I2C2CONbits.PEN=1;	// initiate Stop on SDA and SCL pins
+ 			StepNumber++;
+ 			break;
+ 		case 39://Make sure the module is idle
+ 			if(CheckI2C2Idle()==True)
+ 			{
+ 				StepNumber++;//run second step
+ 				StepNumber=1;//cycle ends, go to the first step
+ 				I2C2TimerExpired=False;//reset the I2C2 update timer
+ 			}
+ 			break;
+ 	}
+
+}
+
+
+void I2C3Update(void)
+{
+
+ 	static int StepNumber=1; 
+	static unsigned int a,b;
+ 	//static int TMPHigh,TMPLow;
+
+ 	if(I2C3XmitReset==True)
+ 	{
+ 		I2C3XmitReset=False;//clear the flag
+ 		StepNumber=1;//go to step 1, start from the beginning
+ 		//assume all the data is good
+
+		I2C3CONbits.SEN = 0;
+		I2C3CONbits.PEN = 0;
+		I2C3CONbits.RCEN = 0;
+		I2C3CONbits.ACKEN = 0;
+		I2C3STATbits.TRSTAT = 0;
+
+ 	}
+ 	switch(StepNumber)
+ 	{
+	 	case 1://make sure the module is idle
  			if(CheckI2C3Idle()==True)
  			{
  				StepNumber++;//run second step
@@ -1090,13 +1435,15 @@ void I2C3Update()
  			if(I2C3CONbits.SEN==0)
  			{
  				StepNumber++;//run next step
- 				I2C3TRN=FANCtrlAddressW;//transmit data
+ 				I2C3TRN=BATTERY_ADDRESS<<1;//transmit data
  			}
  			break;
  		case 3://wait for transmit to complete
  			if(I2C3STATbits.IWCOL==1)//write collision occurs, go to the first step
  			{
- 			 	REG_MOTOR_TEMP_STATUS.left=0;
+				I2C3STATbits.IWCOL = 0;
+ 			 	//REG_MOTOR_TEMP_STATUS.left=0;
+				StepNumber = 0;
  			}
  			if(I2C3STATbits.TRSTAT==0)// wait for the transmitting to complete
  			{
@@ -1112,18 +1459,20 @@ void I2C3Update()
  		case 5://check ACK from slave
  			if(I2C3STATbits.ACKSTAT==1)//if no ACK, tell the data is bad
  			{
- 				REG_MOTOR_TEMP_STATUS.left=0;
+ 				//REG_MOTOR_TEMP_STATUS.left=0;
  			}
  			StepNumber++;
  			break;
  		case 6://send data
- 			I2C3TRN=0x00;//transmit data
+ 			I2C3TRN=0x0d;//transmit data
  			StepNumber++;
  			break;
  		case 7://wait for transmit to complete
  			if(I2C3STATbits.IWCOL==1)//write collision occurs, go to the first step
  			{
- 			 	REG_MOTOR_TEMP_STATUS.left==0;
+				I2C3STATbits.IWCOL = 0;
+				StepNumber = 0;
+ 			 	//REG_MOTOR_TEMP_STATUS.left==0;
  			}
  			if(I2C3STATbits.TRSTAT==0)// wait for the transmitting to complete
  			{
@@ -1137,11 +1486,11 @@ void I2C3Update()
  				I2C3CONbits.SEN=1;	// initiate Start on SDA and SCL pins
  			}
  			break;
- 		case 9:
- 			if(I2C3CONbits.SEN==0)
+		case 9:
+			 if(I2C3CONbits.SEN==0)
  			{
  				StepNumber++;//run next step
- 				I2C3TRN=FANCtrlAddressR;//transmit data
+ 				I2C3TRN=(BATTERY_ADDRESS<<1)+1;//transmit data
  			}
  			break;
  		case 10:
@@ -1156,171 +1505,51 @@ void I2C3Update()
  			{
  				StepNumber++;
  				I2C3STATbits.I2COV = 0;
- 				REG_MOTOR_TEMP.left=I2C3RCV;
+ 				a=I2C3RCV;
+				I2C3CONbits.ACKDT = 0; //ACK
+				I2C3CONbits.ACKEN = 1;
  			}
  			break;
- 		case 12://stop the module
- 			I2C3CONbits.PEN=1;	// initiate Stop on SDA and SCL pins
- 			StepNumber++;
- 			break;
- 	 	case 13://make sure the module is idle
- 			if(CheckI2C3Idle()==True)
- 			{
- 				StepNumber++;//run second step
- 				I2C3CONbits.SEN=1;	// initiate Start on SDA and SCL pins
- 			}
- 		 	break;
- 		case 14://wait until start is complete, then transmit data
- 			if(I2C3CONbits.SEN==0)
- 			{
- 				StepNumber++;//run next step
- 				I2C3TRN=FANCtrlAddressW;//transmit data
- 			}
- 			break;
- 		case 15://wait for transmit to complete
- 			if(I2C3STATbits.IWCOL==1)//write collision occurs, go to the first step
- 			{
- 			 	REG_MOTOR_TEMP_STATUS.right=0;
- 			}
- 			if(I2C3STATbits.TRSTAT==0)// wait for the transmitting to complete
- 			{
- 				StepNumber++;
- 			}
- 			break;
- 		case 16://make sure the module is idle
- 			if(CheckI2C3Idle()==True)//make sure the module is idle
- 			{
- 				StepNumber++;//run next step
- 			}
- 			break;
- 		case 17://check ACK from slave
- 			if(I2C3STATbits.ACKSTAT==1)//if no ACK, tell the data is bad
- 			{
- 				REG_MOTOR_TEMP_STATUS.right=0;
- 			}
- 			StepNumber++;
- 			break;
- 		case 18://send data
- 			I2C3TRN=0x01;//transmit register address data
- 			StepNumber++;
- 			break;
- 		case 19://wait for transmit to complete
- 			if(I2C3STATbits.IWCOL==1)//write collision occurs, go to the first step
- 			{
- 			 	REG_MOTOR_TEMP_STATUS.right=0;
- 			}
- 			if(I2C3STATbits.TRSTAT==0)// wait for the transmitting to complete
- 			{
- 				StepNumber++;
- 			}
- 			break;
- 		case 20://make sure the module is idle
- 			if(CheckI2C3Idle()==True)//make sure the module is idle
- 			{
- 				StepNumber++;//run next step
- 				I2C3CONbits.SEN=1;	// initiate Start on SDA and SCL pins
- 			}
- 			break;
- 		case 21:
- 			if(I2C3CONbits.SEN==0)
- 			{
- 				StepNumber++;//run next step
- 				I2C3TRN=FANCtrlAddressR;//transmit data
- 			}
- 			break;
- 		case 22:
- 			if(CheckI2C3Idle()==True)
+		case 12:
+		 	if(CheckI2C3Idle()==True)
  			{
  				StepNumber++;//run second step
  				I2C3CONbits.RCEN=1;//enable receive model
  			}
- 			break;
- 		case 23://wait until receive is completed
- 			if(I2C3CONbits.RCEN==0)
+		break;
+		case 13:
+		 	if(I2C3CONbits.RCEN==0)
  			{
  				StepNumber++;
  				I2C3STATbits.I2COV = 0;
- 				REG_MOTOR_TEMP.right=I2C3RCV;
+ 				b=I2C3RCV;
+				REG_ROBOT_REL_SOC_B = a  + (b<<8);
+				I2C3CONbits.ACKDT = 1; //NACK
+				I2C3CONbits.ACKEN = 1;
  			}
+		break;		
+ 		case 14://stop the module
+		 	if(CheckI2C3Idle()==True)
+ 			{
+	 			I2C3CONbits.PEN=1;	// initiate Stop on SDA and SCL pins
+	 			StepNumber++;
+			}
  			break;
- 		case 24://stop the module
- 			I2C3CONbits.PEN=1;	// initiate Stop on SDA and SCL pins
- 			StepNumber++;
- 			break;
- 		case 25://Make sure the module is idle
+		case 15:
  			if(CheckI2C3Idle()==True)
  			{
  				StepNumber++;//run second step
  				StepNumber=1;//cycle ends, go to the first step
- 				I2C3TimerExpired=False;//reset the I2C3 update timer
+ 				I2C3TimerExpired=False;//reset the I2C2 update timer
  			}
- 			break;
- 	}
+		break;
 
-/*
- 	//read from TMP112
+	} 
 
- 	switch(StepNumber)
- 	{
- 		case 1://send address, with write
- 			I2C3CONbits.SEN=1;
- 			I2C3TRN=TMPSensorICAddressW;
- 			StepNumber=2;
- 			break;
- 		case 2://wait for ack
- 			if(I2C3STATbits.TBF==0)
- 			{
-  				StepNumber=3;
- 			}
- 			break;
- 		case 3://send pointer address of TMP112
- 			I2C3TRN=0b00000000;
- 			StepNumber=4; 			
- 			break;
- 		case 4://wait for ack
- 			if(I2C3STATbits.TBF==0)
- 			{
-  				StepNumber=5;
- 			}
- 			break;
- 		case 5://send TMP112 address with a read
- 			I2C3CONbits.RSEN=1;
- 			I2C3TRN=TMPSensorICAddressR;
- 			StepNumber=6;
- 			I2C3CONbits.RCEN=1;//enable receive on master 
- 			break;
- 		case 6://wait for ack
- 			if(I2C3STATbits.TBF==0)
- 			{
-  				StepNumber=7;
- 				
- 			} 			
- 			break;
- 		case 7://wait for receive flag, first byte
- 			if(I2C3STATbits.RBF==1)
- 			{
- 				TMPHigh=I2C3RCV;
-  				StepNumber=8;
- 			}
- 			break;
- 		case 8://wait for receive flag, second byte
- 			if(I2C3STATbits.RBF==1)
- 			{
- 				TMPLow=I2C3RCV;
- 				I2C3CONbits.ACKEN=1;//generate ack
- 				REG_MOTOR_TEMP.board=(TMPHigh<<=8)+TMPLow;
- 				//clear everything
- 				StepNumber=1;
- 				I2C3TimerExpired=False;
- 				I2C3CONbits.PEN=1;//generate stop condition
- 			}
- 			break;
- 	}
- 		
- 	//set fan controller data
-
-*/
 }
+
+
+
 
 //**Motor controll functions
 
@@ -2127,7 +2356,11 @@ void I2C1Ini()
 
 void I2C2Ini()
 {
+	OpenI2C2(I2C_ON & I2C_IDLE_CON & I2C_CLK_HLD & I2C_IPMI_DIS & I2C_7BIT_ADD  
+                & I2C_SLW_DIS & I2C_SM_DIS & I2C_GCALL_DIS & I2C_STR_DIS 
+				& I2C_NACK, 0xff);
 
+	IdleI2C2();
 }
 
 void I2C3Ini()
@@ -2135,7 +2368,7 @@ void I2C3Ini()
 
 	OpenI2C3(I2C_ON & I2C_IDLE_CON & I2C_CLK_HLD & I2C_IPMI_DIS & I2C_7BIT_ADD  
                 & I2C_SLW_DIS & I2C_SM_DIS & I2C_GCALL_DIS & I2C_STR_DIS 
-				& I2C_NACK, 0x50);
+				& I2C_NACK, 0xff);
 
 	IdleI2C3();
 

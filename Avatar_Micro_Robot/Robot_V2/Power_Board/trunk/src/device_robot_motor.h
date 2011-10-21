@@ -115,6 +115,7 @@
 #define CurrentFBTimer 1 		//1KHz
 #define M3_POSFB_Timer 1 		//1KHz
 #define CurrentProtectionTimer 1  //1KHz
+#define I2C2Timer 25
 #define I2C3Timer 25 //4Hz, this is the default sample rate of TMPSensorIC
 #define SFREGUpdateTimer 4 	//250Hz
 #define BATVolCheckingTimer 1 	//1KHz
@@ -273,6 +274,7 @@
 #define FANCtrlAddressW 0b00110000
 #define FANCtrlAddressR 0b00110001
 #define FAN_CONTROLLER_ADDRESS		0x18
+#define	BATTERY_ADDRESS				0x0b
 
 #define Fan1LowTemp 0x23// 35C fan1 start temperature
 #define Fan2LowTemp 0x23// 35C fan2 start temperature
