@@ -104,7 +104,7 @@ Response from Device to Host:
 #include "interrupt_switch.h"
 
 #define XbeeTest
-//#define BATProtectionON
+#define BATProtectionON
 
 //variables
 //sub system variables
@@ -185,6 +185,8 @@ unsigned int LEncoderLastValue=0;
 unsigned int LEncoderCurrentValue=0;
 unsigned int REncoderLastValue=0;
 unsigned int REncoderCurrentValue=0;
+
+unsigned int Encoder_Interrupt_Counter[2] = {0,0};
 
 long EncoderFBInterval[3][SampleLength]={{0,0,0,0},{0,0,0,0},{0,0,0,0}};
 int DIR[3][SampleLength]={{0,0,0,0},{0,0,0,0},{0,0,0,0}};
@@ -466,8 +468,45 @@ void GetRPM(int Channel)
  		ltemp3+=BackEMF[Channel][ChannelA][j];
  		ltemp4+=BackEMF[Channel][ChannelB][j];
  	}
-//T3
 
+
+ 	if(ltemp1>0)
+ 	{
+ 	 	ENRPM=24000000/ltemp1;
+ 	}
+ 	else
+ 	{
+ 		ENRPM=0;
+ 	}
+	
+	if(Channel == 0)
+	{
+		if(M1_DIRO)
+			ENDIR = -1;
+		else
+			ENDIR = 1;
+	}
+	else if(Channel == 1)
+	{
+
+		if(M2_DIRO)
+			ENDIR = 1;
+		else
+			ENDIR = -1;
+
+	}
+
+	CurrentRPM[Channel]=ENRPM*ENDIR;
+
+
+	//if the input capture interrupt hasn't been called, the motors are not moving
+ 	if(Encoder_Interrupt_Counter[Channel] == 0)
+ 	{
+ 	 	CurrentRPM[Channel]=0;		
+ 	}
+	Encoder_Interrupt_Counter[Channel] = 0;
+//T3
+/*
  	//printf("1- %d\n",temp1);
  	if(ltemp2>=0)
  	{
@@ -546,7 +585,7 @@ void GetRPM(int Channel)
  		{
  	 		BackEMFCOEF[Channel]=ltemp6;
  		}
- 	}
+ 	}*/
 
 }
 
@@ -1562,7 +1601,7 @@ void UpdateSpeed(int Channel,int State)
  					M2_COAST=Clear_ActiveLO;
  				}
  				M2_BRAKE=Clear_ActiveLO;
- 				M2_DIR=HI;
+ 				M2_DIR=LO;
  				PWM2Duty(Dutycycle);
  	 	 	}
  	 	 	else if (State==Backwards)
@@ -1582,7 +1621,7 @@ void UpdateSpeed(int Channel,int State)
  					M2_COAST=Clear_ActiveLO;
  				}
  				M2_BRAKE=Clear_ActiveLO;
- 				M2_DIR=LO;
+ 				M2_DIR=HI;
  				PWM2Duty(Dutycycle); 
  	 	 	}
  	 	 	break;
@@ -1763,10 +1802,10 @@ void PinRemap(void)
 	RPINR7bits.IC1R = M1_TACHO_RPn; 
 	
 	// Assign IC2 To L_Encoder_B
-	RPINR7bits.IC2R = M2_TACHO_RPn;
+//	RPINR7bits.IC2R = M2_TACHO_RPn;
 
 	// Assign IC3 To Encoder_R1A
-	//RPINR8bits.IC3R = M3_TACHO_RPn;
+	RPINR8bits.IC3R = M2_TACHO_RPn;
 	
 /*
 	// Assign IC5 To LMotor_In
@@ -1964,8 +2003,8 @@ void MC_Ini(void)//initialzation for the whole program
 
 	bringup_board();
 
- 	Cell_Ctrl(Cell_A,Cell_ON);
- 	Cell_Ctrl(Cell_B,Cell_ON);
+// 	Cell_Ctrl(Cell_A,Cell_ON);
+// 	Cell_Ctrl(Cell_B,Cell_ON);
  	//Initialize motor drivers
  	M1_MODE=1;
  	M2_MODE=1;
@@ -2844,7 +2883,9 @@ void  Motor_IC1Interrupt(void)
  	 	LEncoderLastValue=LEncoderCurrentValue;
  	 	EncoderFBIntervalPointer[LMotor]++; 
  	 	EncoderFBIntervalPointer[LMotor]&=(SampleLength-1);
- 	} 	 	
+ 	}
+
+	Encoder_Interrupt_Counter[LMotor]++; 	 	
 }
 
 void  Motor_IC2Interrupt(void)
@@ -2869,6 +2910,7 @@ void  Motor_IC2Interrupt(void)
  	 	}
  		EnCount[LMotor]+=DIR[LMotor][EncoderFBIntervalPointer[LMotor]];
 	}
+	 	
 }
 
 void  Motor_IC3Interrupt(void)
@@ -2888,6 +2930,8 @@ void  Motor_IC3Interrupt(void)
  	 	EncoderFBIntervalPointer[RMotor]++; 
  	 	EncoderFBIntervalPointer[RMotor]&=(SampleLength-1);
  	} 
+
+	Encoder_Interrupt_Counter[RMotor]++; 
 }
 
 void  Motor_IC4Interrupt(void)

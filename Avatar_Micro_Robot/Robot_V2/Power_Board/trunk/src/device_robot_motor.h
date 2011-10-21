@@ -255,7 +255,7 @@
 #define BackEMFSampleRangeEnd 1840 	//BackEMF sampling range ends about 92% of PWM period
 
 //#define BATVoltageLimit 650 //11.06V, 3.3V-1024, 430K-100K voltage divider, 1024->17.49V
-#define BATVoltageLimit 0 //11.06V, 3.3V-1024, 430K-100K voltage divider, 1024->17.49V
+#define BATVoltageLimit 760 //11.06V, 3.3V-1024, 430K-100K voltage divider, 1024->17.49V
 
 //control mode
 #define SpeedControl 0
