@@ -174,7 +174,7 @@ int BATVolCheckingTimerEnabled=True;
 int BATVolCheckingTimerExpired=False;
 int BATVolCheckingTimerCount=0;
 int BATRecoveryTimerEnabled=False;
-int BATRecoveryTimerExpired=False;
+int BATRecoveryTimerExpired=True;	//for initial powering of the power bus
 int BATRecoveryTimerCount=0;
 
 unsigned int ICLMotorOverFlowCount=0;
@@ -189,7 +189,7 @@ unsigned int LEncoderCurrentValue=0;
 unsigned int REncoderLastValue=0;
 unsigned int REncoderCurrentValue=0;
 
-unsigned int Encoder_Interrupt_Counter[2] = {0,0};
+unsigned long Encoder_Interrupt_Counter[2] = {0,0};
 
 long EncoderFBInterval[3][SampleLength]={{0,0,0,0},{0,0,0,0},{0,0,0,0}};
 int DIR[3][SampleLength]={{0,0,0,0},{0,0,0,0},{0,0,0,0}};
@@ -369,6 +369,12 @@ void DeviceRobotMotorInit()
 {
 //local variables
 
+	unsigned int i;
+	//wait for 10s.  This is so that we can differentiate between
+	//the battery resetting (and restarting this code), and the 
+	//current protection kicking in.
+	block_ms(10000);
+
 	//initialize all modules
 	MC_Ini();
 
@@ -386,6 +392,22 @@ void DeviceRobotMotorInit()
 	//while(1);
 	//end test
 	//******************************//
+
+
+	for(i=0;i<20;i++)
+	{
+		Cell_Ctrl(Cell_A,Cell_ON);
+		Cell_Ctrl(Cell_B,Cell_ON);
+		block_ms(10);
+		Cell_Ctrl(Cell_A,Cell_OFF);
+		Cell_Ctrl(Cell_B,Cell_OFF);	
+		block_ms(40);
+
+	}
+ //	Cell_Ctrl(Cell_A,Cell_ON);
+ //	Cell_Ctrl(Cell_B,Cell_ON);
+
+
 }
 
 void GetCurrent(int Channel)
@@ -504,11 +526,13 @@ void GetRPM(int Channel)
 
 
 	//if the input capture interrupt hasn't been called, the motors are not moving
- 	if(Encoder_Interrupt_Counter[Channel] == 0)
+ 	if(Encoder_Interrupt_Counter[Channel] == LastEnCount[Channel])
  	{
  	 	CurrentRPM[Channel]=0;		
  	}
-	Encoder_Interrupt_Counter[Channel] = 0;
+
+	LastEnCount[Channel] = Encoder_Interrupt_Counter[Channel];
+
 //T3
 /*
  	//printf("1- %d\n",temp1);
@@ -597,8 +621,8 @@ void Device_MotorController_Process()
 {
  	int i,j;
  	long temp1,temp2;
-// 	I2C2Update();
-//	I2C3Update();
+ 	I2C2Update();
+	I2C3Update();
  	//Check Timer
  	//Run control loop
 	if(IFS0bits.T1IF==SET)
@@ -806,12 +830,12 @@ void Device_MotorController_Process()
  	if(I2C2TimerExpired==True)
  	{
  		//update data on I2C3, reset the I2C data accquiring sequence
- 		I2C2Update();
+ 		//I2C2Update();
  	}
  	if(I2C3TimerExpired==True)
  	{
  		//update data on I2C3, reset the I2C data accquiring sequence
- 		I2C3Update();
+ 		//I2C3Update();
  	}
   	if(SFREGUpdateTimerExpired==True)
  	{
@@ -835,8 +859,8 @@ void Device_MotorController_Process()
  		REG_MOTOR_FB_CURRENT.right=ControlCurrent[RMotor];
  		REG_MOTOR_FB_CURRENT.flipper=ControlCurrent[Flipper];
  		//update the encodercount for two driving motors
- 		REG_MOTOR_ENCODER_COUNT.left=EnCount[LMotor];
- 		REG_MOTOR_ENCODER_COUNT.right=EnCount[RMotor];
+ 		REG_MOTOR_ENCODER_COUNT.left=Encoder_Interrupt_Counter[LMotor];
+ 		REG_MOTOR_ENCODER_COUNT.right=Encoder_Interrupt_Counter[RMotor];
  		//update the mosfet driving fault flag pin 1-good 2-fault
  		REG_MOTOR_FAULT_FLAG.left=PORTDbits.RD1;
  		REG_MOTOR_FAULT_FLAG.right=PORTEbits.RE5;
@@ -864,6 +888,21 @@ void Device_MotorController_Process()
  	}
  	if(BATVolCheckingTimerExpired==True)
  	{
+
+	//added this so that we check voltage faster
+ 		temp1=0;
+ 		temp2=0;
+ 		for(i=0;i<SampleLength;i++)
+ 		{
+ 			temp1+=CellVoltageArray[Cell_A][i];
+ 			temp2+=CellVoltageArray[Cell_B][i];
+ 		}
+ 		REG_PWR_BAT_VOLTAGE.a=temp1>>ShiftBits;
+ 		REG_PWR_BAT_VOLTAGE.b=temp2>>ShiftBits;
+ 		REG_PWR_BAT_VOLTAGE.a=CellVoltageArray[Cell_A][0];
+ 		REG_PWR_BAT_VOLTAGE.b=temp2>>ShiftBits;
+
+
  		BATVolCheckingTimerExpired=False;
  		#ifdef BATProtectionON
  		if(REG_PWR_BAT_VOLTAGE.a<=BATVoltageLimit || REG_PWR_BAT_VOLTAGE.b<=BATVoltageLimit)//Battery voltage too low, turn off the power bus
@@ -877,6 +916,7 @@ void Device_MotorController_Process()
  			BATRecoveryTimerCount=0;
  			BATRecoveryTimerEnabled=True;
  			BATRecoveryTimerExpired=False;
+			//block_ms(10000);
  		}
  		#endif
  	}
@@ -1158,7 +1198,7 @@ void I2C2Update()
  		case 7://wait for transmit to complete
  			if(I2C2STATbits.IWCOL==1)//write collision occurs, go to the first step
  			{
- 			 	REG_MOTOR_TEMP_STATUS.left==0;
+ 			 	REG_MOTOR_TEMP_STATUS.left=0;
  			}
  			if(I2C2STATbits.TRSTAT==0)// wait for the transmitting to complete
  			{
@@ -2284,9 +2324,9 @@ void InterruptIni()
  	T4InterruptUserFunction=Motor_T4Interrupt;
  	T5InterruptUserFunction=Motor_T5Interrupt;
  	IC1InterruptUserFunction=Motor_IC1Interrupt;
- 	IC2InterruptUserFunction=Motor_IC2Interrupt;
+// 	IC2InterruptUserFunction=Motor_IC2Interrupt;
  	IC3InterruptUserFunction=Motor_IC3Interrupt;
- 	IC4InterruptUserFunction=Motor_IC4Interrupt;
+ //	IC4InterruptUserFunction=Motor_IC4Interrupt;
  	//IC5InterruptUserFunction=Motor_IC5Interrupt;
  	//IC6InterruptUserFunction=Motor_IC6Interrupt;
  	ADC1InterruptUserFunction=Motor_ADC1Interrupt;
@@ -2685,7 +2725,8 @@ void PWM9Duty(int Duty)
 void IniTimer1()
 {
 	T1CON=0x0000;//clear register
-	T1CONbits.TCKPS=0b01;//timer stops,1:8 prescale,
+ 	T1CONbits.TCKPS=0b00;//1:1 prescale
+	//T1CONbits.TCKPS=0b01;//timer stops,1:8 prescale,
 	TMR1=0;//clear timer1 register
 	PR1=Period1000Hz;//interrupt every 1ms
 	T1CONbits.TON=SET;
@@ -2832,7 +2873,7 @@ void IniIC2()
 //9. Enable the selected trigger/sync source.
 
 	IFS0bits.IC2IF=CLEAR;//clear the interrupt flag	
-	IEC0bits.IC2IE=SET;//start interrupt
+//	IEC0bits.IC2IE=SET;//start interrupt
 }
 void IniIC3()
 {
@@ -2926,7 +2967,7 @@ void IniIC4()
 //9. Enable the selected trigger/sync source.
 
 	IFS2bits.IC4IF=CLEAR;//clear the interrupt flag	
-	IEC2bits.IC4IE=SET;//start the interrupt
+//	IEC2bits.IC4IE=SET;//start the interrupt
 }
 
 
@@ -2975,7 +3016,7 @@ void IniIC5()
 //9. Enable the selected trigger/sync source.
 
 	IFS2bits.IC5IF=CLEAR;//clear the interrupt flag	
-	IEC2bits.IC5IE=SET;//start the interrupt
+//	IEC2bits.IC5IE=SET;//start the interrupt
 }
 
 void IniIC6()
@@ -3017,7 +3058,7 @@ void IniIC6()
 //9. Enable the selected trigger/sync source.
 
 	IFS2bits.IC6IF=CLEAR;//clear the interrupt flag	
-	IEC2bits.IC6IE=SET;//start the interrupt	
+//	IEC2bits.IC6IE=SET;//start the interrupt	
 
 }
 
@@ -3121,7 +3162,7 @@ void  Motor_IC1Interrupt(void)
 	Encoder_Interrupt_Counter[LMotor]++; 	 	
 }
 
-void  Motor_IC2Interrupt(void)
+/*void  Motor_IC2Interrupt(void)
 {
  	long temp1;
  	IFS0bits.IC2IF=0;//clear the interrupt flag
@@ -3144,7 +3185,7 @@ void  Motor_IC2Interrupt(void)
  		EnCount[LMotor]+=DIR[LMotor][EncoderFBIntervalPointer[LMotor]];
 	}
 	 	
-}
+}*/
 
 void  Motor_IC3Interrupt(void)
 {
@@ -3167,7 +3208,7 @@ void  Motor_IC3Interrupt(void)
 	Encoder_Interrupt_Counter[RMotor]++; 
 }
 
-void  Motor_IC4Interrupt(void)
+/*void  Motor_IC4Interrupt(void)
 {
  	long temp1;
  	IFS2bits.IC4IF=0;//clear the flag
@@ -3188,9 +3229,9 @@ void  Motor_IC4Interrupt(void)
  	 	}
  		EnCount[RMotor]+=DIR[RMotor][EncoderFBIntervalPointer[RMotor]];
 	}
-}
+}*/
 
-void  Motor_IC5Interrupt(void)
+/*void  Motor_IC5Interrupt(void)
 {
 
 	static unsigned int IC5LastValue = 0;
@@ -3233,7 +3274,7 @@ void  Motor_IC6Interrupt(void)
 	}	
 	IC6LastValue=IC6CurrentValue;
 
-}
+}*/
 
 
 void  Motor_T4Interrupt(void)
