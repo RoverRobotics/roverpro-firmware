@@ -422,7 +422,10 @@ void DeviceOcuProcessIO()
 		dummy = PORTB;
 		_CNIF = 0;	
 		_CNIE = 1;	
-		Sleep();
+		//when watchdog wakes up OCU, make sure that
+		//we go right back to sleep, to save power
+		while(POWER_BUTTON() == 0)
+			Sleep();
 		_CNIE = 0;
 		_CNIF = 0;
 		dummy = PORTD;
@@ -430,8 +433,6 @@ void DeviceOcuProcessIO()
 		init_io();
 		block_ms(50);
 	}
-
-
 
 	handle_power_button();
 	update_button_states();
