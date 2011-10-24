@@ -10,6 +10,8 @@ unsigned char robot_moving_flag = 0;
 
 unsigned char OCU_battery_voltage = 0x00;
 
+unsigned char ocu_robot_talk;
+
 void reset_motor_controllers(void);
 
 /*****************************************************************************
@@ -18,7 +20,7 @@ void reset_motor_controllers(void);
 void Update_Robot_Commands(unsigned char disable_driving)
 {
 	unsigned char L_LR,L_UD,R_LR,R_UD;
-	unsigned char led_on, ocu_robot_talk, payload_button, flipper_up, flipper_down, left_trigger, right_trigger, select1, select0;
+	unsigned char led_on, payload_button, flipper_up, flipper_down, left_trigger, right_trigger, select1, select0;
 	static unsigned char payload_button_counter = 0;
 
 

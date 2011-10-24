@@ -3,6 +3,7 @@
 unsigned int T3_Interrupt_Count;
 unsigned int last_T3_Interrupt_Count;
 unsigned int Current_Interrupt_Count = 0;
+unsigned int Jumpiness_Interrupt_Count = 0;
 int Max_Speed = 25;
 
 void speed_control_loop_quadrants(char motors_off)
@@ -617,5 +618,6 @@ void  __attribute__((__interrupt__, auto_psv)) _T3Interrupt(void)
 		IFS0bits.T3IF = 0;	//clear interrupt flag
 		T3_Interrupt_Count++;
 		Current_Interrupt_Count++;
+		Jumpiness_Interrupt_Count++;
 
 }

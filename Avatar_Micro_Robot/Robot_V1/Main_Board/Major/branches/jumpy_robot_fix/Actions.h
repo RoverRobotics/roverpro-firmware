@@ -12,4 +12,4 @@ extern unsigned char robot_moving_flag;
 #define AUDIO_DEADBAND_OFF 8
 
 extern unsigned char OCU_battery_voltage;
-
+extern unsigned char ocu_robot_talk;

@@ -28,6 +28,7 @@ unsigned char first_datalink_message_received = 0;
 unsigned char disable_driving = 0;
 unsigned char voltage_not_updated_counter = 0;
 unsigned char trigger_reset = 0;
+unsigned char audio_pulse_state = 0;
 
 	//block_ms(250);
 
@@ -200,6 +201,15 @@ unsigned char trigger_reset = 0;
 
 	//void send_reset_registers(void);
 	set_stored_address();
+
+
+
+
+	Audio_pin = 0;
+	Amp_pin = 0;
+	Mic_pin = 0;
+
+
     while(1)
     {
 		//if(trigger_reset == 0)
@@ -207,6 +217,37 @@ unsigned char trigger_reset = 0;
 			kick_watchdogs();
 		//}
 		//ClrWdt();
+
+
+		if(Jumpiness_Interrupt_Count > 200)
+		{
+			Jumpiness_Interrupt_Count = 0;
+
+			if( (ocu_robot_talk == 0) && robot_moving_flag)
+			{
+				//turn off audio transmitter
+				if(audio_pulse_state)
+				{
+					audio_pulse_state = 1;
+
+					Audio_pin = 1;
+					Amp_pin = 0;
+					Mic_pin = 0;
+				}
+				//turn on audio transmitter, but turn off audio sources
+				else
+				{
+					audio_pulse_state = 0;
+
+					Audio_pin = 0;
+					Amp_pin = 0;
+					Mic_pin = 0;
+				}
+
+			}
+
+
+		}
 
 		if(increment_minute_flag)
 		{

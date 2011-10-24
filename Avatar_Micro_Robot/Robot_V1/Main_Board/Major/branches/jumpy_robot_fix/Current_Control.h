@@ -39,4 +39,5 @@ extern int Max_Speed;
 //This is used for measuring current
 extern unsigned int T3_Interrupt_Count;
 extern unsigned int last_T3_Interrupt_Count;
+extern unsigned int Jumpiness_Interrupt_Count;
 
