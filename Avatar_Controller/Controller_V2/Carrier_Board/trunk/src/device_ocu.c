@@ -82,8 +82,8 @@
 
 #define LCD_PWM_OR			_RP25R
 
-#define LCD_BACK_ON(a)	TRISDbits.TRISD4 = !a
-#define LCD_BACK_ON(a)	LATDbits.LATD4 = a
+/*#define LCD_BACK_ON(a)	TRISDbits.TRISD4 = !a
+#define LCD_BACK_ON(a)	LATDbits.LATD4 = a*/
 
 
 #define TOUCH_CONTROLLER_I2C_ADD 0x4d
@@ -241,14 +241,14 @@ void DeviceOcuInit()
 	const unsigned char build_date[12] = __DATE__; 
 	const unsigned char build_time[12] = __TIME__;
 
-/*	for(i=0;i<12;i++)
+	for(i=0;i<12;i++)
 	{
 		REG_OCU_FIRMWARE_BUILD.data[i] = build_date[i];
 		REG_OCU_FIRMWARE_BUILD.data[i+12] = build_time[i];
-	}*/
+	}
 
-	for(i=0;i<24;i++)
-	REG_OCU_FIRMWARE_BUILD.data[i] = 0xaa;
+/*	for(i=0;i<24;i++)
+	REG_OCU_FIRMWARE_BUILD.data[i] = 0xaa;*/
 
 	//Sleep();
 /*	while(!POWER_BUTTON());

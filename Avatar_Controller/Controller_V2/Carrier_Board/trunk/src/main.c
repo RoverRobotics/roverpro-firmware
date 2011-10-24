@@ -14,13 +14,13 @@
  */
 
 #include "stdhdr.h"
-#include "device_generic.h"
-#include "device_robot_motor.h"
+/*#include "device_generic.h"
+#include "device_robot_motor.h"*/
 #include "device_ocu.h"
-#include "device_carrier.h"
+/*#include "device_carrier.h"
 #include "device_arm_base.h"
 #include "device_arm_sholder.h"
-#include "device_arm_hand.h"
+#include "device_arm_hand.h"*/
 
 #include "SA1xLibrary/SA_API.h"
 
@@ -29,13 +29,15 @@
 // PIC24FJ256GB106 FLASH CONFIGURATION
 // -------------------------------------------------------------------------
 
-_CONFIG1( JTAGEN_OFF & GCP_OFF & GWRP_OFF & COE_OFF & FWDTEN_ON & ICS_PGx2 & WDTPS_PS32768) 
+_CONFIG1( JTAGEN_OFF & GCP_OFF & GWRP_OFF & COE_OFF & FWDTEN_ON & ICS_PGx2 & WDTPS_PS8192) 
 _CONFIG2( IESO_OFF & FCKSM_CSDCMD & OSCIOFNC_ON & POSCMOD_HS &
           FNOSC_PRIPLL & PLLDIV_DIV5 & IOL1WAY_ON)
 /*_CONFIG1( JTAGEN_OFF & GCP_OFF & GWRP_OFF & COE_OFF & FWDTEN_OFF & ICS_PGx2) 
 _CONFIG2( IESO_OFF & FCKSM_CSDCMD & OSCIOFNC_ON & POSCMOD_HS &
           FNOSC_FRCPLL & PLLDIV_DIV2 & IOL1WAY_ON)*/
 
+
+//WDTPS_PS8192 - times out after about 33s
 
 // -------------------------------------------------------------------------
 // GLOBAL VARIABLES
@@ -215,28 +217,22 @@ static void InitializeSystem(void)
 			break;
 
 		case DEVICE_CARRIER:
-			DeviceCarrierInit();
 			break;
 
 		case DEVICE_MOTOR:
-			DeviceRobotMotorInit();
 			break;
 
 		case DEVICE_ARM_BASE:
-			DeviceArmBaseInit();
 			break;
 
 		case DEVICE_ARM_SHOLDER:
-			DeviceArmSholderInit();
 			break;
 
 		case DEVICE_ARM_HAND:
-			DeviceArmHandInit();
 			break;
 
 		case DEVICE_GENERIC:
 		default:
-			DeviceGenericInit();
 			break;
 	}
 
@@ -256,6 +252,8 @@ void ProcessIO(void)
 	uint16_t i = 0;
 	uint16_t j;
 
+	ClrWdt();
+
 	// ---------------------------------------------------------------------
 	// DEVICE SPECIFIC I/O PROCESS HERE
 	// ---------------------------------------------------------------------
@@ -267,28 +265,22 @@ void ProcessIO(void)
 			break;
 
 		case DEVICE_CARRIER:
-			DeviceCarrierProcessIO();
 			break;
 
 		case DEVICE_MOTOR:
-			Device_MotorController_Process();
 			break;
 
 		case DEVICE_ARM_BASE:
-			DeviceArmBaseProcessIO();
 			break;
 
 		case DEVICE_ARM_SHOLDER:
-			DeviceArmSholderProcessIO();
 			break;
 
 		case DEVICE_ARM_HAND:
-			DeviceArmHandProcessIO();
 			break;
 
 		case DEVICE_GENERIC:
 		default:
-			DeviceGenericProcessIO();
 			break;
 	}
 
