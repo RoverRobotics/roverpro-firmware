@@ -424,8 +424,15 @@ void DeviceOcuProcessIO()
 		_CNIE = 1;	
 		//when watchdog wakes up OCU, make sure that
 		//we go right back to sleep, to save power
-		while(POWER_BUTTON() == 0)
+		while( (POWER_BUTTON() == 0) && (CHARGER_ACOK() == 0) )
+		{
 			Sleep();
+			//reset interrupts so that we get woken up again
+			dummy = PORTD;
+			dummy = PORTB;
+			_CNIF = 0;	
+			_CNIE = 1;	
+		}
 		_CNIE = 0;
 		_CNIF = 0;
 		dummy = PORTD;
