@@ -189,7 +189,7 @@ unsigned int LEncoderCurrentValue=0;
 unsigned int REncoderLastValue=0;
 unsigned int REncoderCurrentValue=0;
 
-unsigned long Encoder_Interrupt_Counter[2] = {0,0};
+long Encoder_Interrupt_Counter[2] = {0,0};
 
 long EncoderFBInterval[3][SampleLength]={{0,0,0,0},{0,0,0,0},{0,0,0,0}};
 int DIR[3][SampleLength]={{0,0,0,0},{0,0,0,0},{0,0,0,0}};
@@ -500,7 +500,7 @@ void GetRPM(int Channel)
 
  	if(ltemp1>0)
  	{
- 	 	ENRPM=24000000/ltemp1;
+ 	 	ENRPM=24000000/(ltemp1>>ShiftBits);
 		//T4
 
  	}
@@ -526,14 +526,29 @@ void GetRPM(int Channel)
 
 	}
 
-	CurrentRPM[Channel]=ENRPM*ENDIR;
 
+	CurrentRPM[Channel]=ENRPM*ENDIR;
 
 	//if the input capture interrupt hasn't been called, the motors are not moving
  	if(Encoder_Interrupt_Counter[Channel] == LastEnCount[Channel])
  	{
  	 	CurrentRPM[Channel]=0;		
  	}
+	//otherwise, update the RPM
+	else
+	{
+
+		if(Channel == 0)
+		{
+			REG_MOTOR_FB_RPM.left=CurrentRPM[LMotor];
+		}
+		else if(Channel == 1)
+		{
+			REG_MOTOR_FB_RPM.right=CurrentRPM[RMotor];
+		}
+
+			
+	}
 
 	LastEnCount[Channel] = Encoder_Interrupt_Counter[Channel];
 
@@ -846,8 +861,8 @@ void Device_MotorController_Process()
  		SFREGUpdateTimerExpired=False;
 	 	//update all the software registers
  		//
- 		REG_MOTOR_FB_RPM.left=CurrentRPM[LMotor];
- 		REG_MOTOR_FB_RPM.right=CurrentRPM[RMotor];
+ 		/*REG_MOTOR_FB_RPM.left=CurrentRPM[LMotor];
+ 		REG_MOTOR_FB_RPM.right=CurrentRPM[RMotor];*/
  		//update flipper motor position
  		temp1=0;
  		temp2=0;
@@ -1991,37 +2006,88 @@ void ServoInput()
 int speed_control_loop(unsigned char i, int desired_speed)
 {
 	static int motor_speed[3] = {0,0,0};
+	static int motor_rpm[3] = {0,0,0};
 
-	if(desired_speed == 0)
-	{
-		motor_speed[i] = 0;
-		return 0;
-	}
 
-	if(motor_speed[i] < desired_speed)
+	if(i != 2)
 	{
-	motor_speed[i]++;
-	if(motor_speed[i] >= desired_speed)
-		motor_speed[i] = desired_speed;
-	}
-	else if (motor_speed[i] > desired_speed)
-	{
-		motor_speed[i]--;
-		if(motor_speed[i] <= desired_speed)
-			motor_speed[i] = desired_speed;
-	}
 
+		//motor_rpm[i] = CurrentRPM[i];
+		if(i==0)
+			motor_rpm[i] = REG_MOTOR_FB_RPM.left;
+		else
+			motor_rpm[i] = REG_MOTOR_FB_RPM.right;
+		if(desired_speed == 0)
+		{
+			motor_rpm[i] = 0;
+			return 0;
+		}
+	
+		if(motor_rpm[i] < desired_speed)
+		{
+		motor_speed[i]++;
+		//if(motor_rpm[i] >= desired_speed)
+			//motor_speed[i] = desired_speed;
+		if(motor_speed[i] > 1000)
+			motor_speed[i] = 1000;
+		}
+		else if (motor_rpm[i] > desired_speed)
+		{
+			motor_speed[i]--;
+			//if(motor_speed[i] <= desired_speed)
+			//	motor_speed[i] = desired_speed;
+			if(motor_speed[i] < -1000)
+				motor_speed[i] = -1000;
+		}
 	
 		
-	if(OverCurrent)
-	{
-		motor_speed[0] = 0;
-		motor_speed[1] = 0;
-		motor_speed[2] = 0;
+			
+		if(OverCurrent)
+		{
+			motor_speed[0] = 0;
+			motor_speed[1] = 0;
+			motor_speed[2] = 0;
+	
+		}
+	
+		return motor_speed[i];
+
 
 	}
+	else
+	{
 
-	return motor_speed[i];
+		if(desired_speed == 0)
+		{
+			motor_speed[i] = 0;
+			return 0;
+		}
+	
+		if(motor_speed[i] < desired_speed)
+		{
+		motor_speed[i]++;
+		if(motor_speed[i] >= desired_speed)
+			motor_speed[i] = desired_speed;
+		}
+		else if (motor_speed[i] > desired_speed)
+		{
+			motor_speed[i]--;
+			if(motor_speed[i] <= desired_speed)
+				motor_speed[i] = desired_speed;
+		}
+	
+		
+			
+		if(OverCurrent)
+		{
+			motor_speed[0] = 0;
+			motor_speed[1] = 0;
+			motor_speed[2] = 0;
+	
+		}
+	
+		return motor_speed[i];
+	}
 
 }
 
@@ -2040,8 +2106,8 @@ void USBInput()
 	if(control_loop_counter > 5)
 	{
 		control_loop_counter = 0;
-	 	Robot_Motor_TargetSpeedUSB[0]=speed_control_loop(0,REG_MOTOR_VELOCITY.left);
-	 	Robot_Motor_TargetSpeedUSB[1]=speed_control_loop(1,REG_MOTOR_VELOCITY.right);
+	 	Robot_Motor_TargetSpeedUSB[0]=speed_control_loop(0,REG_MOTOR_VELOCITY.left*10);
+	 	Robot_Motor_TargetSpeedUSB[1]=speed_control_loop(1,REG_MOTOR_VELOCITY.right*10);
 		Robot_Motor_TargetSpeedUSB[2]=speed_control_loop(2,REG_MOTOR_VELOCITY.flipper);
 	}
 
