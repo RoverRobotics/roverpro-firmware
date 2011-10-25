@@ -227,6 +227,8 @@ int InitialCellVoltage[2]={0,0};
 int CellVoltage[2]={0,0};
 int CellVoltageArray[2][SampleLength];
 int CellVoltageArrayPointer=0;
+int Cell_A_Current[SampleLength];
+int Cell_B_Current[SampleLength];
 //float SpeedCtrlKp[4][3]={{0.0002,0.0002,0.0002},{0.09,0.09,0.09},{0.09,0.09,0.09},{0.09,0.09,0.09}};//SpeedCtrlKp[i][j],i- control mode, j-LMotor, Right Motor, Flipper
 float SpeedCtrlKp[4][3]={{0.2,0.2,0.2},{0.03,0.03,0.03},{0.09,0.09,0.09},{0.09,0.09,0.09}};//SpeedCtrlKp[i][j],i- control mode, j-LMotor, Right Motor, Flipper
 float SpeedCtrlKi[4][3]={{0.01,0.01,0.01},{0.001,0.001,0.001},{0.2,0.2,0.2},{0.2,0.2,0.2}};
@@ -499,6 +501,8 @@ void GetRPM(int Channel)
  	if(ltemp1>0)
  	{
  	 	ENRPM=24000000/ltemp1;
+		//T4
+
  	}
  	else
  	{
@@ -894,18 +898,35 @@ void Device_MotorController_Process()
  		temp2=0;
  		for(i=0;i<SampleLength;i++)
  		{
- 			temp1+=CellVoltageArray[Cell_A][i];
- 			temp2+=CellVoltageArray[Cell_B][i];
+ 		/*	temp1+=CellVoltageArray[Cell_A][i];
+ 			temp2+=CellVoltageArray[Cell_B][i];*/
+			temp1+=Cell_A_Current[i];
+			temp2+=Cell_B_Current[i];
  		}
- 		REG_PWR_BAT_VOLTAGE.a=temp1>>ShiftBits;
+ 	/*	REG_PWR_BAT_VOLTAGE.a=temp1>>ShiftBits;
  		REG_PWR_BAT_VOLTAGE.b=temp2>>ShiftBits;
  		REG_PWR_BAT_VOLTAGE.a=CellVoltageArray[Cell_A][0];
- 		REG_PWR_BAT_VOLTAGE.b=temp2>>ShiftBits;
+ 		REG_PWR_BAT_VOLTAGE.b=temp2>>ShiftBits;*/
 
 
  		BATVolCheckingTimerExpired=False;
  		#ifdef BATProtectionON
- 		if(REG_PWR_BAT_VOLTAGE.a<=BATVoltageLimit || REG_PWR_BAT_VOLTAGE.b<=BATVoltageLimit)//Battery voltage too low, turn off the power bus
+		//.01*.001mV/A * 11000 ohms = .11 V/A = 34.13 ADC counts/A
+		//set at 10A per side
+		if( ((temp1 >> ShiftBits) >= 512) || ( (temp2 >> ShiftBits) >=512))
+		{
+			Cell_Ctrl(Cell_A,Cell_OFF);
+ 			Cell_Ctrl(Cell_B,Cell_OFF);
+ 			ProtectHB(LMotor);
+			ProtectHB(RMotor);
+			ProtectHB(Flipper);
+ 			OverCurrent=True;
+ 			BATRecoveryTimerCount=0;
+ 			BATRecoveryTimerEnabled=True;
+ 			BATRecoveryTimerExpired=False;
+
+		}
+ /*		if(REG_PWR_BAT_VOLTAGE.a<=BATVoltageLimit || REG_PWR_BAT_VOLTAGE.b<=BATVoltageLimit)//Battery voltage too low, turn off the power bus
  		{
  			Cell_Ctrl(Cell_A,Cell_OFF);
  			Cell_Ctrl(Cell_B,Cell_OFF);
@@ -917,7 +938,7 @@ void Device_MotorController_Process()
  			BATRecoveryTimerEnabled=True;
  			BATRecoveryTimerExpired=False;
 			//block_ms(10000);
- 		}
+ 		}*/
  		#endif
  	}
  	if(BATRecoveryTimerExpired==True)
@@ -1967,14 +1988,62 @@ void ServoInput()
  	//printf("%u,%u,%u\n",Event[LMotor],Event[RMotor],Event[Flipper]);	
 }
 
+int speed_control_loop(unsigned char i, int desired_speed)
+{
+	static int motor_speed[3] = {0,0,0};
+
+	if(desired_speed == 0)
+	{
+		motor_speed[i] = 0;
+		return 0;
+	}
+
+	if(motor_speed[i] < desired_speed)
+	{
+	motor_speed[i]++;
+	if(motor_speed[i] >= desired_speed)
+		motor_speed[i] = desired_speed;
+	}
+	else if (motor_speed[i] > desired_speed)
+	{
+		motor_speed[i]--;
+		if(motor_speed[i] <= desired_speed)
+			motor_speed[i] = desired_speed;
+	}
+
+	
+		
+	if(OverCurrent)
+	{
+		motor_speed[0] = 0;
+		motor_speed[1] = 0;
+		motor_speed[2] = 0;
+
+	}
+
+	return motor_speed[i];
+
+}
+
 void USBInput()
 {
   	int i;
 	static int USB_New_Data_Received;
+	static unsigned int control_loop_counter = 0;
 	//update local usb message variable
- 	Robot_Motor_TargetSpeedUSB[0]=REG_MOTOR_VELOCITY.left; 
+ 	/*Robot_Motor_TargetSpeedUSB[0]=REG_MOTOR_VELOCITY.left; 
  	Robot_Motor_TargetSpeedUSB[1]=REG_MOTOR_VELOCITY.right;
-	Robot_Motor_TargetSpeedUSB[2]=REG_MOTOR_VELOCITY.flipper;
+	Robot_Motor_TargetSpeedUSB[2]=REG_MOTOR_VELOCITY.flipper;*/
+
+	control_loop_counter++;
+
+	if(control_loop_counter > 5)
+	{
+		control_loop_counter = 0;
+	 	Robot_Motor_TargetSpeedUSB[0]=speed_control_loop(0,REG_MOTOR_VELOCITY.left);
+	 	Robot_Motor_TargetSpeedUSB[1]=speed_control_loop(1,REG_MOTOR_VELOCITY.right);
+		Robot_Motor_TargetSpeedUSB[2]=speed_control_loop(2,REG_MOTOR_VELOCITY.flipper);
+	}
 
 	/*i=-500;
 	//i=20;
@@ -3379,6 +3448,7 @@ void  Motor_T5Interrupt(void)
 
 void  Motor_ADC1Interrupt(void)
 {
+	unsigned int temp = 0;
  	//stop the conversion
  	AD1CON1bits.ASAM=CLEAR;
  	
@@ -3400,8 +3470,10 @@ void  Motor_ADC1Interrupt(void)
  	MotorCurrentAD[LMotor][MotorCurrentADPointer]=ADC1BUF3;
  	MotorCurrentAD[RMotor][MotorCurrentADPointer]=ADC1BUF1;
  	MotorCurrentAD[Flipper][MotorCurrentADPointer]=ADC1BUFB;
-	Total_Cell_Current_Array[Total_Cell_Current_ArrayPointer]=ADC1BUF8+ADC1BUF9;
-	adc_test_reg = ADC1BUF9;
+	Cell_A_Current[Total_Cell_Current_ArrayPointer] = ADC1BUF8;
+	Cell_B_Current[Total_Cell_Current_ArrayPointer] = ADC1BUF9;
+	Total_Cell_Current_Array[Total_Cell_Current_ArrayPointer]=Cell_A_Current[Total_Cell_Current_ArrayPointer]+Cell_B_Current[Total_Cell_Current_ArrayPointer];
+	//adc_test_reg = ADC1BUF9;
  	CellVoltageArray[Cell_A][CellVoltageArrayPointer]=ADC1BUF6;
  	CellVoltageArray[Cell_B][CellVoltageArrayPointer]=ADC1BUF7;
  	TotalCurrent=MotorCurrentAD[LMotor][MotorCurrentADPointer]+MotorCurrentAD[RMotor][MotorCurrentADPointer]+MotorCurrentAD[Flipper][MotorCurrentADPointer];
