@@ -286,7 +286,7 @@ unsigned int adc_test_reg = 0;
 #endif
 
 
-
+void read_EEPROM_string(void);
 
 
 
@@ -636,12 +636,29 @@ void GetRPM(int Channel)
 
 }
 
+//reads PCB information from the EEPROM.  This is pretty inefficient, but it should only run once, while the COM Express
+//is booting.
+void read_EEPROM_string(void)
+{
+	unsigned int i;
+
+	for(i=0;i<79;i++)
+	{
+		REG_MOTOR_BOARD_DATA.data[i] = readI2C2_Reg(EEPROM_ADDRESS,i);
+		block_ms(5);
+
+	}
+
+
+}
+
+
 void Device_MotorController_Process()
 {
  	int i,j;
  	long temp1,temp2;
- 	I2C2Update();
-	I2C3Update();
+ 	/*I2C2Update();
+	I2C3Update();*/
  	//Check Timer
  	//Run control loop
 	if(IFS0bits.T1IF==SET)
@@ -849,12 +866,12 @@ void Device_MotorController_Process()
  	if(I2C2TimerExpired==True)
  	{
  		//update data on I2C3, reset the I2C data accquiring sequence
- 		//I2C2Update();
+ 		I2C2Update();
  	}
  	if(I2C3TimerExpired==True)
  	{
  		//update data on I2C3, reset the I2C data accquiring sequence
- 		//I2C3Update();
+ 		I2C3Update();
  	}
   	if(SFREGUpdateTimerExpired==True)
  	{
@@ -2449,6 +2466,9 @@ void MC_Ini(void)//initialzation for the whole program
   	TMPSensorICIni();
  	FANCtrlIni();
 
+
+	read_EEPROM_string();
+
 }
 
 void InterruptIni()
@@ -2492,22 +2512,22 @@ void I2C3ResigsterWrite(int8_t ICAddW, int8_t RegAdd, int8_t Data)
 void FANCtrlIni()
 {
  	//reset the IC
- 	I2C3ResigsterWrite(FANCtrlAddressW,0x02,0b01011000);
+ 	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x02,0b01011000);
 
  	//auto fan speed control mode
- 	I2C3ResigsterWrite(FANCtrlAddressW,0x11,0b00111100);
+ 	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x11,0b00111100);
 
  	//for FAN1 starting temperature
- 	I2C3ResigsterWrite(FANCtrlAddressW,0x0F,Fan1LowTemp);
+ 	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x0F,Fan1LowTemp);
 
  	//for FAN2 starting temperature
- 	I2C3ResigsterWrite(FANCtrlAddressW,0x10,Fan2LowTemp);
+ 	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x10,Fan2LowTemp);
 
  	//for duty-cycle step
- 	I2C3ResigsterWrite(FANCtrlAddressW,0x13,0b11111111);
+ 	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x13,0b11111111);
 
  	//for duty-cycle change rate
- 	I2C3ResigsterWrite(FANCtrlAddressW,0x12,0b00100100);
+ 	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x12,0b00100100);
 	
 }
 
