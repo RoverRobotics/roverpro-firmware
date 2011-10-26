@@ -29,7 +29,7 @@ typedef struct { uint16_t deg, min, sec; } GPS_VECT;
 typedef struct { GPS_VECT lat, lon; } GPS_DATA;
 typedef struct {uint8_t data[100]; } GPS_MESSAGE;
 typedef struct {uint8_t data[24]; } FIRMWARE_BUILD_STRING;
-typedef struct {uint8_t data[78]; } BOARD_DATA;
+typedef struct {uint8_t data[79]; } BOARD_DATA;
 typedef struct { uint32_t length, magic; } UPDATE_FIRMWARE; // magic = 0x2345BCDE
 
 #endif
@@ -129,6 +129,11 @@ REGISTER( REG_OCU_FIRMWARE_BUILD,   DEVICE_READ,  DEVICE_OCU,   SYNC,    FIRMWAR
 REGISTER( REG_ROBOT_FIRMWARE_BUILD,   DEVICE_READ,  DEVICE_OCU,   NO_SYNC,    FIRMWARE_BUILD_STRING)
 REGISTER( REG_ROBOT_GPS_MESSAGE,        DEVICE_READ,  DEVICE_OCU, NO_SYNC,    GPS_MESSAGE )
 REGISTER( REG_ROBOT_BOARD_DATA,        DEVICE_READ,  DEVICE_OCU, NO_SYNC,    BOARD_DATA )
+
+REGISTER( REG_ROBOT_REL_SOC_A, DEVICE_READ,  DEVICE_OCU, SYNC,        int16_t )
+REGISTER( REG_ROBOT_REL_SOC_B, DEVICE_READ,  DEVICE_OCU, SYNC,        int16_t )
+
+REGISTER( REG_MOTOR_BOARD_DATA,        DEVICE_READ,  DEVICE_MOTOR, NO_SYNC,    BOARD_DATA )
 
    
 REGISTER_END()
