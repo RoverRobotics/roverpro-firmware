@@ -182,7 +182,7 @@ void DeviceCarrierInit()
 
 	Sleep();
 
-
+	ClrWdt();
 	//wait some time to stabilize voltages
 	block_ms(50);
 //	while(POWER_BUTTON());
@@ -218,7 +218,7 @@ void DeviceCarrierInit()
 
 
 //keep trying to boot COM Express until successful
-/*while (1)
+while (1)
 	{
 
 		if(DeviceCarrierBoot() == 0)
@@ -226,21 +226,21 @@ void DeviceCarrierInit()
 		else
 			break;
 	}
-*/
+
 	
 	//in case the above is commented out (no COM Express)
-	V3V3_ON(1);
-	V5_ON(1);
+/*	V3V3_ON(1);
+	V5_ON(1);*/
 	
 
-
+	ClrWdt();
 	VBAT_DIGI_ON(1);
 	block_ms(100);
 	V12_ON(1);
 	CODEC_PWR_ON(1);
 	MIC_PWR_ON(1);
 	AMP_PWR_ON(1);
-
+	ClrWdt();
 
 
 
@@ -248,6 +248,7 @@ void DeviceCarrierInit()
 
 
 	block_ms(100);
+	ClrWdt();
 
 	writeI2CReg( HMC5843_ADDRESS, 0x02,0x00);
 	block_ms(5);
@@ -406,6 +407,7 @@ void read_EEPROM_string(void)
 
 	for(i=0;i<78;i++)
 	{
+		ClrWdt();
 		REG_ROBOT_BOARD_DATA.data[i] = readI2C_Reg(EEPROM_ADDRESS,i);
 		block_ms(5);
 
@@ -641,10 +643,11 @@ int DeviceCarrierBoot()
 	{
 		i++;
 		if(i > 5) return 0;
+		ClrWdt();
 		block_ms(100);
 	}
 	i=0;
-
+	ClrWdt();
 	block_ms(100);
 
 	//while(!V5_PGOOD());
@@ -653,6 +656,7 @@ int DeviceCarrierBoot()
 	{
 		i++;
 		if(i > 20) return 0;
+		ClrWdt();
 		block_ms(100);
 
 	}
@@ -664,6 +668,7 @@ int DeviceCarrierBoot()
 	{
 		i++;
 		if(i > 20) return 0;
+		ClrWdt();
 		block_ms(100);
 	}
 	
