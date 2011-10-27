@@ -4,6 +4,7 @@
 #include "Controller.h"
 #include "Timers.h"
 #include "Audio.h"
+#include "joystick_trimming.h"
 
 void generate_OCU_address(void);
 void remove_OCU_address(void);
@@ -53,6 +54,7 @@ void set_stored_address(void)
 		OCU_ADDRESS_LSB = stored_address[1];
 		ROBOT_ADDRESS_MSB = stored_address[0];
 		ROBOT_ADDRESS_LSB = stored_address[1];
+		joystick_trim_factor = DataEERead(5);
 
 
 	}
@@ -62,6 +64,12 @@ void set_stored_address(void)
 		look_for_code();
 		return;
 	}	
+	else if(LEFT_TRIGGER && RIGHT_TRIGGER && PAYLOAD_BUTTON)
+	{
+
+		joystick_trimming_loop();
+
+	}
 
 
 }
@@ -123,6 +131,11 @@ void generate_OCU_address(void)
 //	so we know that the address has been written for
 //	the first time.
 	DataEEWrite(0xAA,4);
+
+	Nop();
+
+	//write 0 for the trim factor
+	DataEEWrite(0x00,5);
 
 	Nop();
 

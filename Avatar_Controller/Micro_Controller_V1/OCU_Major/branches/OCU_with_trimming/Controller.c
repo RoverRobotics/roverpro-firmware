@@ -1,6 +1,7 @@
 #include "include/Compiler.h"
 #include "Controller.h"
 #include "Audio.h"
+#include "joystick_trimming.h"
 
 #define INPUT 1
 
@@ -80,6 +81,7 @@ void Construct_Controller_Message(void)
 	static unsigned char last_light_button;
 	static unsigned char last_light_state = OFF;
 	unsigned char battery_voltage = 0;
+	unsigned int trimmed_joystick_LH = 127;
 
 
 //header bytes
@@ -104,6 +106,12 @@ void Construct_Controller_Message(void)
 
 	Datalink_Send_Buffer[8] = 255-Read_Joystick_Value(RIGHT_JOYSTICK,HORIZONTAL_AXIS);
 	Datalink_Send_Buffer[9] = Read_Joystick_Value(RIGHT_JOYSTICK,VERTICAL_AXIS);
+
+
+	//apply trim factor
+	trimmed_joystick_LH = Datalink_Send_Buffer[6] + joystick_trim_factor * (127-(int)Datalink_Send_Buffer[7]) / 20;
+	Datalink_Send_Buffer[6] = trimmed_joystick_LH;
+
 
 
 
