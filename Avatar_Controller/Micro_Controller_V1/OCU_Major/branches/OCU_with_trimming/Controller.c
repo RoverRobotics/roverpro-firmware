@@ -109,7 +109,11 @@ void Construct_Controller_Message(void)
 
 
 	//apply trim factor
-	trimmed_joystick_LH = Datalink_Send_Buffer[6] + joystick_trim_factor * (127-(int)Datalink_Send_Buffer[7]) / 20;
+	if(Datalink_Send_Buffer[7] > 127)
+		trimmed_joystick_LH = Datalink_Send_Buffer[6] + joystick_trim_factor * (127-(int)Datalink_Send_Buffer[7]) / 20;
+	else
+		trimmed_joystick_LH = Datalink_Send_Buffer[6];
+
 	Datalink_Send_Buffer[6] = trimmed_joystick_LH;
 
 

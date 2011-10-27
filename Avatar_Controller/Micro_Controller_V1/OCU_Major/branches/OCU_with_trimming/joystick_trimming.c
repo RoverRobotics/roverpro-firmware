@@ -20,10 +20,10 @@ void joystick_trimming_loop(void)
 
 	//we want the same address for 
 	//debugging -- remove this later.
-	OCU_ADDRESS_MSB = 0xAB;
+	/*OCU_ADDRESS_MSB = 0xAB;
 	OCU_ADDRESS_LSB = 0xCD;
 	ROBOT_ADDRESS_MSB = 0xAB;
-	ROBOT_ADDRESS_LSB = 0xCD;
+	ROBOT_ADDRESS_LSB = 0xCD;*/
 
 	while(1)
 	{
@@ -32,6 +32,9 @@ void joystick_trimming_loop(void)
 
 		Construct_Controller_Message();	
 		
+		//disable flipper command when in trimming mode
+		Datalink_Send_Buffer[10] = 0x00;
+
 		Datalink_Message_Send();
 
 		if(FLIPPER_UP)
