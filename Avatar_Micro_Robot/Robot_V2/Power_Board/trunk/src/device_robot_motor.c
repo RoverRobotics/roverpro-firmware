@@ -2026,7 +2026,7 @@ int speed_control_loop(unsigned char i, int desired_speed)
 	static int motor_rpm[3] = {0,0,0};
 
 
-	if(i != 2)
+/*	if(i != 2)
 	{
 
 		//motor_rpm[i] = CurrentRPM[i];
@@ -2072,7 +2072,7 @@ int speed_control_loop(unsigned char i, int desired_speed)
 
 	}
 	else
-	{
+	{*/
 
 		if(desired_speed == 0)
 		{
@@ -2104,7 +2104,7 @@ int speed_control_loop(unsigned char i, int desired_speed)
 		}
 	
 		return motor_speed[i];
-	}
+//	}
 
 }
 
@@ -2123,8 +2123,8 @@ void USBInput()
 	if(control_loop_counter > 5)
 	{
 		control_loop_counter = 0;
-	 	Robot_Motor_TargetSpeedUSB[0]=speed_control_loop(0,REG_MOTOR_VELOCITY.left*10);
-	 	Robot_Motor_TargetSpeedUSB[1]=speed_control_loop(1,REG_MOTOR_VELOCITY.right*10);
+	 	Robot_Motor_TargetSpeedUSB[0]=speed_control_loop(0,REG_MOTOR_VELOCITY.left);
+	 	Robot_Motor_TargetSpeedUSB[1]=speed_control_loop(1,REG_MOTOR_VELOCITY.right);
 		Robot_Motor_TargetSpeedUSB[2]=speed_control_loop(2,REG_MOTOR_VELOCITY.flipper);
 	}
 
@@ -2222,22 +2222,11 @@ void PinRemap(void)
 	// Assign IC1 To L_Encoder_A
 	RPINR7bits.IC1R = M1_TACHO_RPn; 
 	
-	// Assign IC2 To L_Encoder_B
-//	RPINR7bits.IC2R = M2_TACHO_RPn;
 
 	// Assign IC3 To Encoder_R1A
 	RPINR8bits.IC3R = M2_TACHO_RPn;
 	
-/*
-	// Assign IC5 To LMotor_In
-	RPINR9bits.IC5R = Servo1_Input_RPn;
 
-	// Assign IC6 To RMotor_In
-	RPINR9bits.IC6R = Servo2_Input_RPn;
-
-	// Assign U1RX To U1RX, Uart receive channnel
-	RPINR18bits.U1RXR = U1RX_RPn;
-*/
  	#ifdef XbeeTest
  	// Assign U1RX To U1RX, Uart receive channnel
 		RPINR18bits.U1RXR = U1RX_RPn;
@@ -2379,44 +2368,8 @@ void MC_Ini(void)//initialzation for the whole program
 		M3_BRAKE_EN(1);
 		M3_MODE_EN(1);
 		M3_COAST_EN(1);
-		
 
-/*	AD1PCFGL|=0b1111000000001000;
-	AD1PCFGL&=0b1111000011001111;
-	
-	//PORTB
-	TRISB&=0b0011111111111111;	
-	TRISB|=0b0011111100111000;
-	
-	//PORTC
-	TRISC&=0b1001111111111111;	
-	//TRISC|=0b0000000000000000;
 
-	//PORTD
-	TRISD&=0b1111010011111100;	
-	TRISD|=0b0000010011111100;
-
-	//PORTE
-	TRISE&=0b1111111111011111;	
-	//TRISE|=0b0000000000100000;
-
-	//PORTF
-	TRISF&=0b1111111111110111;	
-	//TRISF|=0b0000000000000000;	
-
-	//PORTG
-	TRISG&=0b1111110000111111;	
-	//TRISG|=0b0000000000000000;	
-	*/
-
-//Xbee testing code, remove after testing is done
-	#ifdef XbeeTest
- 	/*	TRISFbits.TRISF5=0;//RF5 output
- 		TRISDbits.TRISD9=0;//RD9 output
- 		TRISDbits.TRISD10=1;//RD10 input	*/
- 	#endif
-
-//
 
 
  	//I/O initializing complete
@@ -2424,8 +2377,7 @@ void MC_Ini(void)//initialzation for the whole program
 
 	bringup_board();
 
-// 	Cell_Ctrl(Cell_A,Cell_ON);
-// 	Cell_Ctrl(Cell_B,Cell_ON);
+
  	//Initialize motor drivers
  	M1_MODE=1;
  	M2_MODE=1;
@@ -2451,11 +2403,9 @@ void MC_Ini(void)//initialzation for the whole program
 	PWM9Ini();
 	//initialize input capture
 	IniIC1();
-	IniIC2();
 	IniIC3();
-	IniIC4();
-	//IniIC5();
- 	//IniIC6();
+
+
 
  	I2C1Ini();
  	I2C2Ini();
@@ -2479,11 +2429,7 @@ void InterruptIni()
  	T4InterruptUserFunction=Motor_T4Interrupt;
  	T5InterruptUserFunction=Motor_T5Interrupt;
  	IC1InterruptUserFunction=Motor_IC1Interrupt;
-// 	IC2InterruptUserFunction=Motor_IC2Interrupt;
  	IC3InterruptUserFunction=Motor_IC3Interrupt;
- //	IC4InterruptUserFunction=Motor_IC4Interrupt;
- 	//IC5InterruptUserFunction=Motor_IC5Interrupt;
- 	//IC6InterruptUserFunction=Motor_IC6Interrupt;
  	ADC1InterruptUserFunction=Motor_ADC1Interrupt;
  	#ifdef XbeeTest
  		U1TXInterruptUserFunction=Motor_U1TXInterrupt;
@@ -2567,37 +2513,6 @@ void I2C3Ini()
 
 	IdleI2C3();
 
-
-/*
- 	//No initial address
- 	I2C3MSK = 0x3FF;
- 	//turn off IPMI
- 	I2C3CONbits.IPMIEN = 0;
- 	//clock release control
- 	I2C3CONbits.SCLREL = 1;
- 	//disable slew rate control
- 	I2C3CONbits.DISSLW = 1;
- 	//Baud rate: 200kHz
- 	I2C3BRG = 77;
-
-
- 	//7 bits address
- 	I2C3CONbits.A10M=0;
- 	//enable SMbus input level
- 	I2C3CONbits.SMEN=1;
- 	//acknowledgement enabled
- 	I2C3CONbits.ACKDT=1;
-
-
- 	//enable I2C module
- 	I2C3CONbits.I2CEN = 1;
-
-//talk to TMPSensorIC
-//1-Slave addresss with R/W indication
-//2-Pointer register byte
-//3-Data byte 1
-//4-Data byte 2
-*/
 }
 
 /***************************Test***********************************/
@@ -2981,55 +2896,7 @@ void IniIC1()
 	IEC0bits.IC1IE=SET;//start the interrupt
 }
 
-void IniIC2()
-{
-	int temp;
-//1. Configure the ICx input for one of the available
-//Peripheral Pin Select pins.
-	//Done before
-//2. If Synchronous mode is to be used, disable the
-//sync source before proceeding.
-	//No need
-//3. Make sure that any previous data has been
-//removed from the FIFO by reading ICxBUF until
-//the ICBNE bit (ICxCON1<3>) is cleared.
-	while(IC2CON1bits.ICBNE==SET)
-	{
-	 	temp=IC2BUF;
- 	}
-//4. Set the SYNCSEL bits (ICxCON2<4:0>) to the
-//desired sync/trigger source.
-	IC2CON2bits.SYNCSEL=0b00000;// not snycronized to anything
-//5. Set the ICTSEL bits (ICxCON1<12:10>) for the
-//desired clock source.
-	IC2CON1bits.ICTSEL=0b010;//timer 4
-//6. Set the ICI bits (ICxCON1<6:5>) to the desired
-//interrupt frequency
-	IC2CON1bits.ICI=0b00; 	//interrupt on every capture event
-//7. Select Synchronous or Trigger mode operation:
-//a) Check that the SYNCSEL bits are not set to‘00000’.
-/*
- 	if(IC5CON2bits.SYNCSEL==CLEAR)
-	{
-	 	IC5CON2bits.SYNCSEL=0b10100; 	//sync with IC1
- 	}
-*/	
-//b) For Synchronous mode, clear the ICTRIG
-//bit (ICxCON2<7>).
-	IC2CON2bits.ICTRIG=0b0;//synchronous mode
-//c) For Trigger mode, set ICTRIG, and clear the
-//TRIGSTAT bit (ICxCON2<6>).
 
-//8. Set the ICM bits (ICxCON1<2:0>) to the desired
-//operational mode.
- 	
-	IC2CON1bits.ICM=0b011;//capture on every rising edge
- 	//IC2CON1bits.ICM=0b110;//disable first, should be enabled only by IC1
-//9. Enable the selected trigger/sync source.
-
-	IFS0bits.IC2IF=CLEAR;//clear the interrupt flag	
-//	IEC0bits.IC2IE=SET;//start interrupt
-}
 void IniIC3()
 {
 	int temp;
@@ -3077,145 +2944,7 @@ void IniIC3()
 	IFS2bits.IC3IF=CLEAR;//clear the interrupt flag	
 	IEC2bits.IC3IE=SET;//start the interrupt
 }
-void IniIC4()
-{
-	int temp;
-//1. Configure the ICx input for one of the available
-//Peripheral Pin Select pins.
-	//Done before
-//2. If Synchronous mode is to be used, disable the
-//sync source before proceeding.
-	//No need
-//3. Make sure that any previous data has been
-//removed from the FIFO by reading ICxBUF until
-//the ICBNE bit (ICxCON1<3>) is cleared.
-	while(IC4CON1bits.ICBNE==SET)
-	{
-	 	temp=IC4BUF;
- 	}
-//4. Set the SYNCSEL bits (ICxCON2<4:0>) to the
-//desired sync/trigger source.
-	IC4CON2bits.SYNCSEL=0b00000;// not snycronized to anything
-//5. Set the ICTSEL bits (ICxCON1<12:10>) for the
-//desired clock source.
-	IC4CON1bits.ICTSEL=0b010;//timer 4
-//6. Set the ICI bits (ICxCON1<6:5>) to the desired
-//interrupt frequency
-	IC4CON1bits.ICI=0b00; 	//interrupt on every capture event
-//7. Select Synchronous or Trigger mode operation:
-//a) Check that the SYNCSEL bits are not set to‘00000’.
-/*
- 	if(IC5CON2bits.SYNCSEL==CLEAR)
-	{
-	 	IC5CON2bits.SYNCSEL=0b10100; 	//sync with IC1
- 	}
-*/	
-//b) For Synchronous mode, clear the ICTRIG
-//bit (ICxCON2<7>).
-	IC4CON2bits.ICTRIG=0b0;//synchronous mode
-//c) For Trigger mode, set ICTRIG, and clear the
-//TRIGSTAT bit (ICxCON2<6>).
 
-//8. Set the ICM bits (ICxCON1<2:0>) to the desired
-//operational mode.
-	IC4CON1bits.ICM=0b011;//capture on every rising edge
-//9. Enable the selected trigger/sync source.
-
-	IFS2bits.IC4IF=CLEAR;//clear the interrupt flag	
-//	IEC2bits.IC4IE=SET;//start the interrupt
-}
-
-
-void IniIC5()
-{
-	int temp;
-//1. Configure the ICx input for one of the available
-//Peripheral Pin Select pins.
-	//Done before
-//2. If Synchronous mode is to be used, disable the
-//sync source before proceeding.
-	//No need
-//3. Make sure that any previous data has been
-//removed from the FIFO by reading ICxBUF until
-//the ICBNE bit (ICxCON1<3>) is cleared.
-	while(IC5CON1bits.ICBNE==SET)
-	{
-	 	temp=IC5BUF;
- 	}
-//4. Set the SYNCSEL bits (ICxCON2<4:0>) to the
-//desired sync/trigger source.
-	IC5CON2bits.SYNCSEL=0b00000;// not snycronized to anything
-//5. Set the ICTSEL bits (ICxCON1<12:10>) for the
-//desired clock source.
-	IC5CON1bits.ICTSEL=0b010;//timer 4
-//6. Set the ICI bits (ICxCON1<6:5>) to the desired
-//interrupt frequency
-	IC5CON1bits.ICI=0b00; 	//interrupt on every capture event
-//7. Select Synchronous or Trigger mode operation:
-//a) Check that the SYNCSEL bits are not set to‘00000’.
-/*
- 	if(IC5CON2bits.SYNCSEL==CLEAR)
-	{
-	 	IC5CON2bits.SYNCSEL=0b10100; 	//sync with IC1
- 	}
-*/	
-//b) For Synchronous mode, clear the ICTRIG
-//bit (ICxCON2<7>).
-	IC5CON2bits.ICTRIG=0b0;//synchronous mode
-//c) For Trigger mode, set ICTRIG, and clear the
-//TRIGSTAT bit (ICxCON2<6>).
-
-//8. Set the ICM bits (ICxCON1<2:0>) to the desired
-//operational mode.
-	IC5CON1bits.ICM=0b001;//capture on every edge
-//9. Enable the selected trigger/sync source.
-
-	IFS2bits.IC5IF=CLEAR;//clear the interrupt flag	
-//	IEC2bits.IC5IE=SET;//start the interrupt
-}
-
-void IniIC6()
-{
-	int temp;
-//1. Configure the ICx input for one of the available
-//Peripheral Pin Select pins.
-	//Done before
-//2. If Synchronous mode is to be used, disable the
-//sync source before proceeding.
-	//No need
-//3. Make sure that any previous data has been
-//removed from the FIFO by reading ICxBUF until
-//the ICBNE bit (ICxCON1<3>) is cleared.
-	while(IC6CON1bits.ICBNE==SET)
-	{
-	 	temp=IC6BUF;
- 	}
-//4. Set the SYNCSEL bits (ICxCON2<4:0>) to the
-//desired sync/trigger source.
-	IC6CON2bits.SYNCSEL=0b00000;// not snycronized to anything
-//5. Set the ICTSEL bits (ICxCON1<12:10>) for the
-//desired clock source.
-	IC6CON1bits.ICTSEL=0b010;//timer 4
-//6. Set the ICI bits (ICxCON1<6:5>) to the desired
-//interrupt frequency
-	IC6CON1bits.ICI=0b00; 	//interrupt on every capture event
-//7. Select Synchronous or Trigger mode operation:
-//a)
-//b) For Synchronous mode, clear the ICTRIG
-//bit (ICxCON2<7>).
-	IC6CON2bits.ICTRIG=0b0;//synchronous mode
-//c) For Trigger mode, set ICTRIG, and clear the
-//TRIGSTAT bit (ICxCON2<6>).
-
-//8. Set the ICM bits (ICxCON1<2:0>) to the desired
-//operational mode.
-	IC6CON1bits.ICM=0b001;//capture on every edge
-//9. Enable the selected trigger/sync source.
-
-	IFS2bits.IC6IF=CLEAR;//clear the interrupt flag	
-//	IEC2bits.IC6IE=SET;//start the interrupt	
-
-}
 
 
 
@@ -3317,31 +3046,6 @@ void  Motor_IC1Interrupt(void)
 	Encoder_Interrupt_Counter[LMotor]++; 	 	
 }
 
-/*void  Motor_IC2Interrupt(void)
-{
- 	long temp1;
- 	IFS0bits.IC2IF=0;//clear the interrupt flag
-
- 	while(IC2CON1bits.ICBNE==SET)
- 	{
- 	 	temp1=IC2BUF;
- 	 	if(temp1-LEncoderLastValue<0)
- 	 	{
- 	 	 	temp1+=65535*LEncoderBOverFlowCount;
- 	 	 	LEncoderBOverFlowCount=0;
- 	 	}
- 	 	if((EncoderFBInterval[LMotor][(EncoderFBIntervalPointer[LMotor]-1)&(SampleLength-1)]/(temp1-LEncoderLastValue))<2)
- 	 	{
- 	 	 	DIR[LMotor][EncoderFBIntervalPointer[LMotor]]=-1;
- 	 	}else
- 	 	{
- 	 	 	DIR[LMotor][EncoderFBIntervalPointer[LMotor]]=1;
- 	 	}
- 		EnCount[LMotor]+=DIR[LMotor][EncoderFBIntervalPointer[LMotor]];
-	}
-	 	
-}*/
-
 void  Motor_IC3Interrupt(void)
 {
  	IFS2bits.IC3IF=0;//clear the flag
@@ -3363,73 +3067,6 @@ void  Motor_IC3Interrupt(void)
 	Encoder_Interrupt_Counter[RMotor]++; 
 }
 
-/*void  Motor_IC4Interrupt(void)
-{
- 	long temp1;
- 	IFS2bits.IC4IF=0;//clear the flag
- 	while(IC4CON1bits.ICBNE==SET)
- 	{
- 	 	temp1=IC4BUF;
- 	 	if(temp1-REncoderLastValue<0)
- 	 	{
- 	 	 	temp1+=65535*REncoderBOverFlowCount;
- 	 	 	REncoderBOverFlowCount=0;
- 	 	}
- 	 	if((EncoderFBInterval[RMotor][(EncoderFBIntervalPointer[RMotor]-1)&(SampleLength-1)]/(temp1-REncoderLastValue))<2)
- 	 	{
- 	 	 	DIR[RMotor][EncoderFBIntervalPointer[RMotor]]=-1;
- 	 	}else
- 	 	{
- 	 	 	DIR[RMotor][EncoderFBIntervalPointer[RMotor]]=1;
- 	 	}
- 		EnCount[RMotor]+=DIR[RMotor][EncoderFBIntervalPointer[RMotor]];
-	}
-}*/
-
-/*void  Motor_IC5Interrupt(void)
-{
-
-	static unsigned int IC5LastValue = 0;
-	unsigned int IC5CurrentValue;
-	unsigned int IC5CurrentPulseWidth;
-
-	IFS2bits.IC5IF=0;//clear the interrupt flag
-	IC5CurrentValue=IC5BUF;//save the current time
- 	IC5CurrentPulseWidth=IC5CurrentValue+ICLMotorOverFlowCount*65535-IC5LastValue;
- 	ICLMotorOverFlowCount=0;
- 	if(IC5CurrentPulseWidth<=4800 && IC5CurrentPulseWidth>=1600)//measure high pulse width
-	{
-		//new input for LMotor
-		//NewInput[LMotor]=True;
-		PulseWidth[LMotor]=IC5CurrentPulseWidth;
-		//PWM2Duty(IC5CurrentPulseWidth/3);
-		//PWM2Duty(500);
-	}	
-	IC5LastValue=IC5CurrentValue;
-
-}
-
-void  Motor_IC6Interrupt(void)
-{
-	static unsigned int IC6LastValue = 0;
-	unsigned int IC6CurrentValue;
-	unsigned int IC6CurrentPulseWidth;
-
-	IFS2bits.IC6IF=0;//clear the interrupt flag
-	IC6CurrentValue=IC6BUF;//save the current time
- 	IC6CurrentPulseWidth=IC6CurrentValue+ICRMotorOverFlowCount*65535-IC6LastValue;
- 	ICRMotorOverFlowCount=0;
- 	if(IC6CurrentPulseWidth<=4800 && IC6CurrentPulseWidth>=1600)//measure high pulse width
-	{
-		//new input for LMotor
-		//NewInput[LMotor]=True;
-		PulseWidth[RMotor]=IC6CurrentPulseWidth;
-		//PWM2Duty(IC6CurrentPulseWidth/3);
-		//PWM2Duty(500);
-	}	
-	IC6LastValue=IC6CurrentValue;
-
-}*/
 
 
 void  Motor_T4Interrupt(void)
@@ -3468,20 +3105,7 @@ void  Motor_T3Interrupt(void)
 
 //TODO: turn on timer
 
- /*	 if(temp>BackEMFSampleRangeStart && temp<BackEMFSampleRangeEnd)
- 	{
- 		AD1CON1bits.ASAM=SET;
- 	}
 
-
- 	if(Timer3Count>=5 || BackEMFSampleEnabled==True)
- 	{
- 		AD1CON1bits.ASAM=SET;
- 	}
- 	if(Timer3Count>=5)
- 	{
- 		Timer3Count=0;
- 	}*/
 	if(Timer3Count>=0)
 	{
 		Timer3Count = 0;
@@ -3541,16 +3165,9 @@ void  Motor_ADC1Interrupt(void)
  	//clear the flag
  	IFS0bits.AD1IF=CLEAR;
  	//load the value
-// 	if(BackEMFSampleEnabled==True)
-// 	{
- 	/*	BackEMF[LMotor][ChannelB][BackEMFPointer]=1023-ADC1BUF8;
- 		BackEMF[LMotor][ChannelA][BackEMFPointer]=1023-ADC1BUF9;
- 		BackEMF[RMotor][ChannelA][BackEMFPointer]=1023-ADC1BUF5;
- 		BackEMF[RMotor][ChannelB][BackEMFPointer]=1023-ADC1BUF4;*/
- 		BackEMFSampleEnabled=False;
-// 	}
 
-	//BackEMF[LMotor][ChannelB][BackEMFPointer]=ADC1BUFD;
+ 		BackEMFSampleEnabled=False;
+
  	M3_POSFB_Array[0][M3_POSFB_ArrayPointer]=ADC1BUF4;
  	M3_POSFB_Array[1][M3_POSFB_ArrayPointer]=ADC1BUF5; 	
  	MotorCurrentAD[LMotor][MotorCurrentADPointer]=ADC1BUF3;
@@ -3563,16 +3180,6 @@ void  Motor_ADC1Interrupt(void)
  	CellVoltageArray[Cell_A][CellVoltageArrayPointer]=ADC1BUF6;
  	CellVoltageArray[Cell_B][CellVoltageArrayPointer]=ADC1BUF7;
  	TotalCurrent=MotorCurrentAD[LMotor][MotorCurrentADPointer]+MotorCurrentAD[RMotor][MotorCurrentADPointer]+MotorCurrentAD[Flipper][MotorCurrentADPointer];
-
-//tesing code only
- 	//REG_PWR_TOTAL_CURRENT=Total_Cell_Current_Array[Total_Cell_Current_ArrayPointer];
-//testing code end
-
-//testing code
- 	//REG_MOTOR_FB_CURRENT.left=MotorCurrentAD[LMotor][MotorCurrentADPointer];
- 	//REG_MOTOR_FB_CURRENT.right=MotorCurrentAD[RMotor][MotorCurrentADPointer];
- 	//REG_MOTOR_FB_CURRENT.flipper=MotorCurrentAD[Flipper][MotorCurrentADPointer];
-//tesing code end
 
  	if(TotalCurrent>=CurrentLimit)
  	{
@@ -3720,12 +3327,7 @@ void  Motor_ADC1Interrupt(void)
 
 void  Motor_U1TXInterrupt(void)
 {
- 	/*
- 	#define XbeeTest_UART_Buffer_Length 3 //no more than 5 bytes based on 57600 baud and 1ms system loop
- 	uint8_t XbeeTest_UART_Buffer[XbeeTest_UART_Buffer_Length];
- 	uint8_t XbeeTest_UART_BufferPointer=0;
- 	uint8_t XbeeTest_UART_DataNO=0;
- 	*/
+
 
  	//clear the flag
  	IFS0bits.U1TXIF=0;
@@ -3748,16 +3350,7 @@ void Motor_U1RXInterrupt(void)
  	IFS0bits.U1RXIF=0;
 //XbeeTest code only
 	#ifdef XbeeTest
- 	/*
- 	#define XbeeTest_BufferLength 3
- 	#define XbeeTest_StateIdle 0
- 	#define XbeeTest_StateProcessing 1
-	int XbeeTest_State=XbeeTest_StateIdle;
- 	int16_t XbeeTest_Buffer[3];
- 	int XbeeTest_BufferArrayPointer=0;
- 	int XbeeTest_Temp;
- 	*/
- 	//printf("I got it!!");
+
  	XbeeTest_Temp=U1RXREG;
   	if(XbeeTest_State==XbeeTest_StateIdle)
  	{

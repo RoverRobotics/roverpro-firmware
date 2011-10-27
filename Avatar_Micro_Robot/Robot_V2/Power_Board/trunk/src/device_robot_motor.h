@@ -339,11 +339,7 @@ void PWM9Duty(int Duty);//set duty cycle for PWM channel 9
 /*****************************************************************************/
 //*-----------------------------------Timer----------------------------------*/
 void IniIC1();
-void IniIC2();
 void IniIC3();
-void IniIC4();
-void IniIC5();
-void IniIC6();
 void IniTimer1();
 void IniTimer2();
 void IniTimer3();
