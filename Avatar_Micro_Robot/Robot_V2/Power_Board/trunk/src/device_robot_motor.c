@@ -287,7 +287,14 @@ unsigned int adc_test_reg = 0;
 
 
 void read_EEPROM_string(void);
-
+void I2C2Update();
+void I2C3Update();
+void PWM1Duty(int Duty);
+void PWM2Duty(int Duty);
+void PWM3Duty(int Duty);
+void PWM1Ini(void);
+void PWM2Ini(void);
+void PWM3Ini(void);
 
 
 void bringup_board(void)
@@ -467,7 +474,6 @@ void GetRPM(int Channel)
  	static long ltemp4=0;
  	static long temp=0;
  	static long ltemp5=0;//save the Bemf AD value
- 	static long ltemp6;
  	static int i,j;
  	static long LastEnCount[3]={0,0,0};
 
@@ -481,7 +487,6 @@ void GetRPM(int Channel)
  	ltemp4=0;
  	temp=0;
  	ltemp5=0;//save the Bemf AD value
- 	ltemp6;
  	i=0;
  	j=0;
  	
@@ -655,7 +660,7 @@ void read_EEPROM_string(void)
 
 void Device_MotorController_Process()
 {
- 	int i,j;
+ 	int i;
  	long temp1,temp2;
  	/*I2C2Update();
 	I2C3Update();*/
@@ -817,7 +822,7 @@ void Device_MotorController_Process()
  	 	{
  	 	 	UpdateSpeed(i,StateLevel01[i]);
  	 	 	SpeedUpdateTimerExpired[i]=False;
- 	 	 	test();
+// 	 	 	test();
  	 	}
  	}
 //t3
@@ -2023,7 +2028,7 @@ void ServoInput()
 int speed_control_loop(unsigned char i, int desired_speed)
 {
 	static int motor_speed[3] = {0,0,0};
-	static int motor_rpm[3] = {0,0,0};
+//	static int motor_rpm[3] = {0,0,0};
 
 
 /*	if(i != 2)
@@ -2192,6 +2197,7 @@ int EventChecker()
 {
  	USBInput();
 // 	ServoInput();
+	return 1;
 }
 
 
@@ -2395,12 +2401,12 @@ void MC_Ini(void)//initialzation for the whole program
  	PWM1Ini();
 	PWM2Ini();
 	PWM3Ini();
-	PWM4Ini();
+/*	PWM4Ini();
 	PWM5Ini();
 	PWM6Ini();
 	PWM7Ini();
 	PWM8Ini();
-	PWM9Ini();
+	PWM9Ini();*/
 	//initialize input capture
 	IniIC1();
 	IniIC3();
@@ -3158,7 +3164,7 @@ void  Motor_T5Interrupt(void)
 
 void  Motor_ADC1Interrupt(void)
 {
-	unsigned int temp = 0;
+//	unsigned int temp = 0;
  	//stop the conversion
  	AD1CON1bits.ASAM=CLEAR;
  	

@@ -28,6 +28,12 @@
 // PROTOTYPES FOR PROJECT stdfunction.h
 
 extern void block_ms(unsigned int ms);
+unsigned char readI2C1_Reg(unsigned char add, unsigned char reg);
+unsigned char readI2C2_Reg(unsigned char add, unsigned char reg);
+unsigned char readI2C3_Reg(unsigned char add, unsigned char reg);
+void writeI2C1Reg( unsigned char add, unsigned char v, unsigned char w);
+void writeI2C2Reg( unsigned char add, unsigned char v, unsigned char w);
+void writeI2C3Reg( unsigned char add, unsigned char v, unsigned char w);
 
 #include "../HardwareProfile.h"
 
