@@ -405,7 +405,6 @@ void DeviceOcuProcessIO()
 
 //	read_all_bq2060a_registers();
 
-
 	unsigned int dummy;
 	//_ASAM = 1;
 	main_loop_counter++;
@@ -454,6 +453,35 @@ void DeviceOcuProcessIO()
 	handle_charging();
 	handle_gas_gauge();
 
+
+	if( (computer_on_flag) && (NC_THERM_TRIP==0) )
+	{
+		while(1)
+		{
+			ClrWdt();
+			GREEN_LED_ON(1);
+			block_ms(200);
+			GREEN_LED_ON(0);
+			RED_LED_ON(1);
+			block_ms(200);
+			RED_LED_ON(0);
+			if(POWER_BUTTON())
+			{
+				computer_on_flag = 0;
+				GREEN_LED_ON(0);
+				V3V3_ON(0);
+				V5V_ON(0);
+				V12V_ON(0);
+				COMPUTER_PWR_OK(0);
+				while(POWER_BUTTON());
+				block_ms(100);
+				break;
+			}
+			
+
+
+		}
+	}
 
 	//computer has shut down.  turn off power supplies
 	if( (SUS_S3()==0) && (SUS_S5() == 0) && (computer_on_flag == 1))
@@ -1388,6 +1416,8 @@ void init_fan_controller(void)
 	start_ocu_batt_i2c_write(I2C_ADD_FAN_CONTROLLER,0x10,35);
 	//fan turns on at 15C
 	//start_ocu_batt_i2c_write(I2C_ADD_FAN_CONTROLLER,0x10,15);	
+
+	
 	block_ms(5);
 
 	IEC3bits.MI2C2IE = 0;
