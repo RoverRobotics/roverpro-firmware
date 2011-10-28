@@ -453,6 +453,23 @@ void DeviceOcuProcessIO()
 	handle_charging();
 	handle_gas_gauge();
 
+	if(MENU_BUTTON() && TALK_BUTTON() && LIGHT_BUTTON())
+	{
+		while(MENU_BUTTON() || TALK_BUTTON() || LIGHT_BUTTON())
+		{
+			RED_LED_ON(1);
+			GREEN_LED_ON(1);
+			//ClrWdt();
+			if(computer_on_flag == 0)
+				break;
+
+		}
+			RED_LED_ON(0);
+			GREEN_LED_ON(1);
+
+
+	}
+
 
 	if( (computer_on_flag) && (NC_THERM_TRIP==0) )
 	{
