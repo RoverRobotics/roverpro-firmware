@@ -118,7 +118,7 @@ static void InitializeSystem(void)
 	// DEVICE SPECIFIC INITIALIZATION HERE
 	// ---------------------------------------------------------------------
 
-	device_dsc.idProduct = gpio_id;
+	device_dsc.idProduct = DEVICE_MOTOR;
 
 
 	//we got rid of the ID pins, so force robot motor to init
