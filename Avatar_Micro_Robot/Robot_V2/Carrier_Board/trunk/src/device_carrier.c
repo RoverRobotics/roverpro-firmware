@@ -424,11 +424,11 @@ void initI2C(void) // Initialize the I2C interface to the realtime clock
 	ODCGbits.ODG3 = 1; // SDA1 is set to open drain
 	ODCGbits.ODG2 = 1; // SCL1 is set to open drain
 
-	OpenI2C2(I2C_ON & I2C_IDLE_CON & I2C_CLK_HLD & I2C_IPMI_DIS & I2C_7BIT_ADD  
+	OpenI2C1(I2C_ON & I2C_IDLE_CON & I2C_CLK_HLD & I2C_IPMI_DIS & I2C_7BIT_ADD  
                 & I2C_SLW_DIS & I2C_SM_DIS & I2C_GCALL_DIS & I2C_STR_DIS 
 				& I2C_NACK, I2C_RATE_SETTING);
 
-	IdleI2C2();
+	IdleI2C1();
 
 	// wait a little before continuing...
 	block_ms(100);
