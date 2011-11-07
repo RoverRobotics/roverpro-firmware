@@ -103,7 +103,7 @@ Response from Device to Host:
 #include "i2c.h"
 #include "interrupt_switch.h"
 
-#define XbeeTest
+//#define XbeeTest
 #define BATProtectionON
 
 //variables
