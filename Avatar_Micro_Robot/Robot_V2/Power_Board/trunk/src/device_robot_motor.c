@@ -136,7 +136,7 @@ int SpeedUpdateTimerEnabled[3]={False,False,False};
 int SpeedUpdateTimerCount[3]={0,0,0};
 int USBTimeOutTimerExpired=False;
 long USBTimeOutTimerCount=0;
-int USBTimeOutTimerEnabled=False;
+int USBTimeOutTimerEnabled=True;
 int StateMachineTimerEnabled=True;
 int StateMachineTimerExpired=False;
 int StateMachineTimerCount=0;
@@ -382,7 +382,7 @@ void DeviceRobotMotorInit()
 	//wait for 10s.  This is so that we can differentiate between
 	//the battery resetting (and restarting this code), and the 
 	//current protection kicking in.
-	block_ms(10000);
+	//block_ms(10000);
 
 	//initialize all modules
 	MC_Ini();
@@ -415,7 +415,7 @@ void DeviceRobotMotorInit()
 	}
  //	Cell_Ctrl(Cell_A,Cell_ON);
  //	Cell_Ctrl(Cell_B,Cell_ON);
-
+	
 
 }
 
@@ -2470,7 +2470,7 @@ void FANCtrlIni()
  	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x11,0b00111100);
 
  	//for FAN1 starting temperature
- 	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x0F,Fan1LowTemp);
+ 	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x0F,10);
 
  	//for FAN2 starting temperature
  	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x10,Fan2LowTemp);
@@ -2480,6 +2480,12 @@ void FANCtrlIni()
 
  	//for duty-cycle change rate
  	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x12,0b00100100);
+
+	ClrWdt();
+	block_ms(1000);
+	ClrWdt();
+ 	//for FAN1 starting temperature
+ 	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x0F,Fan1LowTemp);
 	
 }
 

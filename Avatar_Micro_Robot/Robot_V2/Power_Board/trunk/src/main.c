@@ -25,13 +25,14 @@
 // PIC24FJ256GB106 FLASH CONFIGURATION
 // -------------------------------------------------------------------------
 
-_CONFIG1( JTAGEN_OFF & GCP_OFF & GWRP_OFF & COE_OFF & FWDTEN_OFF & ICS_PGx2) 
+_CONFIG1( JTAGEN_OFF & GCP_OFF & GWRP_OFF & COE_OFF & FWDTEN_OFF & ICS_PGx2 & WDTPS_PS2048) 
 _CONFIG2( IESO_OFF & FCKSM_CSDCMD & OSCIOFNC_ON & POSCMOD_HS &
           FNOSC_PRIPLL & PLLDIV_DIV5 & IOL1WAY_ON)
 /*_CONFIG1( JTAGEN_OFF & GCP_OFF & GWRP_OFF & COE_OFF & FWDTEN_OFF & ICS_PGx2) 
 _CONFIG2( IESO_OFF & FCKSM_CSDCMD & OSCIOFNC_ON & POSCMOD_HS &
           FNOSC_FRCPLL & PLLDIV_DIV2 & IOL1WAY_ON)*/
 
+//WDTPS_PS2048 = ~10s
 
 // -------------------------------------------------------------------------
 // BOOTLOADER
@@ -170,6 +171,8 @@ void ProcessIO(void)
 	uint16_t cur_word, reg_index;
 	uint16_t reg_size;
 	uint16_t i = 0;
+
+	ClrWdt();
 
 	// ---------------------------------------------------------------------
 	// DEVICE SPECIFIC I/O PROCESS HERE
