@@ -108,8 +108,9 @@ void Construct_Controller_Message(void)
 	Datalink_Send_Buffer[9] = Read_Joystick_Value(RIGHT_JOYSTICK,VERTICAL_AXIS);
 
 
-	//apply trim factor
-	if(Datalink_Send_Buffer[7] > 127)
+	//apply trim factor.  Only do this if the joystick is pressed forward, with a deadband of about 10
+	//(so that the trim factor doesn't cause the robot to move when it should be still).
+	if(Datalink_Send_Buffer[7] > 137)
 		trimmed_joystick_LH = Datalink_Send_Buffer[6] + joystick_trim_factor * (127-(int)Datalink_Send_Buffer[7]) / 20;
 	else
 		trimmed_joystick_LH = Datalink_Send_Buffer[6];
