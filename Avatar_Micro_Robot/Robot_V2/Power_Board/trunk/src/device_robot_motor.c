@@ -2652,7 +2652,7 @@ void PWM1Ini(void)
 //set duty cycle for PWM channel 2
 void PWM1Duty(int Duty)
 {
-	OC1R = Duty*80;
+	OC1R = Duty*8;
 }
 //****************************************************
 
@@ -2673,7 +2673,7 @@ void PWM2Ini(void)
 //set duty cycle for PWM channel 2
 void PWM2Duty(int Duty)
 {
-	OC2R=Duty*80;
+	OC2R=Duty*8;
 }
 //****************************************************
 
@@ -2693,7 +2693,7 @@ void PWM3Ini(void)
 //set duty cycle for PWM channel 3
 void PWM3Duty(int Duty)
 {
-	OC3R=Duty*80;
+	OC3R=Duty*8;
 }
 //****************************************************
 
