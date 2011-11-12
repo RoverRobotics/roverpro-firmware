@@ -347,6 +347,19 @@ void bringup_board(void)
 
 
 	while(1);*/
+
+	Cell_Ctrl(Cell_A,Cell_ON);
+	Cell_Ctrl(Cell_B,Cell_ON);
+
+	M1_COAST=Clear_ActiveLO;
+	M1_DIR=HI;
+	M1_BRAKE=Clear_ActiveLO;
+
+
+
+	while(1)
+		ClrWdt();
+
 }
 
 
@@ -415,6 +428,8 @@ void DeviceRobotMotorInit()
 	}
  //	Cell_Ctrl(Cell_A,Cell_ON);
  //	Cell_Ctrl(Cell_B,Cell_ON);
+
+//	bringup_board();
 	
 
 }
@@ -2030,7 +2045,7 @@ int speed_control_loop(unsigned char i, int desired_speed)
 	static int motor_speed[3] = {0,0,0};
 //	static int motor_rpm[3] = {0,0,0};
 
-
+//	return desired_speed;
 /*	if(i != 2)
 	{
 
@@ -2381,7 +2396,7 @@ void MC_Ini(void)//initialzation for the whole program
  	//I/O initializing complete
 
 
-	bringup_board();
+
 
 
  	//Initialize motor drivers
@@ -2424,6 +2439,8 @@ void MC_Ini(void)//initialzation for the whole program
 
 
 	read_EEPROM_string();
+
+
 
 }
 
@@ -2609,7 +2626,7 @@ void PWM1Ini(void)
 	OC1R=0;
 //3. Calculate the desired period and load it into the
 //OCxRS register.
-	OC1RS=Period30000Hz;
+	OC1RS=8000;
 //4. Select the current OCx as the sync source by writing
 //0x1F to SYNCSEL<4:0> (OCxCON2<4:0>),
 //and clearing OCTRIG (OCxCON2<7>).
@@ -2635,7 +2652,7 @@ void PWM1Ini(void)
 //set duty cycle for PWM channel 2
 void PWM1Duty(int Duty)
 {
-	OC1R=(Period1*Duty)>>10;
+	OC1R = Duty*80;
 }
 //****************************************************
 
@@ -2645,7 +2662,7 @@ void PWM2Ini(void)
 {
 
 	OC2R=0;
-	OC2RS=Period30000Hz;
+	OC2RS=8000;
 	OC2CON2bits.SYNCSEL=0x1F;
 	OC2CON2bits.OCTRIG=CLEAR;
 	OC2CON1bits.OCTSEL=0b000;//Timer2
@@ -2656,7 +2673,7 @@ void PWM2Ini(void)
 //set duty cycle for PWM channel 2
 void PWM2Duty(int Duty)
 {
-	OC2R=(Period2*Duty)>>10;
+	OC2R=Duty*80;
 }
 //****************************************************
 
@@ -2665,7 +2682,7 @@ void PWM2Duty(int Duty)
 void PWM3Ini(void)
 {
 	OC3R=0;
-	OC3RS=Period30000Hz;
+	OC3RS=8000;
 	OC3CON2bits.SYNCSEL=0x1F;
 	OC3CON2bits.OCTRIG=CLEAR;
 	OC3CON1bits.OCTSEL=0b000;//Timer2
@@ -2676,7 +2693,7 @@ void PWM3Ini(void)
 //set duty cycle for PWM channel 3
 void PWM3Duty(int Duty)
 {
-	OC3R=(Period3*Duty)>>10;
+	OC3R=Duty*80;
 }
 //****************************************************
 
