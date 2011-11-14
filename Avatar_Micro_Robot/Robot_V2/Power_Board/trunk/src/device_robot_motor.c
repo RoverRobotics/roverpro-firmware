@@ -2155,7 +2155,7 @@ void USBInput()
  	Robot_Motor_TargetSpeedUSB[2]=i;*/
 	//USBTimeOutTimerCount=0;
 	
- 	gNewData=!gNewData;
+ 	//gNewData=!gNewData;
 
 
 	//long time no data, clear everything
