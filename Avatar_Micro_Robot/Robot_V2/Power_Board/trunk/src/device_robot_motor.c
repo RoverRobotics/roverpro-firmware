@@ -2626,7 +2626,7 @@ void PWM1Ini(void)
 	OC1R=0;
 //3. Calculate the desired period and load it into the
 //OCxRS register.
-	OC1RS=8000;
+	OC1RS=2000;
 //4. Select the current OCx as the sync source by writing
 //0x1F to SYNCSEL<4:0> (OCxCON2<4:0>),
 //and clearing OCTRIG (OCxCON2<7>).
@@ -2652,7 +2652,7 @@ void PWM1Ini(void)
 //set duty cycle for PWM channel 2
 void PWM1Duty(int Duty)
 {
-	OC1R = Duty*8;
+	OC1R = Duty*2;
 }
 //****************************************************
 
@@ -2662,7 +2662,7 @@ void PWM2Ini(void)
 {
 
 	OC2R=0;
-	OC2RS=8000;
+	OC2RS=2000;
 	OC2CON2bits.SYNCSEL=0x1F;
 	OC2CON2bits.OCTRIG=CLEAR;
 	OC2CON1bits.OCTSEL=0b000;//Timer2
@@ -2673,7 +2673,7 @@ void PWM2Ini(void)
 //set duty cycle for PWM channel 2
 void PWM2Duty(int Duty)
 {
-	OC2R=Duty*8;
+	OC2R=Duty*2;
 }
 //****************************************************
 
@@ -2682,7 +2682,7 @@ void PWM2Duty(int Duty)
 void PWM3Ini(void)
 {
 	OC3R=0;
-	OC3RS=8000;
+	OC3RS=2000;
 	OC3CON2bits.SYNCSEL=0x1F;
 	OC3CON2bits.OCTRIG=CLEAR;
 	OC3CON1bits.OCTSEL=0b000;//Timer2
@@ -2693,7 +2693,7 @@ void PWM3Ini(void)
 //set duty cycle for PWM channel 3
 void PWM3Duty(int Duty)
 {
-	OC3R=Duty*8;
+	OC3R=Duty*2;
 }
 //****************************************************
 
