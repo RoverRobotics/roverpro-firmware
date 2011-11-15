@@ -2402,6 +2402,7 @@ void MC_Ini(void)//initialzation for the whole program
  	//Initialize motor drivers
  	M1_MODE=1;
  	M2_MODE=1;
+	M3_MODE=1;
 	//*******************************************
  	InterruptIni();
  	//initialize AD

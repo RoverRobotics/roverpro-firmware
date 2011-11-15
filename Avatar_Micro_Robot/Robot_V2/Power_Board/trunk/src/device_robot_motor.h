@@ -212,25 +212,25 @@
 */
 //functional pins
 #define M1_DIRO		_RD0
-#define M1_DIR 		_RD6
-#define M1_BRAKE 	_RD7
-#define M1_MODE 	_RD9
-#define M1_COAST 	_RD10
+#define M1_DIR 		_LATD6
+#define M1_BRAKE 	_LATD7
+#define M1_MODE 	_LATD9
+#define M1_COAST 	_LATD10
 #define M1_FF1 		_RC14
 #define M1_FF2  	_RC13
 #define M2_DIRO		_RE5
-#define M2_DIR 		_RB4
-#define M2_BRAKE 	_RB5
-#define M2_MODE 	_RG9
-#define M2_COAST 	_RG8
+#define M2_DIR 		_LATB4
+#define M2_BRAKE 	_LATB5
+#define M2_MODE 	_LATG9
+#define M2_COAST 	_LATG8
 #define M2_FF1 		_RG6
 #define M2_FF2  	_RG7
 
 //need to add M3_DIRO, M3_FF1, M3_FF2?
-#define M3_DIR 		_RE3
-#define M3_BRAKE 	_RF0
-#define M3_MODE 	_RE4
-#define M3_COAST 	_RF1
+#define M3_DIR 		_LATE3
+#define M3_BRAKE 	_LATF0
+#define M3_MODE 	_LATE4
+#define M3_COAST 	_LATF1
  
 
 //#define M3_Fault 	PORTBbits.RB2
