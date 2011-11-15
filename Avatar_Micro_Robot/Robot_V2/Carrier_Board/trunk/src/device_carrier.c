@@ -58,6 +58,8 @@
  *
  */
 
+#define NO_COMPUTER_INSTALLED
+
 #include "stdhdr.h"
 #include "device_carrier.h"
 
@@ -216,22 +218,22 @@ void DeviceCarrierInit()
 		}
 	}
 
-
-//keep trying to boot COM Express until successful
-while (1)
-	{
-
-		if(DeviceCarrierBoot() == 0)
-			block_ms(1000);
-		else
-			break;
-	}
-
-	
-	//in case the above is commented out (no COM Express)
-/*	V3V3_ON(1);
-	V5_ON(1);*/
-	
+	//if COM Express isn't installed, don't try to
+	//boot it (just turn on supplies)
+	#ifdef NO_COMPUTER_INSTALLED
+		V3V3_ON(1);
+		V5_ON(1);
+	#else
+		//keep trying to boot COM Express until successful
+		while (1)
+			{
+		
+				if(DeviceCarrierBoot() == 0)
+					block_ms(1000);
+				else
+					break;
+			}
+	#endif
 
 	ClrWdt();
 	VBAT_DIGI_ON(1);
@@ -683,6 +685,32 @@ void DeviceCarrierProcessIO()
 	static unsigned int i = 0;
 
 	i++;
+
+	//if computer has shut down, flash white LED forever
+	if( (SUS_S3()==0) && (SUS_S5() == 0) )
+	{
+
+		while(1)
+		{
+			set_led_brightness(WHITE_LED, 50);
+	
+			for(i=0;i<10;i++)
+			{
+				block_ms(50);
+				ClrWdt();
+			}
+	
+			set_led_brightness(WHITE_LED, 0);
+	
+			for(i=0;i<10;i++)
+			{
+				block_ms(50);
+				ClrWdt();
+			}
+		}
+	}
+
+
 
 	if(i>10)
 	{
