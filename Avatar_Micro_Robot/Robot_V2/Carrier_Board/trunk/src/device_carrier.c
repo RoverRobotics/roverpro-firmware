@@ -58,7 +58,7 @@
  *
  */
 
-#define NO_COMPUTER_INSTALLED
+//#define NO_COMPUTER_INSTALLED
 
 #include "stdhdr.h"
 #include "device_carrier.h"
