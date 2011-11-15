@@ -2133,18 +2133,25 @@ void USBInput()
   	int i;
 	static int USB_New_Data_Received;
 	static unsigned int control_loop_counter = 0;
+	static unsigned int flipper_control_loop_counter = 0;
 	//update local usb message variable
  	/*Robot_Motor_TargetSpeedUSB[0]=REG_MOTOR_VELOCITY.left; 
  	Robot_Motor_TargetSpeedUSB[1]=REG_MOTOR_VELOCITY.right;
 	Robot_Motor_TargetSpeedUSB[2]=REG_MOTOR_VELOCITY.flipper;*/
 
 	control_loop_counter++;
+	flipper_control_loop_counter++;
 
 	if(control_loop_counter > 5)
 	{
 		control_loop_counter = 0;
 	 	Robot_Motor_TargetSpeedUSB[0]=speed_control_loop(0,REG_MOTOR_VELOCITY.left);
 	 	Robot_Motor_TargetSpeedUSB[1]=speed_control_loop(1,REG_MOTOR_VELOCITY.right);
+	}
+
+	if(flipper_control_loop_counter > 15)
+	{
+		flipper_control_loop_counter  = 0;
 		Robot_Motor_TargetSpeedUSB[2]=speed_control_loop(2,REG_MOTOR_VELOCITY.flipper);
 	}
 
