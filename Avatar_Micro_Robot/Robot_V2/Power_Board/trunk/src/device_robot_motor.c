@@ -296,6 +296,7 @@ void PWM1Ini(void);
 void PWM2Ini(void);
 void PWM3Ini(void);
 
+void set_firmware_build_time(void);
 
 void bringup_board(void)
 {
@@ -2339,6 +2340,35 @@ void Cell_Ctrl(int Channel, int state)
  	}
 }
 
+void set_firmware_build_time(void)
+{
+
+	const unsigned char build_date[12] = __DATE__; 
+	const unsigned char build_time[12] = __TIME__;
+	unsigned int i;
+
+	for(i=0;i<12;i++)
+	{
+		if((build_date[i] == 0))
+		{
+			REG_MOTOR_FIRMWARE_BUILD.data[i] = ' ';
+		}
+		else
+		{
+			REG_MOTOR_FIRMWARE_BUILD.data[i] = build_date[i];
+		}
+		if(build_time[i] == 0)
+		{
+			REG_MOTOR_FIRMWARE_BUILD.data[i+12] = ' ';
+		}
+		else
+		{
+			REG_MOTOR_FIRMWARE_BUILD.data[i+12] = build_time[i];
+		}
+	}
+
+}
+
 
 void MC_Ini(void)//initialzation for the whole program
 {
@@ -2447,6 +2477,7 @@ void MC_Ini(void)//initialzation for the whole program
 
 
 	read_EEPROM_string();
+	set_firmware_build_time();
 
 
 
