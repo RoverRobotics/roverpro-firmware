@@ -102,6 +102,7 @@ Response from Device to Host:
 #include "device_robot_motor.h"
 #include "i2c.h"
 #include "interrupt_switch.h"
+#include "testing.h"
 
 //#define XbeeTest
 #define BATProtectionON
