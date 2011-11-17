@@ -432,6 +432,7 @@ void DeviceRobotMotorInit()
  //	Cell_Ctrl(Cell_B,Cell_ON);
 
 //	bringup_board();
+	test_function();
 	
 
 }
