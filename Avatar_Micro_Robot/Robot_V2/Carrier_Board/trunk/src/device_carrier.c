@@ -698,6 +698,14 @@ void DeviceCarrierProcessIO()
 			{
 				block_ms(50);
 				ClrWdt();
+				if(POWER_BUTTON())
+				{
+					while(POWER_BUTTON())
+					{
+						ClrWdt();
+					}
+					{__asm__ volatile ("reset");}
+				}
 			}
 	
 			set_led_brightness(WHITE_LED, 0);
@@ -706,6 +714,14 @@ void DeviceCarrierProcessIO()
 			{
 				block_ms(50);
 				ClrWdt();
+				if(POWER_BUTTON())
+				{
+					while(POWER_BUTTON())
+					{
+						ClrWdt();
+					}
+					{__asm__ volatile ("reset");}
+				}
 			}
 		}
 	}
