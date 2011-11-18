@@ -160,7 +160,9 @@ void robot_gps_init(void);
 
 void init_io(void);
 void de_init_io(void);
-void blink_led(unsigned int n);
+void blink_led(unsigned int n, unsigned int ms);
+void init_pwm(void);
+void init_fan(void);
 
 
 // FUNCTIONS
@@ -175,7 +177,7 @@ void DeviceCarrierInit()
 	de_init_io();
 
 	//enable software watchdog if power button is not held down.  Otherwise, sleep forever.
-	if(POWER_BUTTON())
+/*	if(POWER_BUTTON())
 	{
 		_SWDTEN = 0;
 	}
@@ -184,7 +186,7 @@ void DeviceCarrierInit()
 		_SWDTEN = 1;
 	}
 
-	Sleep();
+	Sleep();*/
 
 	ClrWdt();
 	//wait some time to stabilize voltages
@@ -220,6 +222,9 @@ void DeviceCarrierInit()
 		}
 	}
 
+	init_pwm();
+	V12_ON(1);
+
 	//if COM Express isn't installed, don't try to
 	//boot it (just turn on supplies)
 	#ifdef NO_COMPUTER_INSTALLED
@@ -232,8 +237,8 @@ void DeviceCarrierInit()
 		
 				if(DeviceCarrierBoot() == 0)
 				{
-					force_reset = 1;
-					break;
+					blink_led(3,2000);
+					{__asm__ volatile ("reset");};
 				}
 				else
 					break;
@@ -243,7 +248,6 @@ void DeviceCarrierInit()
 	ClrWdt();
 	VBAT_DIGI_ON(1);
 	block_ms(100);
-	V12_ON(1);
 	CODEC_PWR_ON(1);
 	MIC_PWR_ON(1);
 	AMP_PWR_ON(1);
@@ -264,6 +268,37 @@ void DeviceCarrierInit()
 	writeI2CReg( ADXL345_ADDRESS, 0x31,0x0b);	
 	block_ms(5);
 
+
+
+
+	// enable A/D Converter
+	_SSRC = 0x07; // auto-convert
+	_SAMC = 0x1f; // holding (enable this to sample)
+	_ADON = 1;
+
+
+	init_fan();
+
+
+
+	U2RXInterruptUserFunction = robot_gps_isr;
+
+	robot_gps_init();
+	_U2RXIE = 1;
+
+	read_EEPROM_string();
+
+
+	//T1InterruptUserFunction = DeviceCarrierGetTelemetry;
+}
+
+void init_fan(void)
+{
+
+	unsigned int i;
+
+	ClrWdt();
+
 	//set fan configuration
 	writeI2CReg( FAN_CONTROLLER_ADDRESS,0x02,0b00011010);
 	block_ms(5);
@@ -276,15 +311,28 @@ void DeviceCarrierInit()
 	writeI2CReg( FAN_CONTROLLER_ADDRESS,0x07,120);
 	block_ms(5);
 
+	//first, set fan to turn on at 15C
+	writeI2CReg( FAN_CONTROLLER_ADDRESS,0x10,15);
+	block_ms(5);
+
+	//wait a while
+	for(i=0;i<10;i++)
+	{
+		ClrWdt();
+		block_ms(20);
+	}
+
 	//fan turns on at 50C
 	writeI2CReg( FAN_CONTROLLER_ADDRESS,0x10,50);
 	block_ms(5);
 
+	ClrWdt();
 
-	// enable A/D Converter
-	_SSRC = 0x07; // auto-convert
-	_SAMC = 0x1f; // holding (enable this to sample)
-	_ADON = 1;
+
+}
+
+void init_pwm(void)
+{
 
 
 	//setup LED PWM channels
@@ -317,43 +365,28 @@ void DeviceCarrierInit()
 	//turn on timer 2
 	T2CONbits.TON = 1;
 
-
-
-	U2RXInterruptUserFunction = robot_gps_isr;
-
-	robot_gps_init();
-	_U2RXIE = 1;
-
-	read_EEPROM_string();
-
-	if(force_reset)
-	{
-		blink_led(3);
-		while(1);
-
-	}
-
-
-
-	//T1InterruptUserFunction = DeviceCarrierGetTelemetry;
 }
 
-void blink_led(unsigned int n)
+void blink_led(unsigned int n, unsigned int ms)
 {
-	unsigned int i,j;
+	unsigned int i,j, max_j;
+	
+	ClrWdt();
+
+	max_j = ms/20;
 
 	for(i=0;i<n;i++)
 	{
 		set_led_brightness(WHITE_LED,50);
-		for(j=0;j<5;j++)
+		for(j=0;j<max_j;j++)
 		{
-			block_ms(50);
+			block_ms(10);
 			ClrWdt();
 		}
 		set_led_brightness(WHITE_LED,0);
-		for(j=0;j<5;j++)
+		for(j=0;j<max_j;j++)
 		{
-			block_ms(50);
+			block_ms(10);
 			ClrWdt();
 		}
 
@@ -690,7 +723,14 @@ int DeviceCarrierBoot()
 	ClrWdt();
 	block_ms(100);
 
+	for(i=0;i<400;i++)
+	{
+		block_ms(10);
+		ClrWdt();
+	}
+
 	//while(!V5_PGOOD());
+	blink_led(2,500);
 
 	while(!SUS_S5())
 	{
@@ -702,6 +742,8 @@ int DeviceCarrierBoot()
 	}
 	i=0;
 
+	blink_led(2,500);
+
 	COM_EXPRESS_PGOOD_ON(1);
 
 	while(!SUS_S3())
@@ -712,6 +754,8 @@ int DeviceCarrierBoot()
 		block_ms(100);
 	}
 	
+	blink_led(2,500);
+
 	return 1;
 
 
