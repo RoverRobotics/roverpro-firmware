@@ -160,6 +160,7 @@ void robot_gps_init(void);
 
 void init_io(void);
 void de_init_io(void);
+void blink_led(unsigned int n);
 
 
 // FUNCTIONS
@@ -169,6 +170,7 @@ void de_init_io(void);
 void DeviceCarrierInit()
 {
 	int i = 0;
+	unsigned char force_reset = 0;
 
 	de_init_io();
 
@@ -229,7 +231,10 @@ void DeviceCarrierInit()
 			{
 		
 				if(DeviceCarrierBoot() == 0)
-					block_ms(1000);
+				{
+					force_reset = 1;
+					break;
+				}
 				else
 					break;
 			}
@@ -321,7 +326,40 @@ void DeviceCarrierInit()
 
 	read_EEPROM_string();
 
+	if(force_reset)
+	{
+		blink_led(3);
+		while(1);
+
+	}
+
+
+
 	//T1InterruptUserFunction = DeviceCarrierGetTelemetry;
+}
+
+void blink_led(unsigned int n)
+{
+	unsigned int i,j;
+
+	for(i=0;i<n;i++)
+	{
+		set_led_brightness(WHITE_LED,50);
+		for(j=0;j<5;j++)
+		{
+			block_ms(50);
+			ClrWdt();
+		}
+		set_led_brightness(WHITE_LED,0);
+		for(j=0;j<5;j++)
+		{
+			block_ms(50);
+			ClrWdt();
+		}
+
+	}
+
+
 }
 
 void set_led_brightness(unsigned char led_type, unsigned char duty_cycle)
