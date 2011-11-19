@@ -223,6 +223,10 @@ void DeviceCarrierInit()
 	}
 
 	init_pwm();
+	
+	//turn on 12V regulator, and MOSFET for 12V regulator input
+	//This is so that the side fan will turn on, indicating that the power board has turned on
+	VBAT_DIGI_ON(1);
 	V12_ON(1);
 
 	//if COM Express isn't installed, don't try to
@@ -245,18 +249,13 @@ void DeviceCarrierInit()
 			}
 	#endif
 
-	ClrWdt();
-	VBAT_DIGI_ON(1);
 	block_ms(100);
 	CODEC_PWR_ON(1);
 	MIC_PWR_ON(1);
 	AMP_PWR_ON(1);
 	ClrWdt();
 
-
-
 	initI2C();
-
 
 	block_ms(100);
 	ClrWdt();
@@ -313,6 +312,7 @@ void init_fan(void)
 
 	//first, set fan to turn on at 15C
 	writeI2CReg( FAN_CONTROLLER_ADDRESS,0x10,15);
+
 	block_ms(5);
 
 	//wait a while
@@ -705,10 +705,8 @@ int DeviceCarrierBoot()
 
 	//while(!V3V3_PGOOD());
 
+	//weird -- long interval between turning on V3V3 and V5 doesn't allow COM Express to boot
 	block_ms(100);
-
-
-	
 
 	V5_ON(1);
 
