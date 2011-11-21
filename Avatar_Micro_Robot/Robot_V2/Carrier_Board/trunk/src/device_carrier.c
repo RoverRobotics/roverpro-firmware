@@ -62,6 +62,7 @@
 
 #include "stdhdr.h"
 #include "device_carrier.h"
+#include "testing.h"
 
 #define V3V3_ON(a)               _LATC14    = a
 #define V3V3_EN(a)               _TRISC14 = !a
