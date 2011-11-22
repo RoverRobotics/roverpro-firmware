@@ -253,7 +253,7 @@ void DeviceCarrierInit()
 			}
 	#endif
 
-	send_lcd_string("Computer booted  ",17);
+	send_lcd_string("Computer booted  \r\n",19);
 
 	block_ms(100);
 	CODEC_PWR_ON(1);
@@ -293,7 +293,7 @@ void DeviceCarrierInit()
 
 	read_EEPROM_string();
 
-	send_lcd_string("Init finished  ",15);
+	send_lcd_string("Init finished  \r\n",17);
 
 	//T1InterruptUserFunction = DeviceCarrierGetTelemetry;
 }

@@ -36,9 +36,9 @@ void init_lcd_uart(void)
  	IEC0bits.U1TXIE=1;//enable UART1 transmit interrupt
  	IEC0bits.U1RXIE=0;//enable UART1 receive interrupt
 
-	send_lcd_string("Initializing LCD UART  ",24);
+	send_lcd_string("\r\nInitializing LCD UART  \r\n",28);
 	block_ms(30);
-	display_register_value("RCON                ");
+	display_register_value("RCON              \r\n");
 	
 
 	
@@ -50,7 +50,7 @@ void init_lcd_uart(void)
 
 void display_register_value(char* description)
 {
-	char string_to_display[20] = "                    ";
+	char string_to_display[20] = "                   \n";
 	char register_string[6];
 	unsigned int i;
 	unsigned int register_value;
@@ -67,7 +67,7 @@ void display_register_value(char* description)
 
 	for(i=0;i<6;i++)
 	{
-		string_to_display[i+12] = register_string[i];
+		string_to_display[i+10] = register_string[i];
 	}
 
 	send_lcd_string(string_to_display,20);
@@ -176,7 +176,7 @@ void print_loop_number(void)
 	static unsigned int loop = 0;
 	unsigned int i;
 	static unsigned int display_counter = 0;
-	char loop_string[14] = "Loop          ";
+	char loop_string[16] = "Loop          \r\n";
 
 	char int_string[6];
 
@@ -193,7 +193,7 @@ void print_loop_number(void)
 		loop_string[i+6] = int_string[i];
 	}
 
-	send_lcd_string(loop_string,14);
+	send_lcd_string(loop_string,16);
 
 	display_counter++;	
 
