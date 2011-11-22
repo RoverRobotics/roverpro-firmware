@@ -111,6 +111,8 @@
 #define GPS_TX_OR				_RP12R
 #define GPS_RX_PIN				11
 
+#define NC_THERM_TRIP()			_RE7
+
 
 
 
@@ -728,14 +730,15 @@ int DeviceCarrierBoot()
 	ClrWdt();
 	block_ms(100);
 
-	for(i=0;i<400;i++)
+	send_lcd_string("Boot 1  \r\n",10);
+
+/*	for(i=0;i<400;i++)
 	{
 		block_ms(10);
 		ClrWdt();
-	}
+	}*/
 
 	//while(!V5_PGOOD());
-	blink_led(2,500);
 
 	while(!SUS_S5())
 	{
@@ -745,9 +748,9 @@ int DeviceCarrierBoot()
 		block_ms(100);
 
 	}
-	i=0;
 
-	blink_led(2,500);
+	send_lcd_string("Boot 2  \r\n",10);
+	i=0;
 
 	COM_EXPRESS_PGOOD_ON(1);
 
@@ -758,8 +761,8 @@ int DeviceCarrierBoot()
 		ClrWdt();
 		block_ms(100);
 	}
-	
-	blink_led(2,500);
+
+	blink_led(6,500);
 
 	return 1;
 
@@ -770,12 +773,16 @@ void DeviceCarrierProcessIO()
 {
 
 	static unsigned int i = 0;
+	static unsigned int displayed_overtemp_flag = 0;
 
 	i++;
 
 	//if computer has shut down, flash white LED forever
 	if( (SUS_S3()==0) && (SUS_S5() == 0) )
 	{
+
+		block_ms(20);
+		send_lcd_string("Computer shutdown detected  \r\n",30);
 
 		while(1)
 		{
@@ -792,6 +799,19 @@ void DeviceCarrierProcessIO()
 						ClrWdt();
 					}
 					{__asm__ volatile ("reset");}
+				}
+			}
+
+			if(displayed_overtemp_flag == 0)
+			{
+				displayed_overtemp_flag = 1;
+				if(NC_THERM_TRIP()==0)
+				{
+					send_lcd_string("Computer overheat detected  \r\n",30);
+				}
+				else
+				{
+					send_lcd_string("No computer overheat detected  \r\n",33);
 				}
 			}
 	
