@@ -178,7 +178,7 @@ void DeviceCarrierInit()
 	de_init_io();
 
 	//enable software watchdog if power button is not held down.  Otherwise, sleep forever.
-/*	if(POWER_BUTTON())
+	if(POWER_BUTTON())
 	{
 		_SWDTEN = 0;
 	}
@@ -187,7 +187,7 @@ void DeviceCarrierInit()
 		_SWDTEN = 1;
 	}
 
-	Sleep();*/
+	Sleep();
 
 	ClrWdt();
 	//wait some time to stabilize voltages
@@ -223,6 +223,8 @@ void DeviceCarrierInit()
 		}
 	}
 
+	init_lcd_uart();
+
 	init_pwm();
 	
 	//turn on 12V regulator, and MOSFET for 12V regulator input
@@ -242,6 +244,7 @@ void DeviceCarrierInit()
 		
 				if(DeviceCarrierBoot() == 0)
 				{
+					send_lcd_string("Computer boot failed  ",22);
 					blink_led(3,2000);
 					{__asm__ volatile ("reset");};
 				}
@@ -249,6 +252,8 @@ void DeviceCarrierInit()
 					break;
 			}
 	#endif
+
+	send_lcd_string("Computer booted  ",17);
 
 	block_ms(100);
 	CODEC_PWR_ON(1);
@@ -288,6 +293,7 @@ void DeviceCarrierInit()
 
 	read_EEPROM_string();
 
+	send_lcd_string("Init finished  ",15);
 
 	//T1InterruptUserFunction = DeviceCarrierGetTelemetry;
 }
@@ -317,7 +323,7 @@ void init_fan(void)
 	block_ms(5);
 
 	//wait a while
-	for(i=0;i<10;i++)
+	for(i=0;i<50;i++)
 	{
 		ClrWdt();
 		block_ms(20);
@@ -819,5 +825,6 @@ void DeviceCarrierProcessIO()
 	}
 
 	block_ms(10);
+	print_loop_number();
 
 }
