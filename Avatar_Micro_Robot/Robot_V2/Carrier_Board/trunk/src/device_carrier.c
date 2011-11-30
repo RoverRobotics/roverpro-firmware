@@ -225,6 +225,9 @@ void DeviceCarrierInit()
 		}
 	}
 
+
+
+
 	init_lcd_uart();
 
 	init_pwm();
@@ -294,6 +297,8 @@ void DeviceCarrierInit()
 	_U2RXIE = 1;
 
 	read_EEPROM_string();
+
+	display_board_number();
 
 	send_lcd_string("Init finished  \r\n",17);
 
@@ -778,7 +783,11 @@ void DeviceCarrierProcessIO()
 	i++;
 
 	//if computer has shut down, flash white LED forever
+	#ifndef NO_COMPUTER_INSTALLED
 	if( (SUS_S3()==0) && (SUS_S5() == 0) )
+	#else
+	if(0)
+	#endif
 	{
 
 		block_ms(20);

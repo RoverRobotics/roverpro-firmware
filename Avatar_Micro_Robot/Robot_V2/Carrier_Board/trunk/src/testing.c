@@ -10,6 +10,7 @@ void init_lcd_uart(void);
 void lcd_tx_interrupt(void);
 void int_to_string(unsigned int input, char* output);
 void display_register_value(char* description);
+void toggle_white_led(void);
 
 void test_init(void)
 {
@@ -24,7 +25,9 @@ void init_lcd_uart(void)
  	// Write appropriate baud rate value to the UxBRG register.
 	U1TX_RPn = 3;
 	//UxBRG = Fcy/4/baud-1 = 16e6/4/38400
- 	U1BRG=104; //38400
+ 	//U1BRG=104; //38400
+	//U1BRG = 417; //9600
+	U1BRG = 68; //57600
  	//Enable the UART.
  	U1MODE=0x0000;
  	//hight speed mode
@@ -36,13 +39,19 @@ void init_lcd_uart(void)
  	IEC0bits.U1TXIE=1;//enable UART1 transmit interrupt
  	IEC0bits.U1RXIE=0;//enable UART1 receive interrupt
 
-	send_lcd_string("\r\nInitializing LCD UART  \r\n",28);
-	block_ms(30);
+	ClrWdt();
+
+	send_lcd_string("\r\nFirmware build:  ",19);
+	block_ms(10);
+	send_lcd_string(REG_ROBOT_FIRMWARE_BUILD.data,24);
+	block_ms(10);
+	send_lcd_string("\r\n",2);
+	block_ms(10);
 	display_register_value("RCON              \r\n");
 	
 
 	
-
+	ClrWdt();
 	
 
 }
@@ -74,6 +83,26 @@ void display_register_value(char* description)
 
 	//reset RCON
 	RCON = 0x0000;
+
+
+}
+
+void display_board_number(void)
+{
+	char board_number[5];
+	unsigned int i;
+
+	for(i=0;i<5;i++)
+	{
+		board_number[i] = REG_ROBOT_BOARD_DATA.data[i+18];
+	}
+
+	send_lcd_string("\r\nBoard number:  ",17);
+	block_ms(10);
+	send_lcd_string(board_number,5);
+	block_ms(10);
+	send_lcd_string("\r\n",2);
+	block_ms(10);
 
 
 }
@@ -139,6 +168,10 @@ void send_lcd_string(char* input_string, unsigned char len)
 
 	for(i=0;i<len;i++)
 	{
+		if(lcd_string[i] == 0x7c)
+			lcd_string[i] = 'x';
+		if(lcd_string[i] == 0xfe)
+			lcd_string[i] = 'y';
 		lcd_string[i] = input_string[i];
 	}
 
@@ -177,6 +210,8 @@ void print_loop_number(void)
 	unsigned int i;
 	static unsigned int display_counter = 0;
 	char loop_string[16] = "Loop          \r\n";
+//	char loop_string[16] = "Loop            ";
+//	toggle_white_led();
 
 	char int_string[6];
 
@@ -196,5 +231,23 @@ void print_loop_number(void)
 	send_lcd_string(loop_string,16);
 
 	display_counter++;	
+
+}
+
+void toggle_white_led(void)
+{
+	static unsigned char white_led_on = 0;
+
+
+	if(white_led_on)
+	{
+		white_led_on = 0;
+		OC1R = 39990;
+	}
+	else
+	{
+		white_led_on = 1;
+		OC1R = 20000;
+	}
 
 }
