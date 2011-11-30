@@ -126,6 +126,7 @@
 
 
 void read_EEPROM_string(void);
+
 //unsigned int reg_robot_gps_message[100];
 //unsigned char eeprom_string[78];
 
@@ -166,7 +167,7 @@ void de_init_io(void);
 void blink_led(unsigned int n, unsigned int ms);
 void init_pwm(void);
 void init_fan(void);
-
+void update_audio_power_state(void);
 
 // FUNCTIONS
 
@@ -262,8 +263,8 @@ void DeviceCarrierInit()
 
 	block_ms(100);
 	CODEC_PWR_ON(1);
-	MIC_PWR_ON(1);
-	AMP_PWR_ON(1);
+//	MIC_PWR_ON(1);
+//	AMP_PWR_ON(1);
 	ClrWdt();
 
 	initI2C();
@@ -850,10 +851,33 @@ void DeviceCarrierProcessIO()
 		DeviceCarrierGetTelemetry();
 		set_led_brightness(WHITE_LED, REG_WHITE_LED);
 		set_led_brightness(IR_LED, REG_IR_LED);
+		update_audio_power_state();
 
 	}
 
 	block_ms(10);
 	print_loop_number();
+
+}
+
+void update_audio_power_state(void)
+{
+	if(REG_CARRIER_SPEAKER_ON)
+	{
+		AMP_PWR_ON(1);
+	}
+	else
+	{
+		AMP_PWR_ON(0);
+	}
+
+	if(REG_CARRIER_MIC_ON)
+	{
+		MIC_PWR_ON(1);
+	}
+	else
+	{
+		MIC_PWR_ON(0);
+	}
 
 }
