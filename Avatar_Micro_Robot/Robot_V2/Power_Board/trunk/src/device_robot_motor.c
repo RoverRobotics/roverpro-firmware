@@ -103,6 +103,7 @@ Response from Device to Host:
 #include "i2c.h"
 #include "interrupt_switch.h"
 #include "testing.h"
+#include "debug_uart.h"
 
 //#define XbeeTest
 #define BATProtectionON
@@ -2165,7 +2166,7 @@ void USBInput()
  	Robot_Motor_TargetSpeedUSB[2]=i;*/
 	//USBTimeOutTimerCount=0;
 	
- 	//gNewData=!gNewData;
+ 	gNewData=!gNewData;
 
 
 	//long time no data, clear everything
