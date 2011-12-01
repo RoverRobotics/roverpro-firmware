@@ -181,8 +181,6 @@ void ProcessIO(void)
 	//we got rid of id pins, so force motor controller to run
 	Device_MotorController_Process();
 
-	return;
-
 /*	switch (gpio_id)
 	{
 		case DEVICE_OCU:
