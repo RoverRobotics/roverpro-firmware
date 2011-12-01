@@ -33,7 +33,7 @@ void init_debug_uart(void)
 
 	ClrWdt();
 
-	send_debug_uart_string("\r\nFirmware build:  ",19);
+	send_debug_uart_string("\r\nMotor Firmware build:  ",25);
 	block_ms(10);
 	send_debug_uart_string(REG_MOTOR_FIRMWARE_BUILD.data,24);
 	block_ms(10);

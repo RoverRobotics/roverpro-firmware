@@ -400,8 +400,13 @@ void DeviceRobotMotorInit()
 	//current protection kicking in.
 	//block_ms(10000);
 
+
 	//initialize all modules
 	MC_Ini();
+
+	#ifndef XbeeTest
+		init_debug_uart();
+	#endif
 
  	//Call ProtectHB
 	ProtectHB(LMotor);
@@ -2166,7 +2171,9 @@ void USBInput()
  	Robot_Motor_TargetSpeedUSB[2]=i;*/
 	//USBTimeOutTimerCount=0;
 	
- 	gNewData=!gNewData;
+ 	#ifdef XbeeTest
+ 		gNewData=!gNewData;
+	#endif
 
 
 	//long time no data, clear everything
@@ -2186,6 +2193,7 @@ void USBInput()
  			//ClearSpeedCtrlData(i);
  			//ClearCurrentCtrlData(i);
  		}
+		send_debug_uart_string("USB Timeout Detected \r\n",23);
  	}
 	// if there is new data comming in, update all the data
  	if(USB_New_Data_Received!=gNewData)
@@ -2236,7 +2244,7 @@ void PinRemap(void)
 	// Unlock Registers
 	//clear the bit 6 of OSCCONL to
 	//unlock Pin Re-map
-	asm volatile	("push	w1				\n"
+	/*asm volatile	("push	w1				\n"
 					"push	w2				\n"
 					"push	w3				\n"
 					"mov	#OSCCON, w1		\n"
@@ -2247,7 +2255,7 @@ void PinRemap(void)
 					"bclr	OSCCON, #6		\n"
 					"pop	w3				\n"
 					"pop	w2				\n"
-					"pop	w1");
+					"pop	w1");*/
 
 	// Configure Input Functions
 	//function=pin
@@ -2299,7 +2307,7 @@ void PinRemap(void)
  	#endif
 	//***************************
 	// Lock Registers
-	__builtin_write_OSCCONL(OSCCON | 0x40); //set the bit 6 of OSCCONL to
+	//__builtin_write_OSCCONL(OSCCON | 0x40); //set the bit 6 of OSCCONL to
 	//lock Pin Re-map
 
 }
@@ -2395,7 +2403,6 @@ void MC_Ini(void)//initialzation for the whole program
 	//initialize I/O port
 	//AN15,AN14,AN1,AN0 are all digital
 
-
 	//initialize all of the analog inputs
 		AD1PCFG = 0xffff;
 		M1_TEMP_EN(1);
@@ -2435,10 +2442,6 @@ void MC_Ini(void)//initialzation for the whole program
 
  	//I/O initializing complete
 
-
-
-
-
  	//Initialize motor drivers
  	M1_MODE=1;
  	M2_MODE=1;
@@ -2463,15 +2466,16 @@ void MC_Ini(void)//initialzation for the whole program
 	PWM7Ini();
 	PWM8Ini();
 	PWM9Ini();*/
+
 	//initialize input capture
 	IniIC1();
 	IniIC3();
 
-
-
  	I2C1Ini();
  	I2C2Ini();
  	I2C3Ini();
+
+
  	#ifdef XbeeTest
  	UART1Ini();
  	#endif
@@ -2481,6 +2485,8 @@ void MC_Ini(void)//initialzation for the whole program
 
 	read_EEPROM_string();
 	set_firmware_build_time();
+
+
 
 
 

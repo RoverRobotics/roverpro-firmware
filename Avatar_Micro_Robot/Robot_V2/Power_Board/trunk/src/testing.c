@@ -12,44 +12,7 @@ void pulse_power_bus(void);
 //gets called after board is initialized.=
 void test_function(void)
 {
-	unsigned int i;
 
-	motor_stress_test();
-
-	Cell_Ctrl(Cell_A,Cell_ON);
-	Cell_Ctrl(Cell_B,Cell_ON);
-
-	M1_COAST=Clear_ActiveLO;
-	M1_DIR=HI;
-	M1_BRAKE=Clear_ActiveLO;
-	M1_MODE=1;
-
-	M2_COAST=Clear_ActiveLO;
-	M2_DIR=HI;
-	M2_BRAKE=Clear_ActiveLO;
-	M2_MODE=1;
-
-	OC1R=2000;
-	OC2R=2000;
-	while(1);
-
-
-/*		for(i=0;i<=2000;i+=100)
-		{
-
-			OC1R = i;
-
-			block_ms(100);
-			ClrWdt();
-		}*/
-
-
-	REG_MOTOR_VELOCITY.right=1000;
-	REG_MOTOR_VELOCITY.left=500;
-//	REG_MOTOR_VELOCITY.flipper=1000;
-	//motor_stress_test();
-	//switched_sensor_wires();
-	//pulse_power_bus();
 
 
 }
