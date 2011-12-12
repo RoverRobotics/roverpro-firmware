@@ -105,7 +105,7 @@ Response from Device to Host:
 #include "testing.h"
 #include "debug_uart.h"
 
-//#define XbeeTest
+#define XbeeTest
 #define BATProtectionON
 
 //variables
@@ -2171,9 +2171,6 @@ void USBInput()
  	Robot_Motor_TargetSpeedUSB[2]=i;*/
 	//USBTimeOutTimerCount=0;
 	
- 	#ifdef XbeeTest
- 		gNewData=!gNewData;
-	#endif
 
 
 	//long time no data, clear everything
@@ -2193,7 +2190,9 @@ void USBInput()
  			//ClearSpeedCtrlData(i);
  			//ClearCurrentCtrlData(i);
  		}
-		send_debug_uart_string("USB Timeout Detected \r\n",23);
+		#ifndef XbeeTest
+			send_debug_uart_string("USB Timeout Detected \r\n",23);
+		#endif
  	}
 	// if there is new data comming in, update all the data
  	if(USB_New_Data_Received!=gNewData)
@@ -3433,6 +3432,7 @@ void Motor_U1RXInterrupt(void)
  	{
 		if(XbeeTest_Temp==255)
 		{
+			gNewData = !gNewData;
 			XbeeTest_State=XbeeTest_StateProcessing;
 		}
  	}
@@ -3444,7 +3444,7 @@ void Motor_U1RXInterrupt(void)
  		{
  		//input data range 0~250, 125 is stop, 0 is backwards full speed, 250 is forward full speed
  			//for Marge, the right and left is flipped, so left and right need to be flipped
- 			gNewData = !gNewData;//low speed commend
+ 			//gNewData = !gNewData;//low speed commend
  		 	REG_MOTOR_VELOCITY.left=-(XbeeTest_Buffer[0]*8-1000); 
  			REG_MOTOR_VELOCITY.right=-(XbeeTest_Buffer[1]*8-1000);
 			REG_MOTOR_VELOCITY.flipper=-(XbeeTest_Buffer[2]*8-1000);	
