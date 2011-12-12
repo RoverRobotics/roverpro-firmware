@@ -686,6 +686,7 @@ void Device_MotorController_Process()
 {
  	int i;
  	long temp1,temp2;
+	static int overcurrent_counter = 0;
  	/*I2C2Update();
 	I2C3Update();*/
  	//Check Timer
@@ -976,16 +977,28 @@ void Device_MotorController_Process()
 		//set at 10A per side
 		if( ((temp1 >> ShiftBits) >= 512) || ( (temp2 >> ShiftBits) >=512))
 		{
-			Cell_Ctrl(Cell_A,Cell_OFF);
- 			Cell_Ctrl(Cell_B,Cell_OFF);
- 			ProtectHB(LMotor);
-			ProtectHB(RMotor);
-			ProtectHB(Flipper);
- 			OverCurrent=True;
- 			BATRecoveryTimerCount=0;
- 			BATRecoveryTimerEnabled=True;
- 			BATRecoveryTimerExpired=False;
+			//Cell_Ctrl(Cell_A,Cell_OFF);
+ 			//Cell_Ctrl(Cell_B,Cell_OFF);
+			overcurrent_counter++;
+			if(overcurrent_counter > 10)
+			{
+				PWM1Duty(0);
+				PWM2Duty(0);
+				PWM3Duty(0);
+	 			ProtectHB(LMotor);
+				ProtectHB(RMotor);
+				ProtectHB(Flipper);
+	 			OverCurrent=True;
+	 			BATRecoveryTimerCount=0;
+	 			BATRecoveryTimerEnabled=True;
+	 			BATRecoveryTimerExpired=False;
+			}
 
+		}
+		//
+		else if( ((temp1 >> ShiftBits) <= 341) || ( (temp2 >> ShiftBits) <= 341))
+		{
+			overcurrent_counter = 0;
 		}
  /*		if(REG_PWR_BAT_VOLTAGE.a<=BATVoltageLimit || REG_PWR_BAT_VOLTAGE.b<=BATVoltageLimit)//Battery voltage too low, turn off the power bus
  		{
