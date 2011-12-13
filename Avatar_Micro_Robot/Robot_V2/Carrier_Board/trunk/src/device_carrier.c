@@ -301,6 +301,9 @@ void DeviceCarrierInit()
 
 	display_board_number();
 
+	REG_CARRIER_SPEAKER_ON = 1;
+	REG_CARRIER_MIC_ON = 1;
+
 	send_lcd_string("Init finished  \r\n",17);
 
 	//T1InterruptUserFunction = DeviceCarrierGetTelemetry;
