@@ -64,6 +64,11 @@ void joystick_trimming_loop(void)
 
 		}
 
+		if(joystick_trim_factor > 100)
+			joystick_trim_factor = 100;
+		if(joystick_trim_factor < -100)
+			joystick_trim_factor = -100;
+
 		current_payload_button = PAYLOAD_BUTTON;
 
 

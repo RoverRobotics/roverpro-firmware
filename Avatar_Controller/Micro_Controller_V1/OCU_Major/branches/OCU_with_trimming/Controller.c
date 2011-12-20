@@ -81,7 +81,7 @@ void Construct_Controller_Message(void)
 	static unsigned char last_light_button;
 	static unsigned char last_light_state = OFF;
 	unsigned char battery_voltage = 0;
-	unsigned int trimmed_joystick_LH = 127;
+	int trimmed_joystick_LH = 127;
 
 
 //header bytes
@@ -111,7 +111,13 @@ void Construct_Controller_Message(void)
 	//apply trim factor.  Only do this if the joystick is pressed forward, with a deadband of about 10
 	//(so that the trim factor doesn't cause the robot to move when it should be still).
 	if(Datalink_Send_Buffer[7] > 137)
-		trimmed_joystick_LH = Datalink_Send_Buffer[6] + joystick_trim_factor * (127-(int)Datalink_Send_Buffer[7]) / 20;
+	{
+		trimmed_joystick_LH = (int)Datalink_Send_Buffer[6] + (int)joystick_trim_factor * (127-(int)Datalink_Send_Buffer[7]) / 128;
+		if(trimmed_joystick_LH > 255)
+			trimmed_joystick_LH = 255;
+		else if(trimmed_joystick_LH < 0)
+			trimmed_joystick_LH = 0;
+	}
 	else
 		trimmed_joystick_LH = Datalink_Send_Buffer[6];
 
