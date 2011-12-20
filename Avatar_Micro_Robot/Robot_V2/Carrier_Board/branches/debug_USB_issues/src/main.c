@@ -21,6 +21,7 @@
 //#include "device_arm_base.h"
 //#include "device_arm_sholder.h"
 //#include "device_arm_hand.h"
+#include "testing.h"
 
 #include "SA1xLibrary/SA_API.h"
 
@@ -422,6 +423,11 @@ OutPacket[71] = 0x19;*/
 		}
 
 
+		send_lcd_string("\r\n\nOutPacket: ",14);
+		block_ms(10);
+		display_chars(OutPacket, n);
+		block_ms(20);
+
 		i = 0;                // reset IN packet pointer
 		n = 0;                // reset OUT packet pointer
         // PARSE INCOMING PACKET ----------------------------------------------
@@ -460,12 +466,17 @@ OutPacket[71] = 0x19;*/
 		}
 //		if (CMD_UPDATE_FIRMWARE.magic == 0x2345BCDE) bootloader();
 
+
 		if( (i + 2) > IN_PACKET_LENGTH ) goto crapout5;
 
 		InPacket[i + 1] = PACKET_TERMINATOR >> 8;
 		InPacket[i]     = PACKET_TERMINATOR & 0xff;
 		i += 2;
 
+		send_lcd_string("\r\nInPacket: ",12);
+		block_ms(10);
+		display_chars(InPacket, i);
+		block_ms(20);
 
 
 		if(!USBHandleBusy(USBGenericInHandle) && (i > 0))		

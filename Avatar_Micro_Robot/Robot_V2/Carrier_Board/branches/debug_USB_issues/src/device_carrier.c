@@ -859,7 +859,7 @@ void DeviceCarrierProcessIO()
 	}
 
 	block_ms(10);
-	print_loop_number();
+	//print_loop_number();
 
 }
 

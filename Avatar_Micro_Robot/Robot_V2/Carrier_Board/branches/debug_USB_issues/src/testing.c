@@ -11,6 +11,7 @@ void lcd_tx_interrupt(void);
 void int_to_string(unsigned int input, char* output);
 void display_register_value(char* description);
 void toggle_white_led(void);
+void char_to_string(unsigned int input, char* output);
 
 void test_init(void)
 {
@@ -53,6 +54,37 @@ void init_lcd_uart(void)
 	
 	ClrWdt();
 	
+
+}
+
+void display_chars(char* input_chars, unsigned char length)
+{
+
+	unsigned char i;
+	unsigned char j;
+	unsigned char string_to_print[100];
+	char new_hex_string[4];
+
+	for(i=0;i<100;i++)
+		string_to_print[i] = 'W';
+
+	//20 bytes input is 100 bytes of ASCII
+	if(length > 20)	
+		length = 20;
+
+	for(i=0;i<length;i++)
+	{
+		char_to_string(input_chars[i],(char*)new_hex_string);
+		for(j=0;j<4;j++)
+		{
+			string_to_print[5*i+j] = new_hex_string[j];
+		}
+		string_to_print[5*i+4] = ' ';
+
+	}
+
+	send_lcd_string(string_to_print,length*5);
+
 
 }
 
@@ -104,6 +136,56 @@ void display_board_number(void)
 	send_lcd_string("\r\n",2);
 	block_ms(10);
 
+
+}
+
+void char_to_string(unsigned int input, char* output)
+{
+//	char output[6] = "0x0000";
+
+	char nibble = '0';
+	int i;
+
+	output[0] = '0';
+	output[1] = 'x';
+	output[2] = '0';
+	output[3] = '0';
+
+	
+
+	for(i=0;i<2;i++)
+	{
+		nibble='Z';
+		switch(input&0x0f)
+		{
+			case 0x0a:
+				nibble = 'A';
+			break;
+			case 0x0b:
+				nibble = 'B';
+			break;
+			case 0x0c:
+				nibble = 'C';
+			break;
+			case 0x0d:
+				nibble = 'D';
+			break;
+			case 0x0e:
+				nibble = 'E';
+			break;
+			case 0x0f:
+				nibble = 'F';
+			break;
+			default:
+				if( (input&0x0f) < 0x0a )
+					nibble = (input&0x0f)+0x30;
+				else
+					nibble = 'Z';
+			break;
+		}
+		output[3-i] = nibble;
+		input=input>>4;
+	}
 
 }
 
