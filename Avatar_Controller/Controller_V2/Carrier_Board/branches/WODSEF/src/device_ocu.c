@@ -10,12 +10,20 @@
 #include "stdhdr.h"
 #include "device_ocu.h"
 
+/*
 
+Logic: 
+
+if(BUS_PWR_STATE()) turn on everything
+
+if(CHARGER_ACOK()) handle charging
+
+*/
 
 
 //button inputs
-#define VOLUME_DOWN()	(_RG6)
-#define VOLUME_UP()		(_RG7)
+#define VOLUME_DOWN()	(_RG7)
+#define VOLUME_UP()		(_RG6)
 #define TOGGLE1_UP() 	(_RB15)
 #define TOGGLE1_DOWN()	(_RB8)
 #define TOGGLE2_DOWN()	(_RB14)
@@ -24,7 +32,8 @@
 #define MENU_BUTTON()	(!_RB2)
 
 #define LIGHT_BUTTON()	(!_RB4)
-#define POWER_BUTTON()	(!_RD0)
+//#define POWER_BUTTON()	(!_RD0)
+#define POWER_BUTTON()		0
 
 
 #define CHARGER_ACOK()	(_RB0)
@@ -53,8 +62,8 @@
 #define CHARGER_ON(a)	_LATD11 = a
 
 //power button on COM Express
-#define COMPUTER_PWR_EN(a)	_TRISB1 = !a
-#define COMPUTER_PWR_ON(a)	_LATB1 = a
+//#define COMPUTER_PWR_EN(a)	_TRISB1 = !a
+//#define COMPUTER_PWR_ON(a)	_LATB1 = a
 
 #define V3V3_EN(a)		_TRISE7 = !a
 #define V3V3_ON(a)		_LATE7 = a
@@ -68,11 +77,11 @@
 #define COMPUTER_PWR_OK_EN(a)	_TRISD1 = !a
 #define COMPUTER_PWR_OK(a)		_LATD1 = a
 
-#define GREEN_LED_EN(a)		_TRISD8 = !a
-#define GREEN_LED_ON(a)		_LATD8 = a
+#define GREEN_LED_EN(a)		_TRISD3 = !a
+#define GREEN_LED_ON(a)		_LATD3 = a
 
-#define RED_LED_EN(a)		_TRISD3 = !a
-#define RED_LED_ON(a)		_LATD3 = a
+#define RED_LED_EN(a)		_TRISD8 = !a
+#define RED_LED_ON(a)		_LATD8 = a
 
 #define GPS_TX_OR			_RP27R
 #define GPS_RX_PIN			19
@@ -81,6 +90,26 @@
 #define CAMERA_PWR_ON(a)	_LATB5 = a		
 
 #define LCD_PWM_OR			_RP25R
+
+//microphone/speaker amp power
+
+#define MIC_PWR_EN(a)		_TRISC13 = !a
+#define MIC_PWR_ON(a)		_LATC13 = a
+
+#define AMP_PWR_EN(a)		_TRISD7 = !a
+#define AMP_PWR_ON(a)		_LATD7 = a
+
+//pushbutton controller definitions
+
+#define PWR_DWN_REQ()		!_RF0
+
+#define PWR_KILL_EN(a)		_TRISF1 = !a
+#define PWR_KILL_ON(a)		_LATF1 = !a
+
+#define BUS_PWR_STATE()		_RD0
+
+#define I2C_MUX_EN(a)		_TRISF3 = !a
+#define I2C_MUX_CH(a)		_LATF3 = a
 
 /*#define LCD_BACK_ON(a)	TRISDbits.TRISD4 = !a
 #define LCD_BACK_ON(a)	LATDbits.LATD4 = a*/
@@ -229,8 +258,389 @@ unsigned int bq2060a_registers[128];
 
 void read_all_bq2060a_registers(void);
 
+void bringup_board(void);
+
+int DeviceControllerBoot(void);
+
+//temp sensors work,as does accelerometer and compass
+//humidity sensor changes voltage, haven't tested adc yet
+//touchscreen works
+//need to still test  battery gas gauges and battery charger
 
 #pragma code
+
+void read_touchscreen(void)
+{
+	unsigned char r;
+	unsigned char add, reg;
+	unsigned char touch_pen;
+	unsigned int touch_x;
+	unsigned int touch_y;
+	unsigned char a,b;
+
+	add = TOUCH_CONTROLLER_I2C_ADD;
+	reg = 0x00;
+
+	IdleI2C2();
+	StartI2C2();
+	IdleI2C2();
+
+	MasterWriteI2C2(add<<1);
+
+	IdleI2C2();
+
+	MasterWriteI2C2(reg);
+
+	IdleI2C2();
+/*	StopI2C2();
+	IdleI2C2();
+	StartI2C2();*/
+	RestartI2C2();
+	IdleI2C2();
+
+	MasterWriteI2C2((add << 1) | 0x01);
+	IdleI2C2();
+
+	__delay_us(100);
+
+	_MI2C2IF = 0;
+
+	//r = (unsigned char)(MasterReadI2C1());
+
+	//AckI2C1();
+
+	//IdleI2C1();
+
+	touch_pen = (unsigned char)(MasterReadI2C2());	
+
+	AckI2C2();
+
+	IdleI2C2();
+
+	a = (unsigned char)(MasterReadI2C2());	
+
+	AckI2C2();
+
+	IdleI2C2();
+
+	b = (unsigned char)(MasterReadI2C2());	
+
+	touch_x = (b<<7) | a;
+
+	AckI2C2();
+
+	IdleI2C2();
+
+	a = (unsigned char)(MasterReadI2C2());	
+
+	AckI2C2();
+
+	IdleI2C2();
+
+	b = (unsigned char)(MasterReadI2C2());	
+	touch_y = (b<<7) | a;
+	//IdleI2C1();
+	NotAckI2C2();
+
+	// terminate read sequence (do not send ACK, send  STOP)
+	IdleI2C2();
+	StopI2C2(); 
+	IdleI2C2();
+
+	Nop();
+	Nop();
+
+
+
+
+
+}
+
+void read_battery_rsoc(void)
+{
+	unsigned char battery_0_RSOC = 0;
+	unsigned char battery_1_RSOC = 0;
+	I2C_MUX_EN(1);
+
+	OpenI2C1(I2C_ON & I2C_IDLE_CON & I2C_CLK_HLD & I2C_IPMI_DIS & I2C_7BIT_ADD  
+                & I2C_SLW_DIS & I2C_SM_DIS & I2C_GCALL_DIS & I2C_STR_DIS 
+				& I2C_NACK, I2C_RATE_SETTING);
+
+	IdleI2C1();
+
+	OpenI2C2(I2C_ON & I2C_IDLE_CON & I2C_CLK_HLD & I2C_IPMI_DIS & I2C_7BIT_ADD  
+                & I2C_SLW_DIS & I2C_SM_DIS & I2C_GCALL_DIS & I2C_STR_DIS 
+				& I2C_NACK, I2C_RATE_SETTING);
+
+	IdleI2C2();
+
+	CHARGER_EN(1);
+	CHARGER_ON(1);
+
+	while(1)
+	{
+		ClrWdt();
+		I2C_MUX_CH(0);
+		block_ms(200);
+		battery_0_RSOC = readI2C1_Reg(0x0b, 0x0d);
+		I2C_MUX_CH(1);
+		block_ms(200);
+		battery_1_RSOC = readI2C1_Reg(0x0b, 0x0d);
+		block_ms(200);
+		writeI2C2Word(SMBUS_ADD_BQ24745,0x15,0x41a0);
+		block_ms(50);
+		writeI2C2Word(SMBUS_ADD_BQ24745,0x14,0x0bb8);
+		block_ms(50);
+		writeI2C2Word(SMBUS_ADD_BQ24745,0x3f,0x0f80);
+		block_ms(50);
+		Nop();
+		Nop();
+
+	}
+
+}
+
+void test_fan_controller(void)
+{
+
+writeI2C2Reg(I2C_ADD_FAN_CONTROLLER,0x02,0b00011010);
+
+writeI2C2Reg(I2C_ADD_FAN_CONTROLLER,0x11,0b00011000);
+writeI2C2Reg(I2C_ADD_FAN_CONTROLLER,0x07,120);
+writeI2C2Reg(I2C_ADD_FAN_CONTROLLER,0x10,15);
+
+
+
+
+}
+
+void bringup_i2c1(void)
+{
+	float temp_1, temp_2, accel_x, accel_y, accel_z;
+	unsigned int mag_x, mag_y, mag_z;
+	int a,b,c;
+
+/*#define TOUCH_CONTROLLER_I2C_ADD 0x4d
+#define SMBUS_ADD_TMP112_2 0x48
+#define SMBUS_ADD_TMP112 0x49
+#define SMBUS_ADD_BQ2060A 0x0b
+#define SMBUS_ADD_BQ24745 0x09
+#define I2C_ADD_FAN_CONTROLLER	0x18*/
+
+	OpenI2C1(I2C_ON & I2C_IDLE_CON & I2C_CLK_HLD & I2C_IPMI_DIS & I2C_7BIT_ADD  
+                & I2C_SLW_DIS & I2C_SM_DIS & I2C_GCALL_DIS & I2C_STR_DIS 
+				& I2C_NACK, I2C_RATE_SETTING);
+
+	IdleI2C1();
+
+	OpenI2C2(I2C_ON & I2C_IDLE_CON & I2C_CLK_HLD & I2C_IPMI_DIS & I2C_7BIT_ADD  
+                & I2C_SLW_DIS & I2C_SM_DIS & I2C_GCALL_DIS & I2C_STR_DIS 
+				& I2C_NACK, I2C_RATE_SETTING);
+
+	IdleI2C2();
+
+	// wait a little before continuing...
+	block_ms(100);
+
+
+	writeI2C2Reg( I2C_ADD_HMC5843, 0x02,0x00);
+	block_ms(5);
+	writeI2C2Reg( I2C_ADXL345_ADD  , 0x2d,0x08);	
+	block_ms(5);
+	writeI2C2Reg( I2C_ADXL345_ADD  , 0x31,0x0b);	
+	block_ms(5);
+
+	while(1)
+	{
+
+		ClrWdt();
+		a = readI2C2_Reg(SMBUS_ADD_TMP112,0x00);
+		b = readI2C2_Reg(SMBUS_ADD_TMP112,0x01);
+		c = (b >> 4 ) | (a <<4);
+		temp_1 =  (float)c/16.0;
+
+		block_ms(5);
+
+		a = readI2C2_Reg(SMBUS_ADD_TMP112_2,0x00);
+		b = readI2C2_Reg(SMBUS_ADD_TMP112_2,0x01);
+		c = (b >> 4 ) | (a <<4);
+		temp_2 =  (float)c/16.0;
+
+		block_ms(5);
+
+		a = readI2C2_Reg(I2C_ADXL345_ADD,0x32);
+		b = readI2C2_Reg(I2C_ADXL345_ADD,0x33);
+		c = a | (b << 8);
+		accel_x = -(float)c/256.0;
+
+		block_ms(5);
+
+		a = readI2C2_Reg(I2C_ADXL345_ADD,0x34);
+		b = readI2C2_Reg(I2C_ADXL345_ADD,0x35);
+		c = a | (b << 8);
+		accel_y = -(float)c/256.0;
+
+		block_ms(5);
+
+		a = readI2C2_Reg(I2C_ADXL345_ADD,0x36);
+		b = readI2C2_Reg(I2C_ADXL345_ADD,0x37);
+		c = a | (b << 8);
+		accel_z = -(float)c/256.0;
+
+		block_ms(5);
+
+		a = readI2C2_Reg(I2C_ADD_HMC5843,0x03);
+		b = readI2C2_Reg(I2C_ADD_HMC5843,0x04);
+		c = b | (a << 8);
+		mag_x = c;
+
+		block_ms(5);
+		
+		a = readI2C2_Reg(I2C_ADD_HMC5843,0x05);
+		b = readI2C2_Reg(I2C_ADD_HMC5843,0x06);
+		c = b | (a << 8);
+		mag_y = c;
+
+		block_ms(5);
+
+		a = readI2C2_Reg(I2C_ADD_HMC5843,0x07);
+		b = readI2C2_Reg(I2C_ADD_HMC5843,0x08);
+		c = b | (a << 8);
+		mag_z = c;
+
+		read_touchscreen();
+
+		Nop();	
+
+		block_ms(200);
+		
+
+	}
+
+
+
+
+}
+
+void bringup_board(void)
+{
+
+	static unsigned int power_down_counter = 0;
+
+	init_io();
+
+	PWR_KILL_EN(1);
+	PWR_KILL_ON(0);
+	MIC_PWR_EN(1);
+	AMP_PWR_EN(1);
+	//MIC_PWR_ON(1);
+	//AMP_PWR_ON(1);
+	CAMERA_PWR_EN(1);
+	CAMERA_PWR_ON(1);
+
+	while(1)
+	{
+		ClrWdt();
+		if(BUS_PWR_STATE())
+		{	
+			GREEN_LED_ON(1);
+			//V3V3_ON(1);
+			//V5V_ON(1);
+			//V12V_ON(1);
+			//bringup_i2c1();
+			//read_battery_rsoc();
+			//test_fan_controller();
+
+			if(BUS_PWR_STATE())
+			{
+				if(computer_on_flag == 0)
+				{
+						//set to OC1
+					LCD_PWM_OR = 18;	
+					
+					T2CONbits.TCKPS = 0;	
+				
+				
+					
+					//TPS61161: between 5kHz and 100 kHz PWM dimming frequency
+					//Choose 20kHz (50us period)
+					//50us = [PR2 + 1]*62.5ns*1
+					PR2 = 801;	
+					OC1RS = 800;
+					set_backlight_brightness(50);
+					
+					//Sleep();
+				
+					OC1CON2bits.SYNCSEL = 0x1f;	
+					
+					//use timer 2
+					OC1CON1bits.OCTSEL2 = 0;
+					
+					//edge-aligned pwm mode
+					OC1CON1bits.OCM = 6;
+					
+					//turn on timer 2
+					T2CONbits.TON = 1;
+					if(DeviceControllerBoot() )
+					{
+						GREEN_LED_ON(1);
+						computer_on_flag = 1;
+					}
+					V12V_ON(1);
+				}
+		
+			}
+		}
+		else
+		{
+			GREEN_LED_ON(0);
+		}
+		if(CHARGER_ACOK())
+		{
+			RED_LED_ON(1);
+		}
+		else
+		{
+			RED_LED_ON(0);
+		}
+
+		if(PWR_DWN_REQ())
+		{
+			while(PWR_DWN_REQ())
+			{
+				power_down_counter++;
+				block_ms(10);
+				if(power_down_counter > 50)
+					PWR_KILL_ON(1);
+			}
+			power_down_counter = 0;
+
+		}
+		
+
+	}
+
+	if(BUS_PWR_STATE())
+	{
+		if(computer_on_flag == 0)
+		{
+			if(DeviceControllerBoot() )
+			{
+				GREEN_LED_ON(1);
+				computer_on_flag = 1;
+			}
+		}
+
+	}
+	else
+	{
+		computer_on_flag = 0;
+
+	}
+
+
+
+}
 
 void DeviceOcuInit()
 {
@@ -305,6 +715,8 @@ void DeviceOcuInit()
 	I2C2BRG = 0xff;
 
 //	Sleep();
+
+	bringup_board();
 
 	//initialize I2C interrupts
 	I2C2InterruptUserFunction=ocu_batt_smbus_isr;
@@ -1640,7 +2052,69 @@ void joystick_interrupt(void)
 }
 
 
+int DeviceControllerBoot(void)
+{
+	unsigned char a;
+	unsigned int i = 0;
 
+	V3V3_ON(1);
+
+	//while(!V3V3_PGOOD());
+
+	//weird -- long interval between turning on V3V3 and V5 doesn't allow COM Express to boot
+	block_ms(100);
+
+	V5V_ON(1);
+
+	while(SUS_S5() | SUS_S3())
+	{
+		i++;
+		if(i > 5) return 0;
+		ClrWdt();
+		block_ms(100);
+	}
+	i=0;
+	ClrWdt();
+	block_ms(100);
+
+//	send_lcd_string("Boot 1  \r\n",10);
+
+/*	for(i=0;i<400;i++)
+	{
+		block_ms(10);
+		ClrWdt();
+	}*/
+
+	//while(!V5_PGOOD());
+
+	while(!SUS_S5())
+	{
+		i++;
+		if(i > 20) return 0;
+		ClrWdt();
+		block_ms(100);
+
+	}
+
+//	send_lcd_string("Boot 2  \r\n",10);
+	i=0;
+
+	COMPUTER_PWR_OK(1);
+
+	while(!SUS_S3())
+	{
+		i++;
+		if(i > 20) return 0;
+		ClrWdt();
+		block_ms(100);
+	}
+
+//	blink_led(6,500);
+
+	return 1;
+
+
+}
 
 
 void test_sleep_current(void)
