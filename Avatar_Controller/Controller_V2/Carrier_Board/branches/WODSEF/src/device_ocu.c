@@ -716,7 +716,7 @@ void DeviceOcuInit()
 
 //	Sleep();
 
-	bringup_board();
+	//bringup_board();
 
 	//initialize I2C interrupts
 	I2C2InterruptUserFunction=ocu_batt_smbus_isr;
@@ -821,7 +821,7 @@ void DeviceOcuProcessIO()
 	//_ASAM = 1;
 	main_loop_counter++;
 
-	if( (computer_on_flag == 0) && (CHARGER_ACOK() == 0))
+/*	if( (computer_on_flag == 0) && (CHARGER_ACOK() == 0))
 	{
 		disable_io();
 
@@ -850,7 +850,7 @@ void DeviceOcuProcessIO()
 		dummy = PORTB;
 		init_io();
 		block_ms(50);
-	}
+	}*/
 
 	handle_power_button();
 	update_button_states();
@@ -1068,10 +1068,11 @@ void handle_power_button(void)
 {
 
 	unsigned int i;
+	static unsigned int power_down_counter = 0;
 	//static unsigned char computer_on_flag = 0;
 	static unsigned char power_button_press_counter = 0;
 	power_button_press_counter= 0;
-	if(computer_on_flag == 0)
+/*	if(computer_on_flag == 0)
 	{
 
 		if(POWER_BUTTON())
@@ -1196,7 +1197,40 @@ void handle_power_button(void)
 		//a little delay for debouncing
 	
 
-	}
+	}*/
+
+				if(computer_on_flag == 0)
+				{
+					set_backlight_brightness(50);
+
+
+
+					if(DeviceControllerBoot() )
+					{
+						GREEN_LED_ON(1);
+						computer_on_flag = 1;
+						block_ms(100);
+						initialize_i2c_devices();
+						init_fan_controller();
+						V12V_ON(1);
+					}
+					
+
+				}
+
+
+		if(PWR_DWN_REQ())
+		{
+			while(PWR_DWN_REQ())
+			{
+				power_down_counter++;
+				block_ms(10);
+				if(power_down_counter > 50)
+					PWR_KILL_ON(1);
+			}
+			power_down_counter = 0;
+
+		}
 }
 
 
@@ -1900,8 +1934,15 @@ void init_io(void)
 	RED_LED_ON(0);
 	GREEN_LED_ON(0);
 	CAMERA_PWR_ON(0);
+	MIC_PWR_ON(1);
+	AMP_PWR_ON(1);
+	I2C_MUX_CH(0);
 	
 	COMPUTER_PWR_OK_EN(1);
+
+	MIC_PWR_EN(1);
+	AMP_PWR_EN(1);
+	I2C_MUX_EN(1);
 
 	//CAMERA_PWR_ON(1);
 
