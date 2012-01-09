@@ -109,8 +109,7 @@ if(CHARGER_ACOK()) handle charging
 
 #define BUS_PWR_STATE()		_RD0
 
-#define I2C_MUX_EN(a)		_TRISF3 = !a
-#define I2C_MUX_CH(a)		_LATF3 = a
+
 
 /*#define LCD_BACK_ON(a)	TRISDbits.TRISD4 = !a
 #define LCD_BACK_ON(a)	LATDbits.LATD4 = a*/
@@ -1328,12 +1327,14 @@ void init_io(void)
 	MIC_PWR_ON(1);
 	AMP_PWR_ON(1);
 	I2C_MUX_CH(0);
+	PWR_KILL_ON(0);
 	
 	COMPUTER_PWR_OK_EN(1);
 
 	MIC_PWR_EN(1);
 	AMP_PWR_EN(1);
 	I2C_MUX_EN(1);
+	PWR_KILL_EN(1);
 
 	//CAMERA_PWR_ON(1);
 

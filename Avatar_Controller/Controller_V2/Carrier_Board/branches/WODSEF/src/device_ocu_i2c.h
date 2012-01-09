@@ -18,3 +18,6 @@ void ocu_batt_smbus_isr(void);
 
 #define I2C_ADD_HMC5843 0x1e
 #define I2C_ADXL345_ADD           0x53
+
+#define I2C_MUX_EN(a)		_TRISF3 = !a
+#define I2C_MUX_CH(a)		_LATF3 = a

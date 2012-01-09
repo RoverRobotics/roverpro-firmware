@@ -951,7 +951,7 @@ void ocu_i2c1_fsm(void)
 			
 			case 0x01:				
 				
-				REG_OCU_BATT_REL_SOC = ocu_i2c1_rx_byte1 + (ocu_i2c1_rx_byte2<<8);
+				REG_OCU_REL_SOC_R = ocu_i2c1_rx_byte1 + (ocu_i2c1_rx_byte2<<8);
 				i2c1_device_state++;
 				
 			break;
@@ -986,7 +986,7 @@ void ocu_i2c1_fsm(void)
 			break;
 
 			case 0x07:
-				REG_OCU_BATT_FULL_CHARGE_CAP = ocu_i2c1_rx_byte1 + (ocu_i2c1_rx_byte2<<8);
+				REG_OCU_REL_SOC_L = ocu_i2c1_rx_byte1 + (ocu_i2c1_rx_byte2<<8);
 				i2c1_device_state = 0;
 			break;
 
@@ -1007,6 +1007,7 @@ void ocu_i2c1_fsm(void)
 		switch(i2c1_device_state)
 		{
 			case 0x00:
+				I2C_MUX_CH(0);
 				ocu_i2c1_interrupt_state = 0x00;
 				ocu_i2c1_message_length = 2;
 				start_ocu_i2c1_i2c_read(SMBUS_ADD_BQ2060A,0x09);
@@ -1046,10 +1047,10 @@ void ocu_i2c1_fsm(void)
 				start_ocu_i2c1_i2c_read(SMBUS_ADD_BQ2060A,0x08);
 			break;
 			case 0x07:
-				
+				I2C_MUX_CH(1);
 				ocu_i2c1_interrupt_state = 0x00;
 				ocu_i2c1_message_length = 2;
-				start_ocu_i2c1_i2c_read(SMBUS_ADD_BQ2060A,0x10);
+				start_ocu_i2c1_i2c_read(SMBUS_ADD_BQ2060A,0x0d);
 			break;
 			default:
 				i2c1_device_state = 0;
