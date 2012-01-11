@@ -8,12 +8,13 @@
 
 void switched_sensor_wires(void);
 void pulse_power_bus(void);
+void force_overcurrent(void);
 
 //gets called after board is initialized.=
 void test_function(void)
 {
 
-
+	//force_overcurrent();
 
 }
 
@@ -195,5 +196,52 @@ void switched_sensor_wires(void)
 	
 
 }
+
+void force_overcurrent(void)
+{
+	Cell_Ctrl(Cell_A,Cell_ON);
+	Cell_Ctrl(Cell_B,Cell_ON);
+
+	M1_COAST=Clear_ActiveLO;
+	M1_DIR=HI;
+	M1_BRAKE=Clear_ActiveLO;
+	M1_MODE=1;
+
+	M2_COAST=Clear_ActiveLO;
+	M2_DIR=HI;
+	M2_BRAKE=Clear_ActiveLO;
+	M2_MODE=1;
+
+	M3_COAST=Clear_ActiveLO;
+	M3_DIR=HI;
+	M3_BRAKE=Clear_ActiveLO;
+	M3_MODE=1;
+	OC1R = 0;
+	OC2R = 0;
+	OC3R = 0;
+	
+	ClrWdt();
+	OC1R = 200;
+	OC2R = 200;
+	block_ms(5000);
+	ClrWdt();
+
+	OC1R = 2000;
+	OC2R = 2000;
+	
+	block_ms(1000);
+
+	M1_DIR = LO;
+	M2_DIR = LO;
+
+	while(1)
+	{
+		ClrWdt();
+	}
+
+
+
+}
+
 
 
