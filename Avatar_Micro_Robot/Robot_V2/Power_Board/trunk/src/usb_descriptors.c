@@ -20,8 +20,8 @@ USB_DEVICE_DESCRIPTOR device_dsc=
     0x00,                         // Subclass code
     0x00,                         // Protocol code
     USB_EP0_BUFF_SIZE,            // Max packet size for EP0, see usb_config.h
-    0xB1E1,                       // Vendor ID: Brinton Engineering LLC
-    0x0001,                       // Product ID: Robotex OCU
+    0x2694,                       // Vendor ID: RoboteX Inc.
+    0x0000,                       // Product ID: Generic Device
     0x0000,                       // Device release number in BCD format
     0x01,                         // Manufacturer string index
     0x02,                         // Product string index
@@ -57,16 +57,18 @@ ROM BYTE configDescriptor1[]={
     USB_DESCRIPTOR_ENDPOINT,      // Endpoint Descriptor
     _EP01_OUT,                    // EndpointAddress
     _ISO,                         // Attributes
-    OUT_PACKET_LENGTH & 0xFF,
-    (OUT_PACKET_LENGTH>>8) & 0xFF,// size
+//    OUT_PACKET_LENGTH & 0xFF,
+//    (OUT_PACKET_LENGTH>>8) & 0xFF,// size
+    0xFF, 0xFF,
     1,                            // Interval
     
     0x07,                         // sizeof(USB_EP_DSC)
     USB_DESCRIPTOR_ENDPOINT,      // Endpoint Descriptor
     _EP01_IN,                     // EndpointAddress
     _ISO,                         // Attributes
-    IN_PACKET_LENGTH & 0xFF,
-    (IN_PACKET_LENGTH>>8) & 0xFF, // size
+//    IN_PACKET_LENGTH & 0xFF,
+//    (IN_PACKET_LENGTH>>8) & 0xFF, // size
+    0xFF, 0xFF,
     1                             // Interval
 };
 
