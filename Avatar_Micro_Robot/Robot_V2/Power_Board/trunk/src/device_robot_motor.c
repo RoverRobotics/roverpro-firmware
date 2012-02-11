@@ -2079,11 +2079,13 @@ void FANCtrlIni()
 
 	block_ms(20);
 
+	REG_MOTOR_SIDE_FAN_SPEED = 48;
+
 	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x0B,240);
 	ClrWdt();
 	block_ms(500);
 	ClrWdt();
-	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x0B,0);
+	//writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x0B,0);
 
 	block_ms(20);
 	ClrWdt();
