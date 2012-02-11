@@ -2064,27 +2064,32 @@ void FANCtrlIni()
  	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x02,0b01011000);
 
  	//auto fan speed control mode
- 	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x11,0b00111100);
+ 	//writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x11,0b00111100);
 
 	//manufal fan speed control mode
-/*	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x11,0x00);
+	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x11,0x00);
 
 	block_ms(20);
 
-	//writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x0B,240);
+	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x12,0);
+
+	block_ms(20);
+
+	//writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x13,0xff);
+
+	block_ms(20);
+
+	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x0B,240);
 	ClrWdt();
-	block_ms(1000);
+	block_ms(500);
 	ClrWdt();
 	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x0B,0);
-	while(1)
-	{
 
-		ClrWdt();
-	}*/
-
+	block_ms(20);
+	ClrWdt();
 
  	//for FAN1 starting temperature
- 	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x0F,10);
+ /*	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x0F,10);
 
  	//for FAN2 starting temperature
  	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x10,Fan2LowTemp);
@@ -2100,7 +2105,7 @@ void FANCtrlIni()
 	ClrWdt();
  	//for FAN1 starting temperature
  	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x0F,Fan1LowTemp);
-
+	*/
 	
 	
 }
