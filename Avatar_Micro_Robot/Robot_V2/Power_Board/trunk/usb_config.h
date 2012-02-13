@@ -32,7 +32,8 @@ typedef int16_t DEVICE_NUMBER;
 #define DEVICE_CARRIER     2
 #define DEVICE_MOTOR       3
 #define DEVICE_ARM_BASE    4
-#define DEVICE_ARM_SHOLDER 5
+#define DEVICE_PTZ_BASE	   0x5
+#define DEVICE_PTZ_ROTATION 0xA
 #define DEVICE_ARM_HAND    6
 #define DEVICE_BATTERY     7
 #define DEVICE_PROTOBOARD  8

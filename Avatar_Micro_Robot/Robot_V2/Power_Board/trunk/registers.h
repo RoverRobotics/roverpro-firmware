@@ -32,6 +32,10 @@ typedef struct {uint8_t data[24]; } FIRMWARE_BUILD_STRING;
 typedef struct {uint8_t data[79]; } BOARD_DATA;
 typedef struct { uint32_t length, magic; } UPDATE_FIRMWARE; // magic = 0x2345BCDE
 
+typedef struct { int16_t tilt, zoom; } REG_CAMERA_VEL_ROT_2EL_16BI;
+/** Data type for representing PTZ tilt, zoom, and digital zoom data */
+typedef struct { int16_t tilt, zoom, digitalZoom; } REG_CAMERA_POS_ROT_3EL_16BI;
+
 #endif
 
 
@@ -149,6 +153,7 @@ REGISTER( REG_CAMERA_FOCUS, DEVICE_READ, DEVICE_PTZ_ROTATION, SYNC, int16_t )
 REGISTER( REG_CAMERA_FOCUS_MANUAL, DEVICE_READ, DEVICE_PTZ_ROTATION, SYNC, uint8_t )
 REGISTER( REG_CAMERA_FOCUS_SET, DEVICE_READ, DEVICE_PTZ_ROTATION, SYNC, uint16_t )
 
+//value ranges from 0 (off) to 240 (100%)
 REGISTER( REG_MOTOR_SIDE_FAN_SPEED,   DEVICE_WRITE,  DEVICE_MOTOR,   SYNC,    uint8_t )
    
 REGISTER_END()
