@@ -108,8 +108,8 @@ static volatile int uartTxIndex = 0;
 // -------------------------------------------------------------------------
 // Motor Limits
 // -------------------------------------------------------------------------
-#define TILT_STEPPER_LOWER 514
-#define TILT_STEPPER_UPPER 770
+#define TILT_STEPPER_LOWER 510
+#define TILT_STEPPER_UPPER 780
 #define TILT_ANGLE_LOWER 5.0f
 #define TILT_ANGLE_UPPER 87.0f
 
@@ -147,7 +147,7 @@ static UART_MESSAGE_STATE cameraMessageState;
 static ZOOM_STATE cameraZoomState;
 static uint8_t lensRecover = 0;
 static uint8_t lensResetEdge = 0;
-static uint32_t potentiometer = 0;
+static float potentiometer = 0;
 static int lastTiltVelocity = 0;
 static uint32_t tiltHoldPosition = TILT_STEPPER_LOWER;
 static int tiltPidSum = 0;
@@ -253,8 +253,7 @@ static void T1Interrupt()
 static void ADC1Interrupt()
 {
 	if(AD1CON1bits.DONE)
-		potentiometer = (potentiometer>>1) + (potentiometer>>2) + (potentiometer>>3) + (potentiometer>>4) + (ADC1BUF0>>4);
-
+		potentiometer = potentiometer*0.8f + ((float)ADC1BUF0)*0.2f;
 	IFS0bits.AD1IF = 0; 
 }
 
@@ -311,7 +310,7 @@ static void PWM1Set(int duty, int period)
 
 static void IniPWM1()
 {
-    T2CONbits.TCKPS = 0;    
+    T2CONbits.TCKPS = 0b01;    
 
     //_RP25R = 18;      //OC1
 
@@ -839,27 +838,46 @@ static void ZoomControl()
 
 static void TiltControl()
 {
-	int absTiltVelocity;
+	int absTiltVelocity = 0;
 	int tiltDir = REG_CAMERA_VEL_ROT.tilt>=0;
+	int pwmDuty = 40;
+
 	if((lastTiltVelocity!=0) && (REG_CAMERA_VEL_ROT.tilt==0))
 	{
 		tiltHoldPosition = potentiometer;
+		pwmDuty = 0;
+		PORTBbits.RB11=1;
+		T2CONbits.TON = 0;
 	}
 	else if(REG_CAMERA_VEL_ROT.tilt != 0)
 	{
 		absTiltVelocity = abs(REG_CAMERA_VEL_ROT.tilt);
 		int relativeAngle = max((int)potentiometer - TILT_STEPPER_LOWER,0);
-		REG_CAMERA_POS_ROT.tilt = (uint16_t)((((float)(relativeAngle))/((float)(TILT_STEPPER_UPPER-TILT_STEPPER_LOWER)))*(TILT_ANGLE_UPPER-TILT_ANGLE_LOWER) + TILT_ANGLE_LOWER);		
+		REG_CAMERA_POS_ROT.tilt = (uint16_t)((((float)(relativeAngle))/((float)(TILT_STEPPER_UPPER-TILT_STEPPER_LOWER)))*(TILT_ANGLE_UPPER-TILT_ANGLE_LOWER) + TILT_ANGLE_LOWER);
+		PORTBbits.RB11=0;
+		T2CONbits.TON = 1;		
 	}
 	else
 	{
 		int potProp = (int)potentiometer-(int)tiltHoldPosition;
 		int potDiff = potProp-tiltPidLastProp;
+                
 		tiltPidLastProp = potProp;
 		tiltPidSum = (potProp) + (int)(((float)tiltPidSum)*0.90f);
 		int pidResult = (potProp<<5) + (potDiff) + tiltPidSum;
 		tiltDir = (pidResult) < 0;
 		absTiltVelocity = min(1000,abs(pidResult));
+		if(abs(potProp) < 2)
+                {
+			PORTBbits.RB11=1;
+			T2CONbits.TON = 0;
+			pwmDuty = 0;
+                }
+                else
+		{
+			PORTBbits.RB11=0;
+			T2CONbits.TON = 1;
+		}
 	}
 
 	lastTiltVelocity = REG_CAMERA_VEL_ROT.tilt;	
@@ -867,7 +885,7 @@ static void TiltControl()
 	if(((potentiometer > TILT_STEPPER_UPPER) && (REG_CAMERA_VEL_ROT.tilt>=0)) || ((potentiometer < TILT_STEPPER_LOWER) && (REG_CAMERA_VEL_ROT.tilt<0)))
 		absTiltVelocity = 0;
 	Stepper1SetDir(tiltDir);
-	PWM1Set(40, (int)(262000.0f*(1.0f/((float)absTiltVelocity+1.0f))));
+	PWM1Set(pwmDuty, (int)(262000.0f*(1.0f/(5.0f*((float)absTiltVelocity+1.0f)))));
 }
 
 // Main process

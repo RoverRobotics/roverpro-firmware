@@ -99,13 +99,16 @@ static volatile int uartTxIndex = 0;
 // -------------------------------------------------------------------------
 
 static uint32_t ticks = 0;
-static uint32_t potentiometer = 0;
-static uint32_t potentiometer2 = 0;
+static float potentiometer = 0;
+static float potentiometer2 = 0;
 static int32_t potentiometerMerged = 0;
 
+float debug_pot = 0.0f;
+float debug_pot2 = 0.0f;
+
 static int lastPanVelocity = 0;
-static uint32_t panHoldPosition = 0;
-static int panPidSum = 0;
+static uint32_t panHoldPosition = 530;
+static float panPidSum = 0;
 static int panPidLastProp = 0;
 
 // -------------------------------------------------------------------------
@@ -198,8 +201,10 @@ static void ADC1Interrupt()
 {
 	if(AD1CON1bits.DONE)
 	{
-		potentiometer = /*(potentiometer>>1) + (potentiometer>>2) + (potentiometer>>3) + (potentiometer>>4) + */(ADC1BUF0);
-		potentiometer2 = /*(potentiometer2>>1) + (potentiometer2>>2) + (potentiometer2>>3) + (potentiometer2>>4) + */(ADC1BUF1);
+		potentiometer = ((float)ADC1BUF0)*0.01f + potentiometer*0.99f;
+		potentiometer2 = ((float)ADC1BUF1)*0.01f + potentiometer2*0.99f;
+        debug_pot = potentiometer;
+        debug_pot2 = potentiometer2;
 	}
 	
 	IFS0bits.AD1IF = 0; 
@@ -258,7 +263,7 @@ static void PWM1Set(int duty, int period)
 
 static void IniPWM1()
 {
-    T2CONbits.TCKPS = 0;    
+    T2CONbits.TCKPS = 0b01;    
 
     //_RP25R = 18;      //OC1
 
@@ -483,10 +488,10 @@ void DevicePTZBaseInit()
 void InputSummation()
 {
 	if((potentiometer > 0xBF) && (potentiometer < 0x128))
-		potentiometerMerged = 0x3FF+max(-1*((int)(((int)potentiometer-((int)0x128)))),0);
+		potentiometerMerged = 0x3FF+max(-1*((int)(((int)potentiometer-((int)0x128)))),0)-25;
 	else
 		potentiometerMerged = potentiometer2;
-	potentiometerMerged=max((int)potentiometerMerged-25,0);
+	potentiometerMerged=max((int)potentiometerMerged,0);
 	REG_CAMERA_POS_BASE = (360*min(potentiometerMerged, PAN_POTENTIOMETER_MAX))/PAN_POTENTIOMETER_MAX;
 }
 
@@ -505,33 +510,50 @@ void PanControl()
 	static int lastPotentiometer = 0;
 	static int lastPotentiometer2 = 0;
 	static int potentiometerAvg = 0;
-	int absPanVelocity;
+	int absPanVelocity = 0;
 	int panDir = REG_CAMERA_VEL_BASE>=0;
 	int potDiff=0;
+        int pwmDuty = 40;
+
 	if((lastPanVelocity!=0) && (REG_CAMERA_VEL_BASE==0))
 	{
 		panHoldPosition = potentiometerMerged;
+		PORTDbits.RD10=1;
 	}
 	else if(REG_CAMERA_VEL_BASE != 0)
 	{
 		absPanVelocity = abs(REG_CAMERA_VEL_BASE);
+		pwmDuty = 0;
+		PORTDbits.RD10=0;
 	}
 	else
 	{
 		int potProp = panDisplacement(potentiometerMerged,panHoldPosition);
 		potDiff = potProp-panPidLastProp;
 		panPidLastProp = potProp;
-		panPidSum = (potProp) + (int)(((float)panPidSum)*0.8f);
-		int pidResult = (potProp<<5) + (potDiff) + panPidSum;
+                
+		panPidSum = 0.1f*((float)potProp) + (((float)panPidSum)*0.9f);
+		int pidResult = 8*(potProp) + 0*(potDiff) + 0*(int)panPidSum;
 		panDir = (pidResult) > 0;
 		absPanVelocity = min(1000,abs(pidResult));
+                if((abs(potProp) < 5))
+                {
+                    panPidSum = 0.0f;
+                    panPidLastProp = 0;
+					PORTDbits.RD10=1;
+					pwmDuty = 0;
+                }
+                else
+		{
+			PORTDbits.RD10=0;
+		}
 	}
 
 	lastPanVelocity = REG_CAMERA_VEL_BASE;	
 
 	
 	Stepper1SetDir(panDir);
-	PWM1Set(40, (int)(262000.0f*(1.0f/((float)absPanVelocity+1.0f))));
+	PWM1Set(pwmDuty, (int)(262000.0f*(1.0f/(5.0f*((float)absPanVelocity+1.0f)))));
 
 	lastPotentiometer = potentiometerMerged;
 }
