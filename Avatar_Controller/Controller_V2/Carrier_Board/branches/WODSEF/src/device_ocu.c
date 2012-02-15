@@ -39,6 +39,9 @@ if(CHARGER_ACOK()) handle charging
 
 #define CHARGER_ACOK()	(_RB0)
 
+#define HUMIDITY_EN(a)	_PCFG1 = !a
+#define HUMIDITY_CH		1
+
 //joystick inputs
 #define JOY1_X_EN(a)	_PCFG11 = !a
 #define JOY1_Y_EN(a)	_PCFG12 = !a
@@ -107,7 +110,9 @@ if(CHARGER_ACOK()) handle charging
 #define PWR_KILL_EN(a)		_TRISF1 = !a
 #define PWR_KILL_ON(a)		_LATF1 = !a
 
-#define BUS_PWR_STATE()		_RD0
+//#define BUS_PWR_STATE()		_RD0
+
+#define PWR_BUTTON()		!(_RD0)
 
 
 
@@ -206,6 +211,7 @@ unsigned char usb_bus_sense_debug;
  void __attribute__((interrupt, no_auto_psv)) _CNInterrupt(void);
 
 void joystick_interrupt(void);
+
 
 void handle_charging(void);
 
@@ -496,7 +502,7 @@ void bringup_board(void)
 	while(1)
 	{
 		ClrWdt();
-		if(BUS_PWR_STATE())
+		if(PWR_BUTTON())
 		{	
 			GREEN_LED_ON(1);
 			//V3V3_ON(1);
@@ -506,45 +512,44 @@ void bringup_board(void)
 			//read_battery_rsoc();
 			//test_fan_controller();
 
-			if(BUS_PWR_STATE())
+
+			if(computer_on_flag == 0)
 			{
-				if(computer_on_flag == 0)
+					//set to OC1
+				LCD_PWM_OR = 18;	
+				
+				T2CONbits.TCKPS = 0;	
+			
+			
+				
+				//TPS61161: between 5kHz and 100 kHz PWM dimming frequency
+				//Choose 20kHz (50us period)
+				//50us = [PR2 + 1]*62.5ns*1
+				PR2 = 801;	
+				OC1RS = 800;
+				set_backlight_brightness(50);
+				
+				//Sleep();
+			
+				OC1CON2bits.SYNCSEL = 0x1f;	
+				
+				//use timer 2
+				OC1CON1bits.OCTSEL2 = 0;
+				
+				//edge-aligned pwm mode
+				OC1CON1bits.OCM = 6;
+				
+				//turn on timer 2
+				T2CONbits.TON = 1;
+				if(DeviceControllerBoot() )
 				{
-						//set to OC1
-					LCD_PWM_OR = 18;	
-					
-					T2CONbits.TCKPS = 0;	
-				
-				
-					
-					//TPS61161: between 5kHz and 100 kHz PWM dimming frequency
-					//Choose 20kHz (50us period)
-					//50us = [PR2 + 1]*62.5ns*1
-					PR2 = 801;	
-					OC1RS = 800;
-					set_backlight_brightness(50);
-					
-					//Sleep();
-				
-					OC1CON2bits.SYNCSEL = 0x1f;	
-					
-					//use timer 2
-					OC1CON1bits.OCTSEL2 = 0;
-					
-					//edge-aligned pwm mode
-					OC1CON1bits.OCM = 6;
-					
-					//turn on timer 2
-					T2CONbits.TON = 1;
-					if(DeviceControllerBoot() )
-					{
-						GREEN_LED_ON(1);
-						computer_on_flag = 1;
-					}
-					V12V_ON(1);
+					GREEN_LED_ON(1);
+					computer_on_flag = 1;
 				}
-		
+				V12V_ON(1);
 			}
+		
+		
 		}
 		else
 		{
@@ -575,7 +580,7 @@ void bringup_board(void)
 
 	}
 
-	if(BUS_PWR_STATE())
+	if(PWR_BUTTON())
 	{
 		if(computer_on_flag == 0)
 		{
@@ -862,6 +867,8 @@ void DeviceOcuProcessIO()
 					V5V_ON(0);
 					V12V_ON(0);
 					COMPUTER_PWR_OK(0);
+					PWR_KILL_ON(1);
+					block_ms(100);
 	}
 
 //	while(!POWER_BUTTON());
@@ -1140,11 +1147,14 @@ void handle_power_button(void)
 
 	}*/
 
+			if(PWR_BUTTON())
+			{
+
 				if(computer_on_flag == 0)
 				{
 					set_backlight_brightness(50);
 
-
+					//CAMERA_PWR_ON(1);
 
 					if(DeviceControllerBoot() )
 					{
@@ -1158,6 +1168,7 @@ void handle_power_button(void)
 					
 
 				}
+			}
 
 
 		if(PWR_DWN_REQ())
@@ -1167,7 +1178,16 @@ void handle_power_button(void)
 				power_down_counter++;
 				block_ms(10);
 				if(power_down_counter > 50)
+				{
 					PWR_KILL_ON(1);
+					//if we're still running code, then AC adapter 
+					//plugged in.  Turn off supplies
+					GREEN_LED_ON(0);
+					computer_on_flag = 0;
+					V12V_ON(0);
+					V5V_ON(0);
+					V3V3_ON(0);
+				}
 			}
 			power_down_counter = 0;
 
@@ -1198,6 +1218,8 @@ void update_button_states(void)
 	REG_JOYSTICK2_Y = return_adc_value(JOY2_Y_CH);
 	REG_JOYSTICK1_X = return_adc_value(JOY1_X_CH);
 	REG_JOYSTICK1_Y = return_adc_value(JOY1_Y_CH);
+
+	REG_OCU_HUMIDITY = return_adc_value(HUMIDITY_CH);
 
 
 }
@@ -1335,10 +1357,6 @@ void init_io(void)
 	AMP_PWR_EN(1);
 	I2C_MUX_EN(1);
 	PWR_KILL_EN(1);
-
-	//CAMERA_PWR_ON(1);
-
-
 	
 	//Enable all outputs
 	CHARGER_EN(1);
@@ -1349,7 +1367,7 @@ void init_io(void)
 	GREEN_LED_EN(1);
 	CAMERA_PWR_EN(1);
 
-
+	HUMIDITY_EN(1);
 
 	JOY1_X_EN(1);
 	JOY1_Y_EN(1);
@@ -1604,6 +1622,8 @@ void handle_charging(void)
 	if(CHARGER_ACOK())
 	{
 
+		V3V3_ON(1);
+
 		//this kind of messes with the i2c stuff, so I don't want to do it every time
 		if(charge_counter == 0)
 			{
@@ -1613,12 +1633,12 @@ void handle_charging(void)
 				block_ms(50);
 	//			RED_LED_ON(1);
 				block_ms(5);
-			/*	start_ocu_i2c1_write(SMBUS_ADD_BQ24745,0x15,0x41a0);
+				start_ocu_batt_i2c_write(SMBUS_ADD_BQ24745,0x15,0x41a0);
 				block_ms(20);
 				//start_ocu_i2c1_write(SMBUS_ADD_BQ24745,0x14,0x0800);
-				start_ocu_i2c1_write(SMBUS_ADD_BQ24745,0x14,0x0400);
-				block_ms(20);*/
-				start_ocu_i2c1_write(SMBUS_ADD_BQ24745,0x3f,0x0f80);
+				start_ocu_batt_i2c_write(SMBUS_ADD_BQ24745,0x14,0x0bb8);
+				block_ms(20);
+				start_ocu_batt_i2c_write(SMBUS_ADD_BQ24745,0x3f,0x0f80);
 				block_ms(20);
 	
 				CHARGER_ON(1);
