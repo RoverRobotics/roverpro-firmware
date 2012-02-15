@@ -223,6 +223,8 @@ void bringup_board(void);
 
 int DeviceControllerBoot(void);
 
+void set_backlight_brightness(unsigned char percentage);
+
 //temp sensors work,as does accelerometer and compass
 //humidity sensor changes voltage, haven't tested adc yet
 //touchscreen works
@@ -232,7 +234,7 @@ int DeviceControllerBoot(void);
 
 void read_touchscreen(void)
 {
-	unsigned char r;
+//	unsigned char r;
 	unsigned char add, reg;
 	unsigned char touch_pen;
 	unsigned int touch_x;
@@ -763,7 +765,7 @@ void DeviceOcuProcessIO()
 
 //	read_all_bq2060a_registers();
 
-	unsigned int dummy;
+//	unsigned int dummy;
 	//_ASAM = 1;
 	main_loop_counter++;
 
@@ -1015,7 +1017,7 @@ void ocu_gps_isr(void)
 void handle_power_button(void)
 {
 
-	unsigned int i;
+//	unsigned int i;
 	static unsigned int power_down_counter = 0;
 	//static unsigned char computer_on_flag = 0;
 	static unsigned char power_button_press_counter = 0;
@@ -1270,8 +1272,8 @@ void ocu_gps_init(void)
 void init_fan_controller(void)
 {
 
-	unsigned char temp1 = 0;
-	unsigned char temp2 = 0;	
+//	unsigned char temp1 = 0;
+//	unsigned char temp2 = 0;	
 
 	IEC3bits.MI2C2IE = 1;
 
@@ -1505,7 +1507,7 @@ void joystick_interrupt(void)
 
 int DeviceControllerBoot(void)
 {
-	unsigned char a;
+//	unsigned char a;
 	unsigned int i = 0;
 
 	V3V3_ON(1);

@@ -8,6 +8,8 @@ void start_ocu_i2c1_i2c_read(unsigned char add, unsigned char reg);
 void ocu_batt_i2c_fsm(void);
 void ocu_batt_smbus_isr(void);
 
+void init_i2c(void);
+
 
 #define TOUCH_CONTROLLER_I2C_ADD 0x4d
 #define SMBUS_ADD_TMP112_2 0x48
