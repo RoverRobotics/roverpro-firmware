@@ -112,7 +112,7 @@ if(CHARGER_ACOK()) handle charging
 
 //#define BUS_PWR_STATE()		_RD0
 
-#define PWR_BUTTON()		!(_RD0)
+#define PWR_BUTTON()		(!_RD0)
 
 
 
@@ -490,6 +490,7 @@ void bringup_board(void)
 
 	static unsigned int power_down_counter = 0;
 
+/*
 	init_io();
 
 	PWR_KILL_EN(1);
@@ -573,7 +574,15 @@ void bringup_board(void)
 				power_down_counter++;
 				block_ms(10);
 				if(power_down_counter > 50)
+				{
+					computer_on_flag = 0;
 					PWR_KILL_ON(1);
+					while(PWR_BUTTON())
+					{
+						ClrWdt();
+					}
+					block_ms(20);
+				}
 			}
 			power_down_counter = 0;
 
@@ -600,7 +609,7 @@ void bringup_board(void)
 
 	}
 
-
+*/
 
 }
 
@@ -842,7 +851,7 @@ void DeviceOcuProcessIO()
 			RED_LED_ON(1);
 			block_ms(200);
 			RED_LED_ON(0);
-			if(POWER_BUTTON())
+/*			if(POWER_BUTTON())
 			{
 				computer_on_flag = 0;
 				GREEN_LED_ON(0);
@@ -853,7 +862,7 @@ void DeviceOcuProcessIO()
 				while(POWER_BUTTON());
 				block_ms(100);
 				break;
-			}
+			}*/
 			
 
 
@@ -1149,7 +1158,7 @@ void handle_power_button(void)
 
 	}*/
 
-			if(PWR_BUTTON())
+			if(PWR_BUTTON() && (computer_on_flag == 0) )
 			{
 
 				if(computer_on_flag == 0)
@@ -1189,6 +1198,16 @@ void handle_power_button(void)
 					V12V_ON(0);
 					V5V_ON(0);
 					V3V3_ON(0);
+					//make sure that the power button is released and has finished
+					//bouncing before we return (so controller doesn't think the
+					//power button has been pressed again, and turn right back on.
+					while(PWR_BUTTON())
+					{
+						ClrWdt();
+					}
+					//so power button controller will work properly
+					PWR_KILL_ON(0);
+					block_ms(20);
 				}
 			}
 			power_down_counter = 0;
