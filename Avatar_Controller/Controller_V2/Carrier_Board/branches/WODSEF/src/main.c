@@ -216,21 +216,6 @@ static void InitializeSystem(void)
 			DeviceOcuInit();
 			break;
 
-		case DEVICE_CARRIER:
-			break;
-
-		case DEVICE_MOTOR:
-			break;
-
-		case DEVICE_ARM_BASE:
-			break;
-
-		case DEVICE_ARM_SHOLDER:
-			break;
-
-		case DEVICE_ARM_HAND:
-			break;
-
 		case DEVICE_GENERIC:
 		default:
 			break;
@@ -262,21 +247,6 @@ void ProcessIO(void)
 	{
 		case DEVICE_OCU:
 			DeviceOcuProcessIO();
-			break;
-
-		case DEVICE_CARRIER:
-			break;
-
-		case DEVICE_MOTOR:
-			break;
-
-		case DEVICE_ARM_BASE:
-			break;
-
-		case DEVICE_ARM_SHOLDER:
-			break;
-
-		case DEVICE_ARM_HAND:
 			break;
 
 		case DEVICE_GENERIC:
