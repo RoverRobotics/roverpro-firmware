@@ -27,7 +27,7 @@ extern "C" {
 // -------- MICROCONTROLLER PRODUCT IDS --------
 
 typedef int16_t DEVICE_NUMBER;
-#define NOT_USED			0
+#define DEVICE_GENERIC		0
 #define DEVICE_OCU       	1
 #define DEVICE_CARRIER  	2
 #define DEVICE_MOTOR  		3
