@@ -195,8 +195,8 @@ long Encoder_Interrupt_Counter[2] = {0,0};
 long EncoderFBInterval[3][SampleLength]={{0,0,0,0},{0,0,0,0},{0,0,0,0}};
 int DIR[3][SampleLength]={{0,0,0,0},{0,0,0,0},{0,0,0,0}};
 int EncoderFBIntervalPointer[3]={0,0,0};
-long BackEMF[3][2][SampleLength]={{{0,0,0,0},{0,0,0,0}},{{0,0,0,0},{0,0,0,0}},{{0,0,0,0},{0,0,0,0}}};
-int BackEMFPointer=0;
+//long BackEMF[3][2][SampleLength]={{{0,0,0,0},{0,0,0,0}},{{0,0,0,0},{0,0,0,0}},{{0,0,0,0},{0,0,0,0}}};
+//int BackEMFPointer=0;
 long MotorCurrentAD[3][SampleLength]={{0,0,0,0},{0,0,0,0},{0,0,0,0}};
 int MotorCurrentADPointer=0;
 long RealTimeCurrent[3]={0,0,0};
@@ -208,16 +208,16 @@ long RPM4Control[3][8]={{0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0}};
 int RPM4ControlPointer[3]={0,0,0};
 long ControlRPM[3]={0,0,0};
 long TotalCurrent;
-long BackEMFCOE[3][SampleLength]={{2932,2932,2932,2932},{2932,2932,2932,2932},{2932,2932,2932,2932}};
-long BackEMFCOEF[3]={2932,2932,2932};
-int BackEMFCOEPointer=0;
+//long BackEMFCOE[3][SampleLength]={{2932,2932,2932,2932},{2932,2932,2932,2932},{2932,2932,2932,2932}};
+//long BackEMFCOEF[3]={2932,2932,2932};
+//int BackEMFCOEPointer=0;
 int EncoderICClock=10000;
 long EnCount[3]={0,0,0};
 //int Robot_Motor_TargetSpeedUSB[3];
 int16_t Robot_Motor_TargetSpeedUSB[3]={0,0,0};
 int NEW_ROBOT_MOTOR_SPEED_RECEIVED=False;
 int Timer3Count=0;
-int BackEMFSampleEnabled=False;
+//int BackEMFSampleEnabled=False;
 int M3_POSFB=0;
 int M3_POSFB_Array[2][SampleLength]={{0,0,0},{0,0,0}};
 int M3_POSFB_ArrayPointer=0;
@@ -234,9 +234,9 @@ int Cell_B_Current[SampleLength];
 float SpeedCtrlKp[4][3]={{0.2,0.2,0.2},{0.03,0.03,0.03},{0.09,0.09,0.09},{0.09,0.09,0.09}};//SpeedCtrlKp[i][j],i- control mode, j-LMotor, Right Motor, Flipper
 float SpeedCtrlKi[4][3]={{0.01,0.01,0.01},{0.001,0.001,0.001},{0.2,0.2,0.2},{0.2,0.2,0.2}};
 float SpeedCtrlKd[4][3]={{0.000,0.000,0.000},{0.001,0.001,0.001},{0.0,0.0,0.0},{0.0,0.0,0.0}};
-float CurrentCtrlKp[4][3]={{1.5,1.5,1.5},{1.0,1.0,1.0},{1.5,1.5,1.5},{1.5,1.5,1.5}};
+/*float CurrentCtrlKp[4][3]={{1.5,1.5,1.5},{1.0,1.0,1.0},{1.5,1.5,1.5},{1.5,1.5,1.5}};
 float CurrentCtrlKi[4][3]={{0.5,0.5,0.5},{0.01,0.01,0.01},{1.5,1.5,1.5},{1.5,1.5,1.5}};
-float CurrentCtrlKd[4][3]={{0.00,0.00,0.00},{0.0,0.0,0.0},{0.0,0.0,0.0},{0.0,0.0,0.0}};
+float CurrentCtrlKd[4][3]={{0.00,0.00,0.00},{0.0,0.0,0.0},{0.0,0.0,0.0},{0.0,0.0,0.0}};*/
 int ControlMode[3]={SpeedControl,SpeedControl,SpeedControl};
 int SpeedCtrlMode[3]={ControlMode_Conservative,ControlMode_Conservative,ControlMode_Conservative};
 long AccumulatedSpeedError[3]={0,0,0};
@@ -254,9 +254,9 @@ int MotorRecovering=False;
 int CurrentTooHigh=False;
 long TargetDifference=0;
 int CO;
-long BackEmfRPM[3];
-long BackEmfTemp3[3];
-long BackEmfTemp4[3];
+//long BackEmfRPM[3];
+//long BackEmfTemp3[3];
+//long BackEmfTemp4[3];
 long Debugging_Dutycycle[3];
 long MotorTargetRPM[3];
 long Debugging_MotorTempError[3];
@@ -519,8 +519,8 @@ void GetRPM(int Channel)
  	{
  	 	ltemp1+=EncoderFBInterval[Channel][j];
  		ltemp2+=DIR[Channel][j];
- 		ltemp3+=BackEMF[Channel][ChannelA][j];
- 		ltemp4+=BackEMF[Channel][ChannelB][j];
+// 		ltemp3+=BackEMF[Channel][ChannelA][j];
+// 		ltemp4+=BackEMF[Channel][ChannelB][j];
  	}
 
 
@@ -1356,7 +1356,7 @@ int GetDuty(long CurrentState, long Target, int RTCurrent, int Channel, int Mode
 			//AccumulatedSpeedError[Channel]-=TempSpeedError;
 			AccumulatedSpeedError[Channel]=0;
 		}
- 	}else
+ 	}/*else
  	{
  		//current control
  		if(MotorRecovering==True || CurrentTooHigh==True)
@@ -1388,7 +1388,7 @@ int GetDuty(long CurrentState, long Target, int RTCurrent, int Channel, int Mode
 			AccumulatedCurrentError[Channel]-=TempCurrentError;
 			//AccumulatedCurrentError[Channel]=0;
 		}
- 	}
+ 	}*/
  	//printf("Target RPM:%ld,Current RPM:%ld,Dutycycle:%f,Accumulated Error:%ld",TargetRPM,labs(CurrentState),result,AccumulatedCurrentError[Channel]);
 
 
@@ -2801,7 +2801,7 @@ void  Motor_ADC1Interrupt(void)
  	IFS0bits.AD1IF=CLEAR;
  	//load the value
 
- 		BackEMFSampleEnabled=False;
+// 		BackEMFSampleEnabled=False;
 
  	M3_POSFB_Array[0][M3_POSFB_ArrayPointer]=ADC1BUF4;
  	M3_POSFB_Array[1][M3_POSFB_ArrayPointer]=ADC1BUF5; 	
@@ -2831,8 +2831,8 @@ void  Motor_ADC1Interrupt(void)
  	Total_Cell_Current_ArrayPointer&=(SampleLength-1);
  	M3_POSFB_ArrayPointer++;
  	M3_POSFB_ArrayPointer&=(SampleLength-1);
- 	BackEMFPointer++;
- 	BackEMFPointer&=(SampleLength-1);
+// 	BackEMFPointer++;
+// 	BackEMFPointer&=(SampleLength-1);
  	MotorCurrentADPointer++;
  	MotorCurrentADPointer&=(SampleLength-1);
 
