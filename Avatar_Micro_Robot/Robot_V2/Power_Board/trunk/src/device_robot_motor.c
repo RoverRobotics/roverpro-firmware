@@ -297,6 +297,8 @@ void PWM3Ini(void);
 
 void set_firmware_build_time(void);
 
+void initialize_motor_registers(void);
+
 void bringup_board(void)
 {
 
@@ -436,6 +438,8 @@ void DeviceRobotMotorInit()
 
 //	bringup_board();
 	test_function();
+
+	initialize_motor_registers();
 	
 
 }
@@ -3014,4 +3018,15 @@ void Motor_U1RXInterrupt(void)
  	}		
 	#endif
 //XbeeTest code ends 	
+}
+
+
+void initialize_motor_registers(void)
+{
+	REG_MOTOR_TEMP.left = 255;
+	REG_MOTOR_TEMP.right = 255;
+	REG_MOTOR_TEMP.board = 255;
+	REG_ROBOT_REL_SOC_A = 255;
+	REG_ROBOT_REL_SOC_B = 255;
+
 }
