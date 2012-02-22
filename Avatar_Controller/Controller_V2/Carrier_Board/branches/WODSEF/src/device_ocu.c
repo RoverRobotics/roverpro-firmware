@@ -23,8 +23,8 @@ if(CHARGER_ACOK()) handle charging
 
 
 //button inputs
-#define VOLUME_DOWN()	(_RG7)
-#define VOLUME_UP()		(_RG6)
+#define VOLUME_UP()		(_RG7)
+#define VOLUME_DOWN()	(_RG6)
 #define TOGGLE1_UP() 	(_RB15)
 #define TOGGLE1_DOWN()	(_RB8)
 #define TOGGLE2_DOWN()	(_RB14)
@@ -49,10 +49,10 @@ if(CHARGER_ACOK()) handle charging
 #define JOY2_Y_EN(a)	_PCFG13 = !a
 
 //joystick AN pin numbers
-#define JOY1_X_CH		11
-#define JOY1_Y_CH		12
-#define JOY2_X_CH		10
-#define JOY2_Y_CH		13
+#define JOY1_X_CH		12
+#define JOY1_Y_CH		11
+#define JOY2_X_CH		13
+#define JOY2_Y_CH		10
 
 //indicators of COM Express power state
 #define SUS_S5()			_RC14
@@ -728,7 +728,7 @@ void DeviceOcuInit()
 
 
 
-
+	REG_OCU_BACKLIGHT_BRIGHTNESS = 50;
 	set_backlight_brightness(50);
 
 	//if charger is plugged in when the program starts, the batteries are likely
@@ -884,6 +884,9 @@ void DeviceOcuProcessIO()
 
 //	while(!POWER_BUTTON());
 //	GREEN_LED_ON(1);
+
+
+	set_backlight_brightness(REG_OCU_BACKLIGHT_BRIGHTNESS);
 
 
 }
