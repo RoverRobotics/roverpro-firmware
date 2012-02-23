@@ -468,7 +468,7 @@ void I2C3Update(void)
  			{
 				I2C3STATbits.IWCOL = 0;
  			 	//REG_MOTOR_TEMP_STATUS.left=0;
-				StepNumber = 0;
+				//StepNumber = 0;
  			}
  			if(I2C3STATbits.TRSTAT==0)// wait for the transmitting to complete
  			{
@@ -496,7 +496,7 @@ void I2C3Update(void)
  			if(I2C3STATbits.IWCOL==1)//write collision occurs, go to the first step
  			{
 				I2C3STATbits.IWCOL = 0;
-				StepNumber = 0;
+				//StepNumber = 0;
  			 	//REG_MOTOR_TEMP_STATUS.left==0;
  			}
  			if(I2C3STATbits.TRSTAT==0)// wait for the transmitting to complete
