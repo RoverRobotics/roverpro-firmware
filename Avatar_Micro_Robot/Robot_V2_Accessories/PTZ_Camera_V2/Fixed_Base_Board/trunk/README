@@ -1,4 +1,4 @@
-The following files are required to be in the include path by the Microchip library:
+The following files are required tto be in the include path by the Microchip library:
 
 HardwareProfile.h (found in ./)
 usb_config.h (found in ../inc)
