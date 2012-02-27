@@ -106,7 +106,7 @@ Response from Device to Host:
 #include "debug_uart.h"
 #include "device_robot_motor_i2c.h"
 
-#define XbeeTest
+//#define XbeeTest
 #define BATProtectionON
 
 //variables
@@ -297,7 +297,8 @@ void PWM3Ini(void);
 
 void set_firmware_build_time(void);
 
-void initialize_motor_registers(void);
+void initialize_i2c2_registers(void);
+void initialize_i2c3_registers(void);
 
 void bringup_board(void)
 {
@@ -439,7 +440,8 @@ void DeviceRobotMotorInit()
 //	bringup_board();
 	test_function();
 
-	initialize_motor_registers();
+	initialize_i2c2_registers();
+	initialize_i2c3_registers();
 	
 
 }
@@ -688,8 +690,8 @@ void Device_MotorController_Process()
  	int i;
  	long temp1,temp2;
 	static int overcurrent_counter = 0;
- 	/*I2C2Update();
-	I2C3Update();*/
+// 	I2C2Update();
+//	I2C3Update();
  	//Check Timer
  	//Run control loop
 	if(IFS0bits.T1IF==SET)
@@ -814,12 +816,31 @@ void Device_MotorController_Process()
  	}
  	if(I2C2TimerCount>=I2C2Timer)
  	{
+
+		//i2c2 didn't finish last time -- init variables so that
+		//the value doesn't just stay the same
+		if(I2C2TimerExpired==True)
+		{
+			I2C2CON = 0x0000;
+			I2C2STAT = 0x0000;
+			I2C2CONbits.I2CEN = 1;
+		
+			initialize_i2c2_registers();
+		}
   		I2C2TimerExpired=True;
  		I2C2TimerCount=0;
  		I2C2XmitReset=True;
  	}
  	if(I2C3TimerCount>=I2C3Timer)
  	{
+		if(I2C3TimerExpired==True)
+		{
+			I2C3CON = 0x0000;
+			I2C3STAT = 0x0000;
+			I2C3CONbits.I2CEN = 1;
+		
+			initialize_i2c3_registers();
+		}
  		I2C3TimerExpired=True;
  		I2C3TimerCount=0;
  		I2C3XmitReset=True;
@@ -3021,12 +3042,19 @@ void Motor_U1RXInterrupt(void)
 }
 
 
-void initialize_motor_registers(void)
+void initialize_i2c2_registers(void)
 {
 	REG_MOTOR_TEMP.left = 255;
 	REG_MOTOR_TEMP.right = 255;
 	REG_MOTOR_TEMP.board = 255;
 	REG_ROBOT_REL_SOC_A = 255;
+
+
+}
+
+void initialize_i2c3_registers(void)
+{
+
 	REG_ROBOT_REL_SOC_B = 255;
 
 }

@@ -407,20 +407,15 @@ void I2C2Update(void)
 				I2C2CONbits.PEN=1;	// initiate Stop on SDA and SCL pins
 			}
 		case 52://check ACK from slave
-			if(I2C2STATbits.ACKSTAT==1)//if no ACK, tell the data is bad
-			{
-				//REG_MOTOR_TEMP_STATUS.right=0;
-			}
-			StepNumber++;
-			break;
-		case 53:
  			if(CheckI2C2Idle()==True)
  			{
- 				StepNumber++;//run second step
- 				StepNumber=1;//cycle ends, go to the first step
+ 				StepNumber++;//move to nonexistant step
+ 				//StepNumber=1;//cycle ends, go to the first step
  				I2C2TimerExpired=False;//reset the I2C2 update timer
+
  			}
- 			break;
+			break;
+
  	}
 
 }
@@ -564,7 +559,7 @@ void I2C3Update(void)
  			if(CheckI2C3Idle()==True)
  			{
  				StepNumber++;//run second step
- 				StepNumber=1;//cycle ends, go to the first step
+ 				//StepNumber=1;//cycle ends, go to the first step
  				I2C3TimerExpired=False;//reset the I2C2 update timer
  			}
 		break;
