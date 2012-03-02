@@ -214,23 +214,9 @@ static void InitializeSystem(void)
 
 	switch (gpio_id)
 	{
-		case DEVICE_OCU:
-			break;
 
 		case DEVICE_CARRIER:
 			DeviceCarrierInit();
-			break;
-
-		case DEVICE_MOTOR:
-			break;
-
-		case DEVICE_ARM_BASE:
-			break;
-
-		case DEVICE_ARM_SHOLDER:
-			break;
-
-		case DEVICE_ARM_HAND:
 			break;
 
 		case DEVICE_GENERIC:
@@ -269,17 +255,6 @@ void ProcessIO(void)
 			DeviceCarrierProcessIO();
 			break;
 
-		case DEVICE_MOTOR:
-			break;
-
-		case DEVICE_ARM_BASE:
-			break;
-
-		case DEVICE_ARM_SHOLDER:
-			break;
-
-		case DEVICE_ARM_HAND:
-			break;
 
 		case DEVICE_GENERIC:
 		default:
