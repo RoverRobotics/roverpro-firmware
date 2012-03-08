@@ -482,6 +482,10 @@ static void PTZIni()
 	IniTimer1();
 
 	IniPWM1();
+
+	//initialize and turn on rotation fan
+	_TRISG7 = 0;
+	_LATG7 = 1;
 }
 
 
