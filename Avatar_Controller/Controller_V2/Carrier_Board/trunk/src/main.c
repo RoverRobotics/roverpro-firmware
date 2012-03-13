@@ -216,21 +216,6 @@ static void InitializeSystem(void)
 			DeviceOcuInit();
 			break;
 
-		case DEVICE_CARRIER:
-			break;
-
-		case DEVICE_MOTOR:
-			break;
-
-		case DEVICE_ARM_BASE:
-			break;
-
-		case DEVICE_ARM_SHOLDER:
-			break;
-
-		case DEVICE_ARM_HAND:
-			break;
-
 		case DEVICE_GENERIC:
 		default:
 			break;
@@ -251,6 +236,7 @@ void ProcessIO(void)
 	uint16_t reg_size;
 	uint16_t i = 0;
 	uint16_t j;
+	static unsigned char usb_rx_failed = 0;
 
 	ClrWdt();
 
@@ -262,21 +248,6 @@ void ProcessIO(void)
 	{
 		case DEVICE_OCU:
 			DeviceOcuProcessIO();
-			break;
-
-		case DEVICE_CARRIER:
-			break;
-
-		case DEVICE_MOTOR:
-			break;
-
-		case DEVICE_ARM_BASE:
-			break;
-
-		case DEVICE_ARM_SHOLDER:
-			break;
-
-		case DEVICE_ARM_HAND:
 			break;
 
 		case DEVICE_GENERIC:
@@ -377,6 +348,17 @@ OutPacket[71] = 0x19;*/
 
 
 	if((USBDeviceState < CONFIGURED_STATE)||(USBSuspendControl==1)) return;
+
+	//if we failed to arm the USB module for reception the last time, do so now, and return from the function (since we won't have a new packet waiting
+
+	if(!USBHandleBusy(USBGenericInHandle) && (usb_rx_failed == 1) )
+	{
+	        USBGenericOutHandle = USBRxOnePacket((BYTE)USBGEN_EP_NUM,
+	                                  (BYTE*)&OutPacket,(WORD)(OUT_PACKET_LENGTH));
+			usb_rx_failed = 0;
+			return;
+	}
+
     
     if(!USBHandleBusy(USBGenericOutHandle))
     {
@@ -456,7 +438,7 @@ OutPacket[71] = 0x19;*/
 				n += reg_size; // move OUT packet pointer
 			}
 		}
-		if (CMD_UPDATE_FIRMWARE.magic == 0x2345BCDE) bootloader();
+//		if (CMD_UPDATE_FIRMWARE.magic == 0x2345BCDE) bootloader();
 
 		if( (i + 2) > IN_PACKET_LENGTH ) goto crapout5;
 
@@ -473,9 +455,18 @@ OutPacket[71] = 0x19;*/
 		gNewData = !gNewData; // toggle new data flag for those watching
 
 crapout5:
-		// Arm USB hardware to receive next packet.
-        USBGenericOutHandle = USBRxOnePacket((BYTE)USBGEN_EP_NUM,
-                                  (BYTE*)&OutPacket,(WORD)(OUT_PACKET_LENGTH));
+
+		if(!USBHandleBusy(USBGenericInHandle))
+		{
+			// Arm USB hardware to receive next packet.
+	        USBGenericOutHandle = USBRxOnePacket((BYTE)USBGEN_EP_NUM,
+	                                  (BYTE*)&OutPacket,(WORD)(OUT_PACKET_LENGTH));
+			usb_rx_failed = 0;
+		}
+		else
+		{
+			usb_rx_failed = 1;
+		}
     }
 }
 
@@ -505,6 +496,11 @@ BOOL USER_USB_CALLBACK_EVENT_HANDLER(USB_EVENT event, void *pdata, WORD size)
         case EVENT_RESUME:
             break;
         case EVENT_BUS_ERROR:
+	        //if there is an error, trigger a bus reset
+	        USBClearInterruptRegister(U1EIR);               // This clears UERRIF
+			USBResetIF = 1;
+			USBResetIE = 1;
+			Nop();
             break;
         case EVENT_TRANSFER:
             break;

@@ -9,13 +9,22 @@
 
 #include "stdhdr.h"
 #include "device_ocu.h"
+#include "device_ocu_i2c.h"
 
+/*
 
+Logic: 
+
+if(BUS_PWR_STATE()) turn on everything
+
+if(CHARGER_ACOK()) handle charging
+
+*/
 
 
 //button inputs
-#define VOLUME_DOWN()	(_RG6)
 #define VOLUME_UP()		(_RG7)
+#define VOLUME_DOWN()	(_RG6)
 #define TOGGLE1_UP() 	(_RB15)
 #define TOGGLE1_DOWN()	(_RB8)
 #define TOGGLE2_DOWN()	(_RB14)
@@ -24,10 +33,14 @@
 #define MENU_BUTTON()	(!_RB2)
 
 #define LIGHT_BUTTON()	(!_RB4)
-#define POWER_BUTTON()	(!_RD0)
+//#define POWER_BUTTON()	(!_RD0)
+#define POWER_BUTTON()		0
 
 
 #define CHARGER_ACOK()	(_RB0)
+
+#define HUMIDITY_EN(a)	_PCFG1 = !a
+#define HUMIDITY_CH		1
 
 //joystick inputs
 #define JOY1_X_EN(a)	_PCFG11 = !a
@@ -36,10 +49,10 @@
 #define JOY2_Y_EN(a)	_PCFG13 = !a
 
 //joystick AN pin numbers
-#define JOY1_X_CH		11
-#define JOY1_Y_CH		12
-#define JOY2_X_CH		10
-#define JOY2_Y_CH		13
+#define JOY1_X_CH		12
+#define JOY1_Y_CH		11
+#define JOY2_X_CH		13
+#define JOY2_Y_CH		10
 
 //indicators of COM Express power state
 #define SUS_S5()			_RC14
@@ -53,8 +66,8 @@
 #define CHARGER_ON(a)	_LATD11 = a
 
 //power button on COM Express
-#define COMPUTER_PWR_EN(a)	_TRISB1 = !a
-#define COMPUTER_PWR_ON(a)	_LATB1 = a
+//#define COMPUTER_PWR_EN(a)	_TRISB1 = !a
+//#define COMPUTER_PWR_ON(a)	_LATB1 = a
 
 #define V3V3_EN(a)		_TRISE7 = !a
 #define V3V3_ON(a)		_LATE7 = a
@@ -68,11 +81,11 @@
 #define COMPUTER_PWR_OK_EN(a)	_TRISD1 = !a
 #define COMPUTER_PWR_OK(a)		_LATD1 = a
 
-#define GREEN_LED_EN(a)		_TRISD8 = !a
-#define GREEN_LED_ON(a)		_LATD8 = a
+#define GREEN_LED_EN(a)		_TRISD3 = !a
+#define GREEN_LED_ON(a)		_LATD3 = a
 
-#define RED_LED_EN(a)		_TRISD3 = !a
-#define RED_LED_ON(a)		_LATD3 = a
+#define RED_LED_EN(a)		_TRISD8 = !a
+#define RED_LED_ON(a)		_LATD8 = a
 
 #define GPS_TX_OR			_RP27R
 #define GPS_RX_PIN			19
@@ -82,65 +95,45 @@
 
 #define LCD_PWM_OR			_RP25R
 
+//microphone/speaker amp power
+
+#define MIC_PWR_EN(a)		_TRISC13 = !a
+#define MIC_PWR_ON(a)		_LATC13 = a
+
+#define AMP_PWR_EN(a)		_TRISD7 = !a
+#define AMP_PWR_ON(a)		_LATD7 = a
+
+//pushbutton controller definitions
+
+#define PWR_DWN_REQ()		!_RF0
+
+#define PWR_KILL_EN(a)		_TRISF1 = !a
+#define PWR_KILL_ON(a)		_LATF1 = !a
+
+//#define BUS_PWR_STATE()		_RD0
+
+#define PWR_BUTTON()		(!_RD0)
+
+
+
 /*#define LCD_BACK_ON(a)	TRISDbits.TRISD4 = !a
 #define LCD_BACK_ON(a)	LATDbits.LATD4 = a*/
 
 
-#define TOUCH_CONTROLLER_I2C_ADD 0x4d
-#define SMBUS_ADD_TMP112_2 0x48
-#define SMBUS_ADD_TMP112 0x49
-#define SMBUS_ADD_BQ2060A 0x0b
-#define SMBUS_ADD_BQ24745 0x09
-#define I2C_ADD_FAN_CONTROLLER	0x18
-
-#define I2C_ADD_HMC5843 0x1e
-#define I2C_ADXL345_ADD           0x53
 
 
-unsigned char ocu_batt_i2c_slave_address = 0;
-unsigned char ocu_batt_i2c_rx_byte1 = 0;
-unsigned char ocu_batt_i2c_rx_byte2 = 0;
-unsigned char ocu_batt_i2c_rx_byte3 = 0;
-unsigned char ocu_batt_i2c_rx_byte4 = 0;
-unsigned char ocu_batt_i2c_rx_byte5 = 0;
-unsigned char ocu_batt_i2c_read = 0;
-unsigned char ocu_batt_i2c_register = 0;
-unsigned char ocu_batt_receive_word_completed = 0;
-unsigned char ocu_batt_transmit_word_completed  = 0;
-unsigned char OCU_Batt_I2C2_state = 0x0a;
-unsigned char ocu_batt_i2c_message_length = 0;
-unsigned char ocu_batt_i2c_tx_byte1 = 0;
-unsigned char ocu_batt_i2c_tx_byte2 = 0;
-unsigned char ocu_batt_i2c_tx_byte3 = 0;
-unsigned char ocu_batt_i2c_tx_byte4 = 0;
 
-unsigned int battery_temperature = 0;
 
-unsigned char ocu_i2c1_receive_word_completed = 0;
+
+
+
+
 
 //void ocu_batt_smbus_isr(void);
 
 
-void ocu_i2c1_isr(void);
-void ocu_i2c1_fsm(void);
-void start_ocu_i2c1_write(unsigned char add, unsigned char reg, unsigned int data);
-void start_ocu_i2c1_i2c_read(unsigned char add, unsigned char reg);
-unsigned char ocu_i2c1_i2c_read = 0;
-unsigned char ocu_i2c1_interrupt_state = 0;
-unsigned char ocu_i2c1_slave_address = 0;
 
-unsigned char ocu_i2c1_rx_byte1 = 0;
-unsigned char ocu_i2c1_rx_byte2 = 0;
-unsigned char ocu_i2c1_rx_byte3 = 0;
-unsigned char ocu_i2c1_rx_byte4 = 0;
-unsigned char ocu_i2c1_rx_byte5 = 0;
 
-unsigned char ocu_i2c1_tx_byte1 = 0;
-unsigned char ocu_i2c1_tx_byte2 = 0;
-
-unsigned char ocu_i2c1_register  = 0;
-unsigned char ocu_i2c1_message_length = 0;
-unsigned char ocu_i2c1_transmit_word_completed = 0;
 
 
 unsigned int test_flag = 0;
@@ -149,13 +142,12 @@ unsigned char testa[10] = {0,0,0,0,0,0,0,0,0,0};
 unsigned int adc_int_flag = 0;
 
 
-void start_ocu_batt_i2c_write(unsigned char add, unsigned char reg, unsigned int data);
-void ocu_batt_i2c_fsm(void);
-void ocu_batt_smbus_isr(void);
+
+
 
 void handle_gas_gauge(void);
 
-void start_ocu_batt_i2c_read(unsigned char add, unsigned char reg);
+
 
 void init_io(void);
 void disable_io(void);
@@ -186,10 +178,7 @@ void ocu_gps_init(void);
 
 void init_fan_controller(void);
 
-unsigned char fan_temp_1 = 0;
-unsigned char fan_temp_2 = 0;
-unsigned char fan_duty_cycle = 0;
-unsigned char fan_speed = 0;
+
 
 
 
@@ -205,7 +194,7 @@ unsigned int battery_voltage = 0;
 unsigned int battery_relative_SOC = 0;
 unsigned int battery_absolute_SOC = 0;
 unsigned int battery_remaining_capacity = 10000;
-unsigned int battery_status = 0;
+
 int battery_current = 0;
 unsigned int battery_full_charge_capacity = 0;
 unsigned char battery_too_low = 0;
@@ -223,14 +212,406 @@ unsigned char usb_bus_sense_debug;
 
 void joystick_interrupt(void);
 
+
 void handle_charging(void);
 
 unsigned int bq2060a_registers[128];
 
 void read_all_bq2060a_registers(void);
 
+void bringup_board(void);
+
+int DeviceControllerBoot(void);
+
+void set_backlight_brightness(unsigned char percentage);
+
+//temp sensors work,as does accelerometer and compass
+//humidity sensor changes voltage, haven't tested adc yet
+//touchscreen works
+//need to still test  battery gas gauges and battery charger
 
 #pragma code
+
+void read_touchscreen(void)
+{
+//	unsigned char r;
+	unsigned char add, reg;
+	unsigned char touch_pen;
+	unsigned int touch_x;
+	unsigned int touch_y;
+	unsigned char a,b;
+
+	add = TOUCH_CONTROLLER_I2C_ADD;
+	reg = 0x00;
+
+	IdleI2C2();
+	StartI2C2();
+	IdleI2C2();
+
+	MasterWriteI2C2(add<<1);
+
+	IdleI2C2();
+
+	MasterWriteI2C2(reg);
+
+	IdleI2C2();
+/*	StopI2C2();
+	IdleI2C2();
+	StartI2C2();*/
+	RestartI2C2();
+	IdleI2C2();
+
+	MasterWriteI2C2((add << 1) | 0x01);
+	IdleI2C2();
+
+	__delay_us(100);
+
+	_MI2C2IF = 0;
+
+	//r = (unsigned char)(MasterReadI2C1());
+
+	//AckI2C1();
+
+	//IdleI2C1();
+
+	touch_pen = (unsigned char)(MasterReadI2C2());	
+
+	AckI2C2();
+
+	IdleI2C2();
+
+	a = (unsigned char)(MasterReadI2C2());	
+
+	AckI2C2();
+
+	IdleI2C2();
+
+	b = (unsigned char)(MasterReadI2C2());	
+
+	touch_x = (b<<7) | a;
+
+	AckI2C2();
+
+	IdleI2C2();
+
+	a = (unsigned char)(MasterReadI2C2());	
+
+	AckI2C2();
+
+	IdleI2C2();
+
+	b = (unsigned char)(MasterReadI2C2());	
+	touch_y = (b<<7) | a;
+	//IdleI2C1();
+	NotAckI2C2();
+
+	// terminate read sequence (do not send ACK, send  STOP)
+	IdleI2C2();
+	StopI2C2(); 
+	IdleI2C2();
+
+	Nop();
+	Nop();
+
+
+
+
+
+}
+
+void read_battery_rsoc(void)
+{
+	unsigned char battery_0_RSOC = 0;
+	unsigned char battery_1_RSOC = 0;
+	I2C_MUX_EN(1);
+
+	OpenI2C1(I2C_ON & I2C_IDLE_CON & I2C_CLK_HLD & I2C_IPMI_DIS & I2C_7BIT_ADD  
+                & I2C_SLW_DIS & I2C_SM_DIS & I2C_GCALL_DIS & I2C_STR_DIS 
+				& I2C_NACK, I2C_RATE_SETTING);
+
+	IdleI2C1();
+
+	OpenI2C2(I2C_ON & I2C_IDLE_CON & I2C_CLK_HLD & I2C_IPMI_DIS & I2C_7BIT_ADD  
+                & I2C_SLW_DIS & I2C_SM_DIS & I2C_GCALL_DIS & I2C_STR_DIS 
+				& I2C_NACK, I2C_RATE_SETTING);
+
+	IdleI2C2();
+
+	CHARGER_EN(1);
+	CHARGER_ON(1);
+
+	while(1)
+	{
+		ClrWdt();
+		I2C_MUX_CH(0);
+		block_ms(200);
+		battery_0_RSOC = readI2C1_Reg(0x0b, 0x0d);
+		I2C_MUX_CH(1);
+		block_ms(200);
+		battery_1_RSOC = readI2C1_Reg(0x0b, 0x0d);
+		block_ms(200);
+		writeI2C2Word(SMBUS_ADD_BQ24745,0x15,0x41a0);
+		block_ms(50);
+		writeI2C2Word(SMBUS_ADD_BQ24745,0x14,0x0bb8);
+		block_ms(50);
+		writeI2C2Word(SMBUS_ADD_BQ24745,0x3f,0x0f80);
+		block_ms(50);
+		Nop();
+		Nop();
+
+	}
+
+}
+
+void test_fan_controller(void)
+{
+
+writeI2C2Reg(I2C_ADD_FAN_CONTROLLER,0x02,0b00011010);
+
+writeI2C2Reg(I2C_ADD_FAN_CONTROLLER,0x11,0b00011000);
+writeI2C2Reg(I2C_ADD_FAN_CONTROLLER,0x07,120);
+writeI2C2Reg(I2C_ADD_FAN_CONTROLLER,0x10,15);
+
+
+
+
+}
+
+void bringup_i2c1(void)
+{
+	float temp_1, temp_2, accel_x, accel_y, accel_z;
+	unsigned int mag_x, mag_y, mag_z;
+	int a,b,c;
+
+/*#define TOUCH_CONTROLLER_I2C_ADD 0x4d
+#define SMBUS_ADD_TMP112_2 0x48
+#define SMBUS_ADD_TMP112 0x49
+#define SMBUS_ADD_BQ2060A 0x0b
+#define SMBUS_ADD_BQ24745 0x09
+#define I2C_ADD_FAN_CONTROLLER	0x18*/
+
+	OpenI2C1(I2C_ON & I2C_IDLE_CON & I2C_CLK_HLD & I2C_IPMI_DIS & I2C_7BIT_ADD  
+                & I2C_SLW_DIS & I2C_SM_DIS & I2C_GCALL_DIS & I2C_STR_DIS 
+				& I2C_NACK, I2C_RATE_SETTING);
+
+	IdleI2C1();
+
+	OpenI2C2(I2C_ON & I2C_IDLE_CON & I2C_CLK_HLD & I2C_IPMI_DIS & I2C_7BIT_ADD  
+                & I2C_SLW_DIS & I2C_SM_DIS & I2C_GCALL_DIS & I2C_STR_DIS 
+				& I2C_NACK, I2C_RATE_SETTING);
+
+	IdleI2C2();
+
+	// wait a little before continuing...
+	block_ms(100);
+
+
+	writeI2C2Reg( I2C_ADD_HMC5843, 0x02,0x00);
+	block_ms(5);
+	writeI2C2Reg( I2C_ADXL345_ADD  , 0x2d,0x08);	
+	block_ms(5);
+	writeI2C2Reg( I2C_ADXL345_ADD  , 0x31,0x0b);	
+	block_ms(5);
+
+	while(1)
+	{
+
+		ClrWdt();
+		a = readI2C2_Reg(SMBUS_ADD_TMP112,0x00);
+		b = readI2C2_Reg(SMBUS_ADD_TMP112,0x01);
+		c = (b >> 4 ) | (a <<4);
+		temp_1 =  (float)c/16.0;
+
+		block_ms(5);
+
+		a = readI2C2_Reg(SMBUS_ADD_TMP112_2,0x00);
+		b = readI2C2_Reg(SMBUS_ADD_TMP112_2,0x01);
+		c = (b >> 4 ) | (a <<4);
+		temp_2 =  (float)c/16.0;
+
+		block_ms(5);
+
+		a = readI2C2_Reg(I2C_ADXL345_ADD,0x32);
+		b = readI2C2_Reg(I2C_ADXL345_ADD,0x33);
+		c = a | (b << 8);
+		accel_x = -(float)c/256.0;
+
+		block_ms(5);
+
+		a = readI2C2_Reg(I2C_ADXL345_ADD,0x34);
+		b = readI2C2_Reg(I2C_ADXL345_ADD,0x35);
+		c = a | (b << 8);
+		accel_y = -(float)c/256.0;
+
+		block_ms(5);
+
+		a = readI2C2_Reg(I2C_ADXL345_ADD,0x36);
+		b = readI2C2_Reg(I2C_ADXL345_ADD,0x37);
+		c = a | (b << 8);
+		accel_z = -(float)c/256.0;
+
+		block_ms(5);
+
+		a = readI2C2_Reg(I2C_ADD_HMC5843,0x03);
+		b = readI2C2_Reg(I2C_ADD_HMC5843,0x04);
+		c = b | (a << 8);
+		mag_x = c;
+
+		block_ms(5);
+		
+		a = readI2C2_Reg(I2C_ADD_HMC5843,0x05);
+		b = readI2C2_Reg(I2C_ADD_HMC5843,0x06);
+		c = b | (a << 8);
+		mag_y = c;
+
+		block_ms(5);
+
+		a = readI2C2_Reg(I2C_ADD_HMC5843,0x07);
+		b = readI2C2_Reg(I2C_ADD_HMC5843,0x08);
+		c = b | (a << 8);
+		mag_z = c;
+
+		read_touchscreen();
+
+		Nop();	
+
+		block_ms(200);
+		
+
+	}
+
+
+
+
+}
+
+void bringup_board(void)
+{
+
+	static unsigned int power_down_counter = 0;
+
+/*
+	init_io();
+
+	PWR_KILL_EN(1);
+	PWR_KILL_ON(0);
+	MIC_PWR_EN(1);
+	AMP_PWR_EN(1);
+	//MIC_PWR_ON(1);
+	//AMP_PWR_ON(1);
+	CAMERA_PWR_EN(1);
+	CAMERA_PWR_ON(1);
+
+	while(1)
+	{
+		ClrWdt();
+		if(PWR_BUTTON())
+		{	
+			GREEN_LED_ON(1);
+			//V3V3_ON(1);
+			//V5V_ON(1);
+			//V12V_ON(1);
+			//bringup_i2c1();
+			//read_battery_rsoc();
+			//test_fan_controller();
+
+
+			if(computer_on_flag == 0)
+			{
+					//set to OC1
+				LCD_PWM_OR = 18;	
+				
+				T2CONbits.TCKPS = 0;	
+			
+			
+				
+				//TPS61161: between 5kHz and 100 kHz PWM dimming frequency
+				//Choose 20kHz (50us period)
+				//50us = [PR2 + 1]*62.5ns*1
+				PR2 = 801;	
+				OC1RS = 800;
+				set_backlight_brightness(50);
+				
+				//Sleep();
+			
+				OC1CON2bits.SYNCSEL = 0x1f;	
+				
+				//use timer 2
+				OC1CON1bits.OCTSEL2 = 0;
+				
+				//edge-aligned pwm mode
+				OC1CON1bits.OCM = 6;
+				
+				//turn on timer 2
+				T2CONbits.TON = 1;
+				if(DeviceControllerBoot() )
+				{
+					GREEN_LED_ON(1);
+					computer_on_flag = 1;
+				}
+				V12V_ON(1);
+			}
+		
+		
+		}
+		else
+		{
+			GREEN_LED_ON(0);
+		}
+		if(CHARGER_ACOK())
+		{
+			RED_LED_ON(1);
+		}
+		else
+		{
+			RED_LED_ON(0);
+		}
+
+		if(PWR_DWN_REQ())
+		{
+			while(PWR_DWN_REQ())
+			{
+				power_down_counter++;
+				block_ms(10);
+				if(power_down_counter > 50)
+				{
+					computer_on_flag = 0;
+					PWR_KILL_ON(1);
+					while(PWR_BUTTON())
+					{
+						ClrWdt();
+					}
+					block_ms(20);
+				}
+			}
+			power_down_counter = 0;
+
+		}
+		
+
+	}
+
+	if(PWR_BUTTON())
+	{
+		if(computer_on_flag == 0)
+		{
+			if(DeviceControllerBoot() )
+			{
+				GREEN_LED_ON(1);
+				computer_on_flag = 1;
+			}
+		}
+
+	}
+	else
+	{
+		computer_on_flag = 0;
+
+	}
+
+*/
+
+}
 
 void DeviceOcuInit()
 {
@@ -296,25 +677,21 @@ void DeviceOcuInit()
 
 
 	
-	I2C2CON = 0x1000;
 
-	I2C2CONbits.I2CEN = 1;
-
-	//FCY should be 16M
-	//I2C2BRG = FCY/100000-FCY/10000000-1;	//should be 157.4 (between 9D and 9E)
-	I2C2BRG = 0xff;
 
 //	Sleep();
 
-	//initialize I2C interrupts
-	I2C2InterruptUserFunction=ocu_batt_smbus_isr;
+	//bringup_board();
+
+	init_i2c();
+
+
 	
 	U1RXInterruptUserFunction = ocu_gps_isr;
 
 	ocu_gps_init();	
 
-	OCU_Batt_I2C2_state = 0x0a;
-	IEC3bits.MI2C2IE = 0;
+
 
 
 
@@ -349,17 +726,9 @@ void DeviceOcuInit()
 	//Sleep();
 
 
-	I2C1InterruptUserFunction = ocu_i2c1_isr;
-	
-	I2C1CON = 0x1000;
-
-	I2C1CONbits.I2CEN = 1;
-
-	//FCY should be 16M
-	//I2C2BRG = FCY/100000-FCY/10000000-1;	//should be 157.4 (between 9D and 9E)
-	I2C1BRG = 0xff;
 
 
+	REG_OCU_BACKLIGHT_BRIGHTNESS = 50;
 	set_backlight_brightness(50);
 
 	//if charger is plugged in when the program starts, the batteries are likely
@@ -405,11 +774,11 @@ void DeviceOcuProcessIO()
 
 //	read_all_bq2060a_registers();
 
-	unsigned int dummy;
+//	unsigned int dummy;
 	//_ASAM = 1;
 	main_loop_counter++;
 
-	if( (computer_on_flag == 0) && (CHARGER_ACOK() == 0))
+/*	if( (computer_on_flag == 0) && (CHARGER_ACOK() == 0))
 	{
 		disable_io();
 
@@ -438,7 +807,7 @@ void DeviceOcuProcessIO()
 		dummy = PORTB;
 		init_io();
 		block_ms(50);
-	}
+	}*/
 
 	handle_power_button();
 	update_button_states();
@@ -482,7 +851,7 @@ void DeviceOcuProcessIO()
 			RED_LED_ON(1);
 			block_ms(200);
 			RED_LED_ON(0);
-			if(POWER_BUTTON())
+/*			if(POWER_BUTTON())
 			{
 				computer_on_flag = 0;
 				GREEN_LED_ON(0);
@@ -493,7 +862,7 @@ void DeviceOcuProcessIO()
 				while(POWER_BUTTON());
 				block_ms(100);
 				break;
-			}
+			}*/
 			
 
 
@@ -509,10 +878,15 @@ void DeviceOcuProcessIO()
 					V5V_ON(0);
 					V12V_ON(0);
 					COMPUTER_PWR_OK(0);
+					PWR_KILL_ON(1);
+					block_ms(100);
 	}
 
 //	while(!POWER_BUTTON());
 //	GREEN_LED_ON(1);
+
+
+	set_backlight_brightness(REG_OCU_BACKLIGHT_BRIGHTNESS);
 
 
 }
@@ -655,11 +1029,12 @@ void ocu_gps_isr(void)
 void handle_power_button(void)
 {
 
-	unsigned int i;
+//	unsigned int i;
+	static unsigned int power_down_counter = 0;
 	//static unsigned char computer_on_flag = 0;
 	static unsigned char power_button_press_counter = 0;
 	power_button_press_counter= 0;
-	if(computer_on_flag == 0)
+/*	if(computer_on_flag == 0)
 	{
 
 		if(POWER_BUTTON())
@@ -784,7 +1159,63 @@ void handle_power_button(void)
 		//a little delay for debouncing
 	
 
-	}
+	}*/
+
+			if(PWR_BUTTON() && (computer_on_flag == 0) )
+			{
+
+				if(computer_on_flag == 0)
+				{
+					set_backlight_brightness(50);
+
+					//CAMERA_PWR_ON(1);
+
+					if(DeviceControllerBoot() )
+					{
+						GREEN_LED_ON(1);
+						computer_on_flag = 1;
+						block_ms(100);
+						initialize_i2c_devices();
+						init_fan_controller();
+						V12V_ON(1);
+					}
+					
+
+				}
+			}
+
+
+		if(PWR_DWN_REQ())
+		{
+			while(PWR_DWN_REQ())
+			{
+				power_down_counter++;
+				block_ms(10);
+				if(power_down_counter > 50)
+				{
+					PWR_KILL_ON(1);
+					//if we're still running code, then AC adapter 
+					//plugged in.  Turn off supplies
+					GREEN_LED_ON(0);
+					computer_on_flag = 0;
+					V12V_ON(0);
+					V5V_ON(0);
+					V3V3_ON(0);
+					//make sure that the power button is released and has finished
+					//bouncing before we return (so controller doesn't think the
+					//power button has been pressed again, and turn right back on.
+					while(PWR_BUTTON())
+					{
+						ClrWdt();
+					}
+					//so power button controller will work properly
+					PWR_KILL_ON(0);
+					block_ms(20);
+				}
+			}
+			power_down_counter = 0;
+
+		}
 }
 
 
@@ -812,6 +1243,8 @@ void update_button_states(void)
 	REG_JOYSTICK1_X = return_adc_value(JOY1_X_CH);
 	REG_JOYSTICK1_Y = return_adc_value(JOY1_Y_CH);
 
+	REG_OCU_HUMIDITY = return_adc_value(HUMIDITY_CH);
+
 
 }
 
@@ -830,558 +1263,7 @@ unsigned int return_adc_value(unsigned char ch)
 
 
 
-void ocu_batt_smbus_isr(void)
-{
 
-	IFS3bits.MI2C2IF = 0;
-	//I2C2STATbits.BCL = 0;
-
-	test_flag++;
-	if(ocu_batt_i2c_read)
-	{
-		
-		switch(OCU_Batt_I2C2_state)
-		{
-			//start condition has finished, now we send the slave address (with read bit set to 0)
-			case 0x00:
-
-					I2C2TRN = (ocu_batt_i2c_slave_address<<1);
-
-					OCU_Batt_I2C2_state++;
-	
-			break;
-	
-			//slave address written, now we send register address
-			case 0x01:
-
-				I2C2TRN = ocu_batt_i2c_register;
-				OCU_Batt_I2C2_state++;
-
-	
-			break;
-	
-			//after the slave register has been sent, we send another start condition
-			case 0x02:
-	
-				I2C2CONbits.RSEN = 1;
-				OCU_Batt_I2C2_state++;
-	
-			break;
-	
-			//start condition completed; we send the slave address again, this time with the read bit set
-			case 0x03:
-	
-				I2C2TRN = ((ocu_batt_i2c_slave_address<<1)+1);
-				OCU_Batt_I2C2_state++;
-
-	
-			break;
-	
-			//start pusing clock pulses to the slave
-			case 0x04:
-	
-				I2C2CONbits.RCEN = 1;
-				OCU_Batt_I2C2_state++;
-	
-			break;
-	
-			//load received byte into module-level variable
-			case 0x05:
-	
-				ocu_batt_i2c_rx_byte1 = I2C2RCV;
-
-
-				if(ocu_batt_i2c_message_length == 1)
-				{
-
-					//set to NACK
-					I2C2CONbits.ACKDT = 1;
-					//send NACK
-					I2C2CONbits.ACKEN = 1;
-					OCU_Batt_I2C2_state= 0x0e;
-
-				}
-
-				else
-				{
-					//set to ACK
-					I2C2CONbits.ACKDT = 0;
-					//send ACK
-					I2C2CONbits.ACKEN = 1;
-					OCU_Batt_I2C2_state++;
-
-
-				}
-	
-			break;
-
-			case 0x06:
-	
-				I2C2CONbits.RCEN = 1;
-				OCU_Batt_I2C2_state++;
-	
-			break;
-	
-			//load received byte into module-level variable
-			case 0x07:
-	
-				ocu_batt_i2c_rx_byte2 = I2C2RCV;
-
-				if(ocu_batt_i2c_message_length == 2)
-				{
-
-					//set to NACK
-					I2C2CONbits.ACKDT = 1;
-					//send NACK
-					I2C2CONbits.ACKEN = 1;
-					OCU_Batt_I2C2_state= 0x0e;
-
-				}
-				if(ocu_batt_i2c_message_length == 4)
-				{
-					//set to ACK
-					I2C2CONbits.ACKDT = 0;
-					//send ACK
-					I2C2CONbits.ACKEN = 1;
-					OCU_Batt_I2C2_state++;
-				}
-				
-			break;
-			case 0x08:
-	
-				I2C2CONbits.RCEN = 1;
-				OCU_Batt_I2C2_state++;
-	
-			break;
-	
-			//load received byte into module-level variable
-			case 0x09:
-	
-				ocu_batt_i2c_rx_byte3 = I2C2RCV;
-				//set to ACK
-				I2C2CONbits.ACKDT = 0;
-				//send ACK
-				I2C2CONbits.ACKEN = 1;
-				OCU_Batt_I2C2_state++;
-
-	
-			break;
-			case 0x0a:
-	
-				I2C2CONbits.RCEN = 1;
-				OCU_Batt_I2C2_state++;
-	
-			break;
-	
-			//load received byte into module-level variable
-			case 0x0b:
-	
-				ocu_batt_i2c_rx_byte4 = I2C2RCV;
-				//set to ACK
-				I2C2CONbits.ACKDT = 0;
-				//send ACK
-				I2C2CONbits.ACKEN = 1;
-				OCU_Batt_I2C2_state++;
-	
-			break;
-	
-			//start pushing clock pulses to the slave
-			case 0x0c:
-	
-				I2C2CONbits.RCEN = 1;
-				OCU_Batt_I2C2_state++;
-	
-			break;
-	
-			//load received byte into module-level variable
-			case 0x0d:
-	
-				ocu_batt_i2c_rx_byte5 = I2C2RCV;
-				//set to NACK
-				I2C2CONbits.ACKDT = 1;
-				//send NACK
-				I2C2CONbits.ACKEN = 1;
-				OCU_Batt_I2C2_state++;
-	
-			break;
-	
-			//NACK has finished.  Send stop condition.
-			case 0x0e:
-	
-				I2C2CONbits.PEN = 1;
-				OCU_Batt_I2C2_state++;
-	
-			break;
-	
-			//stop has finished.  Alert (though module variable) that a new word is ready.
-			case (0x0f):
-	
-					ocu_batt_receive_word_completed = 1;
-			
-	
-			break; 
-	
-			//gets here if message wasn't acked properly, and we sent a stop condition
-			case 0x10:
-	
-			break;
-	
-	
-	
-		}
-	}
-	else
-	{
-		switch(OCU_Batt_I2C2_state)
-		{
-			//start condition has finished, now we send the slave address (with read bit set to 0)
-			case 0x00:
-	
-					I2C2TRN = (ocu_batt_i2c_slave_address<<1);
-					OCU_Batt_I2C2_state++;
-	
-			break;
-	
-			//slave address written, now we send register address
-			case 0x01:
-	
-				I2C2TRN = ocu_batt_i2c_register;
-				OCU_Batt_I2C2_state++;
-	
-			break;
-	
-			//after the slave register has been sent, we send another start condition
-			case 0x02:
-	
-				I2C2TRN = ocu_batt_i2c_tx_byte1;
-				OCU_Batt_I2C2_state++;
-	
-			break;
-	
-			//start condition completed; we send the slave address again, this time with the read bit set
-			case 0x03:
-	
-				I2C2TRN = ocu_batt_i2c_tx_byte2;
-				OCU_Batt_I2C2_state++;
-	
-			break;
-	
-			//Send stop condition.
-			case 0x04:
-	
-				I2C2CONbits.PEN = 1;
-				OCU_Batt_I2C2_state++;
-	
-			break;
-	
-			//stop has finished.  Alert (though module variable) that a new word is ready.
-			case 0x05:
-	
-					//need more general descriptor
-					ocu_batt_receive_word_completed = 1;
-	
-			break; 
-	
-			//gets here if message wasn't acked properly, and we sent a stop condition
-			case 0x06:
-	
-			break;
-	
-	
-	
-		}
-	}
-
-}
-
-
-
-void ocu_batt_i2c_fsm(void)
-{
-
-
-	static unsigned char i2c_interrupt_state = 0x00;
-	static unsigned char last_i2c_interrupt_state = 0;
-	static unsigned char ocu_batt_i2c_busy = 0;
-	static unsigned int timeout_counter = 0;
-
-	last_i2c_interrupt_state = i2c_interrupt_state;
-
-
-
-	//If the interrupt FSM has finished, load the data into the registers
-	if(ocu_batt_receive_word_completed == 1)
-	{
-		testa[6]++;
-		ocu_batt_i2c_busy = 0;
-
-		ocu_batt_receive_word_completed = 0;
-
-		switch(i2c_interrupt_state)
-		{
-			case 0x00:
-//				i2c_loop_counter++;
- 				REG_OCU_TOUCH_PEN = ocu_batt_i2c_rx_byte1;			
-				REG_OCU_TOUCH_X = 	ocu_batt_i2c_rx_byte2+(ocu_batt_i2c_rx_byte3<<7);
-				REG_OCU_TOUCH_Y = 	ocu_batt_i2c_rx_byte4+(ocu_batt_i2c_rx_byte5<<7);
-				i2c_interrupt_state++;
-
-			break;
-			
-			case 0x01:
-				
-				REG_OCU_TEMP_1 = ((ocu_batt_i2c_rx_byte1<<4)+(ocu_batt_i2c_rx_byte2>>4))*.0625;
-				
-				//i2c_interrupt_state++;
-				//REG_OCU_BATTERY_VOLTAGE = ocu_batt_i2c_rx_byte1+(ocu_batt_i2c_rx_byte2<<8);
-				//i2c_interrupt_state++;
-				i2c_interrupt_state++;
-				
-			break;
-			case 0x02:
-				REG_OCU_TEMP_2 = ((ocu_batt_i2c_rx_byte1<<4)+(ocu_batt_i2c_rx_byte2>>4))*.0625;
-			
-				//i2c_interrupt_state++;
-				//REG_OCU_BATTERY_VOLTAGE = ocu_batt_i2c_rx_byte1+(ocu_batt_i2c_rx_byte2<<8);
-				//i2c_interrupt_state++;
-
-			//	REG_OCU_BATTERY_TEMPERATURE = ((ocu_batt_i2c_rx_byte1<<4)+(ocu_batt_i2c_rx_byte2>>4))*.0625;
-				i2c_interrupt_state++;
-			break;
-			case 0x03:
-				REG_OCU_ACCEL_X = (ocu_batt_i2c_rx_byte2<<8)+(ocu_batt_i2c_rx_byte1);
-				
-				//REG_OCU_ACCEL_X = 11;
-				i2c_interrupt_state++;
-			break;
-			case 0x04:
-				REG_OCU_ACCEL_Y = (ocu_batt_i2c_rx_byte2<<8)+(ocu_batt_i2c_rx_byte1);
-				//REG_OCU_ACCEL_Y = 22;
-				i2c_interrupt_state++;
-			break;
-			case 0x05:
-				REG_OCU_ACCEL_Z = (ocu_batt_i2c_rx_byte2<<8)+(ocu_batt_i2c_rx_byte1);
-				//REG_OCU_ACCEL_Z = 33;
-				i2c_interrupt_state++;
-			break;
-			case 0x06:
-				REG_OCU_MAGNETIC_X = ocu_batt_i2c_rx_byte2+(ocu_batt_i2c_rx_byte1<<8);
-				//REG_OCU_MAGNETIC_X = 33;
-				i2c_interrupt_state++;
-			break;
-			case 0x07:
-				REG_OCU_MAGNETIC_Y = ocu_batt_i2c_rx_byte2+(ocu_batt_i2c_rx_byte1<<8);
-				//REG_OCU_MAGNETIC_Y = 44;
-				i2c_interrupt_state++;
-			break;
-			case 0x08:
-				REG_OCU_MAGNETIC_Z = ocu_batt_i2c_rx_byte2+(ocu_batt_i2c_rx_byte1<<8);
-				//REG_OCU_MAGNETIC_Z = 55;
-				i2c_interrupt_state++;
-			break;
-			case 0x09:
-				fan_temp_1 = ocu_batt_i2c_rx_byte1;
-				i2c_interrupt_state++;
-			break;
-			case 0x0a:
-				fan_temp_2 = ocu_batt_i2c_rx_byte1;
-				i2c_interrupt_state++;
-			break;
-			case 0x0b:
-				fan_duty_cycle = ocu_batt_i2c_rx_byte1;
-				i2c_interrupt_state++;
-			break;
-			case 0x0c:
-				fan_speed = ocu_batt_i2c_rx_byte1;
-				i2c_interrupt_state = 0;
-			break;
-			default:
-				i2c_interrupt_state = 0x00;
-			break;
-	
-		}
-	}
-
-	//If the interrupt FSM is not running and we've already read the i2c data from the last message, start it for the next message
-	if((ocu_batt_i2c_busy == 0) && (ocu_batt_receive_word_completed == 0))
-	{
-
-		//make sure bus is idle.  If not, return.
-		//if(I2C2STATbits.P)
-		//	return;
-
-		ocu_batt_i2c_busy = 1;
-		switch(i2c_interrupt_state)
-		{
-			case 0x00:
-				OCU_Batt_I2C2_state = 0x03;
-				ocu_batt_i2c_message_length = 4;
-				start_ocu_batt_i2c_read(TOUCH_CONTROLLER_I2C_ADD,0x00);
-				/*OCU_Batt_I2C2_state = 0x00;
-				ocu_batt_i2c_message_length = 2;
-				start_ocu_batt_i2c_read(SMBUS_ADD_TMP112,0x00);	*/
-			break;
-
-			case 0x01:
-				main_loop_counter = 0;
-				OCU_Batt_I2C2_state = 0x00;
-				ocu_batt_i2c_message_length = 2;
-				start_ocu_batt_i2c_read(SMBUS_ADD_TMP112,0x00);	
-				//ocu_batt_i2c_message_length = 2;
-				//start_ocu_batt_i2c_read(SMBUS_ADD_BQ2060A,0x09);			
-			break;
-			case 0x02:
-				
-				OCU_Batt_I2C2_state = 0x00;
-				ocu_batt_i2c_message_length = 2;
-				start_ocu_batt_i2c_read(SMBUS_ADD_TMP112_2,0x00);			
-			break;
-			case 0x03:
-				OCU_Batt_I2C2_state = 0x00;
-				ocu_batt_i2c_message_length = 2;
-				start_ocu_batt_i2c_read(I2C_ADXL345_ADD,0x32);
-
-			break;
-			case 0x04:
-				OCU_Batt_I2C2_state = 0x00;
-				ocu_batt_i2c_message_length = 2;
-				start_ocu_batt_i2c_read(I2C_ADXL345_ADD,0x34);
-			break;
-			case 0x05:
-				OCU_Batt_I2C2_state = 0x00;
-				ocu_batt_i2c_message_length = 2;
-				start_ocu_batt_i2c_read(I2C_ADXL345_ADD,0x36);
-			break;
-			case 0x06:
-				OCU_Batt_I2C2_state = 0x00;
-				ocu_batt_i2c_message_length = 2;
-				start_ocu_batt_i2c_read(I2C_ADD_HMC5843,0x03);
-			break;
-			case 0x07:
-				OCU_Batt_I2C2_state = 0x00;
-				ocu_batt_i2c_message_length = 2;
-				start_ocu_batt_i2c_read(I2C_ADD_HMC5843,0x05);
-			break;
-			case 0x08:
-				OCU_Batt_I2C2_state = 0x00;
-				ocu_batt_i2c_message_length = 2;
-				start_ocu_batt_i2c_read(I2C_ADD_HMC5843,0x07);
-			break;
-			case 0x09:
-				OCU_Batt_I2C2_state = 0x00;
-				ocu_batt_i2c_message_length = 1;
-				start_ocu_batt_i2c_read(I2C_ADD_FAN_CONTROLLER,0x19);
-			break;
-			case 0x0a:
-				OCU_Batt_I2C2_state = 0x00;
-				ocu_batt_i2c_message_length = 1;
-				start_ocu_batt_i2c_read(I2C_ADD_FAN_CONTROLLER,0x01);
-			break;
-			case 0x0b:
-				OCU_Batt_I2C2_state = 0x00;
-				ocu_batt_i2c_message_length = 1;
-				start_ocu_batt_i2c_read(I2C_ADD_FAN_CONTROLLER,0x18);
-			break;
-			case 0x0c:
-				OCU_Batt_I2C2_state = 0x00;
-				ocu_batt_i2c_message_length = 1;
-				//start_ocu_batt_i2c_read(I2C_ADD_FAN_CONTROLLER,0x0d);
-				start_ocu_batt_i2c_read(I2C_ADD_FAN_CONTROLLER,0x1c);
-			break;
-
-			default:
-				i2c_interrupt_state = 0;
-				ocu_batt_i2c_busy = 0;
-			break;
-				
-
-		}
-	}	
-
-	if(i2c_interrupt_state == last_i2c_interrupt_state)
-	{
-		timeout_counter++;
-		block_ms(1);
-	}
-	else
-		timeout_counter = 0;
-
-	if(timeout_counter > 10 )
-	{
-		block_ms(1);
-	}
-
-	else if(timeout_counter > 200)
-	{
-
-
-		//i2c_interrupt_state++;
-		i2c_interrupt_state++;
-		ocu_batt_i2c_rx_byte1 = 0xff;
-		ocu_batt_i2c_rx_byte2 = 0xff;
-		ocu_batt_i2c_rx_byte3 = 0xff;
-		ocu_batt_i2c_rx_byte4 = 0xff;
-		OCU_Batt_I2C2_state = 0x0f;
-		
-		//I2C2CONbits.PEN = 1;
-		block_ms(100);
-
-		I2C2STAT = 0;
-		ocu_batt_receive_word_completed = 0;
-		ocu_batt_i2c_busy = 0;
-		timeout_counter = 0;
-		
-
-	}
-
-
-
-}
-
-void start_ocu_batt_i2c_read(unsigned char add, unsigned char reg)
-{
-	ocu_batt_i2c_slave_address = add;
-	ocu_batt_i2c_register = reg;
-	ocu_batt_i2c_read = 1;
-	
-
-
-	I2C2CONbits.SEN = 1;
-
-}
-
-void start_ocu_batt_i2c_write(unsigned char add, unsigned char reg, unsigned int data)
-{
-	ocu_batt_i2c_slave_address = add;
-	ocu_batt_i2c_register = reg;
-
-	OCU_Batt_I2C2_state = 0x00;
-	ocu_batt_i2c_tx_byte1 = (data & 0xff);
-	ocu_batt_i2c_tx_byte2 = data>>8;
-
-
-	ocu_batt_i2c_read = 0;
-	
-	I2C2CONbits.SEN = 1;
-
-}
-
-void initialize_i2c_devices(void)
-{
-
-	IEC3bits.MI2C2IE = 1;
-
-	start_ocu_batt_i2c_write(I2C_ADD_HMC5843,0x02,0x00);
-	block_ms(20);
-
-	start_ocu_batt_i2c_write(I2C_ADXL345_ADD,0x2d,0x08);
-	block_ms(20);
-
-	start_ocu_batt_i2c_write(I2C_ADXL345_ADD,0x31,0x0b);
-	block_ms(20);
-	IEC3bits.MI2C2IE = 0;
-
-}
 
 void set_backlight_brightness(unsigned char percentage)
 {
@@ -1412,8 +1294,8 @@ void ocu_gps_init(void)
 void init_fan_controller(void)
 {
 
-	unsigned char temp1 = 0;
-	unsigned char temp2 = 0;	
+//	unsigned char temp1 = 0;
+//	unsigned char temp2 = 0;	
 
 	IEC3bits.MI2C2IE = 1;
 
@@ -1488,12 +1370,17 @@ void init_io(void)
 	RED_LED_ON(0);
 	GREEN_LED_ON(0);
 	CAMERA_PWR_ON(0);
+	MIC_PWR_ON(1);
+	AMP_PWR_ON(1);
+	I2C_MUX_CH(0);
+	PWR_KILL_ON(0);
 	
 	COMPUTER_PWR_OK_EN(1);
 
-	//CAMERA_PWR_ON(1);
-
-
+	MIC_PWR_EN(1);
+	AMP_PWR_EN(1);
+	I2C_MUX_EN(1);
+	PWR_KILL_EN(1);
 	
 	//Enable all outputs
 	CHARGER_EN(1);
@@ -1504,7 +1391,7 @@ void init_io(void)
 	GREEN_LED_EN(1);
 	CAMERA_PWR_EN(1);
 
-
+	HUMIDITY_EN(1);
 
 	JOY1_X_EN(1);
 	JOY1_Y_EN(1);
@@ -1640,7 +1527,69 @@ void joystick_interrupt(void)
 }
 
 
+int DeviceControllerBoot(void)
+{
+//	unsigned char a;
+	unsigned int i = 0;
 
+	V3V3_ON(1);
+
+	//while(!V3V3_PGOOD());
+
+	//weird -- long interval between turning on V3V3 and V5 doesn't allow COM Express to boot
+	block_ms(100);
+
+	V5V_ON(1);
+
+	while(SUS_S5() | SUS_S3())
+	{
+		i++;
+		if(i > 5) return 0;
+		ClrWdt();
+		block_ms(100);
+	}
+	i=0;
+	ClrWdt();
+	block_ms(100);
+
+//	send_lcd_string("Boot 1  \r\n",10);
+
+/*	for(i=0;i<400;i++)
+	{
+		block_ms(10);
+		ClrWdt();
+	}*/
+
+	//while(!V5_PGOOD());
+
+	while(!SUS_S5())
+	{
+		i++;
+		if(i > 20) return 0;
+		ClrWdt();
+		block_ms(100);
+
+	}
+
+//	send_lcd_string("Boot 2  \r\n",10);
+	i=0;
+
+	COMPUTER_PWR_OK(1);
+
+	while(!SUS_S3())
+	{
+		i++;
+		if(i > 20) return 0;
+		ClrWdt();
+		block_ms(100);
+	}
+
+//	blink_led(6,500);
+
+	return 1;
+
+
+}
 
 
 void test_sleep_current(void)
@@ -1686,476 +1635,7 @@ while(1)
 
 
 
-void ocu_i2c1_isr(void)
-{
-	testb[0]++;
-	_MI2C1IF = 0;
 
-	if(ocu_i2c1_i2c_read)
-	{
-		
-		switch(ocu_i2c1_interrupt_state)
-		{
-			//start condition has finished, now we send the slave address (with read bit set to 0)
-			case 0x00:
-
-					I2C1TRN = (ocu_i2c1_slave_address<<1);
-					ocu_i2c1_interrupt_state++;
-	
-			break;
-	
-			//slave address written, now we send register address
-			case 0x01:
-
-				I2C1TRN = ocu_i2c1_register;
-				ocu_i2c1_interrupt_state++;
-	
-			break;
-	
-			//after the slave register has been sent, we send another start condition
-			case 0x02:
-	
-				I2C1CONbits.RSEN = 1;
-				ocu_i2c1_interrupt_state++;
-	
-			break;
-	
-			//start condition completed; we send the slave address again, this time with the read bit set
-			case 0x03:
-	
-				I2C1TRN = ((ocu_i2c1_slave_address<<1)+1);
-				ocu_i2c1_interrupt_state++;
-	
-			break;
-	
-			//start pusHing clock pulses to the slave
-			case 0x04:
-	
-				I2C1CONbits.RCEN = 1;
-				ocu_i2c1_interrupt_state++;
-	
-			break;
-	
-			//load received byte into module-level variable
-			case 0x05:
-	
-				ocu_i2c1_rx_byte1 = I2C1RCV;
-
-
-				if(ocu_i2c1_message_length == 1)
-				{
-
-					//set to NACK
-					I2C1CONbits.ACKDT = 1;
-					//send NACK
-					I2C1CONbits.ACKEN = 1;
-					ocu_i2c1_interrupt_state= 0x0e;
-
-				}
-
-				else
-				{
-					//set to ACK
-					I2C1CONbits.ACKDT = 0;
-					//send ACK
-					I2C1CONbits.ACKEN = 1;
-					ocu_i2c1_interrupt_state++;
-
-				}
-	
-			break;
-
-			case 0x06:
-	
-				I2C1CONbits.RCEN = 1;
-				ocu_i2c1_interrupt_state++;
-	
-			break;
-	
-			//load received byte into module-level variable
-			case 0x07:
-	
-				ocu_i2c1_rx_byte2 = I2C1RCV;
-
-				if(ocu_i2c1_message_length == 2)
-				{
-
-					//set to NACK
-					I2C1CONbits.ACKDT = 1;
-					//send NACK
-					I2C1CONbits.ACKEN = 1;
-					ocu_i2c1_interrupt_state= 0x0e;
-
-				}
-				if(ocu_i2c1_message_length == 4)
-				{
-					//set to ACK
-					I2C1CONbits.ACKDT = 0;
-					//send ACK
-					I2C1CONbits.ACKEN = 1;
-					ocu_i2c1_interrupt_state++;
-				}
-				
-			break;
-			case 0x08:
-	
-				I2C1CONbits.RCEN = 1;
-				ocu_i2c1_interrupt_state++;
-	
-			break;
-	
-			//load received byte into module-level variable
-			case 0x09:
-	
-				ocu_i2c1_rx_byte3 = I2C1RCV;
-				//set to ACK
-				I2C1CONbits.ACKDT = 0;
-				//send ACK
-				I2C1CONbits.ACKEN = 1;
-				ocu_i2c1_interrupt_state++;
-
-	
-			break;
-			case 0x0a:
-	
-				I2C1CONbits.RCEN = 1;
-				ocu_i2c1_interrupt_state++;
-	
-			break;
-	
-			//load received byte into module-level variable
-			case 0x0b:
-	
-				ocu_i2c1_rx_byte4= I2C1RCV;
-				//set to ACK
-				I2C1CONbits.ACKDT = 0;
-				//send ACK
-				I2C1CONbits.ACKEN = 1;
-				ocu_i2c1_interrupt_state++;
-	
-			break;
-	
-			//start pushing clock pulses to the slave
-			case 0x0c:
-	
-				I2C1CONbits.RCEN = 1;
-				ocu_i2c1_interrupt_state++;
-	
-			break;
-	
-			//load received byte into module-level variable
-			case 0x0d:
-	
-				ocu_i2c1_rx_byte5 = I2C1RCV;
-				//set to NACK
-				I2C1CONbits.ACKDT = 1;
-				//send NACK
-				I2C1CONbits.ACKEN = 1;
-				ocu_i2c1_interrupt_state++;
-	
-			break;
-	
-			//NACK has finished.  Send stop condition.
-			case 0x0e:
-	
-				I2C1CONbits.PEN = 1;
-				ocu_i2c1_interrupt_state++;
-	
-			break;
-	
-			//stop has finished.  Alert (though module variable) that a new word is ready.
-			case (0x0f):
-	
-					ocu_i2c1_receive_word_completed = 1;
-					testb[1]++;
-	
-			break; 
-	
-			//gets here if message wasn't acked properly, and we sent a stop condition
-			case 0x10:
-	
-			break;
-	
-	
-	
-		}
-	}
-	else
-	{
-		switch(ocu_i2c1_interrupt_state)
-		{
-			//start condition has finished, now we send the slave address (with read bit set to 0)
-			case 0x00:
-	
-					I2C1TRN = (ocu_i2c1_slave_address<<1);
-					ocu_i2c1_interrupt_state++;
-	
-			break;
-	
-			//slave address written, now we send register address
-			case 0x01:
-	
-				I2C1TRN = ocu_i2c1_register;
-				ocu_i2c1_interrupt_state++;
-	
-			break;
-	
-			//after the slave register has been sent, we send another start condition
-			case 0x02:
-	
-				I2C1TRN = ocu_i2c1_tx_byte1;
-				ocu_i2c1_interrupt_state++;
-	
-			break;
-	
-			//start condition completed; we send the slave address again, this time with the read bit set
-			case 0x03:
-	
-				I2C1TRN = ocu_i2c1_tx_byte2;
-				ocu_i2c1_interrupt_state++;
-	
-			break;
-	
-			//Send stop condition.
-			case 0x04:
-	
-				I2C1CONbits.PEN = 1;
-				ocu_i2c1_interrupt_state++;
-	
-			break;
-	
-			//stop has finished.  Alert (though module variable) that a new word is ready.
-			case 0x05:
-	
-					//need more general descriptor
-					ocu_i2c1_transmit_word_completed = 1;
-	
-			break; 
-	
-			//gets here if message wasn't acked properly, and we sent a stop condition
-			case 0x06:
-	
-			break;
-	
-	
-	
-		}
-	}
-
-}
-
-void start_ocu_i2c1_i2c_read(unsigned char add, unsigned char reg)
-{
-	ocu_i2c1_slave_address = add;
-	ocu_i2c1_register = reg;
-	ocu_i2c1_i2c_read = 1;
-	
-
-
-	I2C1CONbits.SEN = 1;
-
-}
-
-void start_ocu_i2c1_write(unsigned char add, unsigned char reg, unsigned int data)
-{
-	ocu_i2c1_slave_address = add;
-	ocu_i2c1_register = reg;
-
-	ocu_i2c1_interrupt_state = 0x00;
-	ocu_i2c1_tx_byte1 = (data & 0xff);
-	ocu_i2c1_tx_byte2 = data>>8;
-
-
-	ocu_i2c1_i2c_read = 0;
-	
-	I2C1CONbits.SEN = 1;
-
-}
-
-
-void ocu_i2c1_fsm(void)
-{
-
-
-	static unsigned char i2c1_device_state = 0x00;
-	static unsigned char last_i2c1_device_state = 0;
-	static unsigned char ocu_i2c1_busy = 0;
-	static unsigned int timeout_counter = 0;
-
-	last_i2c1_device_state = i2c1_device_state;
-
-	testb[3] = i2c1_device_state;
-	testb[4] = timeout_counter;
-	testb[5]++;
-	
-
-	//If the interrupt FSM has finished, load the data into the registers
-	if(ocu_i2c1_receive_word_completed == 1)
-	{
-
-		ocu_i2c1_busy = 0;
-
-		ocu_i2c1_receive_word_completed = 0;
-
-		switch(i2c1_device_state)
-		{
-			case 0x00:
-				i2c_loop_counter++;
- 				REG_OCU_BATT_VOLTAGE = ocu_i2c1_rx_byte1 + (ocu_i2c1_rx_byte2<<8);
-				i2c1_device_state++;
-
-			break;
-			
-			case 0x01:				
-				
-				REG_OCU_BATT_REL_SOC = ocu_i2c1_rx_byte1 + (ocu_i2c1_rx_byte2<<8);
-				i2c1_device_state++;
-				
-			break;
-
-			case 0x02:				
-				
-				REG_OCU_BATT_ABS_SOC = ocu_i2c1_rx_byte1 + (ocu_i2c1_rx_byte2<<8);
-				i2c1_device_state++;
-				
-			break;
-			case 0x03:				
-				
-				REG_OCU_BATT_REM_CAP = ocu_i2c1_rx_byte1 + (ocu_i2c1_rx_byte2<<8);
-				i2c1_device_state++;
-				
-			break;
-			case 0x04:				
-				
-				battery_status = ocu_i2c1_rx_byte1 + (ocu_i2c1_rx_byte2<<8);
-				i2c1_device_state++;
-				
-			break;
-
-			case 0x05:
-				REG_OCU_BATT_CURRENT = ocu_i2c1_rx_byte1 + (ocu_i2c1_rx_byte2<<8);
-				i2c1_device_state++;
-			break;
-
-			case 0x06:
-				battery_temperature = ocu_i2c1_rx_byte1 + (ocu_i2c1_rx_byte2<<8);
-				i2c1_device_state++;
-			break;
-
-			case 0x07:
-				REG_OCU_BATT_FULL_CHARGE_CAP = ocu_i2c1_rx_byte1 + (ocu_i2c1_rx_byte2<<8);
-				i2c1_device_state = 0;
-			break;
-
-			default:
-				i2c1_device_state = 0x00;
-			break;
-	
-		}
-	}
-
-	//If the interrupt FSM is not running and we've already read the i2c data from the last message, start it for the next message
-	if((ocu_i2c1_busy == 0) && (ocu_i2c1_receive_word_completed == 0))
-	{
-
-
-
-		ocu_i2c1_busy = 1;
-		switch(i2c1_device_state)
-		{
-			case 0x00:
-				ocu_i2c1_interrupt_state = 0x00;
-				ocu_i2c1_message_length = 2;
-				start_ocu_i2c1_i2c_read(SMBUS_ADD_BQ2060A,0x09);
-				//start_ocu_i2c1_i2c_read(SMBUS_ADD_BQ2060A,0x0d);
-			break;
-			case 0x01:
-				ocu_i2c1_interrupt_state = 0x00;
-				ocu_i2c1_message_length = 2;
-				start_ocu_i2c1_i2c_read(SMBUS_ADD_BQ2060A,0x0d);
-			break;
-			case 0x02:
-				ocu_i2c1_interrupt_state = 0x00;
-				ocu_i2c1_message_length = 2;
-				start_ocu_i2c1_i2c_read(SMBUS_ADD_BQ2060A,0x0e);
-			break;
-			case 0x03:
-				ocu_i2c1_interrupt_state = 0x00;
-				ocu_i2c1_message_length = 2;
-				start_ocu_i2c1_i2c_read(SMBUS_ADD_BQ2060A,0x0f);
-			break;
-			case 0x04:
-				
-				ocu_i2c1_interrupt_state = 0x00;
-				ocu_i2c1_message_length = 2;
-				start_ocu_i2c1_i2c_read(SMBUS_ADD_BQ2060A,0x16);
-			break;
-			case 0x05:
-				
-				ocu_i2c1_interrupt_state = 0x00;
-				ocu_i2c1_message_length = 2;
-				start_ocu_i2c1_i2c_read(SMBUS_ADD_BQ2060A,0x0a);
-			break;
-			case 0x06:
-				
-				ocu_i2c1_interrupt_state = 0x00;
-				ocu_i2c1_message_length = 2;
-				start_ocu_i2c1_i2c_read(SMBUS_ADD_BQ2060A,0x08);
-			break;
-			case 0x07:
-				
-				ocu_i2c1_interrupt_state = 0x00;
-				ocu_i2c1_message_length = 2;
-				start_ocu_i2c1_i2c_read(SMBUS_ADD_BQ2060A,0x10);
-			break;
-			default:
-				i2c1_device_state = 0;
-				ocu_i2c1_busy = 0;
-			break;
-				
-
-		}
-	}	
-
-	if(i2c1_device_state == last_i2c1_device_state)
-	{
-		timeout_counter++;
-		block_ms(1);
-	}
-	else
-		timeout_counter = 0;
-
-	if(timeout_counter > 10 )
-	{
-		block_ms(1);
-	}
-
-	if(timeout_counter > 200)
-	{
-		testb[9] = i2c1_device_state;
-		testb[4]++;
-		//i2c1_device_state++;
-		i2c1_device_state++;
-		ocu_i2c1_rx_byte1 = 0xff;
-		ocu_i2c1_rx_byte2 = 0xff;
-		ocu_i2c1_rx_byte3 = 0xff;
-		ocu_i2c1_rx_byte4= 0xff;
-		ocu_i2c1_interrupt_state = 0x00;
-		
-		//I2C1CONbits.PEN = 1;
-		block_ms(100);
-
-		I2C1STAT = 0;
-		ocu_i2c1_receive_word_completed = 0;
-		ocu_i2c1_busy = 0;
-		timeout_counter = 0;
-		
-
-	}
-
-
-
-}
 
 void handle_charging(void)
 {
@@ -2166,6 +1646,8 @@ void handle_charging(void)
 	if(CHARGER_ACOK())
 	{
 
+		V3V3_ON(1);
+
 		//this kind of messes with the i2c stuff, so I don't want to do it every time
 		if(charge_counter == 0)
 			{
@@ -2175,12 +1657,12 @@ void handle_charging(void)
 				block_ms(50);
 	//			RED_LED_ON(1);
 				block_ms(5);
-			/*	start_ocu_i2c1_write(SMBUS_ADD_BQ24745,0x15,0x41a0);
+				start_ocu_batt_i2c_write(SMBUS_ADD_BQ24745,0x15,0x41a0);
 				block_ms(20);
 				//start_ocu_i2c1_write(SMBUS_ADD_BQ24745,0x14,0x0800);
-				start_ocu_i2c1_write(SMBUS_ADD_BQ24745,0x14,0x0400);
-				block_ms(20);*/
-				start_ocu_i2c1_write(SMBUS_ADD_BQ24745,0x3f,0x0f80);
+				start_ocu_batt_i2c_write(SMBUS_ADD_BQ24745,0x14,0x0bb8);
+				block_ms(20);
+				start_ocu_batt_i2c_write(SMBUS_ADD_BQ24745,0x3f,0x0f80);
 				block_ms(20);
 	
 				CHARGER_ON(1);
@@ -2209,7 +1691,7 @@ void handle_charging(void)
 
 void read_all_bq2060a_registers(void)
 {
-	unsigned int i = 0;
+/*	unsigned int i = 0;
 	_MI2C1IE = 1;
 	while(1)
 	{
@@ -2223,7 +1705,7 @@ void read_all_bq2060a_registers(void)
 		bq2060a_registers[i] = ocu_i2c1_rx_byte1 + (ocu_i2c1_rx_byte2<<8);
 	}
 	block_ms(1000);
-	}
+	}*/
 	
 
 }

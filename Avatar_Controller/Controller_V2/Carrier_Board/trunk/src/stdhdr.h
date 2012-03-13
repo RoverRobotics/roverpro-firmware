@@ -23,13 +23,18 @@
 #include "i2c.h"
 #include "PwrMgnt.h"
 #include "interrupt_switch.h"
+//#include "periph_i2c.h"
 
 // PROTOTYPES FOR PROJECT stdfunction.h
 
 extern void block_ms(unsigned int ms);
-extern void writeI2C( unsigned char add, unsigned char v );
-extern int readI2C( unsigned char add );
-extern void writeI2CReg( unsigned char add, unsigned char v, unsigned char w);
+unsigned char readI2C1_Reg(unsigned char add, unsigned char reg);
+unsigned char readI2C2_Reg(unsigned char add, unsigned char reg);
+unsigned char readI2C3_Reg(unsigned char add, unsigned char reg);
+void writeI2C1Reg( unsigned char add, unsigned char v, unsigned char w);
+void writeI2C2Reg( unsigned char add, unsigned char v, unsigned char w);
+void writeI2C3Reg( unsigned char add, unsigned char v, unsigned char w);
+void writeI2C2Word( unsigned char add, unsigned char v, unsigned int w);
 
 #include "../HardwareProfile.h"
 
