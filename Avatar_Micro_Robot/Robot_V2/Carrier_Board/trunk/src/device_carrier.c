@@ -321,7 +321,7 @@ void init_fan(void)
 	block_ms(5);
 
 
-/* For thermistor control
+/* For thermistor control */
 	//make thermistor 1 control fan 2, and vice versa
 	writeI2CReg( FAN_CONTROLLER_ADDRESS,0x11,0b00011000);
 	block_ms(5);
@@ -345,7 +345,9 @@ void init_fan(void)
 	//fan turns on at 50C
 	writeI2CReg( FAN_CONTROLLER_ADDRESS,0x10,50);
 	block_ms(5);
-	*/
+	//End thermistor control
+
+/* For software control
 
 	writeI2CReg(FAN_CONTROLLER_ADDRESS,0x11,0x00);
 
@@ -359,7 +361,9 @@ void init_fan(void)
 	
 	writeI2CReg(FAN_CONTROLLER_ADDRESS,0x0B,240);
 	ClrWdt();
-	block_ms(1000);
+	block_ms(1000);*/
+
+	//end software control
 
 	ClrWdt();
 
@@ -725,7 +729,7 @@ void DeviceCarrierGetTelemetry()
 
 	REG_ROBOT_HUMIDITY = ADC1BUF0 * ADC_REF_VOLTAGE / ADC_SAMPLE_COUNT;
 
-	writeI2CReg(FAN_CONTROLLER_ADDRESS,0x0B,REG_CARRIER_REAR_BLOWER_SPEED);
+//	writeI2CReg(FAN_CONTROLLER_ADDRESS,0x0B,REG_CARRIER_REAR_BLOWER_SPEED);
 
 	REG_TELEMETRY_COUNT++;
 }
