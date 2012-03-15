@@ -991,7 +991,8 @@ void Device_MotorController_Process()
  		REG_PWR_BAT_VOLTAGE.b=temp2>>ShiftBits;
  		REG_PWR_BAT_VOLTAGE.a=CellVoltageArray[Cell_A][0];
  		REG_PWR_BAT_VOLTAGE.b=temp2>>ShiftBits;*/
-
+		REG_PWR_A_CURRENT = temp1>>ShiftBits;
+		REG_PWR_B_CURRENT = temp2>>ShiftBits;
 
  		BATVolCheckingTimerExpired=False;
  		#ifdef BATProtectionON
