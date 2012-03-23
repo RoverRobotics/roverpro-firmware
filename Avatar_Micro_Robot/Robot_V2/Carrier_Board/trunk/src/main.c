@@ -240,7 +240,7 @@ void ProcessIO(void)
 	uint16_t i = 0;
 	uint16_t j;
 
-	ClrWdt();
+	handle_watchdogs();
 
 	// ---------------------------------------------------------------------
 	// DEVICE SPECIFIC I/O PROCESS HERE

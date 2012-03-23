@@ -13,3 +13,5 @@ void DeviceCarrierInit();
 
 void DeviceCarrierProcessIO();
 
+void handle_watchdogs(void);
+

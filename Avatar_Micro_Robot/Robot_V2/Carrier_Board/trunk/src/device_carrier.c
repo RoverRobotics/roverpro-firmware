@@ -113,6 +113,16 @@
 
 #define NC_THERM_TRIP()			_RE7
 
+#define WDT_PIN_EN(a)			_TRISF1 = !a
+#define WDT_PIN()				_LATF1
+
+#define REAR_PL_PWR_EN(a)		_TRISB12 = !a
+#define REAR_PL_PWR_ON(a)		_LATB12 = a
+
+#define REAR_PL_PRESENT()		_RB8
+
+void toggle_wdt_loop(void);
+
 
 
 
@@ -190,16 +200,31 @@ void DeviceCarrierInit()
 		_SWDTEN = 1;
 	}
 
-	Sleep();
+	WDT_PIN_EN(1);
 
-	ClrWdt();
+	handle_watchdogs();
+
+	//Sleep();
+
+	//ClrWdt();
 	//wait some time to stabilize voltages
 	block_ms(50);
 //	while(POWER_BUTTON());
 
 	init_io();
 
+	//turn on rear payload power (if necessary) now,
+	//in case we need power to a keyboard to control the BIOS
+	if(REAR_PL_PRESENT() == 0)
+	{
+		REAR_PL_PWR_ON(1);
+	}
+	else
+	{
+		REAR_PL_PWR_ON(0);
+	}
 
+	WDT_PIN_EN(1);
 
 	const unsigned char build_date[12] = __DATE__; 
 	const unsigned char build_time[12] = __TIME__;
@@ -258,19 +283,19 @@ void DeviceCarrierInit()
 					break;
 			}
 	#endif
-
+	
 	send_lcd_string("Computer booted  \r\n",19);
 
 	block_ms(100);
 	CODEC_PWR_ON(1);
 //	MIC_PWR_ON(1);
 //	AMP_PWR_ON(1);
-	ClrWdt();
+	handle_watchdogs();
 
 	initI2C();
 
 	block_ms(100);
-	ClrWdt();
+	handle_watchdogs();
 
 	writeI2CReg( HMC5843_ADDRESS, 0x02,0x00);
 	block_ms(5);
@@ -314,7 +339,7 @@ void init_fan(void)
 
 	unsigned int i;
 
-	ClrWdt();
+	handle_watchdogs();
 
 	//set fan configuration
 	writeI2CReg( FAN_CONTROLLER_ADDRESS,0x02,0b00011010);
@@ -338,7 +363,7 @@ void init_fan(void)
 	//wait a while
 	for(i=0;i<50;i++)
 	{
-		ClrWdt();
+		handle_watchdogs();
 		block_ms(20);
 	}
 
@@ -365,7 +390,7 @@ void init_fan(void)
 
 	//end software control
 
-	ClrWdt();
+	handle_watchdogs();
 
 
 }
@@ -410,7 +435,7 @@ void blink_led(unsigned int n, unsigned int ms)
 {
 	unsigned int i,j, max_j;
 	
-	ClrWdt();
+	handle_watchdogs();
 
 	max_j = ms/20;
 
@@ -420,13 +445,13 @@ void blink_led(unsigned int n, unsigned int ms)
 		for(j=0;j<max_j;j++)
 		{
 			block_ms(10);
-			ClrWdt();
+			handle_watchdogs();
 		}
 		set_led_brightness(WHITE_LED,0);
 		for(j=0;j<max_j;j++)
 		{
 			block_ms(10);
-			ClrWdt();
+			handle_watchdogs();
 		}
 
 	}
@@ -479,6 +504,7 @@ void init_io(void)
 	AMP_PWR_ON(0);
 	CODEC_PWR_ON(0);
 	COM_EXPRESS_PGOOD_ON(0);
+	REAR_PL_PWR_ON(0);
 
 
 	VBAT_DIGI_EN(1);
@@ -490,6 +516,7 @@ void init_io(void)
 	CODEC_PWR_EN(1);
 	COM_EXPRESS_PGOOD_EN(1);
 	HUMIDITY_SENSOR_EN(1);
+	REAR_PL_PWR_EN(1);
 
 
 }
@@ -519,7 +546,7 @@ void read_EEPROM_string(void)
 
 	for(i=0;i<78;i++)
 	{
-		ClrWdt();
+		handle_watchdogs();
 		REG_ROBOT_BOARD_DATA.data[i] = readI2C_Reg(EEPROM_ADDRESS,i);
 		block_ms(5);
 
@@ -543,7 +570,9 @@ void initI2C(void) // Initialize the I2C interface to the realtime clock
 	IdleI2C1();
 
 	// wait a little before continuing...
+	handle_watchdogs();
 	block_ms(100);
+	handle_watchdogs();
 } //initI2C
 
 
@@ -755,11 +784,11 @@ int DeviceCarrierBoot()
 	{
 		i++;
 		if(i > 5) return 0;
-		ClrWdt();
+		handle_watchdogs();
 		block_ms(100);
 	}
 	i=0;
-	ClrWdt();
+	handle_watchdogs();
 	block_ms(100);
 
 	send_lcd_string("Boot 1  \r\n",10);
@@ -776,7 +805,7 @@ int DeviceCarrierBoot()
 	{
 		i++;
 		if(i > 20) return 0;
-		ClrWdt();
+		handle_watchdogs();
 		block_ms(100);
 
 	}
@@ -790,7 +819,7 @@ int DeviceCarrierBoot()
 	{
 		i++;
 		if(i > 20) return 0;
-		ClrWdt();
+		handle_watchdogs();
 		block_ms(100);
 	}
 
@@ -827,12 +856,12 @@ void DeviceCarrierProcessIO()
 			for(i=0;i<10;i++)
 			{
 				block_ms(50);
-				ClrWdt();
+				handle_watchdogs();
 				if(POWER_BUTTON())
 				{
 					while(POWER_BUTTON())
 					{
-						ClrWdt();
+						handle_watchdogs();
 					}
 					{__asm__ volatile ("reset");}
 				}
@@ -856,12 +885,12 @@ void DeviceCarrierProcessIO()
 			for(i=0;i<10;i++)
 			{
 				block_ms(50);
-				ClrWdt();
+				handle_watchdogs();
 				if(POWER_BUTTON())
 				{
 					while(POWER_BUTTON())
 					{
-						ClrWdt();
+						handle_watchdogs();
 					}
 					{__asm__ volatile ("reset");}
 				}
@@ -879,6 +908,15 @@ void DeviceCarrierProcessIO()
 		set_led_brightness(IR_LED, REG_IR_LED);
 		update_audio_power_state();
 
+	}
+
+	if(REAR_PL_PRESENT() == 0)
+	{
+		REAR_PL_PWR_ON(1);
+	}
+	else
+	{
+		REAR_PL_PWR_ON(0);
 	}
 
 	block_ms(10);
@@ -904,6 +942,39 @@ void update_audio_power_state(void)
 	else
 	{
 		MIC_PWR_ON(0);
+	}
+
+}
+
+void handle_watchdogs(void)
+{
+
+	static unsigned char previous_wdt_pin_state = 0;
+
+
+	//toggle pin to hardware WDT
+	if (previous_wdt_pin_state)
+	{
+		WDT_PIN() = 0;
+		previous_wdt_pin_state = 0;
+	}
+	else
+	{
+		WDT_PIN() = 1;
+		previous_wdt_pin_state = 1;
+	}
+
+	//clear PIC's WDT
+	ClrWdt();
+
+
+}
+void toggle_wdt_loop(void)
+{
+	while(1)
+	{
+		handle_watchdogs();
+		block_ms(10);
 	}
 
 }
