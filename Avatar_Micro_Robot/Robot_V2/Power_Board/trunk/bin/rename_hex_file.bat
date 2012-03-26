@@ -6,8 +6,10 @@ echo .
 
 
 set date_name=%DATE:~-4%_%DATE:~4,2%_%DATE:~7,2%
+set date_name_short=%DATE:~-4%%DATE:~4,2%%DATE:~7,2%
 
 set time_name=%TIME:~0,2%_%TIME:~3,2%
+set time_name_short=%TIME:~0,2%%TIME:~3,2%
 set file_date=%DATE:~4,2%-%DATE:~7,2%-%DATE:~-4%
 
 if "%time_name:~0,1%"==" " (
@@ -43,12 +45,13 @@ set /P svn_revision="Enter SVN revision number: "
 	set minute_string=!time_string:~3,2!
 	set am_pm=!time_string:~6,2!
 
-	set backup_folder=backup_!year_string!_!month_string!_!day_string!_file_time_!hour_string!_!minute_string!_!am_pm!_backed_up_%file_name%
-	echo %backup_folder%
-	mkdir %backup_folder%
+	REM set backup_folder=backup_!year_string!_!month_string!_!day_string!_file_time_!hour_string!_!minute_string!_!am_pm!_backed_up_%file_name%
+	REM echo %backup_folder%
+	REM mkdir %backup_folder%
+	mkdir releases
 
 
-	copy firmware.hex %backup_folder%\firmware_!year_string!_!month_string!_!day_string!_file_time_!hour_string!_!minute_string!_!am_pm!_svn_!svn_revision!.hex
+	copy firmware.hex releases\firmware_!year_string!_!month_string!_!day_string!_file_time_!hour_string!_!minute_string!_!am_pm!_svn_!svn_revision!_(%date_name_short%.%time_name_short%).hex
 
 
 )
