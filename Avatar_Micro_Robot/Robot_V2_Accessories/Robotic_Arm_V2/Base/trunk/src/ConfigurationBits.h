@@ -1,0 +1,39 @@
+/*=============================================================================
+ 
+File: ConfigurationBits.h
+
+Description:  Encapsulates the configuration bits set for this project, 
+  ensuring they are consistent across modules.
+
+=============================================================================*/
+#ifndef CONFIG_BITS_H
+#define CONFIG_BITS_H
+
+/*---------------------------Dependencies------------------------------------*/
+#include <p24FJ256GB106.h>
+
+/*
+ 	disable the JTAG port
+	disable code protection
+	enable writes to program memory
+	diable Clip On Emulation Mode
+  disable the Watchdog Timer
+	share emulator functions with PGEC2/PGED2
+	configure the Watchdog postscaler to divide-by-256, 1:256
+*/
+_CONFIG1(JTAGEN_OFF & GCP_OFF & GWRP_OFF & COE_OFF & FWDTEN_OFF & ICS_PGx2 & 
+         WDTPS_PS256)
+
+/*
+	disable two-speed start-up for Internal External Switch Over Mode
+	disable both Clock Switching and Fail-safe Clock Monitor
+	configure primary OSCillator Output functions as port I/O (RC15)
+	select the HS oscillator mode
+	enable the Phased-Lock Loop module for the primary oscillator
+	Oscillator input divided by 5 (20MHz input)
+	only write RP Registers Once
+*/
+_CONFIG2(IESO_OFF & FCKSM_CSDCMD & OSCIOFNC_ON & POSCMOD_HS & FNOSC_PRIPLL & 
+         PLLDIV_DIV5 & IOL1WAY_ON)
+
+#endif
