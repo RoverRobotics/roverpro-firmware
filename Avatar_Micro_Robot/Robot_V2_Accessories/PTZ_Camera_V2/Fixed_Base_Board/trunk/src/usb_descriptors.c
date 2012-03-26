@@ -20,8 +20,8 @@ USB_DEVICE_DESCRIPTOR device_dsc=
     0x00,                         // Subclass code
     0x00,                         // Protocol code
     USB_EP0_BUFF_SIZE,            // Max packet size for EP0, see usb_config.h
-    0xB1E1,                       // Vendor ID: Brinton Engineering LLC
-    0x0001,                       // Product ID: Robotex OCU
+    0x2694,                       // Vendor ID: RoboteX Inc.
+    0x0000,                       // Product ID: Generic Device
     0x0000,                       // Device release number in BCD format
     0x01,                         // Manufacturer string index
     0x02,                         // Product string index
