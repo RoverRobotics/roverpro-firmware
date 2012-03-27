@@ -9,7 +9,13 @@
         Peripheral	Pin
         U1TX				31
         U1RX				32
-		2) TODO: generalize for use with any UART hardware module (1, 2,...4)
+		2) full duplex
+		3) asynchronous communication channel
+		4) 
+
+
+
+TODO: generalize for use with any UART hardware module (1, 2,...4)
  
  ****************************************************************************/
 #ifndef UART_H

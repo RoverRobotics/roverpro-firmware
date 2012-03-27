@@ -11,10 +11,10 @@
 //#include "ConfigurationBits.h"
 
 /*---------------------------Macros and Definitions--------------------------*/
-/****************************************************************************
+/*
 Type: timer_t
 Description: A timer is comprised of a duration and a start time.
-*****************************************************************************/
+*/
 typedef struct {
 	unsigned int duration;        // the duration of the timer
 	unsigned int start_time;      // time at which the timer was started
