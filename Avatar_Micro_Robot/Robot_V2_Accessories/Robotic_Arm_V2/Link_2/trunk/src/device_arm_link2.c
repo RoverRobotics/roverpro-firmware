@@ -224,6 +224,9 @@ void Link2_Process_IO(void)
   wrist_pot_2_value = return_adc_value(WRIST_POT_2_CH);
   thermistor_value = return_adc_value(THERMISTOR_CH);
 
+  REG_ARM_JOINT_POSITIONS.gripper = gripper_pot_value;
+  REG_ARM_JOINT_POSITIONS.gripper_actuator = gripper_act_pot_value;
+
   send_rs485_message();
 
   //wait for message to finish sending
@@ -238,7 +241,11 @@ void Link2_Process_IO(void)
   //pretty dumb control loop
   for(i=0;i<10;i++)
   {
-    motor_accel_loop(REG_ARM_MOTOR_VELOCITIES.gripper, REG_ARM_MOTOR_VELOCITIES.wrist);
+    //don't move the gripper motor unless the potentiometer is in the correct range:
+//    if( (gripper_act_pot_value > 300) && (gripper_act_pot_value < 700) )
+      motor_accel_loop(REG_ARM_MOTOR_VELOCITIES.gripper, REG_ARM_MOTOR_VELOCITIES.wrist);
+//    else
+//      motor_accel_loop(0, REG_ARM_MOTOR_VELOCITIES.wrist);
     block_ms(10);
   }
   

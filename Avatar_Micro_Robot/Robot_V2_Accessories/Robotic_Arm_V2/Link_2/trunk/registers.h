@@ -36,6 +36,7 @@ typedef struct { int16_t tilt, zoom; } REG_CAMERA_VEL_ROT_2EL_16BI;
 /** Data type for representing PTZ tilt, zoom, and digital zoom data */
 typedef struct { int16_t tilt, zoom, digitalZoom; } REG_CAMERA_POS_ROT_3EL_16BI;
 typedef struct { int16_t turret, shoulder, elbow, wrist, gripper; } ARM_DATA_5EL_16BI;
+typedef struct { uint16_t turret, shoulder, elbow, wrist, gripper_actuator, gripper; } ARM_DATA_6EL_16BI;
 
 #endif
 
@@ -173,6 +174,7 @@ REGISTER( REG_CAMERA_BASE_POWER_DOWN,	DEVICE_WRITE,	DEVICE_PTZ_BASE,	SYNC,	int8_
 REGISTER( REG_CARRIER_REAR_BLOWER_SPEED,   DEVICE_WRITE,  DEVICE_CARRIER,   SYNC,    uint8_t )
 
 REGISTER( REG_ARM_MOTOR_VELOCITIES,   DEVICE_WRITE,  DEVICE_ARM_LINK2,   SYNC,    ARM_DATA_5EL_16BI )
-   
+REGISTER( REG_ARM_JOINT_POSITIONS,   DEVICE_READ,  DEVICE_ARM_LINK2,   SYNC,    ARM_DATA_6EL_16BI )
+
 REGISTER_END()
 
