@@ -23,10 +23,10 @@ where T_AD = A/D conversion clock period
 
 /*---------------------------Macros and Definitions--------------------------*/
 #define MAX_NUM_AD_INPUTS     16 // maximum number of analog-to-digital inputs
-                                 // this module can handle (16 counting 0)
+                                 // this module can handle
                                 
 /*---------------------------Helper-Function Prototypes----------------------*/
-static void ConfigurePins(void);
+static void ConfigurePins(unsigned int bit_mask);
 static void ConfigureInterrupt(void);
 static inline void SelectAnalogPin(unsigned char analog_pin_index);
 static void ExecuteADC_ISR();
@@ -39,10 +39,9 @@ static unsigned int V_ADC[MAX_NUM_AD_INPUTS] = {0};
 
 int main(void) {
   TRISEbits.TRISE5 = 0; PORTEbits.RE5 = 0; // initialize a debugging pin
-  InitADC();
+  InitADC(0b110011);
 
 	while (1) {
-		Nop();
     if (GetADC(0) >= 500) PORTEbits.RE5 = 1;
 		else PORTEbits.RE5 = 0;
 	}
@@ -52,31 +51,13 @@ int main(void) {
 
 #endif
 /*---------------------------End Test Harness--------------------------------*/
-
 /*---------------------------Public Function Definitions---------------------*/
-/*
-Function: InitADC()
-Parameters:
-	unsigned int bit_mask, a number interpreted as binary that describes which
-  											 of the 0-though-15 analog pins are desired to be
-                         analog inputs  
-Description: Initializes the specified analog-to-digital-conversion (ADC)
-	hardware module.
-Usage: InitADC(0b0000 0000 000 0000)
-*/
-void InitADC(void) {
-	ConfigurePins();
+void InitADC(unsigned int bit_mask) {
+	ConfigurePins(bit_mask);
 	ConfigureInterrupt();
-	AD1CON1bits.ASAM = 1; // begin auto-sampling
+	AD1CON1bits.ASAM = 1; 			// begin auto-sampling
 }
 
-/*
-Function: GetADC()
-Description: Returns the analog value in arbitrary units [au] on the given pin
-Notes:
-	1) results are placed into address ADCBUF0 and each sequential buffer 
-     address on successive interrupts
-*/
 unsigned int GetADC(unsigned char analog_input_index) {
   return V_ADC[analog_input_index];
 }
@@ -100,7 +81,7 @@ static void ExecuteADC_ISR() {
 	V_ADC[index] = ADC1BUF0;
 	if ((MAX_NUM_AD_INPUTS - 1) < ++index) index = 0;
 	SelectAnalogPin(index);
-	IFS0bits.AD1IF = 0;     // clear the source of the interrupt
+	IFS0bits.AD1IF = 0;     		// clear the source of the interrupt
 }
 
 /*
@@ -108,12 +89,10 @@ Function: ConfigurePins()
 Description: Configures and initializes an pins associated with this 
   module.
 */
-static void ConfigurePins(void) {
+static void ConfigurePins(unsigned int bit_mask) {
 	// configure port pin(s) as analog input(s)
-	TRISBbits.TRISB0 = 1; AD1PCFGLbits.PCFG0 = 0;
-	TRISBbits.TRISB1 = 1; AD1PCFGLbits.PCFG1 = 0;
-	TRISBbits.TRISB4 = 1; AD1PCFGLbits.PCFG4 = 0;
-	TRISBbits.TRISB5 = 1; AD1PCFGLbits.PCFG5 = 0;
+	TRISB |= bit_mask;
+	AD1PCFGL &= ~(bit_mask);
 
   // select the appropriate pin to sample
 	AD1CHSbits.CH0NA = 0b000;		// configure the negative reference to ground (V_ss)
@@ -121,7 +100,7 @@ static void ConfigurePins(void) {
   AD1CON2bits.BUFM = 0;       // start filling buffer at address, ADCBUF0, and 
                               // each sequential address on successive interrupts    
 	
-	// select voltage reference source to match expected range on analog
+	// select voltage reference source to match expected range
 	AD1CON2bits.VCFG = 0b000;		// configure V_ref+ = V_dd (positive rail)
 	                            // and V_ref- = V_ss (ground)
 
@@ -131,9 +110,7 @@ static void ConfigurePins(void) {
 
 	// select the appropriate sample/conversion sequence
 	AD1CON1bits.SSRC = 0b0111; 	// internal counter ends sampling and starts conversion?
-	AD1CON3bits.SAMC = 0b11111;	// configure how often to auto-sample (11111 = 31 TAD)
-	// select how conversion results are presented in the buffer
-	AD1CON1bits.FORM = 0b00;		// configure the result as unsigned, right-justified decimal
+	AD1CON3bits.SAMC = 0b11111;	// configure how often to auto-sample (11111 = 31 TAD)	
 }
 
 /*

@@ -1,42 +1,39 @@
 /*=============================================================================
 File: ADC.h 
 
-Description: This module sets up the 8-bit hardware analog-to-digital 
-  converter.  
-
+Description: This module sets up one of several 10-bit hardware 
+	analog-to-digital converter.
 Notes:
-   1) The reference voltage is configured to V_ref = V_DD = GND
-   2) 10-bit A/D conversion (0-to-1023 inclusive)
-   5) The value returned reflects the last read value and may not 
-      necessarily be the current value of interest, depending on speed 
-      requirements of your application.
-
-See Also: N/A
+	1) Warning: does no error checking on initialization bit mask
 =============================================================================*/
 #ifndef ADC_H
 #define ADC_H
-
-/*---------------------------Dependencies------------------------------------*/
-
 /*---------------------------Macros and Definitions--------------------------*/
 
 /*---------------------------Public Function Prototypes----------------------*/
 /*
-	Function: InitADC()
-	Parameters: N/A
-	TODO: make a function of what analog pins are desired (ie a bit mask)
+Function: InitADC()
+Parameters:
+	unsigned int bit_mask, a number interpreted as binary that describes which
+  											 of the 0-though-15 analog pins are desired to be
+                         analog inputs  
+Description: Initializes the specified analog-to-digital-conversion (ADC)
+	hardware module.
+Usage: InitADC(0b0011); // initialize AN1, AN0
 */
-void InitADC(void);
+void InitADC(unsigned int bit_mask);
 
 /*
   Function: GetADC()
 	Returns:
-		unsigned int,	the last updated value to the buffer for this desired pin
+		unsigned int,	the last updated value in the buffer for this desired 
+                  pin in arbitrary units [au]
 	Parameters:	
 		unsigned char analog_input_index, number of the analog pin from which
                                       to get the result
 	Notes:
-		1) returns the LAST UPDATED value
+		1) returns the LAST UPDATED value, which may not necessarily be the
+       most current value
 */
 unsigned int GetADC(unsigned char analog_input_index);
 
