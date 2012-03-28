@@ -662,7 +662,17 @@ static void DefaultConfiguration()
 
 void DevicePTZRotationInit()
 {
+
 	PTZIni();
+  //If we don't wait for the camera to power up fully, it won't properly
+  //read and store the default configuration.  This is kind of a sloppy way to
+  //do it, so we'll probably want to fix this later.
+  //This issue was causing the camera image to be inverted when the PTZ was first
+  //assembled.  Since the board was programmed without the zoom module, it never
+  //was able to read the default config messages to save them.  Transmission likely
+  //failed before as well, but the configuration was stored in the zoom module from
+  //when the rotation board was programmed.
+  block_ms(10000);
 	DefaultConfiguration();
 }
 
