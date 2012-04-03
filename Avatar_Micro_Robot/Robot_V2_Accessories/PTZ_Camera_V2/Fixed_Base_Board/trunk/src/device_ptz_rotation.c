@@ -108,7 +108,7 @@ static volatile int uartTxIndex = 0;
 // -------------------------------------------------------------------------
 // Motor Limits
 // -------------------------------------------------------------------------
-#define TILT_STEPPER_LOWER 510
+#define TILT_STEPPER_LOWER 530
 #define TILT_STEPPER_UPPER 780
 #define TILT_ANGLE_LOWER 5.0f
 #define TILT_ANGLE_UPPER 87.0f
@@ -672,7 +672,7 @@ void DevicePTZRotationInit()
   //was able to read the default config messages to save them.  Transmission likely
   //failed before as well, but the configuration was stored in the zoom module from
   //when the rotation board was programmed.
-  block_ms(10000);
+  //block_ms(10000);
 	DefaultConfiguration();
 }
 
