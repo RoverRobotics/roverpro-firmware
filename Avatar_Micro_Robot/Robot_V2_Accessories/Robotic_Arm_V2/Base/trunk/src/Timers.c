@@ -6,9 +6,8 @@
 //#define TEST_TIMERS
 
 /*---------------------------Dependencies------------------------------------*/
-#include "Timers.h"
+#include "./Timers.h"
 #include <p24FJ256GB106.h>
-//#include "ConfigurationBits.h"
 
 /*---------------------------Macros and Definitions--------------------------*/
 /*
@@ -32,6 +31,7 @@ static unsigned int current_time;
 
 /*---------------------------Test Harness------------------------------------*/
 #ifdef TEST_TIMERS
+#include "./ConfigurationBits.h"
 
 //---Times
 #define _500ms            500  // ticks ~= 500ms/(1.000ms/timer_tick)
@@ -64,7 +64,7 @@ int main(void) {
 /*---------------------------End Test Harness--------------------------------*/
 
 /*---------------------------Public Function Definitions---------------------*/
-void _ISR _T1Interrupt(void) {
+void __attribute__((__interrupt__, auto_psv)) _T1Interrupt(void) {
   Timer_ISR();
 }
 
@@ -76,7 +76,7 @@ Notes:
 		             = 1ms?????TODO: why doesn't math work out?
 *****************************************************************************/
 void InitTimers(void) {
-  T1CONbits.TCKPS1 = 0; T1CONbits.TCKPS0 = 1; // configure the timer prescaler ratio to 1/8 (see p.148 of datasheet)
+  T1CONbits.TCKPS1 = 0; T1CONbits.TCKPS0 = 1; // configure the timer prescaler ratio to 1/8 (see p.152 of datasheet)
   T1CONbits.TCS = 0;                // do NOT use the external clock
   if (T1CONbits.TCS == 0) T1CONbits.TGATE = 0;// DISABLE gated time accumulation
   if (T1CONbits.TCS == 1) T1CONbits.TSYNC = 1;// synchronize external clock input

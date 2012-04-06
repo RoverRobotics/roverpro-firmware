@@ -18,8 +18,7 @@ where T_AD = A/D conversion clock period
 =============================================================================*/
 #define TEST_ADC
 /*---------------------------Dependencies------------------------------------*/
-#include "ADC.h"
-#include "ConfigurationBits.h"
+#include "./ADC.h"
 
 /*---------------------------Macros and Definitions--------------------------*/
 #define MAX_NUM_AD_INPUTS     16 // maximum number of analog-to-digital inputs
@@ -36,6 +35,7 @@ static unsigned int V_ADC[MAX_NUM_AD_INPUTS] = {0};
 
 /*---------------------------Test Harness------------------------------------*/
 #ifdef TEST_ADC
+#include "./ConfigurationBits.h"
 
 int main(void) {
   TRISEbits.TRISE5 = 0; PORTEbits.RE5 = 0; // initialize a debugging pin
@@ -62,7 +62,7 @@ unsigned int GetADC(unsigned char analog_input_index) {
   return V_ADC[analog_input_index];
 }
 
-void _ISR _ADC1Interrupt(void) {
+void __attribute__((__interrupt__, auto_psv)) _ADC1Interrupt(void) {
 	ExecuteADC_ISR();
 }
 

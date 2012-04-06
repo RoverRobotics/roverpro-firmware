@@ -31,9 +31,10 @@ _CONFIG1(JTAGEN_OFF & GCP_OFF & GWRP_OFF & COE_OFF & FWDTEN_OFF & ICS_PGx2 &
 	select the HS oscillator mode
 	enable the Phased-Lock Loop module for the primary oscillator
 	Oscillator input divided by 5 (20MHz input)
-	only write RP Registers Once
 */
+//	only write RP Registers Once
+
 _CONFIG2(IESO_OFF & FCKSM_CSDCMD & OSCIOFNC_ON & POSCMOD_HS & FNOSC_PRIPLL & 
-         PLLDIV_DIV5 & IOL1WAY_ON)
+         PLLDIV_DIV5)// & IOL1WAY_ON)
 
 #endif
