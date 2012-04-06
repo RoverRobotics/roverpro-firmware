@@ -6,13 +6,16 @@
 
 void int_to_string(unsigned int input, char* output);
 void debug_uart_tx_interrupt(void);
+void debug_uart_rx_interrupt(void);
 unsigned char sending_debug_uart_string = 0;
 unsigned int debug_uart_string_length = 0;
 unsigned char debug_uart_string[100];
+unsigned char input_string[100];
 
 void init_debug_uart(void)
 {
 	U1TXInterruptUserFunction = debug_uart_tx_interrupt;
+  U1RXInterruptUserFunction = debug_uart_rx_interrupt;
 
  	// Write appropriate baud rate value to the UxBRG register.
 	U1TX_RPn = 3;
@@ -201,5 +204,30 @@ void debug_uart_tx_interrupt(void)
 
 	U1TXREG = debug_uart_string[i];
 	i++;
+
+}
+
+debug_uart_rx_interrupt(void)
+{
+  static unsigned char index = 0;
+  unsigned char new_byte;
+
+	U1STAbits.OERR = 0;
+
+	_U1RXIF = 0;
+
+  new_byte = U1RXREG;
+
+  input_string[index] = new_byte;
+  
+  if(new_byte == '\n')
+  {
+    index = 0;
+  }
+  else
+  {
+    index++;
+    if(index > 100) index = 100;
+  }
 
 }

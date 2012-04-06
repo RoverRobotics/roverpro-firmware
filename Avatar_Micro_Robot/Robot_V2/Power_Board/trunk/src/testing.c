@@ -4,17 +4,21 @@
 #include "i2c.h"
 #include "interrupt_switch.h"
 #include "testing.h"
+#include "debug_uart.h"
 
 
 void switched_sensor_wires(void);
 void pulse_power_bus(void);
 void force_overcurrent(void);
+void current_display(void);
+void int_to_decimal_string(unsigned int input, char* output);
 
 //gets called after board is initialized.=
 void test_function(void)
 {
 
 	//force_overcurrent();
+  //current_display();
 
 }
 
@@ -194,6 +198,144 @@ void switched_sensor_wires(void)
 
 	}	
 	
+
+}
+
+
+void int_to_decimal_string(unsigned int input, char* output)
+{
+//	char output[6] = "0x0000";
+
+	char nibble = '0';
+	int i;
+  char digits[5] = {0,0,0,0,0};
+  
+  unsigned char ten_thousands, thousands, hundreds, tens, ones = 0;
+
+  ten_thousands = input/10000;
+  thousands = (input-ten_thousands*10000)/1000;
+  hundreds = (input-ten_thousands*10000-thousands*1000)/100;
+  tens = (input-ten_thousands*10000-thousands*1000-hundreds*100)/10;
+  ones = (input-ten_thousands*10000-thousands*1000-hundreds*100-tens*10);
+  
+  output[0] = ten_thousands+48;
+  output[1] = thousands+48;
+  output[2] = hundreds+48;
+  output[3] = tens+48;
+  output[4] = ones+48;
+
+ }
+
+void current_display(void)
+{
+  //Note:  CELL A, for the purpose of the display, is the cell closest to the edge of the board
+  char hex_string_A[6], hex_string_B[6];
+  char percentage_string[5];
+  char current_display[26] = "zzzzzz   zzzzzz  zzzzz%\r\n";
+ 	long temp1,temp2;
+  unsigned int i;
+  unsigned int A_Current, B_Current = 0;
+  unsigned int percentage;
+
+	Cell_Ctrl(Cell_A,Cell_ON);
+	Cell_Ctrl(Cell_B,Cell_ON);
+/*  block_ms(100);
+ 	Cell_Ctrl(Cell_A,Cell_ON);
+  block_ms(100);
+	Cell_Ctrl(Cell_A,Cell_OFF);*/
+
+	M1_COAST=Clear_ActiveLO;
+	M1_DIR=HI;
+	M1_BRAKE=Clear_ActiveLO;
+	M1_MODE=1;
+
+	M2_COAST=Clear_ActiveLO;
+	M2_DIR=HI;
+	M2_BRAKE=Clear_ActiveLO;
+	M2_MODE=1;
+
+	M3_COAST=Clear_ActiveLO;
+	M3_DIR=HI;
+	M3_BRAKE=Clear_ActiveLO;
+	M3_MODE=1;
+
+  block_ms(1000);
+  ClrWdt();
+
+
+  temp1=0;
+  temp2=0;
+  for(i=0;i<SampleLength;i++)
+  {
+  	temp1+=Cell_A_Current[i];
+  	temp2+=Cell_B_Current[i];
+  }
+  
+  A_Current = temp1>>ShiftBits;
+  B_Current = temp2>>ShiftBits;
+
+
+  send_debug_uart_string("Baseline current: ",18);
+  block_ms(10);
+
+	int_to_string(A_Current,(char*)hex_string_A);
+	int_to_string(B_Current,(char*)hex_string_B);
+
+  for(i=0;i<6;i++)
+  {
+    current_display[i] = hex_string_A[i];
+    current_display[i+9] = hex_string_B[i];
+  }
+
+
+  
+  send_debug_uart_string(current_display,17);
+  block_ms(10);
+  send_debug_uart_string("\r\n",2);
+  block_ms(10);
+
+  OC1R = 2000;
+  OC2R = 2000;
+  OC3R = 2000;
+
+  while(1)
+  {
+    ClrWdt();
+  temp1=0;
+  temp2=0;
+  for(i=0;i<SampleLength;i++)
+  {
+    temp1+=Cell_A_Current[i];
+    temp2+=Cell_B_Current[i];
+  }
+  
+  A_Current = temp1>>ShiftBits;
+  B_Current = temp2>>ShiftBits;
+  
+  percentage = abs(A_Current-B_Current)*100 / (( A_Current + B_Current)/2);
+ 
+  int_to_string(A_Current,(char*)hex_string_A);
+  int_to_string(B_Current,(char*)hex_string_B);
+  int_to_decimal_string(percentage, (char*)percentage_string);
+  
+  for(i=0;i<6;i++)
+  {
+  current_display[i] = hex_string_A[i];
+  current_display[i+9] = hex_string_B[i];
+  }
+  
+  for(i=0;i<5;i++)
+  {
+    current_display[i+17] = percentage_string[i];
+  }
+
+  send_debug_uart_string(current_display,26);
+  block_ms(500);
+
+
+  }
+
+
 
 }
 

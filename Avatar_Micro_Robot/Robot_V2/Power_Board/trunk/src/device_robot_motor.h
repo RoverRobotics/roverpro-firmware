@@ -417,3 +417,5 @@ void TestIC2();
 void TestOC();
 void Test();
 
+extern int Cell_A_Current[SampleLength];
+extern int Cell_B_Current[SampleLength];
