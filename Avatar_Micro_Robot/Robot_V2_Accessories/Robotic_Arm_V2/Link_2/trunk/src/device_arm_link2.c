@@ -349,10 +349,22 @@ void RS485_RX_ISR(void)
       }
     break;
     case 0x01:
+//    If the second byte isn't 0xcc
       if(rs485_rx_buffer[1] != 0xcc)
       {
-        message_index = 0;
-        return;
+//      If it's actually 0xff, try starting message with this byte
+//      (so we don't miss a valid message preceded by 0xff
+        if(rs485_rx_buffer[1] == 0xff)
+        {
+          rs485_rx_buffer[0] = 0xff;
+          message_index = 1;
+          break;
+        }
+        else
+        {
+          message_index = 0;
+          return; 
+        }
       }
     break;
     case 0x02:
