@@ -2,7 +2,7 @@
 File: PPS.h 
 
 Description: This file provides an interface to the dynamic pin mapping 
-  supported by the Periphal Pin Selection (PPS) features of the 
+  supported by the Periphal Pin Selection (PPS) facilities of the 
   PIC24FJ256GB106.
 =============================================================================*/
 #ifndef PPS_H

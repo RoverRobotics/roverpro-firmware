@@ -1,53 +1,79 @@
 /*=============================================================================
 File: Protocol.h 
 
-Description: This file encapsulates the communication protocol.
+Description: This file encapsulates the communication protocol.  A hash 
+  function, more specifically a cyclic redundancy check, is used to improve 
+  the robustness of communication.
 
 Notes:
-  - Packet Structure: HEADER_1 HEADER_2 DATA ... DATA CRC_1 CRC_2
-    where CRC_1 is the first byte of the Cyclic Redundancy Check (CRC)
+  - Packet Structure: HEADER_H HEADER_L DEVICE DATA ... DATA CRC_H CRC_L
+    where suffix _H indicates a high byte
+  - the CRC is computed on DEVICE and all DATA bytes 
 =============================================================================*/
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 
 /*---------------------------Macros------------------------------------------*/
 // packet framing constants
-#define HEADER_1          0xFF
-#define HEADER_2          0xCC
+#define HEADER_H            0xFF
+#define HEADER_L            0xCC
 
 // devices
-#define BASE              0x0B
-#define LINK_1            0x0C
-#define LINK_2            0x0D
+#define UNKNOWN_DEVICE      0x00
+#define BASE                0x0B
+#define LINK_1              0x0C
+#define LINK_2              0x0D
 
-#define MAX_PACKET_SIZE  25  // the maximum number of anticipated bytes our
-                              // packet will ever hold (to avoid dynamic 
-                              // memory management)
-#define NUM_PREFIX_BYTES  2   // where prefix/suffix mean anything that is NOT data
-#define NUM_SUFFIX_BYTES  2
+// number of elements (bytes) of the data sent by each of the devices (1-based counting)
+#define BASE_DATA_LENGTH    4
+#define LINK_1_DATA_LENGTH  0
+#define LINK_2_DATA_LENGTH  5
+#define INVALID_LENGTH      0xFF
+#define MAX_DATA_LENGTH     5
+
+#define MAX_PACKET_LENGTH   15  // the maximum number of anticipated bytes our
+                                // packet will ever hold (to avoid dynamic 
+                                // memory management)
+#define NUM_PREFIX_BYTES    2
+#define NUM_SUFFIX_BYTES    2
+#define NUM_DEVICE_BYTES    1
+
+
+#define DEVICE_INDEX        2   // device index in the protocol
 
 /*---------------------------Public Function Prototypes----------------------*/
 /*
 Function: BuildPacket()
 Parameters:
+  unsigned char device, the device for which to build the packet (see macros)
   unsigned char data[], the data array
-  unsigned char* packet_ptr[], pointer to the array into which the resulting
-                               packet should be placed
+  unsigned char packet[], array into which to place the resulting packet
+  unsigned char* packet_length_ptr,
 Description: Builds a packet from the given data as specified by the protocol 
+Notes:
+  - WARNING: data MUST be the appropriate length for the device
 */
-void BuildPacket(unsigned char data[], unsigned char data_length,
-                 unsigned char* packet_ptr[], unsigned char* packet_length_ptr);
+void BuildPacket(unsigned char device, unsigned char data[],
+                 unsigned char packet[], unsigned char *packet_length_ptr);
 
 /*
 Function: GetData()
 Parameters:
   unsigned char packet[], the full packet
-  unsigned char* data_ptr[], the output data array passed by reference
-  unsigned char* data_length_ptr,
+  unsigned char data[], the output data array
+  unsigned char* data_length_ptr, the data length to be updated
 Description: Parses the packet for the data and validates the result.  The 
   result is updated to 0 as a sentinel for invalid data.
 */
-void GetData(unsigned char packet[], unsigned char* data_ptr[], 
-             unsigned char* data_length_ptr);
+void GetData(unsigned char packet[], unsigned char data[], 
+             unsigned char *data_length_ptr);
+
+/*
+Function: GetDataLength()
+Description: Determines the data length for the given device. Returns
+  a sentinel for an unrecognized device, INVALID_LENGTH.
+*/
+unsigned char GetDataLength(unsigned char device);
+
 
 #endif

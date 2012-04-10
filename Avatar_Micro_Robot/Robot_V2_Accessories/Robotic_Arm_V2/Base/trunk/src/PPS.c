@@ -100,24 +100,31 @@ void MapPeripheral(unsigned char pin, unsigned char direction,
 /*---------------------------Helper Function Definitions---------------------*/
 /*
 Notes:
-	- see p.127 of datasheet describing these special sequences
+	- see p.140 of datasheet describing these special sequences
 	- Because the unlock sequence is timing-critical, it must
-	  be executed as an assembly language routine
+	  be executed as an assembly language routine.  The C30 compiler now 
+	  provides a convenient macro for this sequence
 */
 static void UnlockControlRegisters(void) {
+  __builtin_write_OSCCONL(OSCCON & 0xBF);
+  /*
 	asm volatile ( "MOV #OSCCON, w1 \n"
 								 "MOV #0x46, w2 \n"
 								 "MOV #0x57, w3 \n"
 								 "MOV.b w2, [w1] \n"
 								 "MOV.b w3, [w1] \n"
 								 "BCLR OSCCON,#6");
+  */
 }
 
 static void LockControlRegisters(void) {
+	__builtin_write_OSCCONL(OSCCON | 0x40);
+	/*
 	asm volatile ( "MOV #OSCCON, w1 \n"
 								 "MOV #0x46, w2 \n"
 								 "MOV #0x57, w3 \n"
 							 	 "MOV.b w2, [w1] \n"
 								 "MOV.b w3, [w1] \n"
 								 "BSET OSCCON, #6" );
+  */
 }
