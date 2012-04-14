@@ -249,7 +249,7 @@ void Link2_Process_IO(void)
     block_ms(10);
   }
   
-
+//  block_ms(500);
  }
 
 void set_gripper_velocity(int velocity)
@@ -292,7 +292,6 @@ unsigned int return_adc_value(unsigned char ch)
 {
 
 	unsigned int return_value = 0;
-  block_ms(50);
 	AD1CON1bits.ADON = 0;
 	AD1CHS0bits.CH0SA = ch;
 	AD1CON1bits.ADON = 1;	
@@ -531,7 +530,7 @@ void motor_accel_loop(int desired_gripper_velocity, int desired_wrist_velocity)
   static int wrist_velocity;
   unsigned char step_size = 2;
 
-  if( abs(desired_gripper_velocity) < 15)
+  /*if( abs(desired_gripper_velocity) < 15)
   {
     gripper_velocity = 0;
     set_gripper_velocity(0);
@@ -540,7 +539,7 @@ void motor_accel_loop(int desired_gripper_velocity, int desired_wrist_velocity)
   {
     wrist_velocity = 0;
     set_wrist_velocity(0);
-  }
+  }*/
 
   if(desired_gripper_velocity > (gripper_velocity + step_size))
     gripper_velocity+=step_size;
@@ -553,8 +552,15 @@ void motor_accel_loop(int desired_gripper_velocity, int desired_wrist_velocity)
     wrist_velocity-=step_size;
 
 
-  set_gripper_velocity(gripper_velocity);
-  set_wrist_velocity(wrist_velocity);
+  if(abs(gripper_velocity) < 15)
+    set_gripper_velocity(0);
+  else
+    set_gripper_velocity(gripper_velocity);
+
+  if(abs(wrist_velocity) < 15)
+    set_wrist_velocity(0);
+  else
+    set_wrist_velocity(wrist_velocity);
 
 
 }

@@ -51,40 +51,43 @@
 #define RS485_OUTEN_EN(a)     _TRISD6 = !a
 #define RS485_OUTEN_ON(a)     _LATD6 = a
 
-#define RS485_TX_LENGTH 10
-#define RS485_RX_LENGTH 9
+#define RS485_TX_LENGTH 5
+#define RS485_RX_LENGTH 10
 
 #define RS485_BASE_LENGTH 9
 #define RS485_LINK1_LENGTH 5
 #define RS485_LINK2_LENGTH 10
 
-void set_elbow_velocity(int velocity);
-void set_shoulder_velocity(int velocity);
-unsigned int return_adc_value(unsigned char ch);
-void RS485_RX_ISR(void);
-void RS485_TX_ISR(void);
-unsigned int return_CRC(unsigned char* data, unsigned char length);
-char Is_CRC_valid(unsigned char* data, unsigned char length);
-void send_rs485_message(void);
-void motor_accel_loop(int desired_shoulder_velocity, int desired_elbow_velocity);
+#define MAX_ELBOW_SPEED 50
+#define MAX_SHOULDER_SPEED 50
 
-unsigned int shoulder_motor_velocity, elbow_motor_velocity = 0;
-unsigned char rs485_tx_message[RS485_TX_LENGTH];
-unsigned char rs485_tx_buffer[RS485_TX_LENGTH];
-unsigned char rs485_rx_message[RS485_RX_LENGTH];
-unsigned char rs485_rx_buffer[RS485_RX_LENGTH];
+static void set_elbow_velocity(int velocity);
+static void set_shoulder_velocity(int velocity);
+static unsigned int return_adc_value(unsigned char ch);
+static void RS485_RX_ISR(void);
+static void RS485_TX_ISR(void);
+static unsigned int return_CRC(unsigned char* data, unsigned char length);
+static char Is_CRC_valid(unsigned char* data, unsigned char length);
+static void send_rs485_message(void);
+static void motor_accel_loop(int desired_shoulder_velocity, int desired_elbow_velocity);
 
-unsigned char rs485_base_message[RS485_BASE_LENGTH];
-unsigned char rs485_link1_message[RS485_LINK1_LENGTH];
-unsigned char rs485_link2_message[RS485_LINK2_LENGTH];
+int shoulder_motor_velocity, elbow_motor_velocity = 0;
+static unsigned char rs485_tx_message[RS485_TX_LENGTH];
+static unsigned char rs485_tx_buffer[RS485_TX_LENGTH];
+static unsigned char rs485_rx_message[RS485_RX_LENGTH];
+static unsigned char rs485_rx_buffer[RS485_RX_LENGTH];
 
-unsigned char rs485_transmitting = 0;
+static unsigned char rs485_base_message[RS485_BASE_LENGTH];
+static unsigned char rs485_link1_message[RS485_LINK1_LENGTH];
+static unsigned char rs485_link2_message[RS485_LINK2_LENGTH];
 
-unsigned char rs485_link2_message_ready = 0;
-unsigned char rs485_link1_message_ready = 0;
-unsigned char rs485_base_message_ready = 0;
+static unsigned char rs485_transmitting = 0;
 
-unsigned int messaging_timeout_counter = 0;
+static unsigned char rs485_link2_message_ready = 0;
+static unsigned char rs485_link1_message_ready = 0;
+static unsigned char rs485_base_message_ready = 0;
+
+static unsigned int messaging_timeout_counter = 0;
 
 
 
@@ -215,15 +218,19 @@ void Link1_Process_IO(void)
   //if the base has just transmitted
   if(rs485_base_message_ready)
   {
-    //rs485_base_message_ready = 0;
      //see if there was a link2 message -- if so, send it
     if(rs485_link2_message_ready)
     {
-      //rs485_link2_message_ready = 0;
+      rs485_base_message_ready = 0;
+      rs485_link2_message_ready = 0;
       if(Is_CRC_valid(rs485_link2_message,RS485_LINK2_LENGTH))
       {
-        shoulder_motor_velocity = rs485_link2_message[4];
-        elbow_motor_velocity = rs485_link2_message[5];
+        if(rs485_link2_message[4] > 200)
+          rs485_link2_message[4] = 100;
+        if(rs485_link2_message[5] > 200)
+          rs485_link2_message[5] = 100;     
+        shoulder_motor_velocity = rs485_link2_message[4]-100;
+        elbow_motor_velocity = rs485_link2_message[5]-100;
         messaging_timeout_counter = 0;
         send_rs485_message();
         
@@ -258,7 +265,10 @@ void Link1_Process_IO(void)
   //pretty dumb control loop
 
   if(messaging_timeout_counter > 100)
+  {
+    messaging_timeout_counter = 101;
     motor_accel_loop(0, 0);
+  }
   else
     motor_accel_loop(shoulder_motor_velocity, elbow_motor_velocity);
   
@@ -267,7 +277,7 @@ void Link1_Process_IO(void)
 
  }
 
-void set_elbow_velocity(int velocity)
+static void set_elbow_velocity(int velocity)
 {
 
   if(velocity > 100)
@@ -285,7 +295,7 @@ void set_elbow_velocity(int velocity)
 
 }
 
-void set_shoulder_velocity(int velocity)
+static void set_shoulder_velocity(int velocity)
 {
 
   if(velocity > 100)
@@ -303,7 +313,7 @@ void set_shoulder_velocity(int velocity)
 
 }
 
-unsigned int return_adc_value(unsigned char ch)
+static unsigned int return_adc_value(unsigned char ch)
 {
 
 	unsigned int return_value = 0;
@@ -317,7 +327,7 @@ unsigned int return_adc_value(unsigned char ch)
 }
 
 
-void RS485_RX_ISR(void)
+static void RS485_RX_ISR(void)
 {
 
   static unsigned char message_index = 0;
@@ -326,40 +336,7 @@ void RS485_RX_ISR(void)
   unsigned char i;
   _U1RXIF = 0;
 
-  //if we've gotten to the end of a message
-  if(message_index >= current_length)
-  {
-    if(current_device == DEVICE_ARM_BASE)
-    {
-      for(i=0;i<RS485_BASE_LENGTH;i++)
-      {
-        rs485_base_message[i] = rs485_rx_buffer[i];
-      }
-      rs485_base_message_ready = 1;
-    }
-    else if(current_device == DEVICE_ARM_LINK1)
-    {
-      for(i=0;i<RS485_LINK1_LENGTH;i++)
-      {
-        rs485_link1_message[i] = rs485_rx_buffer[i];
-      }
-      rs485_link1_message_ready = 1;
-    }
-    else if(current_device == DEVICE_ARM_LINK2)
-    {
-      for(i=0;i<RS485_LINK2_LENGTH;i++)
-      {
-        rs485_link2_message[i] = rs485_rx_buffer[i];
-      }
-      rs485_link2_message_ready = 1;
-    }
-    current_device = 0x00;
-    message_index = 0;
-    current_length = 100;
-    return;
-  }
-
-  rs485_rx_buffer[message_index] = U1RXREG;
+   rs485_rx_buffer[message_index] = U1RXREG;
 
   switch(message_index)
   {
@@ -420,11 +397,50 @@ void RS485_RX_ISR(void)
   }
   message_index++;
 
+ //if we've gotten to the end of a message
+  if(message_index >= current_length)
+  {
+    if(current_device == DEVICE_ARM_BASE)
+    {
+      for(i=0;i<RS485_BASE_LENGTH;i++)
+      {
+        rs485_base_message[i] = rs485_rx_buffer[i];
+      }
+      rs485_base_message_ready = 1;
+    }
+    else if(current_device == DEVICE_ARM_LINK1)
+    {
+      if(rs485_link1_message_ready==0)
+      {
+        for(i=0;i<RS485_LINK1_LENGTH;i++)
+        {
+          rs485_link1_message[i] = rs485_rx_buffer[i];
+        }
+        rs485_link1_message_ready = 1;
+      }
+    }
+    else if(current_device == DEVICE_ARM_LINK2)
+    {
+      if(rs485_link2_message_ready==0)
+      {
+        for(i=0;i<RS485_LINK2_LENGTH;i++)
+        {
+          rs485_link2_message[i] = rs485_rx_buffer[i];
+        }
+        rs485_link2_message_ready = 1;
+      }
+    }
+    current_device = 0x00;
+    message_index = 0;
+    current_length = 100;
+    rs485_rx_buffer[2] = 0x00;
+    //return;
+  }
 
 }
 
 
-void RS485_TX_ISR(void)
+static void RS485_TX_ISR(void)
 {
   static unsigned char message_index = 0;
   _U1TXIF = 0;
@@ -446,7 +462,7 @@ void RS485_TX_ISR(void)
 
 
 
-unsigned int return_CRC(unsigned char* data, unsigned char length)
+static unsigned int return_CRC(unsigned char* data, unsigned char length)
 {
 	static unsigned int crc;
 	unsigned char i;
@@ -464,7 +480,7 @@ unsigned int return_CRC(unsigned char* data, unsigned char length)
 	return crc; 
 }
 
-char Is_CRC_valid(unsigned char* data, unsigned char length)
+static char Is_CRC_valid(unsigned char* data, unsigned char length)
 {
 	
 	unsigned int CRC_received = 0;
@@ -490,7 +506,7 @@ char Is_CRC_valid(unsigned char* data, unsigned char length)
 
 }
 
-void send_rs485_message(void)
+static void send_rs485_message(void)
 {
   unsigned char data_to_CRC[RS485_TX_LENGTH-4];
   unsigned int CRC;
@@ -501,8 +517,9 @@ void send_rs485_message(void)
   {
     data_to_CRC 
   }*/
-
+  block_ms(2);
   RS485_OUTEN_ON(1);
+  block_ms(2);
 
   //make sure motor velocities are between -100 and 100 -- if not, set to 0
   if( abs(REG_ARM_MOTOR_VELOCITIES.turret) > 100 )
@@ -548,13 +565,13 @@ void send_rs485_message(void)
 
 }
 
-void motor_accel_loop(int desired_shoulder_velocity, int desired_elbow_velocity)
+static void motor_accel_loop(int desired_shoulder_velocity, int desired_elbow_velocity)
 {
   static int shoulder_velocity;
   static int elbow_velocity;
   unsigned char step_size = 2;
 
-  if( abs(desired_shoulder_velocity) < 15)
+  /*if( abs(desired_shoulder_velocity) < 15)
   {
     desired_shoulder_velocity = 0;
     shoulder_velocity = 0;
@@ -565,7 +582,7 @@ void motor_accel_loop(int desired_shoulder_velocity, int desired_elbow_velocity)
     desired_elbow_velocity = 0;
     elbow_velocity = 0;
     set_elbow_velocity(0);
-  }
+  }*/
 
   if(desired_shoulder_velocity > (shoulder_velocity + step_size))
     shoulder_velocity+=step_size;
@@ -578,8 +595,26 @@ void motor_accel_loop(int desired_shoulder_velocity, int desired_elbow_velocity)
     elbow_velocity-=step_size;
 
 
-  set_shoulder_velocity(shoulder_velocity);
-  set_elbow_velocity(elbow_velocity);
+  if(shoulder_velocity > MAX_SHOULDER_SPEED)
+    shoulder_velocity = MAX_SHOULDER_SPEED;
+  else if (shoulder_velocity < -MAX_SHOULDER_SPEED)
+    shoulder_velocity = -MAX_SHOULDER_SPEED;
+
+  if(elbow_velocity > MAX_ELBOW_SPEED)
+    elbow_velocity = MAX_ELBOW_SPEED;
+  if(elbow_velocity < -MAX_ELBOW_SPEED)
+    elbow_velocity = -MAX_ELBOW_SPEED;
+
+
+  if(abs(shoulder_velocity) < 15)
+    set_shoulder_velocity(0);
+  else
+    set_shoulder_velocity(shoulder_velocity);
+
+  if(abs(elbow_velocity) < 15)
+    set_elbow_velocity(0);
+  else
+    set_elbow_velocity(elbow_velocity);
 
 
 }

@@ -15,6 +15,7 @@
 
 #include "stdhdr.h"
 #include "device_arm_link1.h"
+#include "device_arm_base.h"
 
 
 #include "SA1xLibrary/SA_API.h"
@@ -136,6 +137,10 @@ static void InitializeSystem(void)
       Arm_Link1_Init();
     break;
 
+    case DEVICE_ARM_BASE:
+      Arm_Base_Init();
+    break;
+
 		case DEVICE_GENERIC:
 		default:
 			break;
@@ -174,6 +179,9 @@ void ProcessIO(void)
       Link1_Process_IO();
     break;
   
+    case DEVICE_ARM_BASE:
+      Base_Process_IO();
+    break;
 
 		case DEVICE_GENERIC:
 		default:
