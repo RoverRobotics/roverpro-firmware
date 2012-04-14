@@ -5,10 +5,9 @@ Description: This file provides an interface to one of several Pulse-Width
 	Modulation (PWM) hardware modules.
 
 Notes:
+  - only remappable pins can be configured for PWM
   - assumes a 20MHz external oscillator
-  - assumes exclusive use of the Timer associated with the given module number
-  - configures for Phase Correct PWM Mode
-  - assumes exclusive use of the pins associated with the given module number 
+  - uses Timer2 as the time base
   - performs no error checking on input parameters  
 =============================================================================*/
 #ifndef PWM_H

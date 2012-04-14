@@ -1,13 +1,13 @@
 /*=============================================================================
 File: Protocol.h 
 
-Description: This file encapsulates the communication protocol.  A hash 
-  function, more specifically a cyclic redundancy check, is used to improve 
-  the robustness of communication.
-
+Description: This file encapsulates the communication protocol.  This protocol
+  layer is completely hardware-agnostic and employs a hash function to detect
+  accidental changes to the raw data.
+  
 Notes:
   - Packet Structure: HEADER_H HEADER_L DEVICE DATA ... DATA CRC_H CRC_L
-    where suffix _H indicates a high byte
+    where suffix _H indicates a high byte and _L indicates a low byte
   - the CRC is computed on DEVICE and all DATA bytes 
 =============================================================================*/
 #ifndef PROTOCOL_H
@@ -47,8 +47,8 @@ Function: BuildPacket()
 Parameters:
   unsigned char device, the device for which to build the packet (see macros)
   unsigned char data[], the data array
-  unsigned char packet[], array into which to place the resulting packet
-  unsigned char* packet_length_ptr,
+  unsigned char packet[], array into which the resulting packet is placed
+  unsigned char *packet_length_ptr, packet length to update
 Description: Builds a packet from the given data as specified by the protocol 
 Notes:
   - WARNING: data MUST be the appropriate length for the device
@@ -59,13 +59,16 @@ void BuildPacket(unsigned char device, unsigned char data[],
 /*
 Function: GetData()
 Parameters:
-  unsigned char packet[], the full packet
-  unsigned char data[], the output data array
-  unsigned char* data_length_ptr, the data length to be updated
+  unsigned char packet[], a received packet
+  unsigned char data[], the data array to update
+  unsigned char *data_length_ptr, pointer to the data length to be updated
 Description: Parses the packet for the data and validates the result.  The 
-  result is updated to 0 as a sentinel for invalid data.
+  resulting data length is updated to INVALID_LENGTH as a sentinel for 
+  failing the CRC.
+// TODO: pass unsigned char *data_ptr[] to avoid having to do deep copy?.
+// how is &data, not an unsigned char**?
 */
-void GetData(unsigned char packet[], unsigned char data[], 
+void GetData(unsigned char packet[], unsigned char data[],
              unsigned char *data_length_ptr);
 
 /*

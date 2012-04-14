@@ -16,9 +16,10 @@ where T_AD = A/D conversion clock period
       T_CY = 2/f_osc, instruction cycle period
 
 =============================================================================*/
-#define TEST_ADC
+//#define TEST_ADC
 /*---------------------------Dependencies------------------------------------*/
 #include "./ADC.h"
+#include <p24FJ256GB106.h>
 
 /*---------------------------Macros and Definitions--------------------------*/
 #define MAX_NUM_AD_INPUTS     16 // maximum number of analog-to-digital inputs

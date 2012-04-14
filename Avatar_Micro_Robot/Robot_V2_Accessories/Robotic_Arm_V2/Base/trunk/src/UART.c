@@ -14,7 +14,6 @@ F_CY = F_OSC / 2 = 16MHz
 /*---------------------------Dependencies------------------------------------*/
 #include "./UART.h"
 #include "./PPS.h"
-//#include "./ConfigurationBits.h"
 #include <p24FJ256GB106.h>
 
 /*---------------------------Macros and Type Definitions---------------------*/
@@ -22,23 +21,30 @@ F_CY = F_OSC / 2 = 16MHz
 /*---------------------------Helper Function Prototypes----------------------*/
 static void ConfigureBaudRate(unsigned long int baud_rate);
 
+// make ISR's an empty function by default
+void (*U1TX_UserISR)(void) = DummyISR();
+void (*U1RX_UserISR)(void) = DummyISR();
+
 /*---------------------------Module Variables--------------------------------*/
 
 /*---------------------------Test Harness------------------------------------*/
 #ifdef TEST_UART
 #include "./Pause.h"
 #include "./Protocol.h"
+#include "./ConfigurationBits.h"
+
+#define RS485_OUTEN_EN(a)     (_TRISD6 = !(a))
+#define RS485_OUTEN_ON(a)     (_LATD6 = (a))
 
 int main(void) {
-  unsigned char i = 0;
-  unsigned char data_out[BASE_DATA_LENGTH] = {0};
-  unsigned char packet_length = 0;
-  unsigned char packet[MAX_PACKET_LENGTH] = {0};
-  unsigned char current_byte;
-  
+  /*
   // test BuildPacket()
+  unsigned char data_out[BASE_DATA_LENGTH] = {0};
+  unsigned char packet[MAX_PACKET_LENGTH] = {0};
+  unsigned char packet_length = 0;
   data_out[0] = 0xBE; data_out[1] = 0xEF; data_out[2] = 0xEE; data_out[3] = 0xFF;
   BuildPacket(BASE, data_out, packet, &packet_length);
+  */
   
   /*
   // test GetData()
@@ -48,15 +54,32 @@ int main(void) {
   */
   
   InitUART(20, 25, 9600);
+  RS485_OUTEN_EN(1);
+  RS485_OUTEN_ON(0);  // 0 for Rx
   
   while (1) {
-    
-    // test slow Transmission, inspecting result in debugger
+    /*
+    // test slow transmission, inspecting result in debugger
+    unsigned char i = 0;
     for (i = 0; i < packet_length; i++) {
       TransmitByte(packet[i]);
       Pause(1000);
     }
+    */
     
+    // if the time between reception is excessively long
+    // clear the error bits, reset anything
+    // ensure framing error and parity error bits are cleared
+ 	  // in case we get an error that can disable the interrupt
+ 	  // THESE ARE READ ONLY :( U1STAbits.PERR = 0; U1STAbits.FERR = 0; 
+ 	  _U1RXIE = 1;
+ 	
+    // test reception from python script--can we get in here?
+    if (received_something) {
+      received_something = 0;
+      unsigned char dummy = 1;
+      unsigned char dummy2 = 2;
+    }
     
   }
   
@@ -82,33 +105,25 @@ void InitUART(unsigned char Tx_pin, unsigned char Rx_pin,
 	U1STAbits.UTXEN = 1;    // enable transmission
 }
 
-char inline IsTxClear(void) {
-  return U1STAbits.TRMT;
-}
-
 void inline TransmitByte(unsigned char message) {
   U1TXREG = message;
-}
-
-char inline IsRxAvailable(void) {
-  return (char)U1STAbits.URXDA;
 }
 
 char inline GetRxByte(void) {
   return (char)U1RXREG;
 }
 
-/*
-TODO: enable ISR()'s to be imported
-void  __attribute__((__interrupt__, auto_psv)) _U1TXInterrupt(void) {
- 	U1TX_ISR();
+void DummyISR(void) {
+  // default = do nothing if no user interrupt service routine is specified
 }
 
+void  __attribute__((__interrupt__, auto_psv)) _U1TXInterrupt(void) {
+ 	U1TX_UserISR();
+}
 
 void  __attribute__((__interrupt__, auto_psv)) _U1RXInterrupt(void) {
- 	U1RX_ISR();
+ 	U1RX_UserISR();
 }
-*/
 
 /*---------------------------Private Function Definitions--------------------*/
 /*
@@ -118,11 +133,15 @@ Notes:
          ~= 415
 */
 static void ConfigureBaudRate(unsigned long int baud_rate) {
+  /*
   U1MODEbits.BRGH = 1;		// configure for high precision baud rate
   switch (baud_rate) {
     case 9600: U1BRG = 415; break;
     case 115200: U1BRG = 34; break;
   }
+  */
+  U1MODEbits.BRGH = 0;  // low precision baud rate
+  U1BRG = 103;
 }
 
 /*---------------------------End of File-------------------------------------*/

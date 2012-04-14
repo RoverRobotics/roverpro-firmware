@@ -7,13 +7,14 @@ Notes:
 	        = (PRx + 1) * (32MHz/2)^-1 * (64)
 	- duty_cycle = (OCxRS - OCxR) / PRx
 	- OCxR determines number of high ticks (high time)
-	- OCxRS determines period (number of total tocks)
+	- OCxRS determines period (number of total ticks)
 =============================================================================*/
-#define TEST_PWM
+//#define TEST_PWM
 /*---------------------------Dependencies------------------------------------*/
 #include "./PWM.h"
 #include "./PPS.h"
 #include <p24FJ256GB106.h>
+
 
 /*---------------------------Macros and Type Definitions---------------------*/
 #define TICKS_PER_US				2		// Timer2 ticks per microsecond
@@ -27,8 +28,8 @@ static unsigned int period = 0;	// units of Timer2Ticks
 
 /*---------------------------Test Harness------------------------------------*/
 #ifdef TEST_PWM
+#include "./TestCode/Pause.h"
 #include "./ConfigurationBits.h"
-#include "./Pause.h"
 
 int main(void) {
 	unsigned char duty_cycle = 0;
@@ -59,7 +60,7 @@ void UpdateDutyCycle(unsigned char duty_cycle) {
 
 /*---------------------------Helper Function Definitions---------------------*/
 static void ConfigureOC2(unsigned int us) {
-	period = us * TICKS_PER_US;
+	period = us * TICKS_PER_US;   // only because OC2RS appears to not be readable
 	OC2RS = period;
 	UpdateDutyCycle(0);
 	OC2CON2bits.SYNCSEL = 0x1f;		// this OC module
