@@ -20,7 +20,7 @@ set time_name=%TIME:~1,1%_%TIME:~3,2%_%TIME:~6,2%
 set file_name=%date_name%_%time_name%
 
 
-set /P svn_revision="Enter SVN revision number: "
+REM set /P svn_revision="Enter SVN revision number: "
 
 
 
@@ -49,9 +49,10 @@ set /P svn_revision="Enter SVN revision number: "
 	REM echo %backup_folder%
 	REM mkdir %backup_folder%
 	mkdir releases
+	mkdir releases\"%date_name%_%time_name%"\
 
 
-	copy firmware.hex releases\firmware_!year_string!_!month_string!_!day_string!_file_time_!hour_string!_!minute_string!_!am_pm!_svn_!svn_revision!_(%date_name_short%.%time_name_short%).hex
+	copy firmware.hex releases\"%date_name%_%time_name%"\firmware_compiled_!year_string!_!month_string!_!day_string!_time_!hour_string!_!minute_string!_!am_pm!_(%date_name_short%.%time_name_short%).hex
 
 
 )

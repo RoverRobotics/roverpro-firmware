@@ -78,18 +78,19 @@ ROM struct{BYTE bLength;BYTE bDscType;WORD string[1];}sd000={
 sizeof(sd000),USB_DESCRIPTOR_STRING,{0x0001}};
 
 // Manufacturer string descriptor
-ROM struct{BYTE bLength;BYTE bDscType;WORD string[23];}sd001={
+ROM struct{BYTE bLength;BYTE bDscType;WORD string[12];}sd001={
 sizeof(sd001),USB_DESCRIPTOR_STRING,
-{'B','r','i','n','t','o','n',' ',
- 'E','n','g','i','n','e','e','r','i','n','g',' ',
- 'L','L','C'}};
+{'R','o','b','o','t','e','X',',',
+ ' ','I','n','c'}};
+
 
 // Product string descriptor
-ROM struct{BYTE bLength;BYTE bDscType;WORD string[26];}sd002={
-sizeof(sd002),USB_DESCRIPTOR_STRING,
-{'R','o','b','o','t','e','x',' ',
- 'R','o','b','o','t','i','c',' ',
- 'C','o','n','t','r','o','l','l','e','r'}};
+ROM struct{BYTE bLength;BYTE bDscType;WORD string[sizeof(L"" __DATE__ " "  __TIME__ )/2];}sd002={
+  (BYTE)sizeof(sd002), //the length of each element summed up
+  USB_DESCRIPTOR_STRING,
+  L"" __DATE__ " "  __TIME__
+};
+
 
 // Array of configuration descriptors
 ROM BYTE *ROM USB_CD_Ptr[]=
