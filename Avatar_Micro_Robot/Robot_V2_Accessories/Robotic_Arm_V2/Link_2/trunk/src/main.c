@@ -283,7 +283,7 @@ OutPacket[71] = 0x19;*/
 			if (cur_word == PACKET_TERMINATOR)
 			{
 				if ((n + 2) > OUT_PACKET_LENGTH) goto crapout5;
-				if( checksum != (OutPacket[n] + (OutPacket[n+1] << 8) ) ) goto crapout5;
+				//if( checksum != (OutPacket[n] + (OutPacket[n+1] << 8) ) ) goto crapout5;
 				break;
 			}
 
@@ -338,6 +338,7 @@ OutPacket[71] = 0x19;*/
 			}
 			else
 			{
+        USB_timeout_counter = 0;
 			    if( (n + reg_size) > OUT_PACKET_LENGTH ) break; // overflow
 				memcpy(registers[reg_index].ptr, OutPacket + n, reg_size);
 				n += reg_size; // move OUT packet pointer

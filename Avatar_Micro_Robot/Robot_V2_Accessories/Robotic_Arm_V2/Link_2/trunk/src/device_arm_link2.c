@@ -1,6 +1,8 @@
 #include "device_arm_link2.h"
 #include "stdhdr.h"
 
+#define USB_TIMEOUT_ENABLED
+
 #define GRIPPER_BRAKE_EN(a)   _TRISB15 = !a
 #define GRIPPER_BRAKE_ON(a)   _LATB15 = a
 
@@ -65,6 +67,15 @@
 #define RS485_BASE_LENGTH 9
 #define RS485_LINK1_LENGTH 5
 
+#define MAX_WRIST_SPEED 50
+#define MAX_GRIPPER_SPEED 30
+
+#define MAX_GRIPPER_ACT 700
+#define MIN_GRIPPER_ACT 200
+
+#define USB_TIMEOUT_COUNTS 5
+
+
 void set_gripper_velocity(int velocity);
 void set_wrist_velocity(int velocity);
 unsigned int return_adc_value(unsigned char ch);
@@ -88,6 +99,8 @@ unsigned char rs485_transmitting = 0;
 
 unsigned char rs485_link1_message_ready = 0;
 unsigned char rs485_base_message_ready = 0;
+
+unsigned char USB_timeout_counter = 0;
 
 
 
@@ -215,6 +228,7 @@ void Link2_Process_IO(void)
 {
 
   unsigned int i;
+  int adjusted_gripper_velocity = 0;
 
   gripper_pot_value = return_adc_value(GRIPPER_POT_CH);
   gripper_act_pot_value = return_adc_value(GRIPPER_ACT_POT_CH);
@@ -241,15 +255,37 @@ void Link2_Process_IO(void)
   //pretty dumb control loop
   for(i=0;i<10;i++)
   {
+    adjusted_gripper_velocity = REG_ARM_MOTOR_VELOCITIES.gripper;
     //don't move the gripper motor unless the potentiometer is in the correct range:
-//    if( (gripper_act_pot_value > 300) && (gripper_act_pot_value < 700) )
-      motor_accel_loop(REG_ARM_MOTOR_VELOCITIES.gripper, REG_ARM_MOTOR_VELOCITIES.wrist);
-//    else
-//      motor_accel_loop(0, REG_ARM_MOTOR_VELOCITIES.wrist);
+    if(gripper_act_pot_value < MIN_GRIPPER_ACT)
+    {
+      if(REG_ARM_MOTOR_VELOCITIES.gripper > 0)
+        adjusted_gripper_velocity = 0;
+    }
+    else if(gripper_act_pot_value > MAX_GRIPPER_ACT)
+    {
+      if(REG_ARM_MOTOR_VELOCITIES.gripper < 0)
+        adjusted_gripper_velocity = 0;
+    }
+
+    motor_accel_loop(adjusted_gripper_velocity, REG_ARM_MOTOR_VELOCITIES.wrist);
+
     block_ms(10);
   }
   
-//  block_ms(500);
+  #ifdef USB_TIMEOUT_ENABLED
+    USB_timeout_counter++;
+    if(USB_timeout_counter > USB_TIMEOUT_COUNTS)
+    {
+      USB_timeout_counter = USB_TIMEOUT_COUNTS+1;
+      REG_ARM_MOTOR_VELOCITIES.turret = 0;
+      REG_ARM_MOTOR_VELOCITIES.shoulder = 0;
+      REG_ARM_MOTOR_VELOCITIES.elbow = 0;
+      REG_ARM_MOTOR_VELOCITIES.wrist = 0;
+      REG_ARM_MOTOR_VELOCITIES.gripper = 0;
+    }
+  #endif
+
  }
 
 void set_gripper_velocity(int velocity)
@@ -550,6 +586,16 @@ void motor_accel_loop(int desired_gripper_velocity, int desired_wrist_velocity)
     wrist_velocity+=step_size;
   else if (desired_wrist_velocity < (wrist_velocity - step_size) )
     wrist_velocity-=step_size;
+
+  if(gripper_velocity > MAX_GRIPPER_SPEED)
+    gripper_velocity = MAX_GRIPPER_SPEED;
+  else if(gripper_velocity < -MAX_GRIPPER_SPEED)
+    gripper_velocity = -MAX_GRIPPER_SPEED;
+  
+  if(wrist_velocity > MAX_WRIST_SPEED)
+    wrist_velocity = MAX_WRIST_SPEED;
+  else if(wrist_velocity < -MAX_WRIST_SPEED)
+    wrist_velocity = -MAX_WRIST_SPEED;
 
 
   if(abs(gripper_velocity) < 15)
