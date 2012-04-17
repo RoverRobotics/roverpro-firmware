@@ -367,8 +367,8 @@ void init_fan(void)
 		block_ms(20);
 	}
 
-	//fan turns on at 50C
-	writeI2CReg( FAN_CONTROLLER_ADDRESS,0x10,50);
+	//fan turns on at 40C
+	writeI2CReg( FAN_CONTROLLER_ADDRESS,0x10,40);
 	block_ms(5);
 	//End thermistor control
 
