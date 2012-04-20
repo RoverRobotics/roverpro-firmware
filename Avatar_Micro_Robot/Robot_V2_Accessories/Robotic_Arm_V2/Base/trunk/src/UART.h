@@ -42,7 +42,6 @@ char inline GetRxByte(void);
 Usage: U1Tx_UserISR = MyU1TxISRFunctionName;
 Usage: U1Rx_UserISR = MyU1RxISRFunctionName;
 ******************************************************************************/
-void DummyISR(void);
 extern void (*U1TX_UserISR)(void);
 extern void (*U1RX_UserISR)(void);
 

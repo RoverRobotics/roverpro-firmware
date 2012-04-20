@@ -1,7 +1,5 @@
 /*=============================================================================
-
- File: Timers.c
-
+File: Timers.c
 =============================================================================*/
 //#define TEST_TIMERS
 
@@ -83,7 +81,7 @@ void InitTimers(void) {
   PR1 = TIMER_PERIOD;               // configure the timer period
 	
 	// configure the Timer1 interrupt
-  // leave as default priority
+  _T1IP = 4;                        // configure interrupt priority
   IFS0bits.T1IF = 0;	              // clear the Timer1 Interrupt Flag
   IEC0bits.T1IE = 1;	              // enable the interrupt for Timer1 (Timer1 Interrupt Enable bit)
 	
@@ -100,9 +98,9 @@ void StartTimer(unsigned char timer_number, unsigned int new_time) {
 unsigned char IsTimerExpired(unsigned char timer_number) {
   unsigned char result;
   // BUG ALERT: stop interrupts!  This line takes several clock cylces to execute
-  asm volatile ("disi #0x3FFF"); // disable interrupts
+  //asm volatile ("disi #0x3FFF"); // disable interrupts
   result = (timers[timer_number].duration < (GetTime() - timers[timer_number].start_time));
-  asm volatile ("disi #0");      // enable interrupts
+  //asm volatile ("disi #0");      // enable interrupts
   
   return result;
 }

@@ -2,8 +2,6 @@
 
 File: UART.c
 Description: Provides an interface to the UART hardware modules.
-
-
 Notes:
 F_OSC = 32MHz (given our 20MHz crystal, dividy-by-5 from PLL, and 
                multiply-by-8 from somewhere)
@@ -16,16 +14,13 @@ F_CY = F_OSC / 2 = 16MHz
 #include "./PPS.h"
 #include <p24FJ256GB106.h>
 
-/*---------------------------Macros and Type Definitions---------------------*/
+// make ISR's an empty function by default
+void DummyISR(void);
+void (*U1TX_UserISR)(void) = DummyISR;
+void (*U1RX_UserISR)(void) = DummyISR;
 
 /*---------------------------Helper Function Prototypes----------------------*/
 static void ConfigureBaudRate(unsigned long int baud_rate);
-
-// make ISR's an empty function by default
-void (*U1TX_UserISR)(void) = DummyISR();
-void (*U1RX_UserISR)(void) = DummyISR();
-
-/*---------------------------Module Variables--------------------------------*/
 
 /*---------------------------Test Harness------------------------------------*/
 #ifdef TEST_UART
@@ -72,7 +67,6 @@ int main(void) {
     // ensure framing error and parity error bits are cleared
  	  // in case we get an error that can disable the interrupt
  	  // THESE ARE READ ONLY :( U1STAbits.PERR = 0; U1STAbits.FERR = 0; 
- 	  _U1RXIE = 1;
  	
     // test reception from python script--can we get in here?
     if (received_something) {
@@ -99,6 +93,9 @@ void InitUART(unsigned char Tx_pin, unsigned char Rx_pin,
 	MapPeripheral(Rx_pin, INPUT, FN_U1RX);
 	ConfigureBaudRate(baud_rate);
 	
+	_U1RXIP = 6;            // configure interrupt priority
+	_U1TXIP = 5;            // Note: 7 is highest priority interrupt
+	
 	IEC0bits.U1TXIE = 1;    // enable UART1 Tx interrupt
 	IEC0bits.U1RXIE = 1;    // enable UART1 Rx interrupt
 	U1MODEbits.UARTEN = 1;  // enable UART1
@@ -114,9 +111,8 @@ char inline GetRxByte(void) {
 }
 
 void DummyISR(void) {
-  // default = do nothing if no user interrupt service routine is specified
 }
-
+  
 void  __attribute__((__interrupt__, auto_psv)) _U1TXInterrupt(void) {
  	U1TX_UserISR();
 }
@@ -125,23 +121,20 @@ void  __attribute__((__interrupt__, auto_psv)) _U1RXInterrupt(void) {
  	U1RX_UserISR();
 }
 
+
 /*---------------------------Private Function Definitions--------------------*/
 /*
 Notes:
-  - UxBRG = F_CY / (4 * desired_baud_rate) - 1 (see p.188 of datasheet)
+  - UxBRG = F_CY / (16 * desired_baud_rate) - 1 (see p.200 of datasheet)
           = 16MHz / (4 * 9600) - 1
          ~= 415
 */
 static void ConfigureBaudRate(unsigned long int baud_rate) {
-  /*
   U1MODEbits.BRGH = 1;		// configure for high precision baud rate
   switch (baud_rate) {
     case 9600: U1BRG = 415; break;
     case 115200: U1BRG = 34; break;
   }
-  */
-  U1MODEbits.BRGH = 0;  // low precision baud rate
-  U1BRG = 103;
 }
 
 /*---------------------------End of File-------------------------------------*/

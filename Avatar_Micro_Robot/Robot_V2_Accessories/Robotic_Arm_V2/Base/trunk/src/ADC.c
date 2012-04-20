@@ -123,7 +123,7 @@ static void ConfigureInterrupt() {
 	AD1CON2bits.SMPI = 0b01111;	// configure the interrupt rate
 	AD1CON1bits.ADON = 1; 			// turn on A/D module
 	IFS0bits.AD1IF = 0; 				// clear the AD1 interrupt flag
-	// configure the A/D interrupt priority (leave as default)
+	_AD1IP = 3;                 // configure the A/D interrupt priority (7 = highest priority)
 	IEC0bits.AD1IE = 1; 				// enable the AD1 interrupt
 }
 

@@ -1,34 +1,31 @@
 /*=============================================================================
- File: Base.c
+File: Base.c
+ 
+Description: This is the overarching file that encapsulates the 
+  application-level firmware.  It integrates any dependent firmware modules and 
+  interfaces with external components.
+  
+Notes:
+  - interrupt priorities were ensured to NOT conflict across dependent modules
+    _U1RXIP = 6;
+    _U1TXIP = 5;
+    _T1IP = 4;
+    _AD1IP = 3;
+    (7 = highest priority, 0 = interrupt disabled)
 =============================================================================*/
 #define TEST_BASE
 /*---------------------------Dependencies------------------------------------*/
 #include "./Base.h"
 #include <p24FJ256GB106.h>
-#include "./ConfigurationBits.h"
 #include "./Timers.h"
 #include "./ADC.h"
 #include "./PWM.h"
 #include "./UART.h"
 #include "./Protocol.h"
 
-
-/*---------------------------Type Definitions--------------------------------*/
-/*
-typedef enum {
-  WAITING = 0,
-  TRANSMITTING,
-  RECEIVING,
-} state_t;
-
-typedef enum {
-	EV_NO_EVENT = 0,
-	EV_ENTRY,
-	EV_EXIT
-// TODO: layout events for all state machines in separate file
-} event_t;
-*/
 /*---------------------------Wiring Macros-----------------------------------*/
+#define OUTPUT                0
+#define INPUT                 1  
 #define OFF                   0
 #define ON                    1
 
@@ -54,14 +51,17 @@ typedef enum {
 #define TR_ANALOG_PIN_2       1
 
 #define TURRET_PWM_PIN        21
-#define T_PWM                 500 // [us], period of the PWM signal (~2-to-8kHz)
+#define T_PWM                 500               // [us], period of the PWM signal (~2-to-8kHz)
 #define CW                    0
 #define CCW                   1
-
+#define MAX_DC                50
+#define MIN_DC                15
 
 // RS485 IC
 #define RS485_OUTEN_EN(a)     (_TRISD6 = !(a))
-#define RS485_OUTEN_ON(a)     (_LATD6 = (a))    // 0 for Rx, 1 for Tx
+#define RS485_MODE(a)         (_LATD6 = (a))    // 0 for Rx, 1 for Tx
+#define RX_MODE               0
+#define TX_MODE               1
 #define MY_TX_PIN             20
 #define MY_RX_PIN             25
 #define BAUD_RATE             9600              // [pulse/s]
@@ -74,7 +74,7 @@ typedef enum {
 #define TEMP_ANALOG_PIN       8
 
 // Debugging
-#define ENABLE_HEARTBEAT_PIN(a)   (_TRISE5 = (a))
+#define CONFIGURE_HEARTBEAT_PIN(a)   (_TRISE5 = (a))
 #define HEARTBEAT_PIN         (_RE5)
 #define _500ms                500
 #define HEARTBEAT_TIMER       0
@@ -82,24 +82,27 @@ typedef enum {
 
 /*---------------------------Helper Function Prototypes----------------------*/
 static void InitBase(void);
-static void ConfigurePins(void);
 static void ReadBoardID(void);
+static void UpdateTxPacketLength(void);
 static void UpdateTurretSpeed(signed char speed);
+static unsigned char IsMyTurnToTransmit(void);
+static void TransmitPacket(void);
 
 /*---------------------------Module Variables--------------------------------*/
 // use volatile to prevent compiler from optimizing away variables that get 
 // updated in ISR's
 static unsigned char board_ID = UNKNOWN_DEVICE;
-static volatile unsigned char Tx_packet[MAX_PACKET_LENGTH] = {0};
-static volatile unsigned char Tx_packet_length = 0;
-static volatile unsigned char Rx_packet[MAX_PACKET_LENGTH] = {0};
-static volatile unsigned char Rx_packet_length = INVALID_LENGTH;
+static unsigned char Tx_packet[MAX_PACKET_LENGTH] = {0};
+static unsigned char Tx_packet_length = 0;
+static unsigned char Rx_packet[MAX_PACKET_LENGTH] = {0};
+static unsigned char Rx_packet_length = INVALID_LENGTH;
 
 //static state_t state = WAITING;
 static volatile unsigned char is_rx_packet_avail = 0; 
 
 /*---------------------------Test Harness------------------------------------*/
 #ifdef TEST_BASE
+#include "./ConfigurationBits.h"
 
 /*
 Link_2 sends motor speed commands at 10Hz (every 100ms).  The Base and
@@ -111,28 +114,44 @@ TODO: time the approximate speed of my while loop by toggling a debugging LED
 and inspecing that period on the oscilloscope.
 */
 int main() {
+	unsigned char data_out[BASE_DATA_LENGTH] = {0, 0, 0, 0};
+	
 	InitBase();
+	
   while (1) {
   	// toggle a pin to indicate normal operation
 		if (IsTimerExpired(HEARTBEAT_TIMER)) {
 			HEARTBEAT_PIN ^= 1;
-		  StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME);
+      
+		  // Note: neglecting two LSB's from 10-bit A/D result
+      data_out[0] = (GetADC(TR_ANALOG_PIN_1) >> 2); 
+      data_out[1] = (GetADC(TR_ANALOG_PIN_2) >> 2); 
+      data_out[2] = (GetADC(SH_ANALOG_PIN_1) >> 2);
+      data_out[3] = (GetADC(SH_ANALOG_PIN_2) >> 2);
+      BuildPacket(board_ID, data_out, Tx_packet, &Tx_packet_length);
+      TransmitPacket();
+      
+      StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME);
 		}
 		
-  	// update motor PWM to most recent message command
-  	/*
-  	GetData(packet, data, &data_length_ptr);
-    */
-    // UpdateTurretSpeed(new_speed);
-  	
-  	// transmit my feedback
-  	/*
-    if (IsMyTurnToTransmit()) {
-  	  BuildPacket(board_ID, data_out, Tx_packet, &Tx_packet_length);
+		/*
+  	if (IsMyTurnToTransmit()) {
+      // Note: neglecting two LSB's from 10-bit A/D result
+      data_out[0] = (GetADC(TR_ANALOG_PIN_1) >> 2); 
+      data_out[1] = (GetADC(TR_ANALOG_PIN_2) >> 2); 
+      data_out[2] = (GetADC(SH_ANALOG_PIN_1) >> 2);
+      data_out[3] = (GetADC(SH_ANALOG_PIN_2) >> 2);
+      // TODO: make sure Tx_packet and Tx_packet_length don't need to be NOT static
+      
+      BuildPacket(board_ID, data_out, Tx_packet, &Tx_packet_length);
       TransmitPacket();
+      
+      // execute any commands
+      UpdateTurretSpeed(Rx_packet[TURRET_SPEED_INDEX]);
+      // clear Rx buffer
     }
     */
-                 
+    
 	}
 	
 	return 0;
@@ -149,6 +168,7 @@ void U1TX_ISR(void) {
   if (Tx_packet_length < ++i_packet) {
     i_packet = 0;
     _U1TXIE = 0;
+    RS485_MODE(RX_MODE);
     //state = WAITING;
     return;
   }
@@ -163,16 +183,15 @@ void U1RX_ISR(void) {
   Rx_packet[i_packet] = GetRxByte();
   i_packet++;
   
-  if (i_packet == DEVICE_INDEX)
+  if (i_packet == DEVICE_INDEX) {
     Rx_packet_length = GetDataLength(Rx_packet[i_packet]) + NUM_PREFIX_BYTES 
                        + NUM_DEVICE_BYTES + NUM_SUFFIX_BYTES;
-  
+  }
   // if this is the last byte
   if ((Rx_packet_length != INVALID_LENGTH) && (Rx_packet_length < i_packet)) {  
     //state = WAITING;
     is_rx_packet_avail = 1;
     Rx_packet_length = INVALID_LENGTH;
-    //_U1RXIE = 0;
   }
 }
 
@@ -184,16 +203,27 @@ Description: Initializes any I/O pins and dependent modules required by the
 	 the Base PCB.
 ******************************************************************************/
 static void InitBase(void) {
-  ENABLE_HEARTBEAT_PIN(1); HEARTBEAT_PIN = 0;
+  CONFIGURE_HEARTBEAT_PIN(OUTPUT); HEARTBEAT_PIN = 0;
   
+  /*
   // initialize the turret motor controller
   ENABLE_TR_BRAKE(1); TURN_TR_BRAKE(OFF);
   ENABLE_MODE(1); SET_MODE_TO(SLOW_CURRENT_DECAY);
   ENABLE_TURRET_DIR(1); SET_TURRET_DIR_TO(CCW);
   ENABLE_POWER_BUS(1); TURN_POWER_BUS(ON);
+  */
   
   ReadBoardID();
-	
+  UpdateTxPacketLength();
+  
+  // configure any associated external IC's
+  RS485_OUTEN_EN(1);
+  RS485_MODE(RX_MODE);
+  
+  // assign any application-dependent ISR's
+  U1TX_UserISR = U1TX_ISR;  // BUG ALERT: these must be BEFORE InitUART()
+  U1RX_UserISR = U1RX_ISR;
+  
 	// initialize any dependent moduels
 	InitTimers();
 	unsigned int analog_bit_mask = ( (1 << TEMP_ANALOG_PIN) |
@@ -203,8 +233,7 @@ static void InitBase(void) {
                                    (1 << TR_ANALOG_PIN_1) );
   InitADC(analog_bit_mask);
   InitPWM(TURRET_PWM_PIN, T_PWM);
-  U1TX_UserISR = U1TX_ISR;      // use my own functions for the ISR's
-  U1RX_UserISR = U1RX_ISR;
+  
   InitUART(MY_TX_PIN, MY_RX_PIN, BAUD_RATE);
   
 	// prime any timers that require it
@@ -214,12 +243,18 @@ static void InitBase(void) {
 /*****************************************************************************
 Function: ReadBoardID()
 Description: Reads the board identification number--set in hardware by pull-up
-  and pull-down resistors--into a module-level variable.
+  and pull-down resistors--into a module level variable.
 ******************************************************************************/
 static void ReadBoardID(void) {
   _TRISE4 = 1; _TRISE3 = 1; _TRISE2 = 1; _TRISE1 = 1; _TRISE0 = 1;
-  board_ID = (_RE4 << 4) | (_RE3 << 3) | (_RE2 << 2) | (_RE1 << 1) | (_RE0 << 0);
-  
+  board_ID = ((_RE4 << 4) | (_RE3 << 3) | (_RE2 << 2) | (_RE1 << 1) | (_RE0 << 0));
+}
+
+/*****************************************************************************
+Function: UpdateTxPacketLength()
+Description: Updates the transmission packet length given the board ID.
+******************************************************************************/
+static void UpdateTxPacketLength(void) {
   switch (board_ID) {
     case BASE: Tx_packet_length = BASE_DATA_LENGTH; break;
     case LINK_1: Tx_packet_length = LINK_1_DATA_LENGTH; break;
@@ -227,7 +262,7 @@ static void ReadBoardID(void) {
     default: Tx_packet_length = INVALID_LENGTH; break;
   }
 }
-
+  
 /*****************************************************************************
 Function: UpdateTurretSpeed()
 Description: Maps a speed given as an integer value between -100 and 100 to 
@@ -235,20 +270,37 @@ Description: Maps a speed given as an integer value between -100 and 100 to
 TODO: incorporate braking?
 ******************************************************************************/
 static void UpdateTurretSpeed(signed char speed) {
-  if (speed < 0) SET_TURRET_DIR_TO(CW);
-  else SET_TURRET_DIR_TO(CCW);
+  if (speed < 0) {
+    SET_TURRET_DIR_TO(CW);
+    speed = -speed;
+  } else {
+    SET_TURRET_DIR_TO(CCW);
+  }
   
-  if (100 < speed) speed = 100;
-  else if (speed < -100) speed = -100;
-  if (speed < 0) speed = -speed;
+  // cap the duty cycle
+  if (MAX_DC < speed) speed = MAX_DC;
+  else if (speed < MIN_DC) speed = MIN_DC;
   
   UpdateDutyCycle((unsigned char)speed);
 }
 
 static void TransmitPacket(void) {
   //state = TRANSMITTING;
-  _U1TXIE = 1;          // enable the Tx interrupt
-  TransmitByte(Tx_packet[0]);
+  _U1TXIE = 1;                // enable the Tx interrupt
+  RS485_MODE(TX_MODE);
+  TransmitByte(Tx_packet[0]); // begin the transmission sequence 
 }
 
+static unsigned char IsMyTurnToTransmit(void) {
+  if (!is_rx_packet_avail) return 0;
+  is_rx_packet_avail = 0;
+  
+  switch (board_ID) {
+    case BASE: return (Rx_packet[DEVICE_INDEX] == LINK_2);
+    case LINK_1: return (Rx_packet[DEVICE_INDEX] == BASE);
+    case LINK_2: return (Rx_packet[DEVICE_INDEX] == LINK_1);
+    default: return 0;
+  }
+}
+  
 /*---------------------------End of File-------------------------------------*/

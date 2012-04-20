@@ -99,7 +99,6 @@ Description: Checks whether the CRC within the given packet matches the
 */
 static char IsCRCValid(unsigned char data[], unsigned char data_length, 
                        unsigned int CRC) {
-  unsigned int dummy = ComputeCRC(data, data_length);
 	return (CRC == ComputeCRC(data, data_length));
 }
 

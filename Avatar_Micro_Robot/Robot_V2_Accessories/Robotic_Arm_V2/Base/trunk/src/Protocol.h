@@ -41,6 +41,7 @@ Notes:
 
 #define DEVICE_INDEX        2   // device index in the protocol
 
+#define TURRET_SPEED_INDEX  3
 /*---------------------------Public Function Prototypes----------------------*/
 /*
 Function: BuildPacket()
