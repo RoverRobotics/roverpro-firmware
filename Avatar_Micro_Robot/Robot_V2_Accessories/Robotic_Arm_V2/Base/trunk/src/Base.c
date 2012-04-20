@@ -89,8 +89,6 @@ static unsigned char IsMyTurnToTransmit(void);
 static void TransmitPacket(void);
 
 /*---------------------------Module Variables--------------------------------*/
-// use volatile to prevent compiler from optimizing away variables that get 
-// updated in ISR's
 static unsigned char board_ID = UNKNOWN_DEVICE;
 static unsigned char Tx_packet[MAX_PACKET_LENGTH] = {0};
 static unsigned char Tx_packet_length = 0;
@@ -98,7 +96,7 @@ static unsigned char Rx_packet[MAX_PACKET_LENGTH] = {0};
 static unsigned char Rx_packet_length = INVALID_LENGTH;
 
 //static state_t state = WAITING;
-static volatile unsigned char is_rx_packet_avail = 0; 
+static unsigned char is_rx_packet_avail = 0; 
 
 /*---------------------------Test Harness------------------------------------*/
 #ifdef TEST_BASE
@@ -113,7 +111,7 @@ NO LONGER THAN ~30ms.
 TODO: time the approximate speed of my while loop by toggling a debugging LED
 and inspecing that period on the oscilloscope.
 */
-int main() {
+int main(void) {
 	unsigned char data_out[BASE_DATA_LENGTH] = {0, 0, 0, 0};
 	
 	InitBase();
@@ -122,12 +120,12 @@ int main() {
   	// toggle a pin to indicate normal operation
 		if (IsTimerExpired(HEARTBEAT_TIMER)) {
 			HEARTBEAT_PIN ^= 1;
-      
-		  // Note: neglecting two LSB's from 10-bit A/D result
-      data_out[0] = (GetADC(TR_ANALOG_PIN_1) >> 2); 
-      data_out[1] = (GetADC(TR_ANALOG_PIN_2) >> 2); 
-      data_out[2] = (GetADC(SH_ANALOG_PIN_1) >> 2);
-      data_out[3] = (GetADC(SH_ANALOG_PIN_2) >> 2);
+			
+			// Note: neglecting two LSB's from 10-bit A/D result
+      data_out[0] = 1;//(GetADC(TR_ANALOG_PIN_1) >> 2); 
+      data_out[1] = 2;//(GetADC(TR_ANALOG_PIN_2) >> 2);
+      data_out[2] = 3;//(GetADC(SH_ANALOG_PIN_1) >> 2);
+      data_out[3] = 4;//(GetADC(SH_ANALOG_PIN_2) >> 2);
       BuildPacket(board_ID, data_out, Tx_packet, &Tx_packet_length);
       TransmitPacket();
       
@@ -137,18 +135,15 @@ int main() {
 		/*
   	if (IsMyTurnToTransmit()) {
       // Note: neglecting two LSB's from 10-bit A/D result
-      data_out[0] = (GetADC(TR_ANALOG_PIN_1) >> 2); 
-      data_out[1] = (GetADC(TR_ANALOG_PIN_2) >> 2); 
-      data_out[2] = (GetADC(SH_ANALOG_PIN_1) >> 2);
-      data_out[3] = (GetADC(SH_ANALOG_PIN_2) >> 2);
-      // TODO: make sure Tx_packet and Tx_packet_length don't need to be NOT static
-      
+      data_out[0] = 1;//(GetADC(TR_ANALOG_PIN_1) >> 2); 
+      data_out[1] = 2;//(GetADC(TR_ANALOG_PIN_2) >> 2);
+      data_out[2] = 3;//(GetADC(SH_ANALOG_PIN_1) >> 2);
+      data_out[3] = 4;//(GetADC(SH_ANALOG_PIN_2) >> 2);
       BuildPacket(board_ID, data_out, Tx_packet, &Tx_packet_length);
       TransmitPacket();
       
       // execute any commands
-      UpdateTurretSpeed(Rx_packet[TURRET_SPEED_INDEX]);
-      // clear Rx buffer
+      //UpdateTurretSpeed(Rx_packet[TURRET_SPEED_INDEX]);
     }
     */
     
@@ -168,7 +163,7 @@ void U1TX_ISR(void) {
   if (Tx_packet_length < ++i_packet) {
     i_packet = 0;
     _U1TXIE = 0;
-    RS485_MODE(RX_MODE);
+    //RS485_MODE(RX_MODE);
     //state = WAITING;
     return;
   }
@@ -187,6 +182,7 @@ void U1RX_ISR(void) {
     Rx_packet_length = GetDataLength(Rx_packet[i_packet]) + NUM_PREFIX_BYTES 
                        + NUM_DEVICE_BYTES + NUM_SUFFIX_BYTES;
   }
+  
   // if this is the last byte
   if ((Rx_packet_length != INVALID_LENGTH) && (Rx_packet_length < i_packet)) {  
     //state = WAITING;
@@ -214,11 +210,11 @@ static void InitBase(void) {
   */
   
   ReadBoardID();
-  UpdateTxPacketLength();
   
   // configure any associated external IC's
+  RS485_MODE(TX_MODE);
   RS485_OUTEN_EN(1);
-  RS485_MODE(RX_MODE);
+
   
   // assign any application-dependent ISR's
   U1TX_UserISR = U1TX_ISR;  // BUG ALERT: these must be BEFORE InitUART()
@@ -234,8 +230,11 @@ static void InitBase(void) {
   InitADC(analog_bit_mask);
   InitPWM(TURRET_PWM_PIN, T_PWM);
   
-  InitUART(MY_TX_PIN, MY_RX_PIN, BAUD_RATE);
-  
+  InitUART(MY_TX_PIN, MY_RX_PIN, BAUD_RATE);  // BUG ALERT: the UxTXIF is set
+                                              // when the module is enabled
+  UpdateTxPacketLength();                     // do this after InitUART() so initial Tx interrupt
+                                              // does nothing
+    
 	// prime any timers that require it
 	StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME);
 }
@@ -286,8 +285,8 @@ static void UpdateTurretSpeed(signed char speed) {
 
 static void TransmitPacket(void) {
   //state = TRANSMITTING;
-  _U1TXIE = 1;                // enable the Tx interrupt
   RS485_MODE(TX_MODE);
+  _U1TXIE = 1;                // enable the Tx interrupt
   TransmitByte(Tx_packet[0]); // begin the transmission sequence 
 }
 

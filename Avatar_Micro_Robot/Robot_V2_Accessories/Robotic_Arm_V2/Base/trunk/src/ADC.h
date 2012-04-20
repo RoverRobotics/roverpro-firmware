@@ -2,7 +2,7 @@
 File: ADC.h 
 
 Description: This module sets up one of several 10-bit hardware 
-	analog-to-digital converter.
+	analog-to-digital converters.
 Notes:
 	1) Warning: does no error checking on initialization bit mask
 =============================================================================*/

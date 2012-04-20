@@ -2,7 +2,9 @@
 File: UART.h
 
 Description: This module encapsulates the interface to the UART1 hardware
-  module.
+  module.  Since both transmission and reception are interrupt-based, this
+  module additionally provides the ability to define external interrupt 
+  service routines (see U1Tx_UserISR usage below). 
   
 Notes:
   - assumes an instruction cycle clock of F_CY = 16MHz

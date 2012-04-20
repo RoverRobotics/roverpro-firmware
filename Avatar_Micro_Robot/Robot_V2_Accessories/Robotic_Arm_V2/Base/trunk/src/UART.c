@@ -96,10 +96,16 @@ void InitUART(unsigned char Tx_pin, unsigned char Rx_pin,
 	_U1RXIP = 6;            // configure interrupt priority
 	_U1TXIP = 5;            // Note: 7 is highest priority interrupt
 	
+	_U1TXIF = 0;            // begin with any interrupt flags cleared
+	_U1RXIF = 0;
+
+	U1MODEbits.UARTEN = 1;  // enable UART1
+	Nop();
+	U1STAbits.UTXEN = 1;    // enable transmission
+	// BUG ALERT: the UxTXIF bit is set when the module is first enabled
+	
 	IEC0bits.U1TXIE = 1;    // enable UART1 Tx interrupt
 	IEC0bits.U1RXIE = 1;    // enable UART1 Rx interrupt
-	U1MODEbits.UARTEN = 1;  // enable UART1
-	U1STAbits.UTXEN = 1;    // enable transmission
 }
 
 void inline TransmitByte(unsigned char message) {
@@ -125,16 +131,18 @@ void  __attribute__((__interrupt__, auto_psv)) _U1RXInterrupt(void) {
 /*---------------------------Private Function Definitions--------------------*/
 /*
 Notes:
+  - see also Table 21-2 of PIC24F family reference manual
   - UxBRG = F_CY / (16 * desired_baud_rate) - 1 (see p.200 of datasheet)
           = 16MHz / (4 * 9600) - 1
-         ~= 415
+         ~= 416
 */
 static void ConfigureBaudRate(unsigned long int baud_rate) {
   U1MODEbits.BRGH = 1;		// configure for high precision baud rate
   switch (baud_rate) {
-    case 9600: U1BRG = 415; break;
-    case 115200: U1BRG = 34; break;
+    case 9600: U1BRG = 416; break;  // 0.07% error
+    case 115200: U1BRG = 34; break; // 0.62% error
   }
+  
 }
 
 /*---------------------------End of File-------------------------------------*/

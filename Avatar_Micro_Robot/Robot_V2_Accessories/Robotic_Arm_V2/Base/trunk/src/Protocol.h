@@ -66,8 +66,6 @@ Parameters:
 Description: Parses the packet for the data and validates the result.  The 
   resulting data length is updated to INVALID_LENGTH as a sentinel for 
   failing the CRC.
-// TODO: pass unsigned char *data_ptr[] to avoid having to do deep copy?.
-// how is &data, not an unsigned char**?
 */
 void GetData(unsigned char packet[], unsigned char data[],
              unsigned char *data_length_ptr);
