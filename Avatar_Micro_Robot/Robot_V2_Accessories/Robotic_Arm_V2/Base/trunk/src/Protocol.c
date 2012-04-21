@@ -35,7 +35,7 @@ void BuildPacket(unsigned char device, unsigned char data[],
   packet[*packet_length_ptr - 2] = (CRC >> 8);   // high byte
 }
 
-
+  
 void GetData(unsigned char packet[], unsigned char data[], 
              unsigned char *data_length_ptr) {
   unsigned int CRC = 0;

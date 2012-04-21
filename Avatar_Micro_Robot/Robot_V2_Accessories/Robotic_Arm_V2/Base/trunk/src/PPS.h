@@ -12,7 +12,7 @@ Description: This file provides an interface to the dynamic pin mapping
 #define OUTPUT						0		
 #define INPUT							1
 
-// Selectable Output Sources (see Table 9-2, p.125 of datasheet)
+// Selectable Output Sources (see Table 10-3, p.138 of datasheet)
 #define FN_NULL						0
 #define FN_C1OUT					1
 #define FN_C2OUT					2
@@ -43,7 +43,7 @@ Description: This file provides an interface to the dynamic pin mapping
 #define FN_SS3OUT					34
 #define FN_OC9						35
 
-// Selectable Input Sources (see Table 9-1, p.124 of datasheet)
+// Selectable Input Sources (see Table 10-2, p.137 of datasheet)
 // Note: Don't know that there is a way to pass bit-fields :(
 // I'm arbitrariliy assigning numbers for a switch() statement within PPS.c
 // because I don't think it's worth it to make it's own type and can't think

@@ -61,7 +61,7 @@ void BuildPacket(unsigned char device, unsigned char data[],
 Function: GetData()
 Parameters:
   unsigned char packet[], a received packet
-  unsigned char data[], the data array to update
+  unsigned char data[], the data array to be updated
   unsigned char *data_length_ptr, pointer to the data length to be updated
 Description: Parses the packet for the data and validates the result.  The 
   resulting data length is updated to INVALID_LENGTH as a sentinel for 

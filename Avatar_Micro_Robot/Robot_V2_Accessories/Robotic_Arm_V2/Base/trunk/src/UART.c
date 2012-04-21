@@ -28,8 +28,17 @@ static void ConfigureBaudRate(unsigned long int baud_rate);
 #include "./Protocol.h"
 #include "./ConfigurationBits.h"
 
-#define RS485_OUTEN_EN(a)     (_TRISD6 = !(a))
-#define RS485_OUTEN_ON(a)     (_LATD6 = (a))
+#define RS485_OUTEN_EN(a) (_TRISD6 = !(a))
+#define RS485_MODE(a)     (_LATD6 = (a))
+#define TX_MODE           1
+#define RX_MODE           0
+#define MY_TX_PIN             20
+#define MY_RX_PIN             25
+#define BAUD_RATE             9600              // [pulse/s]
+
+#define TX_PACKET_LENGTH      9
+
+static unsigned char rx_packet[15] = {0};
 
 int main(void) {
   /*
@@ -47,11 +56,17 @@ int main(void) {
   unsigned char data_length = 0;
   GetData(packet, data_in, &data_length);
   */
-  
-  InitUART(20, 25, 9600);
+
+  // enable any external IC's
   RS485_OUTEN_EN(1);
-  RS485_OUTEN_ON(0);  // 0 for Rx
+  RS485_MODE(TX_MODE);
   
+  // assign any application-dependent ISR's
+  U1TX_UserISR = U1TX_ISR;  // these must be BEFORE InitUART()
+  U1RX_UserISR = U1RX_ISR;
+  
+  InitUART(MY_TX_PIN, MY_RX_PIN, BAUD_RATE);
+    
   while (1) {
     /*
     // test slow transmission, inspecting result in debugger
@@ -62,23 +77,34 @@ int main(void) {
     }
     */
     
-    // if the time between reception is excessively long
-    // clear the error bits, reset anything
-    // ensure framing error and parity error bits are cleared
- 	  // in case we get an error that can disable the interrupt
- 	  // THESE ARE READ ONLY :( U1STAbits.PERR = 0; U1STAbits.FERR = 0; 
+    
+    // inspect rx_packet in debugger window
+    // see if anything gets send to python script
+    unsigned char dummyBreakPoint = 0;
  	
+ 	  
     // test reception from python script--can we get in here?
-    if (received_something) {
-      received_something = 0;
-      unsigned char dummy = 1;
-      unsigned char dummy2 = 2;
-    }
+    
     
   }
   
   return 0;
 }
+
+void U1TX_ISR(void) {
+  static unsigned char i = 0;
+  _U1TXIF = 0;
+  
+  if (i++ < TX_PACKET_LENGTH) TransmitByte(i);
+  else i = 0;
+}
+
+
+void U1RX_ISR(void) {
+  _U1RXIF = 0;  
+  rx_packet[i] = GetRxByte();
+}
+
 #endif
 /*---------------------------End Test Harness--------------------------------*/
 
@@ -99,13 +125,11 @@ void InitUART(unsigned char Tx_pin, unsigned char Rx_pin,
 	_U1TXIF = 0;            // begin with any interrupt flags cleared
 	_U1RXIF = 0;
 
-	U1MODEbits.UARTEN = 1;  // enable UART1
-	Nop();
-	U1STAbits.UTXEN = 1;    // enable transmission
-	// BUG ALERT: the UxTXIF bit is set when the module is first enabled
-	
 	IEC0bits.U1TXIE = 1;    // enable UART1 Tx interrupt
 	IEC0bits.U1RXIE = 1;    // enable UART1 Rx interrupt
+	U1MODEbits.UARTEN = 1;  // enable UART1
+	U1STAbits.UTXEN = 1;    // enable transmission
+	// BUG ALERT: the UxTXIF bit is set when the module is first enabled
 }
 
 void inline TransmitByte(unsigned char message) {
