@@ -18,13 +18,9 @@
 #define GENERIC_TYPEDEFS_INCLUDE  "../../../../../Common/REV_A/USB/microchip/GenericTypeDefs.h"
 #define USB_INCLUDE               "../../../../../Common/REV_A/USB/microchip/USB/usb.h"
 #define COMPILER_INCLUDE          "../../../../../Common/REV_A/USB/microchip/Compiler.h"
+#define USB_COMMUNICATION_INCLUDE "../../../../../Common/REV_A/USB/usb_communication.h"
 
-#define USB_CONFIG_INCLUDE        "../../../../../Common/REV_A/USB/usb_config.c"
-#define USB_DESCRIPTORS_INDCLUE   "../../../../../Common/REV_A/USB/usb_descriptors.c"
-#define USB_DEVICE_INCLUDE        "../../../../../Common/REV_A/USB/usb_device.c"
-#define USB_COMMUNICATION_INCLUDE "../../../../../Common/REV_A/USB/usb_communication.c"
 
-//#include COMMON_FILE_LOCATION##"/USB/microchip/stdint.h"
 #include STDINT_INCLUDE
 #include <libpic30.h>
 

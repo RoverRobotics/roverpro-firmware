@@ -5,7 +5,7 @@
 
 void DeviceDetectorInit()
 {
-
+  REG_CARRIER_STATE = 0;
 
 }
 
