@@ -27,18 +27,23 @@ extern "C" {
 // -------- MICROCONTROLLER PRODUCT IDS --------
 
 typedef int16_t DEVICE_NUMBER;
-#define DEVICE_GENERIC		0
-#define DEVICE_OCU       	1
-#define DEVICE_CARRIER  	2
-#define DEVICE_MOTOR  		3
-#define DEVICE_ARM		    4
-#define DEVICE_PTZ_BASE		5
-#define FRONT_CAMERA_EMPIA	6
-#define PTZ_EMPIA			7
-#define ARM_EMPIA			8
-#define ARM_PAYLOAD_EMPIA	9
-#define DEVICE_PTZ_ROTATION 0x0a
 #define DEVICE_NONE        ~0
+#define DEVICE_GENERIC      0x00
+#define DEVICE_OCU          0x01
+#define DEVICE_CARRIER      0x02
+#define DEVICE_MOTOR        0x03
+#define DEVICE_ARM          0x04
+#define DEVICE_PTZ_BASE		  0x05
+#define FRONT_CAMERA_EMPIA	0x06
+#define PTZ_EMPIA           0x07
+#define ARM_EMPIA			      0x08
+#define ARM_PAYLOAD_EMPIA   0x09
+#define DEVICE_PTZ_ROTATION 0x0a
+#define DEVICE_ARM_BASE		  0x0b
+#define DEVICE_ARM_LINK1	  0x0c
+#define DEVICE_ARM_LINK2	  0x0d
+#define DEVICE_DETECTOR     0x0e
+#define DEVICE_HITCH        0x0f
 
 
 // -------- PROGRAM DEFINES --------

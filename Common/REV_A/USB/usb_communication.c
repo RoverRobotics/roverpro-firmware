@@ -6,14 +6,11 @@ unsigned int  cur_word, reg_index, checksum;
 unsigned int  reg_size;
 
 int gNewData;
-int gpio_id = 0;
 int gRegisterCount = 0;
 uint8_t OutPacket[OUT_PACKET_LENGTH];
 uint8_t InPacket[IN_PACKET_LENGTH];
 USB_HANDLE USBGenericOutHandle = 0;
 USB_HANDLE USBGenericInHandle = 0;
-
-extern USB_DEVICE_DESCRIPTOR device_dsc;
 
 void Initialize_USB_Message(void)
 {
