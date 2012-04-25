@@ -52,8 +52,8 @@ typedef int16_t DEVICE_NUMBER;
 #define SYNC    1
 #define NO_SYNC 0
 
-#define OUT_PACKET_LENGTH 1023
-#define IN_PACKET_LENGTH  1023
+#define OUT_PACKET_LENGTH 255
+#define IN_PACKET_LENGTH  255
 
 #define PACKET_TERMINATOR 0xFFFF
 
