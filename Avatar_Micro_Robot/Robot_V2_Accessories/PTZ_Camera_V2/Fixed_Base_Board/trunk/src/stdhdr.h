@@ -30,6 +30,7 @@
 
 extern void block_ms(unsigned int ms);
 extern void block_us(unsigned int us);
+extern unsigned int USB_timeout_ms;
 
 #include "../HardwareProfile.h"
 

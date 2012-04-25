@@ -49,6 +49,8 @@ typedef struct
 #define CAMERA_MESSAGE_QUERY_ZOOM 0x82
 #define CAMERA_MESSAGE_QUERY_FOCUS 0x83
 
+#define USB_TIMEOUT 100
+
 static volatile unsigned char uartRxData[UART_RX_BUFFER_SIZE];          
 static volatile int uartRxIndex = 0;
 static volatile unsigned char uart2RxData[UART2_RX_BUFFER_SIZE];          
@@ -247,6 +249,7 @@ static void RXInterrupt()
 static void T1Interrupt()
 {
 	ticks++;
+  USB_timeout_ms++;
 	IFS0bits.T1IF=0;
 }
 
@@ -855,6 +858,13 @@ static void TiltControl()
 	int absTiltVelocity = 0;
 	int tiltDir = REG_CAMERA_VEL_ROT.tilt>=0;
 	int pwmDuty = 40;
+
+    //stop moving tilt if USB times out
+   if(USB_timeout_ms >= USB_TIMEOUT)
+    {
+      USB_timeout_ms = USB_TIMEOUT+1;
+      REG_CAMERA_VEL_ROT.tilt = 0;
+    }
 
 	if((lastTiltVelocity!=0) && (REG_CAMERA_VEL_ROT.tilt==0))
 	{

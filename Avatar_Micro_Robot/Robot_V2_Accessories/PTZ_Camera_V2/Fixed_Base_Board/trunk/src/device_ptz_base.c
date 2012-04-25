@@ -32,6 +32,8 @@
 #define CAMERA_MESSAGE_QUERY_ZOOM 0x82
 #define CAMERA_MESSAGE_QUERY_FOCUS 0x83
 
+#define USB_TIMEOUT 100
+
 static volatile unsigned char uartRxData[UART_RX_BUFFER_SIZE];          
 static volatile int uartRxIndex = 0;
 static volatile unsigned char uart2RxData[UART2_RX_BUFFER_SIZE];          
@@ -194,6 +196,7 @@ static void RXInterrupt()
 static void T1Interrupt()
 {
 	ticks++;
+  USB_timeout_ms++;
 	IFS0bits.T1IF=0;
 }
 
@@ -511,9 +514,18 @@ void PanControl()
 	static int lastPotentiometer2 = 0;
 	static int potentiometerAvg = 0;
 	int absPanVelocity = 0;
-	int panDir = REG_CAMERA_VEL_BASE>=0;
+	int panDir = 1;
 	int potDiff=0;
-        int pwmDuty = 40;
+  int pwmDuty = 40;
+
+  //stop moving pan if USB times out
+ if(USB_timeout_ms >= USB_TIMEOUT)
+  {
+    USB_timeout_ms = USB_TIMEOUT+1;
+    REG_CAMERA_VEL_BASE = 0;
+  }
+  panDir = REG_CAMERA_VEL_BASE>=0;
+  
 
 	if((lastPanVelocity!=0) && (REG_CAMERA_VEL_BASE==0))
 	{
@@ -553,6 +565,7 @@ void PanControl()
 
 	
 	Stepper1SetDir(panDir);
+
 	PWM1Set(pwmDuty, (int)(262000.0f*(1.0f/(5.0f*((float)absPanVelocity+1.0f)))));
 
 	lastPotentiometer = potentiometerMerged;
@@ -563,4 +576,13 @@ void DevicePTZBaseProcessIO()
 {
 	InputSummation();
 	PanControl();
+
+  if(REG_CAMERA_BASE_POWER_DOWN)
+  {
+    _LATB3 = 0;
+    block_ms(200);
+  }
+  else
+    _LATB3 = 1;
+
 }

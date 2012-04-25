@@ -47,6 +47,7 @@ uint8_t InPacket[IN_PACKET_LENGTH];
 USB_HANDLE USBGenericOutHandle = 0;
 USB_HANDLE USBGenericInHandle = 0;
 
+unsigned int USB_timeout_ms = 0;
 
 // -------------------------------------------------------------------------
 // BOOTLOADER
@@ -372,6 +373,7 @@ void ProcessIO(void)
 			USBGenericInHandle = USBTxOnePacket((BYTE)USBGEN_EP_NUM,(BYTE*)&InPacket,(WORD)i);
 		}
 		gNewData = !gNewData; // toggle new data flag for those watching
+    USB_timeout_ms = 0;
 
 crapout5:
 		// Arm USB hardware to receive next packet.
