@@ -14,12 +14,7 @@
  */
 
 #include "stdhdr.h"
-#include "device_generic.h"
-#include "device_ocu.h"
-#include "device_carrier.h"
-#include "device_arm_base.h"
-#include "device_arm_sholder.h"
-#include "device_arm_hand.h"
+
 #include "device_ptz_base.h"
 #include "device_ptz_rotation.h"
 
@@ -225,30 +220,7 @@ static void InitializeSystem(void)
 
 	switch (gpio_id)
 	{
-		case DEVICE_OCU:
-			DeviceOcuInit();
-			break;
 
-		case DEVICE_CARRIER:
-			DeviceCarrierInit();
-			break;
-
-		case DEVICE_MOTOR:
-			DeviceGenericInit();
-			break;
-
-		case DEVICE_ARM_BASE:
-			DeviceArmBaseInit();
-			break;
-
-		case DEVICE_ARM_SHOLDER:
-			DeviceArmSholderInit();
-			break;
-
-		case DEVICE_ARM_HAND:
-			DeviceArmHandInit();
-			break;
-	
 		case DEVICE_PTZ_BASE:
 			DevicePTZBaseInit();
 			break;
@@ -259,7 +231,6 @@ static void InitializeSystem(void)
 
 		case DEVICE_GENERIC:
 		default:
-			DeviceGenericInit();
 			break;
 	}
 
@@ -285,29 +256,6 @@ void ProcessIO(void)
 
 	switch (gpio_id)
 	{
-		case DEVICE_OCU:
-			DeviceOcuProcessIO();
-			break;
-
-		case DEVICE_CARRIER:
-			DeviceCarrierProcessIO();
-			break;
-
-		case DEVICE_MOTOR:
-			DeviceGenericProcessIO();
-			break;
-
-		case DEVICE_ARM_BASE:
-			DeviceArmBaseProcessIO();
-			break;
-
-		case DEVICE_ARM_SHOLDER:
-			DeviceArmSholderProcessIO();
-			break;
-
-		case DEVICE_ARM_HAND:
-			DeviceArmHandProcessIO();
-			break;
 
 		case DEVICE_PTZ_BASE:
 			DevicePTZBaseProcessIO();
@@ -319,7 +267,6 @@ void ProcessIO(void)
 
 		case DEVICE_GENERIC:
 		default:
-			DeviceGenericProcessIO();
 			break;
 	}
 
