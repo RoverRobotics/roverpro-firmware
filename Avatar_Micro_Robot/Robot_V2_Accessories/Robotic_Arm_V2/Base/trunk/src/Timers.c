@@ -38,21 +38,16 @@ static unsigned int current_time;
 #define HEARTBEAT_TIME    _500ms
 
 int main(void) {
-	InitTimers(); // initialize the timer module
+	InitTimers();
 	StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME); // prime any timers that require it
 	
-	// configure and initialize I/O pin(s)
-  //---ensure none of these pins are configured as analog (N/A for this pin)
-  //---configure debugging pin(s) as digital output(s)
-  TRISEbits.TRISE5 = 0;
-	// initialize all I/O pins to begin in a known state
-	PORTEbits.RE5 = 0;
+	_TRISE5 = 0; _RE5 = 0;
   
 	while (1) {
   	// toggle a pin on timer expirations
 		if (IsTimerExpired(HEARTBEAT_TIMER)) {
 			StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME);
-			PORTEbits.RE5 ^= 1;
+			_RE5 ^= 1;
 		}
 	}
 	

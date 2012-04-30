@@ -110,7 +110,7 @@ static void ConfigurePins(unsigned int bit_mask) {
 	AD1CON3bits.ADCS = 0b00011111;// T_AD = T_CY*(ADCS + 1)
 
 	// select the appropriate sample/conversion sequence
-	AD1CON1bits.SSRC = 0b0111; 	// internal counter ends sampling and starts conversion?
+	AD1CON1bits.SSRC = 0b0111; 	// internal counter ends sampling and starts conversion
 	AD1CON3bits.SAMC = 0b11111;	// configure how often to auto-sample (11111 = 31 TAD)	
 }
 

@@ -3,8 +3,7 @@ File: Base.c
 
 Description: This is the overarching file that encapsulates the 
   application-level firmware.  It integrates any dependent firmware modules and 
-  interfaces with external components.  It is networked with the Avatar on 
-  which it is mounted as well as Link_1 and Link_2.
+  interfaces with external components.  It is networked with Link_1 and Link_2.
   
 Notes:
   - interrupt priorities were ensured to NOT conflict across dependent modules
@@ -44,7 +43,7 @@ Author: Stellios Leventis (sleventis@robotex.com)
                                                  // slower dynamic response
                                                  // (see p.10 of A3931 datasheet)
 #define ENABLE_COAST(a)       (_TRISD9 = !(a))
-#define TURN_COAST(a)      (_LATD9 = !(a))
+#define TURN_COAST(a)         (_LATD9 = !(a))
 #define ENABLE_TURRET_DIR(a)  (_TRISD10 = !(a))
 #define SET_TURRET_DIR_TO(a)  (_RD10 = a)
 #define ENABLE_POWER_BUS(a)   (_TRISD11 = !(a))
@@ -57,7 +56,7 @@ Author: Stellios Leventis (sleventis@robotex.com)
 #define CW                    0
 #define CCW                   1
 #define MAX_DC                50
-#define MIN_DC                15
+#define MIN_DC                0
 
 // RS485 IC
 #define RS485_OUTEN_EN(a)     (_TRISD6 = !(a))
@@ -74,6 +73,8 @@ Author: Stellios Leventis (sleventis@robotex.com)
 
 // Temperature Sensor
 #define TEMP_ANALOG_PIN       8
+
+#define DEADZONE_UPPER_LEVEL  100
 
 // Debugging
 #define CONFIGURE_HEARTBEAT_PIN(a)   (_TRISE5 = (a))
@@ -93,6 +94,8 @@ static void UpdateTxPacketLength(void);
 static void UpdateTurretSpeed(signed char speed);
 static unsigned char IsMyTurnToTransmit(void);
 static void TransmitPacket(void);
+static void CalibrateSoftStops(void);
+static void IsFeedbackValid(unsigned int feedback_1, unsigned int feedback_2);
 
 /*---------------------------Module Variables--------------------------------*/
 static unsigned char board_ID = UNKNOWN_DEVICE;
@@ -123,6 +126,7 @@ int main(void) {
 	
 	InitBase();
 	
+	_SWDTEN = 1; // enable the watchdog timer
   while (1) {
   	// toggle a pin to indicate normal operation
 		if (IsTimerExpired(HEARTBEAT_TIMER)) {
@@ -154,6 +158,7 @@ int main(void) {
       UpdateTurretSpeed(data_in[0]);
     }
     
+    ClrWdt(); // clear the watchdog timer 
 	}
 	
 	return 0;
@@ -289,7 +294,6 @@ static void UpdateTxPacketLength(void) {
 Function: UpdateTurretSpeed()
 Description: Maps a speed given as an integer value between -100 and 100 to 
  to a valid duty cycle between 0 and 100.
-TODO: incorporate braking?
 ******************************************************************************/
 static void UpdateTurretSpeed(signed char speed) {
   if (speed < 0) {
@@ -323,5 +327,32 @@ static unsigned char IsMyTurnToTransmit(void) {
     default: return 0;
   }
 }
+
+
+/*
+Function: CalibrateSoftStops()
+Description: Determines the bounds on the Turret Motor feedback to avoid 
+  hitting any physical limits.  Limit the rotation to prevent cables from 
+  getting tangled.
+*/
+static void CalibrateSoftStops(void) {
+  
+  /*
+  // only average the result if it is valid
+  if (IsFeedbackValid()) {
+    
+  } else {
+    
+  }
+  
+  
+  */
+}
+
+static void IsFeedbackValid(unsigned int feedback_1, unsigned int feedback_2) {
+  return ((DEADZONE_UPPER_LEVEL <= feedback_1) &&
+          (DEADZONE_UPPER_LEVEL <= feedback_2));
+}
+  
   
 /*---------------------------End of File-------------------------------------*/

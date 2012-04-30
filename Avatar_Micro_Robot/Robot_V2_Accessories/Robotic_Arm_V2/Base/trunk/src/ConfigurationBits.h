@@ -20,6 +20,10 @@ Description:  Encapsulates the configuration bits set for this project,
   disable the Watchdog Timer
 	share emulator functions with PGEC2/PGED2
 	configure the Watchdog postscaler to divide-by-256, 1:256
+	  T_WDT (ms) = prescaler_factor * postscaler_factor
+	             FWPSA = 1 by default = Prescaler ratio of 1:128
+	             LPRC = 31kHz
+	             = T_LPRC * 128 * 256 ~= 1.06s TODO: confirm this
 */
 _CONFIG1(JTAGEN_OFF & GCP_OFF & GWRP_OFF & COE_OFF & FWDTEN_OFF & ICS_PGx2 & 
          WDTPS_PS256)
@@ -33,8 +37,6 @@ _CONFIG1(JTAGEN_OFF & GCP_OFF & GWRP_OFF & COE_OFF & FWDTEN_OFF & ICS_PGx2 &
 	Oscillator input divided by 5 (20MHz input)
   Unlimited Writes To RP Registers
 */
-
-
 _CONFIG2(IESO_OFF & FCKSM_CSDCMD & OSCIOFNC_ON & POSCMOD_HS & FNOSC_PRIPLL & 
          PLLDIV_DIV5 & IOL1WAY_OFF)
 
