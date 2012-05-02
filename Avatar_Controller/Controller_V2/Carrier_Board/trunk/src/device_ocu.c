@@ -11,6 +11,8 @@
 #include "device_ocu.h"
 #include "device_ocu_i2c.h"
 
+#define BATTERY_SOC_CUTOFF  10
+
 /*
 
 Logic: 
@@ -733,7 +735,7 @@ void DeviceOcuInit()
 
 	//if charger is plugged in when the program starts, the batteries are likely
 	//completely dead.  Try to charge to get them to come back.
-	if(CHARGER_ACOK())
+/*	if(CHARGER_ACOK())
 	{
 
 		_MI2C1IE = 1;
@@ -761,7 +763,7 @@ void DeviceOcuInit()
 
 		_MI2C1IE = 0;
 
-	}
+	}*/
 	
 
 }
@@ -834,7 +836,7 @@ void DeviceOcuProcessIO()
 
 		}
 			RED_LED_ON(0);
-			GREEN_LED_ON(1);
+//			GREEN_LED_ON(1);
 
 
 	}
@@ -895,17 +897,22 @@ void handle_gas_gauge(void)
 {
 
 	static unsigned int low_voltage_counter = 0;
+  static unsigned int low_capacity_counter = 0;
+  static unsigned int last_L_capacity = 0;
+  static unsigned int last_R_capacity = 0;
+  static unsigned int initial_low_capacity_counter = 0;
+  unsigned char i;
 
 	//if the voltage increases and the charger is plugged in, reset low battery vars
-	if(CHARGER_ACOK() && (REG_OCU_BATT_VOLTAGE > 14000))
+/*	if(CHARGER_ACOK() && (REG_OCU_BATT_VOLTAGE > 14000))
 	{
 		battery_too_low = 0;
 
 		low_voltage_counter = 0;
 		last_battery_voltage = 0;
-	}
+	}*/
 
-	if(REG_OCU_BATT_VOLTAGE < 13950)
+/*	if(REG_OCU_BATT_VOLTAGE < 13950)
 	{
 		//count number of times we get a different voltage that is too low
 		if(REG_OCU_BATT_VOLTAGE != last_battery_voltage)
@@ -930,18 +937,103 @@ void handle_gas_gauge(void)
 				V5V_ON(0);
 				V12V_ON(0);
 				COMPUTER_PWR_OK(0);
+        for(i=0;i<4;i++)
+        {
+          RED_LED_ON(1);
+          block_ms(200);
+          RED_LED_ON(0);
+          block_ms(200);
+        }
+        PWR_KILL_ON(1);
+        block_ms(100);
 			}
 			low_voltage_counter = 200;
 		}
 
 
+	}*/
+ 
+	if( (REG_OCU_REL_SOC_L < BATTERY_SOC_CUTOFF) || (REG_OCU_REL_SOC_R < BATTERY_SOC_CUTOFF) )
+	{
+		//count number of times we get a different voltage that is too low
+		/*if(REG_OCU_REL_SOC_L != last_L_capacity)
+		{
+			last_L_capacity = REG_OCU_REL_SOC_L;
+			low_capacity_counter++;
+
+		}
+		if(REG_OCU_REL_SOC_R != last_R_capacity)
+		{
+			last_R_capacity = REG_OCU_REL_SOC_R;
+			low_capacity_counter++;
+
+		}*/
+
+    initial_low_capacity_counter++;
+    if(initial_low_capacity_counter > 1000)
+      initial_low_capacity_counter = 2000;
+
+    if( ((REG_OCU_REL_SOC_L == 0 ) || (REG_OCU_REL_SOC_R == 0 )) && (initial_low_capacity_counter < 1000) )   
+    //if((REG_OCU_REL_SOC_L == 0 ) || (REG_OCU_REL_SOC_R == 0 ))
+    {
+      //initally, relative SOC registers will be 0.  Let's not turn off due to low capacity until we get a
+      //valid capacity reading, or the counter goes too high.
+    }
+    else
+    { 
+      low_capacity_counter++;
+    }
+
+
+		//if counter gets to 10 different readings, shut off
+		if(low_capacity_counter >= 10)
+		{
+		//only shut off everything if the adapter isn't plugged in
+			if(!CHARGER_ACOK())
+			{
+				battery_too_low = 1;
+				computer_on_flag = 0;
+				GREEN_LED_ON(0);
+				RED_LED_ON(0);
+				V3V3_ON(0);
+				V5V_ON(0);
+				V12V_ON(0);
+				COMPUTER_PWR_OK(0);
+        for(i=0;i<4;i++)
+        {
+          RED_LED_ON(1);
+          block_ms(200);
+          RED_LED_ON(0);
+          block_ms(200);
+        }
+        PWR_KILL_ON(1);
+        block_ms(100);
+			}
+			low_capacity_counter = 200;
+		}
+
+
 	}
+  //if we're getting an invalid measurement
+  else if( (REG_OCU_REL_SOC_L == 255) || (REG_OCU_REL_SOC_R == 255) )
+  {
+      low_capacity_counter++;
+  }
+  else if( (REG_OCU_REL_SOC_L >= BATTERY_SOC_CUTOFF) && (REG_OCU_REL_SOC_R >= BATTERY_SOC_CUTOFF) )
+  {
+    low_capacity_counter = 0;
+    battery_too_low = 0;
+
+  }
+
 
 	//turn on red LED to indicate charging, but only if computer is off
 	if(REG_OCU_BATT_CURRENT > 0)
 	{
 		if(computer_on_flag == 0)
 			RED_LED_ON(1);
+    else
+      RED_LED_ON(0);
 		
 	}
 	else
@@ -1662,7 +1754,7 @@ void handle_charging(void)
 				//start_ocu_i2c1_write(SMBUS_ADD_BQ24745,0x14,0x0800);
 				start_ocu_batt_i2c_write(SMBUS_ADD_BQ24745,0x14,0x0bb8);
 				block_ms(20);
-				start_ocu_batt_i2c_write(SMBUS_ADD_BQ24745,0x3f,0x0f80);
+				start_ocu_batt_i2c_write(SMBUS_ADD_BQ24745,0x3f,0x0bb8);
 				block_ms(20);
 	
 				CHARGER_ON(1);
