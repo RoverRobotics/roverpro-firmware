@@ -630,19 +630,6 @@ void DeviceOcuInit()
 		REG_OCU_FIRMWARE_BUILD.data[i+12] = build_time[i];
 	}
 
-/*	for(i=0;i<24;i++)
-	REG_OCU_FIRMWARE_BUILD.data[i] = 0xaa;*/
-
-	//Sleep();
-/*	while(!POWER_BUTTON());
-	Sleep();
-	while(1);*/
-	//When the PIC resets due to an error, the computer freaks out
-	//if we don't wait a little bit (it boots up, but video outputs to some
-	//as-yet unknown source
-	//block_ms(5000);
-//test_gps_uart();
-
 	REG_OCU_ACCEL_X = 77;
 
 	init_io();
@@ -677,139 +664,22 @@ void DeviceOcuInit()
 	//turn on timer 2
 	T2CONbits.TON = 1;
 
-
-	
-
-
-//	Sleep();
-
-	//bringup_board();
-
 	init_i2c();
-
-
 	
 	U1RXInterruptUserFunction = ocu_gps_isr;
 
 	ocu_gps_init();	
 
-
-
-
-
-	//ADC interrupt
-
-
-
-//	ADC1InterruptUserFunction = joystick_interrupt;
-
-
-
-	/*
-
-	AD1CSSL = 0x3c00;
-	_ASAM = 1;
-	_SMPI = 0x03;
-	_CSCNA = 1;	//enable scanning
-	_AD1IE = 1;
-	_ADON = 1;
-	*/
-
-	/*AD1CON1bits.ADON = 0;
-	AD1CHS0bits.CH0SA = JOY2_Y_CH;
-	AD1CON1bits.ADON = 1;
-	AD1CON1bits.SAMP = 1;*/
-	
-	//V3V3_ON(1);
-//	block_ms(1000);
-//	V3V3_ON(0);
-
-
-	//Sleep();
-
-
-
-
 	REG_OCU_BACKLIGHT_BRIGHTNESS = 50;
 	set_backlight_brightness(50);
 
-	//if charger is plugged in when the program starts, the batteries are likely
-	//completely dead.  Try to charge to get them to come back.
-/*	if(CHARGER_ACOK())
-	{
 
-		_MI2C1IE = 1;
-		
-		GREEN_LED_ON(0);
-		RED_LED_ON(0);
-		block_ms(5);
-		start_ocu_i2c1_write(SMBUS_ADD_BQ24745,0x15,0x41a0);
-		block_ms(20);
-		start_ocu_i2c1_write(SMBUS_ADD_BQ24745,0x14,0x0400);
-		block_ms(20);
-		start_ocu_i2c1_write(SMBUS_ADD_BQ24745,0x3f,0x0f80);
-		block_ms(20);
-
-		CHARGER_ON(1);
-
-		for(i=0;i<10;i++)
-		{
-			GREEN_LED_ON(1);
-			block_ms(200);
-			GREEN_LED_ON(0);
-			block_ms(200);
-		}
-		CHARGER_ON(0);
-
-		_MI2C1IE = 0;
-
-	}*/
-	
 
 }
 
 void DeviceOcuProcessIO()
 {
-
-
-
-
-//	read_all_bq2060a_registers();
-
-//	unsigned int dummy;
-	//_ASAM = 1;
 	main_loop_counter++;
-
-/*	if( (computer_on_flag == 0) && (CHARGER_ACOK() == 0))
-	{
-		disable_io();
-
-
-		//set change interrupt to power button and charger ACOK signal
-		_CN49IE = 1;
-		_CN2IE = 1;
-		dummy = PORTD;
-		dummy = PORTB;
-		_CNIF = 0;	
-		_CNIE = 1;	
-		//when watchdog wakes up OCU, make sure that
-		//we go right back to sleep, to save power
-		while( (POWER_BUTTON() == 0) && (CHARGER_ACOK() == 0) )
-		{
-			Sleep();
-			//reset interrupts so that we get woken up again
-			dummy = PORTD;
-			dummy = PORTB;
-			_CNIF = 0;	
-			_CNIE = 1;	
-		}
-		_CNIE = 0;
-		_CNIF = 0;
-		dummy = PORTD;
-		dummy = PORTB;
-		init_io();
-		block_ms(50);
-	}*/
 
 	handle_power_button();
 	update_button_states();
@@ -836,9 +706,6 @@ void DeviceOcuProcessIO()
 
 		}
 			RED_LED_ON(0);
-//			GREEN_LED_ON(1);
-
-
 	}
 
 
@@ -898,83 +765,17 @@ void handle_gas_gauge(void)
 
 	static unsigned int low_voltage_counter = 0;
   static unsigned int low_capacity_counter = 0;
-  static unsigned int last_L_capacity = 0;
-  static unsigned int last_R_capacity = 0;
   static unsigned int initial_low_capacity_counter = 0;
   unsigned char i;
 
-	//if the voltage increases and the charger is plugged in, reset low battery vars
-/*	if(CHARGER_ACOK() && (REG_OCU_BATT_VOLTAGE > 14000))
-	{
-		battery_too_low = 0;
-
-		low_voltage_counter = 0;
-		last_battery_voltage = 0;
-	}*/
-
-/*	if(REG_OCU_BATT_VOLTAGE < 13950)
-	{
-		//count number of times we get a different voltage that is too low
-		if(REG_OCU_BATT_VOLTAGE != last_battery_voltage)
-		{
-			last_battery_voltage = REG_OCU_BATT_VOLTAGE;
-			low_voltage_counter++;
-
-		}
-
-
-		//if counter gets to 5 different readings, shut off
-		if(low_voltage_counter >= 5)
-		{
-		//only shut off everything if the adapter isn't plugged in
-			if(!CHARGER_ACOK())
-			{
-				battery_too_low = 1;
-				computer_on_flag = 0;
-				GREEN_LED_ON(0);
-				RED_LED_ON(0);
-				V3V3_ON(0);
-				V5V_ON(0);
-				V12V_ON(0);
-				COMPUTER_PWR_OK(0);
-        for(i=0;i<4;i++)
-        {
-          RED_LED_ON(1);
-          block_ms(200);
-          RED_LED_ON(0);
-          block_ms(200);
-        }
-        PWR_KILL_ON(1);
-        block_ms(100);
-			}
-			low_voltage_counter = 200;
-		}
-
-
-	}*/
  
 	if( (REG_OCU_REL_SOC_L < BATTERY_SOC_CUTOFF) || (REG_OCU_REL_SOC_R < BATTERY_SOC_CUTOFF) )
 	{
-		//count number of times we get a different voltage that is too low
-		/*if(REG_OCU_REL_SOC_L != last_L_capacity)
-		{
-			last_L_capacity = REG_OCU_REL_SOC_L;
-			low_capacity_counter++;
-
-		}
-		if(REG_OCU_REL_SOC_R != last_R_capacity)
-		{
-			last_R_capacity = REG_OCU_REL_SOC_R;
-			low_capacity_counter++;
-
-		}*/
-
     initial_low_capacity_counter++;
     if(initial_low_capacity_counter > 1000)
       initial_low_capacity_counter = 2000;
 
     if( ((REG_OCU_REL_SOC_L == 0 ) || (REG_OCU_REL_SOC_R == 0 )) && (initial_low_capacity_counter < 1000) )   
-    //if((REG_OCU_REL_SOC_L == 0 ) || (REG_OCU_REL_SOC_R == 0 ))
     {
       //initally, relative SOC registers will be 0.  Let's not turn off due to low capacity until we get a
       //valid capacity reading, or the counter goes too high.
@@ -1126,132 +927,6 @@ void handle_power_button(void)
 	//static unsigned char computer_on_flag = 0;
 	static unsigned char power_button_press_counter = 0;
 	power_button_press_counter= 0;
-/*	if(computer_on_flag == 0)
-	{
-
-		if(POWER_BUTTON())
-		{
-
-				if(battery_too_low == 0)
-				{	
-					computer_on_flag = 1;
-					V3V3_ON(1);
-					V5V_ON(1);
-					V12V_ON(1);
-					block_ms(100);
-					while(SUS_S5() | SUS_S3());
-					RED_LED_ON(1);
-					while(!SUS_S5());
-	
-					GREEN_LED_ON(1);
-					COMPUTER_PWR_OK(1);
-	
-					
-	
-	
-					set_backlight_brightness(100);
-					
-	
-					turned_on_latch++;
-					while(POWER_BUTTON());
-					while(!SUS_S3());
-				//	block_ms(5000);					
-
-
-					RED_LED_ON(0);
-					block_ms(250);
-					initialize_i2c_devices();
-					init_fan_controller();
-				}
-				else
-				{
-					RED_LED_ON(0);
-					GREEN_LED_ON(0);
-					for(i=0;i<10;i++)
-					{
-						RED_LED_ON(1);
-						block_ms(50);
-						RED_LED_ON(0);
-						block_ms(50);
-					}
-				}
-
-		}
-
-
-	}
-	else
-	{
-
-			while(POWER_BUTTON())
-			{
-				power_button_press_counter++;
-				if(power_button_press_counter > 10)
-				{
-					
-					computer_on_flag = 0;
-					GREEN_LED_ON(0);
-					V3V3_ON(0);
-					V5V_ON(0);
-					V12V_ON(0);
-					COMPUTER_PWR_OK(0);
-
-				//	block_ms(100);
-					power_button_press_counter = 0;
-					
-					break;
-				}
-				block_ms(100);
-			}
-			//if we've switched off power supplies but the power button is still depressed, block until it is released
-			if(computer_on_flag == 0)
-			{
-
-
-				while(POWER_BUTTON())
-				{
-					power_button_press_counter++;
-					if(power_button_press_counter > 40)
-					{
-						
-					}
-					if(power_button_press_counter > 50)
-					{
-					
-
-	
-							V5V_ON(1);
-							V12V_ON(1);
-							RED_LED_ON(1);
-							GREEN_LED_ON(1);
-							while(!SUS_S5())
-							COMPUTER_PWR_OK(1);
-							while(!SUS_S3());
-							V3V3_ON(1);
-							block_ms(1000);
-							GREEN_LED_ON(0);
-							V3V3_ON(0);
-							V5V_ON(0);
-							V12V_ON(0);
-							COMPUTER_PWR_OK(0);
-							RED_LED_ON(0);
-							while(POWER_BUTTON());
-
-
-							
-							
-
-
-						//__asm__ volatile ("RESET");
-					}
-					block_ms(100);
-				}
-				power_button_press_counter = 0;
-			}
-		//a little delay for debouncing
-	
-
-	}*/
 
 			if(PWR_BUTTON() && (computer_on_flag == 0) )
 			{
