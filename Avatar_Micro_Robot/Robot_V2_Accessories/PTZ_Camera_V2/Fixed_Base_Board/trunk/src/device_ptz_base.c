@@ -581,6 +581,7 @@ void DevicePTZBaseProcessIO()
   {
     _LATB3 = 0;
     block_ms(200);
+    REG_CAMERA_BASE_POWER_DOWN = 0;
   }
   else
     _LATB3 = 1;
