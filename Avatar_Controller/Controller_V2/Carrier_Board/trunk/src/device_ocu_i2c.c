@@ -47,6 +47,8 @@ unsigned char fan_speed = 0;
 unsigned int battery_status = 0;
 unsigned int battery_temperature = 0;
 
+#define NUM_I2C1_MESSAGES   9
+
 void init_i2c(void)
 {
 	I2C2CON = 0x1000;
@@ -932,7 +934,9 @@ void ocu_i2c1_fsm(void)
 	static unsigned char last_i2c1_device_state = 0;
 	static unsigned char ocu_i2c1_busy = 0;
 	static unsigned int timeout_counter = 0;
+  static unsigned char i2c_message_failures[NUM_I2C1_MESSAGES] = {0,0,0,0,0,0,0,0,0};
   unsigned char dummy = 0;
+  unsigned char i;
 
 	last_i2c1_device_state = i2c1_device_state;
 
@@ -944,6 +948,8 @@ void ocu_i2c1_fsm(void)
 	//If the interrupt FSM has finished, load the data into the registers
 	if(ocu_i2c1_receive_word_completed == 1)
 	{
+    //clear timeout counter since we've receive a valid message
+    i2c_message_failures[i2c1_device_state] = 0;
 
 		ocu_i2c1_busy = 0;
 
@@ -1098,7 +1104,7 @@ void ocu_i2c1_fsm(void)
 //		testb[9] = i2c1_device_state;
 //		testb[4]++;
 		//i2c1_device_state++;
-		i2c1_device_state++;
+
 		ocu_i2c1_rx_byte1 = 0xff;
 		ocu_i2c1_rx_byte2 = 0xff;
 		ocu_i2c1_rx_byte3 = 0xff;
@@ -1115,17 +1121,66 @@ void ocu_i2c1_fsm(void)
 		I2C1STAT = 0;
     //read I2C1RCV to clear RBF
     dummy = I2C1RCV;
+
+
+    i2c_message_failures[i2c1_device_state]++;
+
     
 		block_ms(100);
 
 		ocu_i2c1_receive_word_completed = 0;
 		ocu_i2c1_busy = 0;
 		timeout_counter = 0;
-    i2c1_device_state = 0;
+    i2c1_device_state++;
+    if(i2c1_device_state > NUM_I2C1_MESSAGES)
+       i2c1_device_state = 0;
 		
 
 	}
 
 
+  for(i=0;i<NUM_I2C1_MESSAGES;i++)
+  {
+    if(i2c_message_failures[i] > 5)
+    {
+      i2c_message_failures[i] = 0;
+
+      switch(i)
+      {
+  			case 0x00:
+   				REG_OCU_BATT_VOLTAGE = 0xffff;  
+  			break;  			
+  			case 0x01: 				
+  				REG_OCU_REL_SOC_R = 0xffff;  				
+  			break;  
+  			case 0x02: 				
+  				REG_OCU_BATT_ABS_SOC = 0xffff;			
+  			break;
+  			case 0x03:  				
+  				REG_OCU_BATT_REM_CAP = 0xffff; 				
+  			break;
+  			case 0x04:
+          battery_status = 0xffff;
+        break;  
+  			case 0x05:
+  				right_battery_current = 0xffff;
+  			break;  
+  			case 0x06:
+  				battery_temperature = 0xffff;
+  			break;  
+  			case 0x07:
+  				REG_OCU_REL_SOC_L = 0xffff;
+  			break;  
+  			case 0x08:
+  				left_battery_current = 0xffff;
+  			break;  
+  			default:
+  			break;
+  	
+  		}
+
+      }
+      
+    }
 
 }

@@ -780,8 +780,14 @@ void handle_gas_gauge(void)
   static unsigned int initial_low_capacity_counter = 0;
   unsigned char i;
 
- 
-  REG_OCU_BATT_CURRENT = left_battery_current+right_battery_current;
+  if( (left_battery_current == 0xffff) || (right_battery_current == 0xffff))
+  {
+    REG_OCU_BATT_CURRENT = 0xffff;
+  }
+  else
+  {
+    REG_OCU_BATT_CURRENT = left_battery_current+right_battery_current;
+  }
 
 	if( (REG_OCU_REL_SOC_L < BATTERY_SOC_CUTOFF) || (REG_OCU_REL_SOC_R < BATTERY_SOC_CUTOFF) )
 	{
@@ -798,39 +804,11 @@ void handle_gas_gauge(void)
     { 
       low_capacity_counter++;
     }
-
-
-		//if counter gets to 10 different readings, shut off
-		if(low_capacity_counter >= 10)
-		{
-		//only shut off everything if the adapter isn't plugged in
-			if(!CHARGER_ACOK())
-			{
-				battery_too_low = 1;
-				computer_on_flag = 0;
-				GREEN_LED_ON(0);
-				RED_LED_ON(0);
-				V3V3_ON(0);
-				V5V_ON(0);
-				V12V_ON(0);
-				COMPUTER_PWR_OK(0);
-        for(i=0;i<4;i++)
-        {
-          RED_LED_ON(1);
-          block_ms(200);
-          RED_LED_ON(0);
-          block_ms(200);
-        }
-        PWR_KILL_ON(1);
-        block_ms(100);
-			}
-			low_capacity_counter = 200;
-		}
-
-
 	}
-  //if we're getting an invalid measurement
-  else if( (REG_OCU_REL_SOC_L == 255) || (REG_OCU_REL_SOC_R == 255) )
+
+  //if we're getting bad SOC data on both the batteries -- if we have a valid measurement on just one, then we'll assume
+  //that the other battery approximates the SOC of the one we have an invalid measurement for.
+  else if( (REG_OCU_REL_SOC_L == 0xffff) && (REG_OCU_REL_SOC_R == 0xffff) )
   {
       low_capacity_counter++;
   }
@@ -840,6 +818,33 @@ void handle_gas_gauge(void)
     battery_too_low = 0;
 
   }
+
+	//if counter gets to 10 different readings, shut off
+	if(low_capacity_counter >= 10)
+	{
+	//only shut off everything if the adapter isn't plugged in
+		if(!CHARGER_ACOK())
+		{
+			battery_too_low = 1;
+			computer_on_flag = 0;
+			GREEN_LED_ON(0);
+			RED_LED_ON(0);
+			V3V3_ON(0);
+			V5V_ON(0);
+			V12V_ON(0);
+			COMPUTER_PWR_OK(0);
+      for(i=0;i<4;i++)
+      {
+        RED_LED_ON(1);
+        block_ms(200);
+        RED_LED_ON(0);
+        block_ms(200);
+      }
+      PWR_KILL_ON(1);
+      block_ms(100);
+		}
+		low_capacity_counter = 200;
+	}
 
 
 
