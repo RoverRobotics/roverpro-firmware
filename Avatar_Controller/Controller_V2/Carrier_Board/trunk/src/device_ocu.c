@@ -206,6 +206,10 @@ unsigned char battery_too_low = 0;
 unsigned int lowest_battery_voltage = 20000;
 unsigned int last_battery_voltage = 0;
 
+
+int left_battery_current = 0;
+int right_battery_current = 0;
+
 void usb_dummy(void);
 
 
@@ -694,19 +698,22 @@ void DeviceOcuProcessIO()
 	handle_charging();
 	handle_gas_gauge();
 
-	if(MENU_BUTTON() && TALK_BUTTON() && LIGHT_BUTTON())
-	{
-		while(MENU_BUTTON() || TALK_BUTTON() || LIGHT_BUTTON())
-		{
-			RED_LED_ON(1);
-			GREEN_LED_ON(1);
-			//ClrWdt();
-			if(computer_on_flag == 0)
-				break;
-
-		}
-			RED_LED_ON(0);
-	}
+  //I need to check if the computer is on, since these buttons are "pressed" when the power supply
+  //if soff
+  if(computer_on_flag)
+  {
+  	if(MENU_BUTTON() && TALK_BUTTON() && LIGHT_BUTTON())
+  	{
+  		while(MENU_BUTTON() || TALK_BUTTON() || LIGHT_BUTTON())
+  		{
+  			RED_LED_ON(1);
+  			GREEN_LED_ON(1);
+  			//ClrWdt();
+  		}
+  			RED_LED_ON(0);
+        //GREEN_LED_ON(0);
+  	}
+  }
 
 
 	if( (computer_on_flag) && (NC_THERM_TRIP==0) )
@@ -740,15 +747,20 @@ void DeviceOcuProcessIO()
 
 	//computer has shut down.  turn off power supplies
 	if( (SUS_S3()==0) && (SUS_S5() == 0) && (computer_on_flag == 1))
+//  if( (SUS_S3()==0) && (SUS_S5() == 0) )
 	{
-					computer_on_flag = 0;
-					GREEN_LED_ON(0);
-					V3V3_ON(0);
-					V5V_ON(0);
-					V12V_ON(0);
-					COMPUTER_PWR_OK(0);
-					PWR_KILL_ON(1);
-					block_ms(100);
+          block_ms(50);
+          if(PWR_BUTTON() == 0)
+          {
+  					computer_on_flag = 0;
+  					GREEN_LED_ON(0);
+  					V3V3_ON(0);
+  					V5V_ON(0);
+  					V12V_ON(0);
+  					COMPUTER_PWR_OK(0);
+  					PWR_KILL_ON(1);
+  					block_ms(100);
+          }
 	}
 
 //	while(!POWER_BUTTON());
@@ -769,6 +781,8 @@ void handle_gas_gauge(void)
   unsigned char i;
 
  
+  REG_OCU_BATT_CURRENT = left_battery_current+right_battery_current;
+
 	if( (REG_OCU_REL_SOC_L < BATTERY_SOC_CUTOFF) || (REG_OCU_REL_SOC_R < BATTERY_SOC_CUTOFF) )
 	{
     initial_low_capacity_counter++;
@@ -826,6 +840,8 @@ void handle_gas_gauge(void)
     battery_too_low = 0;
 
   }
+
+
 
 
 	//turn on red LED to indicate charging, but only if computer is off
@@ -931,8 +947,6 @@ void handle_power_button(void)
 			if(PWR_BUTTON() && (computer_on_flag == 0) )
 			{
 
-				if(computer_on_flag == 0)
-				{
 					set_backlight_brightness(50);
 
 					//CAMERA_PWR_ON(1);
@@ -948,7 +962,7 @@ void handle_power_button(void)
 					}
 					
 
-				}
+				
 			}
 
 

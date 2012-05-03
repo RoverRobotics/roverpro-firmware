@@ -64,7 +64,7 @@ void init_i2c(void)
 	IEC3bits.MI2C2IE = 0;
 
 
-	I2C1InterruptUserFunction = ocu_i2c1_isr;
+	I2C1InterruptUserFunction=ocu_i2c1_isr;
 	
 	I2C1CON = 0x1000;
 
@@ -570,6 +570,7 @@ void ocu_batt_i2c_fsm(void)
 		OCU_Batt_I2C2_state = 0x0f;
 		
 		//I2C2CONbits.PEN = 1;
+    I2C1CONbits.RCEN = 0;
 		block_ms(100);
 
 		I2C2STAT = 0;
@@ -976,7 +977,7 @@ void ocu_i2c1_fsm(void)
 			break;
 
 			case 0x05:
-				REG_OCU_BATT_CURRENT = ocu_i2c1_rx_byte1 + (ocu_i2c1_rx_byte2<<8);
+				right_battery_current = ocu_i2c1_rx_byte1 + (ocu_i2c1_rx_byte2<<8);
 				i2c1_device_state++;
 			break;
 
@@ -987,7 +988,12 @@ void ocu_i2c1_fsm(void)
 
 			case 0x07:
 				REG_OCU_REL_SOC_L = ocu_i2c1_rx_byte1 + (ocu_i2c1_rx_byte2<<8);
-				i2c1_device_state = 0;
+				i2c1_device_state++;
+			break;
+
+			case 0x08:
+				left_battery_current = ocu_i2c1_rx_byte1 + (ocu_i2c1_rx_byte2<<8);
+				i2c1_device_state=0;
 			break;
 
 			default:
@@ -1052,6 +1058,11 @@ void ocu_i2c1_fsm(void)
 				ocu_i2c1_message_length = 2;
 				start_ocu_i2c1_i2c_read(SMBUS_ADD_BQ2060A,0x0d);
 			break;
+			case 0x08:
+				ocu_i2c1_interrupt_state = 0x00;
+				ocu_i2c1_message_length = 2;
+				start_ocu_i2c1_i2c_read(SMBUS_ADD_BQ2060A,0x0a);
+			break;
 			default:
 				i2c1_device_state = 0;
 				ocu_i2c1_busy = 0;
@@ -1088,11 +1099,12 @@ void ocu_i2c1_fsm(void)
 		
 		//I2C1CONbits.PEN = 1;
 		block_ms(100);
-
+    I2C1CONbits.RCEN = 0;
 		I2C1STAT = 0;
 		ocu_i2c1_receive_word_completed = 0;
 		ocu_i2c1_busy = 0;
 		timeout_counter = 0;
+    i2c1_device_state = 0;
 		
 
 	}

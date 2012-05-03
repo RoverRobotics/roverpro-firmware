@@ -10,6 +10,9 @@ void ocu_batt_smbus_isr(void);
 
 void init_i2c(void);
 
+extern int left_battery_current;
+extern int right_battery_current;
+
 
 #define TOUCH_CONTROLLER_I2C_ADD 0x4d
 #define SMBUS_ADD_TMP112_2 0x48
