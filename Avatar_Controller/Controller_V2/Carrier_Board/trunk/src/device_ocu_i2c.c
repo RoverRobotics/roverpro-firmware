@@ -350,6 +350,7 @@ void ocu_batt_i2c_fsm(void)
 	static unsigned char last_i2c_interrupt_state = 0;
 	static unsigned char ocu_batt_i2c_busy = 0;
 	static unsigned int timeout_counter = 0;
+  unsigned char dummy = 0;
 
 	last_i2c_interrupt_state = i2c_interrupt_state;
 
@@ -569,8 +570,14 @@ void ocu_batt_i2c_fsm(void)
 		ocu_batt_i2c_rx_byte4 = 0xff;
 		OCU_Batt_I2C2_state = 0x0f;
 		
-		//I2C2CONbits.PEN = 1;
-    I2C1CONbits.RCEN = 0;
+    I2C2CONbits.RCEN = 0;
+    I2C2CONbits.ACKEN = 0;
+    I2C2CONbits.PEN = 0;
+    I2C2CONbits.RSEN = 0;
+    I2C2CONbits.SEN = 0;
+		I2C2STAT = 0;
+    //read I2C2RCV to clear RBF
+    dummy = I2C2RCV;
 		block_ms(100);
 
 		I2C2STAT = 0;
@@ -925,6 +932,7 @@ void ocu_i2c1_fsm(void)
 	static unsigned char last_i2c1_device_state = 0;
 	static unsigned char ocu_i2c1_busy = 0;
 	static unsigned int timeout_counter = 0;
+  unsigned char dummy = 0;
 
 	last_i2c1_device_state = i2c1_device_state;
 
@@ -1098,9 +1106,18 @@ void ocu_i2c1_fsm(void)
 		ocu_i2c1_interrupt_state = 0x00;
 		
 		//I2C1CONbits.PEN = 1;
-		block_ms(100);
+
     I2C1CONbits.RCEN = 0;
+    I2C1CONbits.ACKEN = 0;
+    I2C1CONbits.PEN = 0;
+    I2C1CONbits.RSEN = 0;
+    I2C1CONbits.SEN = 0;
 		I2C1STAT = 0;
+    //read I2C1RCV to clear RBF
+    dummy = I2C1RCV;
+    
+		block_ms(100);
+
 		ocu_i2c1_receive_word_completed = 0;
 		ocu_i2c1_busy = 0;
 		timeout_counter = 0;
