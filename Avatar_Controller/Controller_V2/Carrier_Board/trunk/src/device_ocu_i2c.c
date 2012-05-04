@@ -597,8 +597,9 @@ void ocu_batt_i2c_fsm(void)
 		ocu_batt_i2c_rx_byte2 = 0xff;
 		ocu_batt_i2c_rx_byte3 = 0xff;
 		ocu_batt_i2c_rx_byte4 = 0xff;
-		OCU_Batt_I2C2_state = 0x0f;
+		OCU_Batt_I2C2_state = 0x00;
 		
+    _MI2C2IF = 0;
     I2C2CONbits.RCEN = 0;
     I2C2CONbits.ACKEN = 0;
     I2C2CONbits.PEN = 0;
@@ -607,9 +608,27 @@ void ocu_batt_i2c_fsm(void)
 		I2C2STAT = 0;
     //read I2C2RCV to clear RBF
     dummy = I2C2RCV;
+		I2C2STAT = 0;
+
+
+  //bring down i2c interface and turn off interrupt
+  //reenable after 100ms
+  //This is the only way I could get i2c communication to come back after
+  //the interrupts stopped firing on Hermes
+  I2C2CON = 0;
+  I2C2STAT = 0;
+  IEC3bits.MI2C2IE = 0;
+  
+
+    
 		block_ms(100);
 
-		I2C2STAT = 0;
+
+  I2C2CONbits.I2CEN = 1;
+
+  
+
+
 		ocu_batt_receive_word_completed = 0;
 		ocu_batt_i2c_busy = 0;
 		timeout_counter = 0;
