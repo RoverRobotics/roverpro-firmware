@@ -674,8 +674,8 @@ void DeviceOcuInit()
 
 	ocu_gps_init();	
 
-	REG_OCU_BACKLIGHT_BRIGHTNESS = 50;
-	set_backlight_brightness(50);
+	REG_OCU_BACKLIGHT_BRIGHTNESS = 0;
+//	set_backlight_brightness(50);
 
 
 
@@ -683,6 +683,7 @@ void DeviceOcuInit()
 
 void DeviceOcuProcessIO()
 {
+  static unsigned int initial_backlight_counter = 0;
 	main_loop_counter++;
 
 	handle_power_button();
@@ -766,6 +767,34 @@ void DeviceOcuProcessIO()
 //	while(!POWER_BUTTON());
 //	GREEN_LED_ON(1);
 
+
+  //implement a timeout on the black screen
+  //if software doesn't start, or BIOS needs to be changed
+  //we'll be able to see the screen
+  if(computer_on_flag)
+  {
+    if(REG_OCU_BACKLIGHT_BRIGHTNESS == 0)
+    {
+      if(initial_backlight_counter > 300)
+      {
+        initial_backlight_counter = 301;
+        REG_OCU_BACKLIGHT_BRIGHTNESS = 50;
+      }
+      else
+      {
+        initial_backlight_counter++;
+        block_ms(100);
+      }
+    }
+  }
+  //if the computer is off, reset the backlight counter and register,
+  //so that the backlight stays off during power cycles when
+  //the AC adapter is plugged in
+  else
+  {
+      REG_OCU_BACKLIGHT_BRIGHTNESS = 0;
+      initial_backlight_counter = 0;
+  }
 
 	set_backlight_brightness(REG_OCU_BACKLIGHT_BRIGHTNESS);
 
@@ -952,7 +981,7 @@ void handle_power_button(void)
 			if(PWR_BUTTON() && (computer_on_flag == 0) )
 			{
 
-					set_backlight_brightness(50);
+//					set_backlight_brightness(50);
 
 					CAMERA_PWR_ON(1);
 
@@ -1099,8 +1128,8 @@ void init_fan_controller(void)
 
 
 	//fan turns on at 0C
-	/*start_ocu_batt_i2c_write(I2C_ADD_FAN_CONTROLLER,0x10,15);	
-  block_ms(500);*/
+	start_ocu_batt_i2c_write(I2C_ADD_FAN_CONTROLLER,0x10,0);	
+  block_ms(200);
 	//fan turns on at 35C
 	start_ocu_batt_i2c_write(I2C_ADD_FAN_CONTROLLER,0x10,35);
 
