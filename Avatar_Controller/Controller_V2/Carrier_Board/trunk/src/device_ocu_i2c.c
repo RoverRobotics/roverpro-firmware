@@ -442,6 +442,18 @@ void ocu_batt_i2c_fsm(void)
 			break;
 			case 0x0c:
 				fan_speed = ocu_batt_i2c_rx_byte1;
+				i2c_interrupt_state++;
+			break;
+			case 0x0d:
+        //charging voltage write
+				i2c_interrupt_state++;
+			break;
+			case 0x0e:
+        //charging current write
+				i2c_interrupt_state++;
+			break;
+			case 0x0f:
+        //input current write
 				i2c_interrupt_state = 0;
 			break;
 			default:
@@ -537,6 +549,21 @@ void ocu_batt_i2c_fsm(void)
 				//start_ocu_batt_i2c_read(I2C_ADD_FAN_CONTROLLER,0x0d);
 				start_ocu_batt_i2c_read(I2C_ADD_FAN_CONTROLLER,0x1c);
 			break;
+			case 0x0d:
+				OCU_Batt_I2C2_state = 0x00;
+				ocu_batt_i2c_message_length = 2;
+				start_ocu_batt_i2c_write(SMBUS_ADD_BQ24745,0x15,0x41a0);
+			break;
+			case 0x0e:
+				OCU_Batt_I2C2_state = 0x00;
+				ocu_batt_i2c_message_length = 2;
+				start_ocu_batt_i2c_write(SMBUS_ADD_BQ24745,0x14,0x0bb8);
+			break;
+			case 0x0f:
+				OCU_Batt_I2C2_state = 0x00;
+				ocu_batt_i2c_message_length = 2;
+				start_ocu_batt_i2c_write(SMBUS_ADD_BQ24745,0x3f,0x0bb8);
+			break;
 
 			default:
 				i2c_interrupt_state = 0;
@@ -560,7 +587,7 @@ void ocu_batt_i2c_fsm(void)
 		block_ms(1);
 	}
 
-	else if(timeout_counter > 200)
+  if(timeout_counter > 200)
 	{
 
 

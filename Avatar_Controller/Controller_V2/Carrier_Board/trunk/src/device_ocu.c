@@ -954,7 +954,7 @@ void handle_power_button(void)
 
 					set_backlight_brightness(50);
 
-					//CAMERA_PWR_ON(1);
+					CAMERA_PWR_ON(1);
 
 					if(DeviceControllerBoot() )
 					{
@@ -1097,10 +1097,12 @@ void init_fan_controller(void)
 	start_ocu_batt_i2c_write(I2C_ADD_FAN_CONTROLLER,0x07,120);
 	block_ms(5);
 
+
+	//fan turns on at 0C
+	/*start_ocu_batt_i2c_write(I2C_ADD_FAN_CONTROLLER,0x10,15);	
+  block_ms(500);*/
 	//fan turns on at 35C
 	start_ocu_batt_i2c_write(I2C_ADD_FAN_CONTROLLER,0x10,35);
-	//fan turns on at 15C
-	//start_ocu_batt_i2c_write(I2C_ADD_FAN_CONTROLLER,0x10,15);	
 
 	
 	block_ms(5);
@@ -1434,12 +1436,16 @@ void handle_charging(void)
 
 		V3V3_ON(1);
 
+    last_charging = 1;
+    CHARGER_ON(1);
+/*
 		//this kind of messes with the i2c stuff, so I don't want to do it every time
 		if(charge_counter == 0)
 			{
 	
 				last_charging = 1;
 				//block_ms(500);
+        
 				block_ms(50);
 	//			RED_LED_ON(1);
 				block_ms(5);
@@ -1455,7 +1461,7 @@ void handle_charging(void)
 				//block_ms(500);
 	
 			}
-		charge_counter++;
+		charge_counter++;*/
 		
 		
 	}
