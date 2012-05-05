@@ -70,8 +70,8 @@
 #define MAX_WRIST_SPEED 50
 #define MAX_GRIPPER_SPEED 30
 
-#define MAX_GRIPPER_ACT 700
-#define MIN_GRIPPER_ACT 200
+#define MAX_GRIPPER_ACT 900
+#define MIN_GRIPPER_ACT 500
 
 #define USB_TIMEOUT_COUNTS 5
 
@@ -259,12 +259,12 @@ void Link2_Process_IO(void)
     //don't move the gripper motor unless the potentiometer is in the correct range:
     if(gripper_act_pot_value < MIN_GRIPPER_ACT)
     {
-      if(REG_ARM_MOTOR_VELOCITIES.gripper > 0)
+      if(REG_ARM_MOTOR_VELOCITIES.gripper < 0)
         adjusted_gripper_velocity = 0;
     }
     else if(gripper_act_pot_value > MAX_GRIPPER_ACT)
     {
-      if(REG_ARM_MOTOR_VELOCITIES.gripper < 0)
+      if(REG_ARM_MOTOR_VELOCITIES.gripper > 0)
         adjusted_gripper_velocity = 0;
     }
 
