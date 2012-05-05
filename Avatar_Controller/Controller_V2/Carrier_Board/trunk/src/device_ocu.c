@@ -875,23 +875,6 @@ void handle_gas_gauge(void)
 		low_capacity_counter = 200;
 	}
 
-
-
-
-	//turn on red LED to indicate charging, but only if computer is off
-	if(REG_OCU_BATT_CURRENT > 0)
-	{
-		if(computer_on_flag == 0)
-			RED_LED_ON(1);
-    else
-      RED_LED_ON(0);
-		
-	}
-	else
-	{
-		RED_LED_ON(0);
-	}
-
 }
 
 void ocu_gps_isr(void)
@@ -1502,6 +1485,19 @@ void handle_charging(void)
 		//RED_LED_ON(0);
 	}
 
+	//turn on red LED to indicate charging, but only if computer is off
+	if(REG_OCU_BATT_CURRENT > 0)
+	{
+		if(computer_on_flag == 0)
+			RED_LED_ON(1);
+    else
+      RED_LED_ON(0);
+		
+	}
+	else
+	{
+		RED_LED_ON(0);
+	}
 
 	//if(charge_counter > 1000)
 	//	charge_counter = 1000;

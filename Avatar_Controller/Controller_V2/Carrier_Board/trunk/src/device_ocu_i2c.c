@@ -552,7 +552,10 @@ void ocu_batt_i2c_fsm(void)
 			case 0x0d:
 				OCU_Batt_I2C2_state = 0x00;
 				ocu_batt_i2c_message_length = 2;
-				start_ocu_batt_i2c_write(SMBUS_ADD_BQ24745,0x15,0x41a0);
+        //16.8V charging voltage
+				//start_ocu_batt_i2c_write(SMBUS_ADD_BQ24745,0x15,0x41a0);
+        //16.5V charging voltage
+        start_ocu_batt_i2c_write(SMBUS_ADD_BQ24745,0x15,0x4074);
 			break;
 			case 0x0e:
 				OCU_Batt_I2C2_state = 0x00;
