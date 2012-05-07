@@ -86,6 +86,17 @@ char Is_CRC_valid(unsigned char* data, unsigned char length);
 void send_rs485_message(void);
 void motor_accel_loop(int desired_gripper_velocity, int desired_wrist_velocity);
 
+void calibrate_angle_sensor(void);
+unsigned int return_calibrated_angle(unsigned char pot_1_ch, unsigned char pot_2_ch, unsigned int offset_angle);
+unsigned int return_combined_pot_angle(unsigned char pot_1_ch, unsigned char pot_2_ch);
+unsigned int wrist_angle_offset = 0;
+unsigned int wrist_angle = 0;
+unsigned int test_wrist_pot1_angle = 0;
+unsigned int test_wrist_pot2_angle = 0;
+unsigned int test_wrist_pot1_value = 0;
+unsigned int test_wrist_pot2_value = 0;
+
+
 unsigned int gripper_pot_value, gripper_act_pot_value, elbow_pot_1_value, elbow_pot_2_value, wrist_pot_1_value, wrist_pot_2_value, thermistor_value = 0;
 unsigned char rs485_tx_message[RS485_TX_LENGTH];
 unsigned char rs485_tx_buffer[RS485_TX_LENGTH];
@@ -222,6 +233,8 @@ void Arm_Link2_Init(void)
   GRIPPER_COAST_ON(1);
   WRIST_COAST_ON(1);
 
+  calibrate_angle_sensor();
+
 }
 
 void Link2_Process_IO(void)
@@ -273,6 +286,8 @@ void Link2_Process_IO(void)
     block_ms(10);
   }
   
+  wrist_angle = return_calibrated_angle(WRIST_POT_1_CH, WRIST_POT_2_CH, wrist_angle_offset);
+
   #ifdef USB_TIMEOUT_ENABLED
     USB_timeout_counter++;
     if(USB_timeout_counter > USB_TIMEOUT_COUNTS)
@@ -610,4 +625,119 @@ void motor_accel_loop(int desired_gripper_velocity, int desired_wrist_velocity)
 
 
 }
+
+void calibrate_angle_sensor(void)
+{
+  wrist_angle_offset = return_combined_pot_angle(WRIST_POT_1_CH, WRIST_POT_2_CH);
+
+}
+unsigned int return_calibrated_angle(unsigned char pot_1_ch, unsigned char pot_2_ch, unsigned int offset_angle)
+{
+  unsigned int combined_pot_angle = 0;
+  unsigned int calibrated_angle = 0;
+  combined_pot_angle = return_combined_pot_angle(pot_1_ch, pot_2_ch);
+
+
+  if(combined_pot_angle < offset_angle)
+  {
+    calibrated_angle = 365+combined_pot_angle-offset_angle;
+  }
+  else
+  {
+    calibrated_angle = combined_pot_angle-offset_angle;
+  }
+
+  return calibrated_angle;
+
+}
+
+unsigned int return_combined_pot_angle(unsigned char pot_1_ch, unsigned char pot_2_ch)
+{
+  unsigned int combined_pot_value = 0;
+  unsigned int pot_1_value, pot_2_value = 0;
+  unsigned int combined_pot_angle = 0;
+  int temp1 = 0;
+  int temp2 = 0;
+  float scale_factor = 0;
+  
+  pot_1_value = return_adc_value(pot_1_ch);
+  pot_2_value = 1023-return_adc_value(pot_2_ch);
+
+
+  test_wrist_pot1_value = pot_1_value;
+  test_wrist_pot2_value = pot_2_value;
+
+ // test_wrist_pot1_angle = pot_1_value*.326+341.7;
+  test_wrist_pot1_angle = pot_1_value*.326+58.35;
+  if(test_wrist_pot1_angle > 360)
+  {
+    test_wrist_pot1_angle = test_wrist_pot1_angle -360;
+  }
+  test_wrist_pot2_angle = pot_2_value*.326+13.35;
+
+  //!!!!!!need to get full angle range out of this
+  //right now we only have 333 degrees
+  //maybe multiply by 360/333.3 somewhere?
+
+  //if pot 1 is out of linear range
+  if( (pot_1_value < 15) || (pot_1_value > 1015) )
+  {
+    //333.3 degrees, 1023 total counts, 333.3/1023 = .326
+    combined_pot_angle = pot_2_value*.326+13.35;
+  }
+  //if pot 2 is out of linear range
+  else if( (pot_2_value < 15) || (pot_2_value > 1015) )
+  {
+    //333.3 degrees, 1023 total counts, 333.3/1023 = .326
+    //13.35 degrees + 45 degrees = 58.35 degrees
+    combined_pot_angle = pot_1_value*.326+58.35;
+    if(combined_pot_angle > 360)
+    {
+      combined_pot_angle = combined_pot_angle - 360;
+    }
+  }
+  //if both pot 1 and pot 2 values are valid
+  else
+  {
+
+    //figure out which one is closest to the end of range
+    temp1 = pot_1_value - 512;
+    temp2 = pot_2_value - 512;
+
+    //offset, so that both pot values should be the same
+    //45/333.33*1023 = 138.1
+    pot_1_value = pot_1_value+138;
+    if(pot_1_value > 1023)
+      pot_1_value = pot_1_value-1023;
+  
+
+    //if pot1 is closer to the end of range
+    if(abs(temp1) > abs(temp2) )
+    {
+      scale_factor = ( 512-abs(temp1) )/ 512.0;
+      combined_pot_value = (pot_1_value*scale_factor + pot_2_value*(1-scale_factor));
+
+    }
+    //if pot2 is closer to the end of range
+    else
+    {
+
+      scale_factor = (512-abs(temp2) )/ 512.0;
+      combined_pot_value = (pot_2_value*scale_factor + pot_1_value*(1-scale_factor));
+
+    }
+
+    //333.3 degrees, 1023 total counts, 333.3/1023 = .326
+    combined_pot_angle = combined_pot_value*.326+13.35;
+
+  }
+
+
+
+
+  return combined_pot_angle;
+
+
+}
+
 
