@@ -110,7 +110,7 @@ static volatile int uartTxIndex = 0;
 // -------------------------------------------------------------------------
 // Motor Limits
 // -------------------------------------------------------------------------
-#define TILT_STEPPER_LOWER 530
+#define TILT_STEPPER_LOWER 490
 #define TILT_STEPPER_UPPER 780
 #define TILT_ANGLE_LOWER 5.0f
 #define TILT_ANGLE_UPPER 87.0f
