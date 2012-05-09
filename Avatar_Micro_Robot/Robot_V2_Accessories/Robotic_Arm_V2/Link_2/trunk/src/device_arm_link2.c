@@ -1,7 +1,7 @@
 #include "device_arm_link2.h"
 #include "stdhdr.h"
 
-#define USB_TIMEOUT_ENABLED
+//#define USB_TIMEOUT_ENABLED
 
 #define GRIPPER_BRAKE_EN(a)   _TRISB15 = !a
 #define GRIPPER_BRAKE_ON(a)   _LATB15 = a
@@ -96,6 +96,9 @@ char Is_CRC_valid(unsigned char* data, unsigned char length);
 void send_rs485_message(void);
 void motor_accel_loop(int desired_gripper_velocity, int desired_wrist_velocity);
 int return_adjusted_gripper_velocity(void);
+
+void test_arm_motors(void);
+void test_arm_motors_send_i2c(void);
 
 void calibrate_angle_sensor(void);
 unsigned int return_calibrated_angle(unsigned char pot_1_ch, unsigned char pot_2_ch, unsigned int offset_angle);
@@ -249,6 +252,8 @@ void Arm_Link2_Init(void)
 
   calibrate_angle_sensor();
 
+  test_arm_motors();
+
 }
 
 void Link2_Process_IO(void)
@@ -284,8 +289,8 @@ void Link2_Process_IO(void)
   {
     adjusted_gripper_velocity = return_adjusted_gripper_velocity();
 
-    //motor_accel_loop(adjusted_gripper_velocity, REG_ARM_MOTOR_VELOCITIES.wrist);
-    motor_accel_loop(0, REG_ARM_MOTOR_VELOCITIES.wrist);
+    motor_accel_loop(adjusted_gripper_velocity, REG_ARM_MOTOR_VELOCITIES.wrist);
+    //motor_accel_loop(0, REG_ARM_MOTOR_VELOCITIES.wrist);
 
     block_ms(10);
   }
@@ -751,7 +756,7 @@ unsigned int return_combined_pot_angle(unsigned char pot_1_ch, unsigned char pot
 //Note:   Closest to the gripper = 1023
 //        Furthest from the gripper = 0
 //        Positive gripper motor speed moves the motor
-//        closest to the gripper (open)
+//        closest to the gripper (to open)
 int return_adjusted_gripper_velocity(void)
 {
   int adjusted_gripper_velocity = 0;
@@ -759,15 +764,23 @@ int return_adjusted_gripper_velocity(void)
   unsigned int adjusted_gripper_pot_value = 0;
   int gripper_clutch_slip = 0;
 
+  REG_ARM_JOINT_POSITIONS.gripper = return_adc_value(GRIPPER_POT_CH);
+  REG_ARM_JOINT_POSITIONS.gripper_actuator = return_adc_value(GRIPPER_ACT_POT_CH);
+
+
+
   adjusted_gripper_velocity = REG_ARM_MOTOR_VELOCITIES.gripper;
 
   //don't move the gripper motor too close to a hard stop
-  if(gripper_act_pot_value < MIN_GRIPPER_ACT)
+
+  //gripper closed hard stop
+  if(REG_ARM_JOINT_POSITIONS.gripper_actuator < MIN_GRIPPER_ACT)
   {
     if(REG_ARM_MOTOR_VELOCITIES.gripper < 0)
       adjusted_gripper_velocity = 0;
   }
-  else if(gripper_act_pot_value > MAX_GRIPPER_ACT)
+  //gripper open hard stop
+  else if(REG_ARM_JOINT_POSITIONS.gripper_actuator > MAX_GRIPPER_ACT)
   {
     if(REG_ARM_MOTOR_VELOCITIES.gripper > 0)
       adjusted_gripper_velocity = 0;
@@ -855,6 +868,76 @@ int return_adjusted_gripper_velocity(void)
   }
   
   return adjusted_gripper_velocity;
+
+}
+
+void test_arm_motors(void)
+{
+  unsigned int i,j;
+
+	IEC0bits.U1RXIE = 0;
+
+
+  block_ms(3000);
+
+  REG_ARM_MOTOR_VELOCITIES.turret = 20;
+  test_arm_motors_send_i2c();
+  REG_ARM_MOTOR_VELOCITIES.turret = -20;
+  test_arm_motors_send_i2c();
+  REG_ARM_MOTOR_VELOCITIES.turret = 0;
+  REG_ARM_MOTOR_VELOCITIES.shoulder = 20;
+  test_arm_motors_send_i2c();
+  REG_ARM_MOTOR_VELOCITIES.shoulder = -20;
+  test_arm_motors_send_i2c();
+  REG_ARM_MOTOR_VELOCITIES.shoulder = 0;
+  REG_ARM_MOTOR_VELOCITIES.elbow = 20;
+  test_arm_motors_send_i2c();
+  REG_ARM_MOTOR_VELOCITIES.elbow = -20;
+  test_arm_motors_send_i2c();
+  REG_ARM_MOTOR_VELOCITIES.elbow = 0;
+  test_arm_motors_send_i2c();
+
+  REG_ARM_MOTOR_VELOCITIES.wrist = 20;
+  for(i=0;i<30;i++)
+  {
+    ClrWdt();
+    motor_accel_loop(0, REG_ARM_MOTOR_VELOCITIES.wrist);
+    block_ms(10);
+  }
+  REG_ARM_MOTOR_VELOCITIES.wrist = -20;
+  motor_accel_loop(0, 0);
+  block_ms(100);
+  for(i=0;i<30;i++)
+  {
+    ClrWdt();
+    motor_accel_loop(0, REG_ARM_MOTOR_VELOCITIES.wrist);
+    block_ms(10);
+  }
+  set_wrist_velocity(0);
+
+  while(1)
+  {
+    ClrWdt();
+  }
+
+}
+void test_arm_motors_send_i2c(void)
+{
+  unsigned int i;
+
+  
+  for(i=0;i<3;i++)
+  {
+    RS485_OUTEN_ON(1);
+    ClrWdt();
+    send_rs485_message();
+    //wait for message to finish sending
+    while(rs485_transmitting);
+    //wait for final byte to finish before changing to RX mode
+    while(U1STAbits.TRMT == 0);
+    RS485_OUTEN_ON(0);
+    block_ms(100);
+  }
 
 }
 
