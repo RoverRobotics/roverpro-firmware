@@ -73,6 +73,16 @@
 #define MAX_GRIPPER_ACT 900
 #define MIN_GRIPPER_ACT 500
 
+//number of ADC counts that gripper pot differs from gripper actuator pot
+//gripper potentiometer is ~8.5mm closer to the gripper
+//8.5mm*1023counts/45mm = 193 counts
+#define GRIPPER_OFFSET 193
+
+//max number of ADC counts the gripper can slip the clutch before the motor
+//stops driving it in that direction
+//4.25mm*1023 counts/45mm = 96.6 counts
+#define MAX_GRIPPER_SLIP 96 
+
 #define USB_TIMEOUT_COUNTS 5
 
 
@@ -85,6 +95,7 @@ unsigned int return_CRC(unsigned char* data, unsigned char length);
 char Is_CRC_valid(unsigned char* data, unsigned char length);
 void send_rs485_message(void);
 void motor_accel_loop(int desired_gripper_velocity, int desired_wrist_velocity);
+int return_adjusted_gripper_velocity(void);
 
 void calibrate_angle_sensor(void);
 unsigned int return_calibrated_angle(unsigned char pot_1_ch, unsigned char pot_2_ch, unsigned int offset_angle);
@@ -95,6 +106,9 @@ unsigned int test_wrist_pot1_angle = 0;
 unsigned int test_wrist_pot2_angle = 0;
 unsigned int test_wrist_pot1_value = 0;
 unsigned int test_wrist_pot2_value = 0;
+
+char gripper_clutch_reset_direction = 0;
+unsigned char gripper_clutch_reset_in_progress = 0;
 
 
 unsigned int gripper_pot_value, gripper_act_pot_value, elbow_pot_1_value, elbow_pot_2_value, wrist_pot_1_value, wrist_pot_2_value, thermistor_value = 0;
@@ -268,20 +282,10 @@ void Link2_Process_IO(void)
   //pretty dumb control loop
   for(i=0;i<10;i++)
   {
-    adjusted_gripper_velocity = REG_ARM_MOTOR_VELOCITIES.gripper;
-    //don't move the gripper motor unless the potentiometer is in the correct range:
-    if(gripper_act_pot_value < MIN_GRIPPER_ACT)
-    {
-      if(REG_ARM_MOTOR_VELOCITIES.gripper < 0)
-        adjusted_gripper_velocity = 0;
-    }
-    else if(gripper_act_pot_value > MAX_GRIPPER_ACT)
-    {
-      if(REG_ARM_MOTOR_VELOCITIES.gripper > 0)
-        adjusted_gripper_velocity = 0;
-    }
+    adjusted_gripper_velocity = return_adjusted_gripper_velocity();
 
-    motor_accel_loop(adjusted_gripper_velocity, REG_ARM_MOTOR_VELOCITIES.wrist);
+    //motor_accel_loop(adjusted_gripper_velocity, REG_ARM_MOTOR_VELOCITIES.wrist);
+    motor_accel_loop(0, REG_ARM_MOTOR_VELOCITIES.wrist);
 
     block_ms(10);
   }
@@ -737,6 +741,120 @@ unsigned int return_combined_pot_angle(unsigned char pot_1_ch, unsigned char pot
 
   return combined_pot_angle;
 
+
+}
+
+
+//make sure gripper actuator doesn't hit hard stop.  Also, stop the
+//gripper motor from slipping the clutch too far.
+//
+//Note:   Closest to the gripper = 1023
+//        Furthest from the gripper = 0
+//        Positive gripper motor speed moves the motor
+//        closest to the gripper (open)
+int return_adjusted_gripper_velocity(void)
+{
+  int adjusted_gripper_velocity = 0;
+  adjusted_gripper_velocity = REG_ARM_MOTOR_VELOCITIES.gripper;
+  unsigned int adjusted_gripper_pot_value = 0;
+  int gripper_clutch_slip = 0;
+
+  adjusted_gripper_velocity = REG_ARM_MOTOR_VELOCITIES.gripper;
+
+  //don't move the gripper motor too close to a hard stop
+  if(gripper_act_pot_value < MIN_GRIPPER_ACT)
+  {
+    if(REG_ARM_MOTOR_VELOCITIES.gripper < 0)
+      adjusted_gripper_velocity = 0;
+  }
+  else if(gripper_act_pot_value > MAX_GRIPPER_ACT)
+  {
+    if(REG_ARM_MOTOR_VELOCITIES.gripper > 0)
+      adjusted_gripper_velocity = 0;
+  }
+
+  //if the clutch has slipped too much, don't let the actuator slip
+  //it further
+  if(REG_ARM_JOINT_POSITIONS.gripper > GRIPPER_OFFSET)
+  {
+    adjusted_gripper_pot_value = REG_ARM_JOINT_POSITIONS.gripper-GRIPPER_OFFSET;
+  }
+  else
+  {
+    adjusted_gripper_pot_value = 0;
+  }
+
+  gripper_clutch_slip = adjusted_gripper_pot_value-REG_ARM_JOINT_POSITIONS.gripper_actuator;
+
+  //if the gripper is opening, and there is too much negative slip, stop the motor
+  if( (adjusted_gripper_velocity > 0) && (gripper_clutch_slip < -MAX_GRIPPER_SLIP) )
+  {
+    adjusted_gripper_velocity = 0;
+    gripper_clutch_reset_direction = -1;
+    gripper_clutch_reset_in_progress = 1;
+  }
+  //if the gripper is closing, and there is too much positive slip, stop the motor
+  else if( (adjusted_gripper_velocity < 0) && (gripper_clutch_slip > MAX_GRIPPER_SLIP) )
+  {
+    adjusted_gripper_velocity = 0;
+    gripper_clutch_reset_direction = 1;
+    gripper_clutch_reset_in_progress = 1;
+  }
+  //clutch hasn't slipped too much
+
+
+  //make sure that the clutch doesn't slip to MAX_GRIPPER_SLIP during a reset,
+  //since we want it to be relatively centered
+  if(gripper_clutch_reset_in_progress)
+  {
+    if(gripper_clutch_reset_direction == 1)
+    {
+      //if the gripper is opening, and the slip has swung the other direction
+      if ( (adjusted_gripper_velocity > 0) && (gripper_clutch_slip <= 0))
+      {
+        gripper_clutch_reset_in_progress = 0;
+        adjusted_gripper_velocity = 0;
+      }
+    }
+    //gripper needs to close to reset clutch
+    else if(gripper_clutch_reset_direction == -1)
+    {
+      if ( (adjusted_gripper_velocity < 0) && (gripper_clutch_slip >= 0))
+      {
+        gripper_clutch_reset_in_progress = 0;
+        adjusted_gripper_velocity = 0;
+      }
+  
+    }
+  }
+
+
+
+  //if the clutch has been reset, don't keep moving it past the reset point
+  //once the motor reverses direction, clear the gripper_clutch_reset_direction variable
+  //so that non-reset behavior resumes (e.g. slipping to MAX_GRIPPER_SLIP)
+  if( (gripper_clutch_reset_direction != 0) && (gripper_clutch_reset_in_progress == 0) )
+  {
+    //if we had to close the gripper to reset, don't keep closing past the center point of the clutch
+    if(gripper_clutch_reset_direction == 1)
+    {
+      if(adjusted_gripper_velocity < 0)
+        gripper_clutch_reset_direction = 0;
+      else
+        adjusted_gripper_velocity = 0;
+
+    }
+    //if we had to open the gripper to reset, don't keep opening past the center point of the clutch
+    else if (gripper_clutch_reset_direction == -1)
+    {
+      if(adjusted_gripper_velocity > 0)
+        gripper_clutch_reset_direction = 0;
+      else
+        adjusted_gripper_velocity = 0;
+    }
+  }
+  
+  return adjusted_gripper_velocity;
 
 }
 
