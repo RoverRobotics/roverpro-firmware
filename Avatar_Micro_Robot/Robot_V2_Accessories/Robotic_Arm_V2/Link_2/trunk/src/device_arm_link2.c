@@ -1,7 +1,7 @@
 #include "device_arm_link2.h"
 #include "stdhdr.h"
 
-//#define USB_TIMEOUT_ENABLED
+#define USB_TIMEOUT_ENABLED
 
 #define GRIPPER_BRAKE_EN(a)   _TRISB15 = !a
 #define GRIPPER_BRAKE_ON(a)   _LATB15 = a
@@ -73,6 +73,7 @@
 #define MAX_GRIPPER_ACT 900
 #define MIN_GRIPPER_ACT 500
 
+
 //number of ADC counts that gripper pot differs from gripper actuator pot
 //gripper potentiometer is ~8.5mm closer to the gripper
 //8.5mm*1023counts/45mm = 193 counts
@@ -81,7 +82,8 @@
 //max number of ADC counts the gripper can slip the clutch before the motor
 //stops driving it in that direction
 //4.25mm*1023 counts/45mm = 96.6 counts
-#define MAX_GRIPPER_SLIP 96 
+#define MAX_GRIPPER_SLIP 96
+#define GRIPPER_SLIP_HYSTERESIS 20 
 
 #define USB_TIMEOUT_COUNTS 5
 
@@ -112,6 +114,8 @@ unsigned int test_wrist_pot2_value = 0;
 
 char gripper_clutch_reset_direction = 0;
 unsigned char gripper_clutch_reset_in_progress = 0;
+char gripper_direction_latch = 0;
+void infinite_gripper_test_loop(void);
 
 
 unsigned int gripper_pot_value, gripper_act_pot_value, elbow_pot_1_value, elbow_pot_2_value, wrist_pot_1_value, wrist_pot_2_value, thermistor_value = 0;
@@ -252,7 +256,8 @@ void Arm_Link2_Init(void)
 
   calibrate_angle_sensor();
 
-  test_arm_motors();
+  //test_arm_motors();
+  //infinite_gripper_test_loop();
 
 }
 
@@ -289,8 +294,8 @@ void Link2_Process_IO(void)
   {
     adjusted_gripper_velocity = return_adjusted_gripper_velocity();
 
-    motor_accel_loop(adjusted_gripper_velocity, REG_ARM_MOTOR_VELOCITIES.wrist);
-    //motor_accel_loop(0, REG_ARM_MOTOR_VELOCITIES.wrist);
+    //motor_accel_loop(adjusted_gripper_velocity, REG_ARM_MOTOR_VELOCITIES.wrist);
+    motor_accel_loop(0, REG_ARM_MOTOR_VELOCITIES.wrist);
 
     block_ms(10);
   }
@@ -763,13 +768,16 @@ int return_adjusted_gripper_velocity(void)
   adjusted_gripper_velocity = REG_ARM_MOTOR_VELOCITIES.gripper;
   unsigned int adjusted_gripper_pot_value = 0;
   int gripper_clutch_slip = 0;
+  int input_gripper_velocity = 0;
 
   REG_ARM_JOINT_POSITIONS.gripper = return_adc_value(GRIPPER_POT_CH);
   REG_ARM_JOINT_POSITIONS.gripper_actuator = return_adc_value(GRIPPER_ACT_POT_CH);
 
 
 
-  adjusted_gripper_velocity = REG_ARM_MOTOR_VELOCITIES.gripper;
+  input_gripper_velocity = REG_ARM_MOTOR_VELOCITIES.gripper;
+
+  adjusted_gripper_velocity = input_gripper_velocity;
 
   //don't move the gripper motor too close to a hard stop
 
@@ -777,13 +785,19 @@ int return_adjusted_gripper_velocity(void)
   if(REG_ARM_JOINT_POSITIONS.gripper_actuator < MIN_GRIPPER_ACT)
   {
     if(REG_ARM_MOTOR_VELOCITIES.gripper < 0)
+    {
       adjusted_gripper_velocity = 0;
+      gripper_direction_latch = -1;
+    }
   }
   //gripper open hard stop
   else if(REG_ARM_JOINT_POSITIONS.gripper_actuator > MAX_GRIPPER_ACT)
   {
     if(REG_ARM_MOTOR_VELOCITIES.gripper > 0)
+    {
       adjusted_gripper_velocity = 0;
+      gripper_direction_latch = 1;
+    }
   }
 
   //if the clutch has slipped too much, don't let the actuator slip
@@ -816,10 +830,7 @@ int return_adjusted_gripper_velocity(void)
   //clutch hasn't slipped too much
 
 
-  //make sure that the clutch doesn't slip to MAX_GRIPPER_SLIP during a reset,
-  //since we want it to be relatively centered
-  if(gripper_clutch_reset_in_progress)
-  {
+
     if(gripper_clutch_reset_direction == 1)
     {
       //if the gripper is opening, and the slip has swung the other direction
@@ -827,6 +838,7 @@ int return_adjusted_gripper_velocity(void)
       {
         gripper_clutch_reset_in_progress = 0;
         adjusted_gripper_velocity = 0;
+        //gripper_direction_latch = 1;
       }
     }
     //gripper needs to close to reset clutch
@@ -836,16 +848,19 @@ int return_adjusted_gripper_velocity(void)
       {
         gripper_clutch_reset_in_progress = 0;
         adjusted_gripper_velocity = 0;
+       // gripper_direction_latch = -1;
       }
   
     }
-  }
 
 
 
+  
   //if the clutch has been reset, don't keep moving it past the reset point
   //once the motor reverses direction, clear the gripper_clutch_reset_direction variable
   //so that non-reset behavior resumes (e.g. slipping to MAX_GRIPPER_SLIP)
+
+  //if the clutch has been reset, but the direction flag hasn't been cleared
   if( (gripper_clutch_reset_direction != 0) && (gripper_clutch_reset_in_progress == 0) )
   {
     //if we had to close the gripper to reset, don't keep closing past the center point of the clutch
@@ -865,6 +880,25 @@ int return_adjusted_gripper_velocity(void)
       else
         adjusted_gripper_velocity = 0;
     }
+  }
+
+
+
+  //if we hit the travel limit of the actuator,
+  //don't move in that direction until the motor spins in the other direction
+  if(gripper_direction_latch == 1)
+  {
+    if(adjusted_gripper_velocity > 0)
+      adjusted_gripper_velocity = 0;
+    else if(adjusted_gripper_velocity < 0)
+      gripper_direction_latch = 0;
+  }
+  else if(gripper_direction_latch == -1)
+  {
+    if(adjusted_gripper_velocity < 0)
+      adjusted_gripper_velocity = 0;
+    else if(adjusted_gripper_velocity > 0)
+      gripper_direction_latch = 0;
   }
   
   return adjusted_gripper_velocity;
@@ -941,4 +975,42 @@ void test_arm_motors_send_i2c(void)
 
 }
 
+void infinite_gripper_test_loop(void)
+{
+  int adjusted_gripper_velocity = 0;
+  unsigned int i,j;
+  while(1)
+  {
+
+    REG_ARM_MOTOR_VELOCITIES.gripper = 20;
+    for(j=0;j<30;j++)
+    {
+      for(i=0;i<10;i++)
+      {
+        adjusted_gripper_velocity = return_adjusted_gripper_velocity();
+    
+        motor_accel_loop(adjusted_gripper_velocity, REG_ARM_MOTOR_VELOCITIES.wrist);
+        //motor_accel_loop(0, REG_ARM_MOTOR_VELOCITIES.wrist);
+    
+        block_ms(10);
+      }
+    }
+
+    REG_ARM_MOTOR_VELOCITIES.gripper = -20;
+    for(j=0;j<10;j++)
+    {
+      for(i=0;i<10;i++)
+      {
+        adjusted_gripper_velocity = return_adjusted_gripper_velocity();
+    
+        motor_accel_loop(adjusted_gripper_velocity, REG_ARM_MOTOR_VELOCITIES.wrist);
+        //motor_accel_loop(0, REG_ARM_MOTOR_VELOCITIES.wrist);
+    
+        block_ms(10);
+      }
+    }
+
+  }
+
+}
 
