@@ -68,13 +68,18 @@
 #define RS485_LINK1_LENGTH 5
 
 #define MAX_WRIST_SPEED 50
-#define MIN_WRIST_SPEED 15
+#define MIN_WRIST_SPEED 5
 
-#define MAX_GRIPPER_SPEED 30
+#define MAX_GRIPPER_SPEED 20
 #define MIN_GRIPPER_SPEED 5
 
-#define MAX_GRIPPER_ACT 900
-#define MIN_GRIPPER_ACT 500
+//#define MAX_GRIPPER_ACT 900
+//#define MIN_GRIPPER_ACT 500
+#define MAX_GRIPPER_ACT 950
+#define MIN_GRIPPER_ACT 550
+
+#define GRIPPER_CLOSE_SLIP_HYSTERESIS 5
+
 
 
 //number of ADC counts that gripper pot differs from gripper actuator pot
@@ -85,8 +90,10 @@
 //max number of ADC counts the gripper can slip the clutch before the motor
 //stops driving it in that direction
 //4.25mm*1023 counts/45mm = 96.6 counts
-#define MAX_GRIPPER_SLIP 96
-#define GRIPPER_SLIP_HYSTERESIS 20 
+//#define MAX_GRIPPER_SLIP 96
+//5.25mm*1023 counts/45mm = 119.35
+#define MAX_GRIPPER_SLIP 119
+#define GRIPPER_SLIP_HYSTERESIS 20
 
 #define NORMAL_OPERATION 0
 #define POSITIVE_OVERSLIP_RESET 1
@@ -269,6 +276,11 @@ void Arm_Link2_Init(void)
 
   //test_arm_motors();
   //infinite_gripper_test_loop();
+  /*while(1)
+  {
+    ClrWdt();
+    motor_accel_loop(REG_ARM_MOTOR_VELOCITIES.gripper, 0);
+  }*/
 
 }
 
@@ -781,6 +793,10 @@ int return_adjusted_gripper_velocity(void)
   int gripper_clutch_slip = 0;
   int input_gripper_velocity = 0;
   static unsigned char gripper_clutch_state = 0;
+  static int last_gripper_velocity = 0;
+  static unsigned int last_gripper_pot_value = 0;
+  static unsigned int gripper_close_slip_counter = 0;
+  static unsigned int gripper_pos_sample_timer = 0;
 
   REG_ARM_JOINT_POSITIONS.gripper = return_adc_value(GRIPPER_POT_CH);
   REG_ARM_JOINT_POSITIONS.gripper_actuator = return_adc_value(GRIPPER_ACT_POT_CH);
@@ -890,7 +906,7 @@ int return_adjusted_gripper_velocity(void)
     case NEGATIVE_OVERSLIP_RESET:
       gripper_clutch_overtravel_direction = -1;
       //if gripper is closing, stop motors when the clutch is centered
-      if ( (adjusted_gripper_velocity < 0) && (gripper_clutch_slip >= 0))
+      /*if ( (adjusted_gripper_velocity < 0) && (gripper_clutch_slip >= 0))
       {
         //gripper_clutch_reset_in_progress = 0;
         adjusted_gripper_velocity = 0;
@@ -901,6 +917,14 @@ int return_adjusted_gripper_velocity(void)
       else if( (adjusted_gripper_velocity > 0) && (gripper_clutch_slip <= (-MAX_GRIPPER_SLIP+GRIPPER_SLIP_HYSTERESIS) ) )
       {
         adjusted_gripper_velocity = 0;
+      }*/
+      if( (adjusted_gripper_velocity > 0) && (gripper_clutch_slip <= (-MAX_GRIPPER_SLIP+GRIPPER_SLIP_HYSTERESIS) ) )
+      {
+        adjusted_gripper_velocity = 0;
+      }
+      else if(input_gripper_velocity < 0)
+      {
+          gripper_clutch_state = NORMAL_OPERATION;
       }
     break;
     case NEGATIVE_OVERSLIP_RESET_COMPLETE:
@@ -924,6 +948,40 @@ int return_adjusted_gripper_velocity(void)
     break;
   }
 
+  //let's run this slower, so the difference in gripper position is larger
+  gripper_pos_sample_timer++;
+  if(gripper_pos_sample_timer%10 == 0)
+  {
+    //if gripper is closing
+    if(adjusted_gripper_velocity < 0)
+    {
+      
+      if( abs((int)REG_ARM_JOINT_POSITIONS.gripper-(int)last_gripper_pot_value) < GRIPPER_CLOSE_SLIP_HYSTERESIS )
+      {
+        if(last_gripper_velocity < 0)
+          gripper_close_slip_counter++;
+      }
+      else
+      {
+        gripper_close_slip_counter = 0;
+      }
+  
+      if(gripper_close_slip_counter > 10)
+      {
+        adjusted_gripper_velocity = 0;
+        gripper_direction_latch = -1;
+      }
+  
+    }
+    else if(input_gripper_velocity > 0)
+    {
+      gripper_close_slip_counter = 0;
+    }
+  
+    last_gripper_pot_value = REG_ARM_JOINT_POSITIONS.gripper;
+    last_gripper_velocity = adjusted_gripper_velocity;
+    
+  }
 
  
   //if we hit the travel limit of the actuator,
