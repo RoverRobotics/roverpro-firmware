@@ -47,7 +47,7 @@ unsigned char fan_speed = 0;
 unsigned int battery_status = 0;
 unsigned int battery_temperature = 0;
 
-#define NUM_I2C1_MESSAGES   9
+#define NUM_I2C1_MESSAGES   10
 
 void init_i2c(void)
 {
@@ -983,7 +983,7 @@ void ocu_i2c1_fsm(void)
 	static unsigned char last_i2c1_device_state = 0;
 	static unsigned char ocu_i2c1_busy = 0;
 	static unsigned int timeout_counter = 0;
-  static unsigned char i2c_message_failures[NUM_I2C1_MESSAGES] = {0,0,0,0,0,0,0,0,0};
+  static unsigned char i2c_message_failures[NUM_I2C1_MESSAGES] = {0,0,0,0,0,0,0,0,0,0};
   unsigned char dummy = 0;
   unsigned char i;
 
@@ -1048,13 +1048,16 @@ void ocu_i2c1_fsm(void)
 				battery_temperature = ocu_i2c1_rx_byte1 + (ocu_i2c1_rx_byte2<<8);
 				i2c1_device_state++;
 			break;
-
 			case 0x07:
+				battery_temperature = ocu_i2c1_rx_byte1 + (ocu_i2c1_rx_byte2<<8);
+				i2c1_device_state++;
+			break;
+			case 0x08:
 				REG_OCU_REL_SOC_L = ocu_i2c1_rx_byte1 + (ocu_i2c1_rx_byte2<<8);
 				i2c1_device_state++;
 			break;
 
-			case 0x08:
+			case 0x09:
 				left_battery_current = ocu_i2c1_rx_byte1 + (ocu_i2c1_rx_byte2<<8);
 				i2c1_device_state=0;
 			break;
@@ -1119,9 +1122,14 @@ void ocu_i2c1_fsm(void)
 				I2C_MUX_CH(1);
 				ocu_i2c1_interrupt_state = 0x00;
 				ocu_i2c1_message_length = 2;
-				start_ocu_i2c1_i2c_read(SMBUS_ADD_BQ2060A,0x0d);
+				start_ocu_i2c1_i2c_read(SMBUS_ADD_BQ2060A,0x08);
 			break;
 			case 0x08:
+				ocu_i2c1_interrupt_state = 0x00;
+				ocu_i2c1_message_length = 2;
+				start_ocu_i2c1_i2c_read(SMBUS_ADD_BQ2060A,0x0d);
+			break;
+			case 0x09:
 				ocu_i2c1_interrupt_state = 0x00;
 				ocu_i2c1_message_length = 2;
 				start_ocu_i2c1_i2c_read(SMBUS_ADD_BQ2060A,0x0a);
@@ -1218,9 +1226,12 @@ void ocu_i2c1_fsm(void)
   				battery_temperature = 0xffff;
   			break;  
   			case 0x07:
-  				REG_OCU_REL_SOC_L = 0xffff;
+  				battery_temperature = 0xffff;
   			break;  
   			case 0x08:
+  				REG_OCU_REL_SOC_L = 0xffff;
+  			break;  
+  			case 0x09:
   				left_battery_current = 0xffff;
   			break;  
   			default:
@@ -1231,5 +1242,12 @@ void ocu_i2c1_fsm(void)
       }
       
     }
+
+  //if the battery SOC is over 100, it is invalide
+  //set to 0xffff (the invalid state)
+  if(REG_OCU_REL_SOC_L > 100)
+    REG_OCU_REL_SOC_L = 0xffff;
+  if(REG_OCU_REL_SOC_R > 100)
+    REG_OCU_REL_SOC_R = 0xffff;
 
 }
