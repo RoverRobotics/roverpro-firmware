@@ -1,7 +1,7 @@
 #include "device_arm_link2.h"
 #include "stdhdr.h"
 
-#define USB_TIMEOUT_ENABLED
+//#define USB_TIMEOUT_ENABLED
 
 #define GRIPPER_BRAKE_EN(a)   _TRISB15 = !a
 #define GRIPPER_BRAKE_ON(a)   _LATB15 = a
@@ -68,7 +68,10 @@
 #define RS485_LINK1_LENGTH 5
 
 #define MAX_WRIST_SPEED 50
+#define MIN_WRIST_SPEED 15
+
 #define MAX_GRIPPER_SPEED 30
+#define MIN_GRIPPER_SPEED 5
 
 #define MAX_GRIPPER_ACT 900
 #define MIN_GRIPPER_ACT 500
@@ -84,6 +87,12 @@
 //4.25mm*1023 counts/45mm = 96.6 counts
 #define MAX_GRIPPER_SLIP 96
 #define GRIPPER_SLIP_HYSTERESIS 20 
+
+#define NORMAL_OPERATION 0
+#define POSITIVE_OVERSLIP_RESET 1
+#define NEGATIVE_OVERSLIP_RESET 2
+#define POSITIVE_OVERSLIP_RESET_COMPLETE 3
+#define NEGATIVE_OVERSLIP_RESET_COMPLETE 4
 
 #define USB_TIMEOUT_COUNTS 5
 
@@ -116,6 +125,8 @@ char gripper_clutch_reset_direction = 0;
 unsigned char gripper_clutch_reset_in_progress = 0;
 char gripper_direction_latch = 0;
 void infinite_gripper_test_loop(void);
+char gripper_actuator_overtravel_direction = 0;
+char gripper_clutch_overtravel_direction = 0;
 
 
 unsigned int gripper_pot_value, gripper_act_pot_value, elbow_pot_1_value, elbow_pot_2_value, wrist_pot_1_value, wrist_pot_2_value, thermistor_value = 0;
@@ -294,8 +305,8 @@ void Link2_Process_IO(void)
   {
     adjusted_gripper_velocity = return_adjusted_gripper_velocity();
 
-    //motor_accel_loop(adjusted_gripper_velocity, REG_ARM_MOTOR_VELOCITIES.wrist);
-    motor_accel_loop(0, REG_ARM_MOTOR_VELOCITIES.wrist);
+    motor_accel_loop(adjusted_gripper_velocity, REG_ARM_MOTOR_VELOCITIES.wrist);
+    //motor_accel_loop(0, REG_ARM_MOTOR_VELOCITIES.wrist);
 
     block_ms(10);
   }
@@ -627,12 +638,12 @@ void motor_accel_loop(int desired_gripper_velocity, int desired_wrist_velocity)
     wrist_velocity = -MAX_WRIST_SPEED;
 
 
-  if(abs(gripper_velocity) < 15)
+  if(abs(gripper_velocity) < MIN_GRIPPER_SPEED)
     set_gripper_velocity(0);
   else
     set_gripper_velocity(gripper_velocity);
 
-  if(abs(wrist_velocity) < 15)
+  if(abs(wrist_velocity) < MIN_WRIST_SPEED)
     set_wrist_velocity(0);
   else
     set_wrist_velocity(wrist_velocity);
@@ -769,6 +780,7 @@ int return_adjusted_gripper_velocity(void)
   unsigned int adjusted_gripper_pot_value = 0;
   int gripper_clutch_slip = 0;
   int input_gripper_velocity = 0;
+  static unsigned char gripper_clutch_state = 0;
 
   REG_ARM_JOINT_POSITIONS.gripper = return_adc_value(GRIPPER_POT_CH);
   REG_ARM_JOINT_POSITIONS.gripper_actuator = return_adc_value(GRIPPER_ACT_POT_CH);
@@ -788,6 +800,7 @@ int return_adjusted_gripper_velocity(void)
     {
       adjusted_gripper_velocity = 0;
       gripper_direction_latch = -1;
+      gripper_actuator_overtravel_direction = -1;
     }
   }
   //gripper open hard stop
@@ -797,7 +810,12 @@ int return_adjusted_gripper_velocity(void)
     {
       adjusted_gripper_velocity = 0;
       gripper_direction_latch = 1;
+      gripper_actuator_overtravel_direction = 1;
     }
+  }
+  else
+  {
+      gripper_actuator_overtravel_direction = 0;
   }
 
   //if the clutch has slipped too much, don't let the actuator slip
@@ -811,79 +829,103 @@ int return_adjusted_gripper_velocity(void)
     adjusted_gripper_pot_value = 0;
   }
 
+  //Positive clutch slip moves clutch closer to the gripper, relative to the nut
+  //(brass key closer to front of clutch)
+  //Negative clutch slip moves clutch farther from the gripper, relative to the nut
+  //(brass key closer to back of clutch)
   gripper_clutch_slip = adjusted_gripper_pot_value-REG_ARM_JOINT_POSITIONS.gripper_actuator;
 
-  //if the gripper is opening, and there is too much negative slip, stop the motor
-  if( (adjusted_gripper_velocity > 0) && (gripper_clutch_slip < -MAX_GRIPPER_SLIP) )
+  switch(gripper_clutch_state)
   {
-    adjusted_gripper_velocity = 0;
-    gripper_clutch_reset_direction = -1;
-    gripper_clutch_reset_in_progress = 1;
-  }
-  //if the gripper is closing, and there is too much positive slip, stop the motor
-  else if( (adjusted_gripper_velocity < 0) && (gripper_clutch_slip > MAX_GRIPPER_SLIP) )
-  {
-    adjusted_gripper_velocity = 0;
-    gripper_clutch_reset_direction = 1;
-    gripper_clutch_reset_in_progress = 1;
-  }
-  //clutch hasn't slipped too much
 
+    case NORMAL_OPERATION:
+      gripper_clutch_overtravel_direction = 0;
 
+      //if the gripper is opening, and there is too much negative slip, stop the motor
+      if( (adjusted_gripper_velocity > 0) && (gripper_clutch_slip <= -MAX_GRIPPER_SLIP) )
+      {
+        adjusted_gripper_velocity = 0;
+        gripper_clutch_state = NEGATIVE_OVERSLIP_RESET;
+      }
+      //if the gripper is closing, and there is too much positive slip, stop the motor
+      else if( (adjusted_gripper_velocity < 0) && (gripper_clutch_slip >= MAX_GRIPPER_SLIP) )
+      {
+        adjusted_gripper_velocity = 0;
+        gripper_clutch_state = POSITIVE_OVERSLIP_RESET;
+      }
+    break;
 
-    if(gripper_clutch_reset_direction == 1)
-    {
-      //if the gripper is opening, and the slip has swung the other direction
+    //gripper has slipped too much when closing -- only allow the motor to opening the gripper,
+    //unless the slip decreases below the maximum slip value, plus hysteresis
+    case POSITIVE_OVERSLIP_RESET:
+      gripper_clutch_overtravel_direction = 1;
+      //if gripper is opening, stop motors when the clutch is centered
       if ( (adjusted_gripper_velocity > 0) && (gripper_clutch_slip <= 0))
       {
-        gripper_clutch_reset_in_progress = 0;
         adjusted_gripper_velocity = 0;
-        //gripper_direction_latch = 1;
+        gripper_clutch_state = POSITIVE_OVERSLIP_RESET_COMPLETE;
       }
-    }
-    //gripper needs to close to reset clutch
-    else if(gripper_clutch_reset_direction == -1)
-    {
+      //only disallow closing the gripper if the slip is close to the max slip amount
+      else if( (adjusted_gripper_velocity < 0) && (gripper_clutch_slip >= (MAX_GRIPPER_SLIP-GRIPPER_SLIP_HYSTERESIS) ) )
+      //else if( (adjusted_gripper_velocity < 0) && (gripper_clutch_slip >=(MAX_GRIPPER_SLIP-GRIPPER_SLIP_HYSTERESIS) ) )
+      {
+        adjusted_gripper_velocity = 0;
+      }
+
+    break;
+    case POSITIVE_OVERSLIP_RESET_COMPLETE:
+      //wait for command to close the gripper before changing states
+      //(even if this value is adjusted to zero for some reason
+      if(input_gripper_velocity < 0)
+      {
+        gripper_clutch_state = NORMAL_OPERATION;
+      }
+      //don't allow the gripper the keep opening
+      else if(adjusted_gripper_velocity > 0)
+      {
+        adjusted_gripper_velocity = 0;
+      }
+    break;
+    //gripper has slipped too much when opening
+    case NEGATIVE_OVERSLIP_RESET:
+      gripper_clutch_overtravel_direction = -1;
+      //if gripper is closing, stop motors when the clutch is centered
       if ( (adjusted_gripper_velocity < 0) && (gripper_clutch_slip >= 0))
       {
-        gripper_clutch_reset_in_progress = 0;
+        //gripper_clutch_reset_in_progress = 0;
         adjusted_gripper_velocity = 0;
-       // gripper_direction_latch = -1;
+        //gripper_direction_latch = -1;
+        gripper_clutch_state = NEGATIVE_OVERSLIP_RESET_COMPLETE;
       }
-  
-    }
-
-
-
-  
-  //if the clutch has been reset, don't keep moving it past the reset point
-  //once the motor reverses direction, clear the gripper_clutch_reset_direction variable
-  //so that non-reset behavior resumes (e.g. slipping to MAX_GRIPPER_SLIP)
-
-  //if the clutch has been reset, but the direction flag hasn't been cleared
-  if( (gripper_clutch_reset_direction != 0) && (gripper_clutch_reset_in_progress == 0) )
-  {
-    //if we had to close the gripper to reset, don't keep closing past the center point of the clutch
-    if(gripper_clutch_reset_direction == 1)
-    {
-      if(adjusted_gripper_velocity < 0)
-        gripper_clutch_reset_direction = 0;
-      else
+      //only disallow opening the gripper if the slip is close to the max slip amount
+      else if( (adjusted_gripper_velocity > 0) && (gripper_clutch_slip <= (-MAX_GRIPPER_SLIP+GRIPPER_SLIP_HYSTERESIS) ) )
+      {
         adjusted_gripper_velocity = 0;
-
-    }
-    //if we had to open the gripper to reset, don't keep opening past the center point of the clutch
-    else if (gripper_clutch_reset_direction == -1)
-    {
-      if(adjusted_gripper_velocity > 0)
-        gripper_clutch_reset_direction = 0;
-      else
+      }
+    break;
+    case NEGATIVE_OVERSLIP_RESET_COMPLETE:
+      //wait for command to open the gripper before changing states
+      //(even if this value is adjusted to zero for some reason
+      if(input_gripper_velocity > 0)
+      {
+        gripper_clutch_reset_in_progress = 0;
+        gripper_clutch_state = NORMAL_OPERATION;
+      }
+      //don't allow the gripper the keep closing
+      else if(adjusted_gripper_velocity < 0)
+      {
         adjusted_gripper_velocity = 0;
-    }
+      }
+    break;
+    default:
+      //logic error.  Stop motor and reset state machine
+      adjusted_gripper_velocity = 0;
+      gripper_clutch_state = NORMAL_OPERATION;
+    break;
   }
 
 
-
+ 
   //if we hit the travel limit of the actuator,
   //don't move in that direction until the motor spins in the other direction
   if(gripper_direction_latch == 1)
@@ -979,10 +1021,12 @@ void infinite_gripper_test_loop(void)
 {
   int adjusted_gripper_velocity = 0;
   unsigned int i,j;
+
+  REG_ARM_MOTOR_VELOCITIES.gripper = -20;
   while(1)
   {
 
-    REG_ARM_MOTOR_VELOCITIES.gripper = 20;
+
     for(j=0;j<30;j++)
     {
       for(i=0;i<10;i++)
@@ -996,7 +1040,7 @@ void infinite_gripper_test_loop(void)
       }
     }
 
-    REG_ARM_MOTOR_VELOCITIES.gripper = -20;
+    /*REG_ARM_MOTOR_VELOCITIES.gripper = -20;
     for(j=0;j<10;j++)
     {
       for(i=0;i<10;i++)
@@ -1008,7 +1052,7 @@ void infinite_gripper_test_loop(void)
     
         block_ms(10);
       }
-    }
+    }*/
 
   }
 
