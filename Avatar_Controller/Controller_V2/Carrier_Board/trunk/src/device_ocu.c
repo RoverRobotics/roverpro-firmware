@@ -797,6 +797,14 @@ void DeviceOcuProcessIO()
   }
 
 	set_backlight_brightness(REG_OCU_BACKLIGHT_BRIGHTNESS);
+  if(REG_OCU_CAMERA_POWER_ON)
+  {
+    CAMERA_PWR_ON(1);
+  }
+  else
+  {
+    CAMERA_PWR_ON(0);
+  }
 
 
 }
@@ -965,8 +973,6 @@ void handle_power_button(void)
 			{
 
 //					set_backlight_brightness(50);
-
-					CAMERA_PWR_ON(1);
 
 					if(DeviceControllerBoot() )
 					{
