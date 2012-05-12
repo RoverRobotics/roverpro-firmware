@@ -201,6 +201,8 @@ REGISTER( REG_ARM_JOINT_POSITIONS,   DEVICE_READ,  DEVICE_ARM_LINK2,   SYNC,    
 REGISTER(REG_HITCH_OPEN, DEVICE_WRITE, DEVICE_HITCH, SYNC, hitch_t)    // non-zero is software desire to open, zero is software's desire to latch 
 REGISTER(REG_HITCH_POSITION, DEVICE_READ, DEVICE_HITCH, SYNC, hitch_t) // 0 (unlatched) to 100 (latched)
 
+REGISTER(REG_OCU_CAMERA_POWER_ON, DEVICE_WRITE, DEVICE_OCU, SYNC, uint8_t)
+
 
 REGISTER_END()
 
