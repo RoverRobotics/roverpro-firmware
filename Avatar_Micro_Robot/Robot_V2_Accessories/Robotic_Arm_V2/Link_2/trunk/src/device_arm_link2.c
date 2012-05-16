@@ -78,8 +78,12 @@
 #define MAX_GRIPPER_ACT 950
 #define MIN_GRIPPER_ACT 550
 
+#define GRIPPER_FULLY_OPEN 900
+
 #define GRIPPER_CLOSE_SLIP_HYSTERESIS 5
 
+//angle wrist has to move so that we know it isn't stalled
+#define WRIST_STALL_DEADBAND 5
 
 
 //number of ADC counts that gripper pot differs from gripper actuator pot
@@ -93,6 +97,7 @@
 //#define MAX_GRIPPER_SLIP 96
 //5.25mm*1023 counts/45mm = 119.35
 #define MAX_GRIPPER_SLIP 119
+#define MAX_FULLY_OPEN_GRIPPER_SLIP 100
 #define GRIPPER_SLIP_HYSTERESIS 20
 
 #define NORMAL_OPERATION 0
@@ -100,6 +105,9 @@
 #define NEGATIVE_OVERSLIP_RESET 2
 #define POSITIVE_OVERSLIP_RESET_COMPLETE 3
 #define NEGATIVE_OVERSLIP_RESET_COMPLETE 4
+
+int return_adjusted_wrist_velocity(void);
+int return_angle_difference(unsigned int angle_1, unsigned int angle_2);
 
 #define USB_TIMEOUT_COUNTS 5
 
@@ -289,6 +297,7 @@ void Link2_Process_IO(void)
 
   unsigned int i;
   int adjusted_gripper_velocity = 0;
+  int adjusted_wrist_velocity = 0;
 
   gripper_pot_value = return_adc_value(GRIPPER_POT_CH);
   gripper_act_pot_value = return_adc_value(GRIPPER_ACT_POT_CH);
@@ -316,8 +325,14 @@ void Link2_Process_IO(void)
   for(i=0;i<10;i++)
   {
     adjusted_gripper_velocity = return_adjusted_gripper_velocity();
+    adjusted_wrist_velocity = return_adjusted_wrist_velocity();
 
-    motor_accel_loop(adjusted_gripper_velocity, REG_ARM_MOTOR_VELOCITIES.wrist);
+    //if the gripper is fully open, the wrist joint is too
+    //jammed to move
+    if(REG_ARM_JOINT_POSITIONS.gripper >= GRIPPER_FULLY_OPEN)
+      adjusted_wrist_velocity = 0;
+
+    motor_accel_loop(adjusted_gripper_velocity, adjusted_wrist_velocity);
     //motor_accel_loop(0, REG_ARM_MOTOR_VELOCITIES.wrist);
 
     block_ms(10);
@@ -856,12 +871,33 @@ int return_adjusted_gripper_velocity(void)
 
     case NORMAL_OPERATION:
       gripper_clutch_overtravel_direction = 0;
-
-      //if the gripper is opening, and there is too much negative slip, stop the motor
-      if( (adjusted_gripper_velocity > 0) && (gripper_clutch_slip <= -MAX_GRIPPER_SLIP) )
+      //if gripper is opening
+      if(adjusted_gripper_velocity > 0)
       {
-        adjusted_gripper_velocity = 0;
-        gripper_clutch_state = NEGATIVE_OVERSLIP_RESET;
+        //if the gripper is close to being fully open
+        if(REG_ARM_JOINT_POSITIONS.gripper >= GRIPPER_FULLY_OPEN)
+        {
+          //if the clutch slip is too high, go into negative overslip reset and stop the motor
+          if(gripper_clutch_slip <= -MAX_FULLY_OPEN_GRIPPER_SLIP)
+          {  
+            adjusted_gripper_velocity = 0;
+            gripper_clutch_state = NEGATIVE_OVERSLIP_RESET;             
+          
+          }
+        }
+        //if the gripper isn't close to being fully open
+        else
+        {
+          //if the gripper is opening (but not fully open), and there is too much negative slip, stop the motor
+          if(gripper_clutch_slip <= -MAX_GRIPPER_SLIP)
+          {  
+            adjusted_gripper_velocity = 0;
+            gripper_clutch_state = NEGATIVE_OVERSLIP_RESET;             
+          
+          }
+        }
+          
+  
       }
       //if the gripper is closing, and there is too much positive slip, stop the motor
       else if( (adjusted_gripper_velocity < 0) && (gripper_clutch_slip >= MAX_GRIPPER_SLIP) )
@@ -1116,3 +1152,110 @@ void infinite_gripper_test_loop(void)
 
 }
 
+int return_adjusted_wrist_velocity(void)
+{
+  int adjusted_wrist_velocity = 0;
+  static unsigned int last_wrist_angle = 0;
+  static unsigned int wrist_pos_sample_timer = 0;
+  unsigned int wrist_angle = 0;
+  static char wrist_direction_latch = 0;
+  static int last_wrist_velocity = 0;
+  static unsigned int wrist_stall_counter = 0;
+
+  adjusted_wrist_velocity = REG_ARM_MOTOR_VELOCITIES.wrist;
+  
+  wrist_angle = return_combined_pot_angle(WRIST_POT_1_CH, WRIST_POT_2_CH);
+
+  
+  //let's run this slower, so the difference in gripper position is larger
+  wrist_pos_sample_timer++;
+  if(wrist_pos_sample_timer%10 == 0)
+  {
+    //if wrist is turning clockwise (from camera's perspective)
+    if(adjusted_wrist_velocity < 0)
+    {
+      
+      if( return_angle_difference(wrist_angle, last_wrist_angle) > WRIST_STALL_DEADBAND )
+      {
+        if(last_wrist_velocity < 0)
+          wrist_stall_counter++;
+      }
+      else
+      {
+        wrist_stall_counter = 0;
+      }
+  
+      if(wrist_stall_counter > 10)
+      {
+        adjusted_wrist_velocity = 0;
+        wrist_direction_latch = -1;
+        wrist_stall_counter = 0;
+      }
+  
+    }
+    //if wrist is turning counterclockwise (from camera's perspective)
+    else if(adjusted_wrist_velocity > 0)
+    {
+     if( return_angle_difference(wrist_angle, last_wrist_angle) < -WRIST_STALL_DEADBAND )
+      {
+        if(last_wrist_velocity > 0)
+          wrist_stall_counter++;
+      }
+      else
+      {
+        wrist_stall_counter = 0;
+      }
+  
+      if(wrist_stall_counter > 10)
+      {
+        adjusted_wrist_velocity = 0;
+        wrist_direction_latch = 1;
+        wrist_stall_counter = 0;
+      }
+    }
+  
+    last_wrist_angle = wrist_angle;
+    last_wrist_velocity = adjusted_wrist_velocity;
+    
+  }
+
+
+  //if the wrist stalls, don't move again until the direction is 
+  //reversed
+  if(wrist_direction_latch == 1)
+  {
+    if(adjusted_wrist_velocity > 0)
+      adjusted_wrist_velocity = 0;
+    else if(adjusted_wrist_velocity < 0)
+      gripper_direction_latch = 0;
+  }
+  else if(wrist_direction_latch == -1)
+  {
+    if(adjusted_wrist_velocity < 0)
+      adjusted_wrist_velocity = 0;
+    else if(adjusted_wrist_velocity > 0)
+      wrist_direction_latch = 0;
+  }
+
+  return adjusted_wrist_velocity; 
+ 
+
+}
+
+//implements angle1-angle2 to the closest angle
+//i.e. angle1=350, angle2=0, difference would be 350 originally way, but -10 this way
+//only really works if the angle difference is less than 180
+int return_angle_difference(unsigned int angle_1, unsigned int angle_2)
+{
+  int angle_difference = 0;
+
+  angle_difference = (int)angle_1-(int)angle_2;
+  
+  if(angle_difference > 180)
+    angle_difference = angle_difference-360;
+  else if(angle_difference < -180)
+    angle_difference = angle_difference+360;
+
+  return angle_difference;
+
+}
