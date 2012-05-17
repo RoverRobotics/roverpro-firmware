@@ -1228,7 +1228,7 @@ int return_adjusted_wrist_velocity(void)
     if(adjusted_wrist_velocity > 0)
       adjusted_wrist_velocity = 0;
     else if(adjusted_wrist_velocity < 0)
-      gripper_direction_latch = 0;
+      wrist_direction_latch = 0;
   }
   else if(wrist_direction_latch == -1)
   {
