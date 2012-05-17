@@ -3103,6 +3103,8 @@ static unsigned int return_combined_pot_angle(unsigned int pot_1_value, unsigned
   unsigned int combined_pot_value = 0;
   //unsigned int pot_1_value, pot_2_value = 0;
   int combined_pot_angle = 0;
+  int pot_angle_1 = 0;
+  int pot_angle_2 = 0;
   int temp1 = 0;
   int temp2 = 0;
   float scale_factor = 0;
@@ -3159,19 +3161,16 @@ static unsigned int return_combined_pot_angle(unsigned int pot_1_value, unsigned
     //FLIPPER_POT_OFFSET/333.33*1023 = 168.8 for 55 degrees
     temp_pot1_value = pot_1_value-168.8;
 
-    if(temp_pot1_value > 1023)
-      pot_1_value = temp_pot1_value-1023;
-    else if(temp_pot1_value < 0)
-      pot_1_value = temp_pot1_value+1023;
-    else
-      pot_1_value = temp_pot1_value;
+    pot_angle_1 = temp_pot1_value*.326+13.35;
+    pot_angle_2 = pot_2_value*.326+13.35;
   
 
     //if pot1 is closer to the end of range
     if(abs(temp1) > abs(temp2) )
     {
       scale_factor = ( 512-abs(temp1) )/ 512.0;
-      combined_pot_value = (pot_1_value*scale_factor + pot_2_value*(1-scale_factor));
+      //combined_pot_value = (pot_1_value*scale_factor + pot_2_value*(1-scale_factor));
+      combined_pot_angle = pot_angle_1*scale_factor + pot_angle_2*(1-scale_factor);
 
     }
     //if pot2 is closer to the end of range
@@ -3179,12 +3178,13 @@ static unsigned int return_combined_pot_angle(unsigned int pot_1_value, unsigned
     {
 
       scale_factor = (512-abs(temp2) )/ 512.0;
-      combined_pot_value = (pot_2_value*scale_factor + pot_1_value*(1-scale_factor));
+      //combined_pot_value = (pot_2_value*scale_factor + pot_1_value*(1-scale_factor));
+      combined_pot_angle = pot_angle_2*scale_factor + pot_angle_1*(1-scale_factor);
 
     }
 
     //333.3 degrees, 1023 total counts, 333.3/1023 = .326
-    combined_pot_angle = combined_pot_value*.326+13.35;
+    //combined_pot_angle = combined_pot_value*.326+13.35;
 
   }
 
