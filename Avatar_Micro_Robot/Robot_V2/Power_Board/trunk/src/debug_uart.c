@@ -4,7 +4,7 @@
 #include "stdhdr.h"
 #include "device_robot_motor.h"
 
-void int_to_string(unsigned int input, char* output);
+
 void debug_uart_tx_interrupt(void);
 void debug_uart_rx_interrupt(void);
 unsigned char sending_debug_uart_string = 0;

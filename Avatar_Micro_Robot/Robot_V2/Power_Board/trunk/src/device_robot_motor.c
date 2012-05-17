@@ -300,6 +300,17 @@ void set_firmware_build_time(void);
 void initialize_i2c2_registers(void);
 void initialize_i2c3_registers(void);
 
+static unsigned int return_combined_pot_angle(unsigned int pot_1_value, unsigned int pot_2_value);
+static unsigned int return_calibrated_pot_angle(unsigned int pot_1_value, unsigned int pot_2_value);
+//invalid flipper pot thresholds.  These are very wide because the flipper pots are on a different 3.3V supply
+//than the PIC
+//If the flipper pot is below this threshold, it is invalid
+#define LOW_POT_THRESHOLD 33
+//If the flipper pot is above this threshold, it is invalid
+#define HIGH_POT_THRESHOLD 990
+#define FLIPPER_POT_OFFSET -55
+static int zero_pot_angle = 0;
+
 void bringup_board(void)
 {
 
@@ -942,6 +953,7 @@ void Device_MotorController_Process()
  		}
  		REG_FLIPPER_FB_POSITION.pot1=temp1>>ShiftBits;
  		REG_FLIPPER_FB_POSITION.pot2=temp2>>ShiftBits;
+    REG_MOTOR_FLIPPER_ANGLE = return_calibrated_pot_angle(temp1>>ShiftBits, temp2>>ShiftBits);
  		//update current for all three motors
  		REG_MOTOR_FB_CURRENT.left=ControlCurrent[LMotor];
  		REG_MOTOR_FB_CURRENT.right=ControlCurrent[RMotor];
@@ -3057,5 +3069,136 @@ void initialize_i2c3_registers(void)
 {
 
 	REG_ROBOT_REL_SOC_B = 255;
+
+}
+
+static unsigned int return_calibrated_pot_angle(unsigned int pot_1_value, unsigned int pot_2_value)
+{
+  unsigned int combined_pot_angle = 0;
+  int calibrated_pot_angle = 0;
+
+  combined_pot_angle = return_combined_pot_angle( pot_1_value, pot_2_value);
+
+  //special case -- invalid reading
+  if(combined_pot_angle == 1000)
+    return 1000;
+
+  calibrated_pot_angle = combined_pot_angle - zero_pot_angle;
+
+  if(calibrated_pot_angle < 0)
+  {
+    calibrated_pot_angle+=360;
+  }
+  else if(calibrated_pot_angle >= 360)
+  {
+    calibrated_pot_angle-=360;
+  }
+  
+  return calibrated_pot_angle;
+
+}  
+
+static unsigned int return_combined_pot_angle(unsigned int pot_1_value, unsigned int pot_2_value)
+{
+  unsigned int combined_pot_value = 0;
+  //unsigned int pot_1_value, pot_2_value = 0;
+  int combined_pot_angle = 0;
+  int temp1 = 0;
+  int temp2 = 0;
+  float scale_factor = 0;
+  int temp_pot1_value = 0;
+  
+  //correct for pot 2 turning the opposite direction
+  pot_2_value = 1023-pot_2_value;
+
+
+ /* test_wrist_pot1_value = pot_1_value;
+  test_wrist_pot2_value = pot_2_value;
+
+ // test_wrist_pot1_angle = pot_1_value*.326+341.7;
+  test_wrist_pot1_angle = pot_1_value*.326+58.35;
+  if(test_wrist_pot1_angle >= 360)
+  {
+    test_wrist_pot1_angle = test_wrist_pot1_angle -360;
+  }
+  test_wrist_pot2_angle = pot_2_value*.326+13.35;*/
+
+  //!!!!!!need to get full angle range out of this
+  //right now we only have 333 degrees
+  //maybe multiply by 360/333.3 somewhere?
+
+  //if both pot values are invalid
+  if( ((pot_1_value < LOW_POT_THRESHOLD) || (pot_1_value > HIGH_POT_THRESHOLD)) && 
+      ((pot_2_value < LOW_POT_THRESHOLD) || (pot_2_value > HIGH_POT_THRESHOLD) ))
+  {
+    combined_pot_angle=1000;
+  }
+  //if pot 1 is out of linear range
+  else if( (pot_1_value < LOW_POT_THRESHOLD) || (pot_1_value > HIGH_POT_THRESHOLD) )
+  {
+    //333.3 degrees, 1023 total counts, 333.3/1023 = .326
+    combined_pot_angle = pot_2_value*.326+13.35;
+  }
+  //if pot 2 is out of linear range
+  else if( (pot_2_value < LOW_POT_THRESHOLD) || (pot_2_value > HIGH_POT_THRESHOLD) )
+  {
+    //333.3 degrees, 1023 total counts, 333.3/1023 = .326
+    //13.35 degrees + 45 degrees = 58.35 degrees
+    combined_pot_angle = (int)pot_1_value*.326+13.35+FLIPPER_POT_OFFSET;
+
+  }
+  //if both pot 1 and pot 2 values are valid
+  else
+  {
+
+    //figure out which one is closest to the end of range
+    temp1 = pot_1_value - 512;
+    temp2 = pot_2_value - 512;
+
+    //offset, so that both pot values should be the same
+    //FLIPPER_POT_OFFSET/333.33*1023 = 168.8 for 55 degrees
+    temp_pot1_value = pot_1_value-168.8;
+
+    if(temp_pot1_value > 1023)
+      pot_1_value = temp_pot1_value-1023;
+    else if(temp_pot1_value < 0)
+      pot_1_value = temp_pot1_value+1023;
+    else
+      pot_1_value = temp_pot1_value;
+  
+
+    //if pot1 is closer to the end of range
+    if(abs(temp1) > abs(temp2) )
+    {
+      scale_factor = ( 512-abs(temp1) )/ 512.0;
+      combined_pot_value = (pot_1_value*scale_factor + pot_2_value*(1-scale_factor));
+
+    }
+    //if pot2 is closer to the end of range
+    else
+    {
+
+      scale_factor = (512-abs(temp2) )/ 512.0;
+      combined_pot_value = (pot_2_value*scale_factor + pot_1_value*(1-scale_factor));
+
+    }
+
+    //333.3 degrees, 1023 total counts, 333.3/1023 = .326
+    combined_pot_angle = combined_pot_value*.326+13.35;
+
+  }
+
+    if(combined_pot_angle > 360)
+    {
+      combined_pot_angle-=360;
+    }
+    else if(combined_pot_angle < 0)
+    {
+      combined_pot_angle  += 360;
+    }
+
+
+  return (unsigned int)combined_pot_angle;
+
 
 }

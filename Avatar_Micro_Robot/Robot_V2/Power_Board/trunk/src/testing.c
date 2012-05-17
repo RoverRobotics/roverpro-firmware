@@ -204,12 +204,6 @@ void switched_sensor_wires(void)
 
 void int_to_decimal_string(unsigned int input, char* output)
 {
-//	char output[6] = "0x0000";
-
-	char nibble = '0';
-	int i;
-  char digits[5] = {0,0,0,0,0};
-  
   unsigned char ten_thousands, thousands, hundreds, tens, ones = 0;
 
   ten_thousands = input/10000;
