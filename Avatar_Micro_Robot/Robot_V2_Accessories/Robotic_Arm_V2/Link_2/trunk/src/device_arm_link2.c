@@ -71,7 +71,7 @@
 #define MIN_WRIST_SPEED 5
 
 #define MAX_GRIPPER_SPEED 20
-#define MIN_GRIPPER_SPEED 5
+#define MIN_GRIPPER_SPEED 18
 
 //#define MAX_GRIPPER_ACT 900
 //#define MIN_GRIPPER_ACT 500
@@ -96,8 +96,8 @@
 //4.25mm*1023 counts/45mm = 96.6 counts
 //#define MAX_GRIPPER_SLIP 96
 //5.25mm*1023 counts/45mm = 119.35
-#define MAX_GRIPPER_SLIP 119
-#define MAX_FULLY_OPEN_GRIPPER_SLIP 100
+#define MAX_GRIPPER_SLIP 123
+#define MAX_FULLY_OPEN_GRIPPER_SLIP 118
 #define GRIPPER_SLIP_HYSTERESIS 20
 
 #define NORMAL_OPERATION 0
@@ -329,8 +329,8 @@ void Link2_Process_IO(void)
 
     //if the gripper is fully open, the wrist joint is too
     //jammed to move
-    if(REG_ARM_JOINT_POSITIONS.gripper >= GRIPPER_FULLY_OPEN)
-      adjusted_wrist_velocity = 0;
+    /*if(REG_ARM_JOINT_POSITIONS.gripper >= GRIPPER_FULLY_OPEN)
+      adjusted_wrist_velocity = 0;*/
 
     motor_accel_loop(adjusted_gripper_velocity, adjusted_wrist_velocity);
     //motor_accel_loop(0, REG_ARM_MOTOR_VELOCITIES.wrist);
@@ -1171,21 +1171,21 @@ int return_adjusted_wrist_velocity(void)
   wrist_pos_sample_timer++;
   if(wrist_pos_sample_timer%10 == 0)
   {
-    //if wrist is turning clockwise (from camera's perspective)
+    //if wrist is turning counterclockwise (from camera's perspective)
     if(adjusted_wrist_velocity < 0)
     {
       
       if( return_angle_difference(wrist_angle, last_wrist_angle) > WRIST_STALL_DEADBAND )
       {
-        if(last_wrist_velocity < 0)
-          wrist_stall_counter++;
+        wrist_stall_counter = 0;
       }
       else
       {
-        wrist_stall_counter = 0;
+        if(last_wrist_velocity < 0)
+          wrist_stall_counter++;
       }
   
-      if(wrist_stall_counter > 10)
+      if(wrist_stall_counter > 5)
       {
         adjusted_wrist_velocity = 0;
         wrist_direction_latch = -1;
@@ -1193,20 +1193,21 @@ int return_adjusted_wrist_velocity(void)
       }
   
     }
-    //if wrist is turning counterclockwise (from camera's perspective)
+    //if wrist is turning clockwise (from camera's perspective)
     else if(adjusted_wrist_velocity > 0)
     {
      if( return_angle_difference(wrist_angle, last_wrist_angle) < -WRIST_STALL_DEADBAND )
       {
-        if(last_wrist_velocity > 0)
-          wrist_stall_counter++;
+        wrist_stall_counter = 0;
       }
       else
       {
-        wrist_stall_counter = 0;
+        if(last_wrist_velocity > 0)
+          wrist_stall_counter++;
+
       }
   
-      if(wrist_stall_counter > 10)
+      if(wrist_stall_counter > 5)
       {
         adjusted_wrist_velocity = 0;
         wrist_direction_latch = 1;
