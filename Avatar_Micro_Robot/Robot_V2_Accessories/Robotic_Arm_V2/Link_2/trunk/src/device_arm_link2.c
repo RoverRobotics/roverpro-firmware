@@ -1,7 +1,7 @@
 #include "device_arm_link2.h"
 #include "stdhdr.h"
 
-//#define USB_TIMEOUT_ENABLED
+#define USB_TIMEOUT_ENABLED
 
 #define GRIPPER_BRAKE_EN(a)   _TRISB15 = !a
 #define GRIPPER_BRAKE_ON(a)   _LATB15 = a
