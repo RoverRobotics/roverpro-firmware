@@ -3080,8 +3080,8 @@ static unsigned int return_calibrated_pot_angle(unsigned int pot_1_value, unsign
   combined_pot_angle = return_combined_pot_angle( pot_1_value, pot_2_value);
 
   //special case -- invalid reading
-  if(combined_pot_angle == 1000)
-    return 1000;
+  if(combined_pot_angle == 10000)
+    return 10000;
 
   calibrated_pot_angle = combined_pot_angle - zero_pot_angle;
 
@@ -3131,7 +3131,7 @@ static unsigned int return_combined_pot_angle(unsigned int pot_1_value, unsigned
   if( ((pot_1_value < LOW_POT_THRESHOLD) || (pot_1_value > HIGH_POT_THRESHOLD)) && 
       ((pot_2_value < LOW_POT_THRESHOLD) || (pot_2_value > HIGH_POT_THRESHOLD) ))
   {
-    combined_pot_angle=1000;
+    return 10000;
   }
   //if pot 1 is out of linear range
   else if( (pot_1_value < LOW_POT_THRESHOLD) || (pot_1_value > HIGH_POT_THRESHOLD) )
