@@ -18,54 +18,29 @@ File: Hitch.c
 #define CW                    0
 #define CCW                   1
 
-// Latch Motoracce
-/*
-//---A_SCALED, B_SCALED, C_SCALED
-#define CONFIG_A_SCALED(a)    (_TRISD0 = (a)) 
-#define TURN_A_SCALED(a)      (_LATD0 = (a))
-#define CONFIG_B_SCALED(a)    (_TRISD1 = (a)) 
-#define TURN_B_SCALED(a)      (_LATD1 = (a))
-#define CONFIG_C_SCALED(a)    (_TRISD2 = (a)) 
-#define TURN_C_SCALED(a)      (_LATD2 = (a))
-//---V_STAR
-#define CONFIG_V_STAR(a)      (_TRISB3 = (a)) 
-#define TURN_V_STAR(a)        (_LATB3 = (a))
-//---A_HI, B_HI, C_HI, A_LO, B_LO, C_LO
-#define CONFIG_A_HI(a)        (_TRISD0 = (a)) 
-#define TURN_A_HI(a)          (_LATD0 = (a))
-#define CONFIG_B_HI(a)        (_TRISD1 = (a)) 
-#define TURN_B_HI(a)          (_LATD1 = (a))
-#define CONFIG_C_HI(a)        (_TRISD2 = (a)) 
-#define TURN_C_HI(a)          (_LATD2 = (a))
-#define CONFIG_A_LO(a)        (_TRISD3 = (a))
-#define TURN_A_LO(a)          (_LATD3 = (a))
-#define CONFIG_B_LO(a)        (_TRISD4 = (a))
-#define TURN_B_LO(a)          (_LATD4 = (a))
-#define CONFIG_C_LO(a)        (_TRISD5 = (a))
-#define TURN_C_LO(a)          (_LATD5 = (a))
-*/
 //---PWM Pin
-#define LATCH_PWM_PIN         2    // RP2
-#define T_PWM                 10   // [us], period of the PWM signal
-#define MAX_DC                20   // T = 2ms
-#define MAX_ALLOWABLE_DC      16   // T = 1.6
-#define NUETRAL_DC            15   // T = 1.5
-#define MIN_ALLOWABLE_DC      14   // T = 1.4
-#define MIN_DC                10   // T = 1ms
+#define LATCH_PWM_PIN         2       // RP2
+#define T_PWM                 10      // [us], period of the PWM signal
+#define MAX_DC                20      // T = 2ms
+#define MAX_ALLOWABLE_DC      16      // T = 1.6
+#define NUETRAL_DC            15      // T = 1.5
+#define MIN_ALLOWABLE_DC      14      // T = 1.4
+#define MIN_DC                10      // T = 1ms
 //---Power Bus
 #define CONFIG_POWER_BUS(a)   (_TRISD9 = (a))
 #define TURN_POWER_BUS(a)     (_LATD9 = (a))
 
 // Actuator Position Sensing
 #define ACTUATOR_ANALOG_PIN   4
-#define V_UNLATCHED           976 // (3.15 / 3.30) * 1023=
-#define V_LATCHED             124 // (0.40 / 3.30) * 1023=
+#define V_UNLATCHED           976     // (3.15 / 3.30) * 1023=
+#define V_LATCHED             124     // (0.40 / 3.30) * 1023=
 
 // Temperature Sensing
 #define TEMP_ANALOG_PIN       8
 
 // Power Bus Current Sensing
 #define CURRENT_ANALOG_PIN    15
+#define UNSAFE_CURRENT_LEVEL  775     // 0.01S*(5A*0.05Ohm)*1k ~= 2.5V, (2.5 / 3.30) * 1023=
 
 // Heartbeat Indicator
 #define CONFIGURE_HEARTBEAT_PIN(a)   (_TRISE5 = (a))
@@ -84,13 +59,17 @@ File: Hitch.c
 #define TEST_TIMER            4
 #define TEST_TIME             (10*_100ms)
 
+#define OVERCURRENT_TIMER     5
+#define OVERCURRENT_TIME      (50*_100ms)
+
 #define DELTA_DC              1
 #define DELTA_LATCH_TIME      (_100ms)
 
 /*---------------------------Type Definitions--------------------------------*/
 typedef enum {
   WAITING = 0,
-  LATCHING
+  LATCHING,
+  COOLING_DOWN
 } state_t;  
 
 /*---------------------------Helper Function Prototypes----------------------*/
@@ -98,6 +77,7 @@ static void CalibrateHobbyMotorController(void);
 static void Latch(unsigned char direction);
 static unsigned char inline IsLatched(void);
 static unsigned char inline IsUnlatched(void);
+static unsigned char inline IsLatching(void);
 static unsigned int Map(int value, int from_low, int from_high, 
                         int to_low, int to_high);
                  
@@ -109,47 +89,10 @@ static state_t state = WAITING;
 #include "./ConfigurationBits.h"
 
 int main(void) {
-	unsigned char alternator = 0;
-	
 	InitHitch();
 
   while (1) {
-  	// toggle a pin to indicate normal operation
-		if (IsTimerExpired(HEARTBEAT_TIMER)) {
-			HEARTBEAT_PIN ^= 1;
-      StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME);
-		}
-		
-  	switch (state) {
-      case WAITING:
-    	  if (IsTimerExpired(TEST_TIMER)) {
-      	  state = LATCHING;
-      	  alternator++;
-      	  StartTimer(LATCH_ACCEL_TIMER, DELTA_LATCH_TIME);
-      	  StartTimer(TEST_TIMER, TEST_TIME); 
-      	}  
-    	  break;
-    	case LATCHING:
-    	  if (alternator % 2) {
-      	  if (IsLatched()) {
-            UpdateDutyCycle(NUETRAL_DC);
-            state = WAITING;
-            break;
-          }
-      	  Latch(ON);
-        } else {
-          if (IsUnlatched()) {
-            UpdateDutyCycle(NUETRAL_DC);
-            state = WAITING;
-            break;
-          }
-          Latch(OFF);
-    	  }
-    	  break;
-    	default:
-    	  StartTimer(HEARTBEAT_TIMER, 65000); // indicate an error
-    		break;
-    }
+    ProcessHitchIO();
 	}
 	
 	return 0;
@@ -185,23 +128,36 @@ void ProcessHitchIO(void) {
 		HEARTBEAT_PIN ^= 1;
 		StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME);
 	}
+	
+	// turn off the power bus if we are drawing too much current (over-current protection)
+	if (UNSAFE_CURRENT_LEVEL < GetADC(CURRENT_ANALOG_PIN)) {
+    TURN_POWER_BUS(OFF);
+    StartTimer(OVERCURRENT_TIMER, OVERCURRENT_TIME);
+    state = COOLING_DOWN;
+  } 
 
   // only update feedback to software as often as needed
   if (IsTimerExpired(UPDATE_TIMER)) {
     REG_HITCH_POSITION = Map(GetADC(ACTUATOR_ANALOG_PIN), V_UNLATCHED, V_LATCHED, 0, 100);
     StartTimer(UPDATE_TIMER, UPDATE_TIME);
-  }  
+  }
 
   switch (state) {
     case WAITING:
       if (IsLatched() && REG_HITCH_OPEN) {
         state = LATCHING;
-    	  StartTimer(LATCH_ACCEL_TIMER, DELTA_LATCH_TIME);
+    	  //StartTimer(LATCH_ACCEL_TIMER, DELTA_LATCH_TIME);
     	  Latch(OFF);
     	} else if (IsUnlatched() && !REG_HITCH_OPEN) {
     	  state = LATCHING;
-    	  StartTimer(LATCH_ACCEL_TIMER, DELTA_LATCH_TIME);
+    	  //StartTimer(LATCH_ACCEL_TIMER, DELTA_LATCH_TIME);
     	  Latch(ON);
+    	} else if (IsLatching()) {  
+    	  // if we're in an intermediate position at startup
+    	  // move to where software desires
+    	  state = LATCHING;
+    	  //StartTimer(LATCH_ACCEL_TIMER, DELTA_LATCH_TIME);
+    	  Latch(REG_HITCH_OPEN);
     	}
   	  break;
   	case LATCHING:
@@ -210,6 +166,12 @@ void ProcessHitchIO(void) {
         state = WAITING;
       } else if (IsLatched() && !REG_HITCH_OPEN) {
     	  UpdateDutyCycle(NUETRAL_DC);
+        state = WAITING;
+      }
+      break;
+    case COOLING_DOWN:
+      if (IsTimerExpired(OVERCURRENT_TIMER)) {
+        TURN_POWER_BUS(ON);
         state = WAITING;
       }
       break;
@@ -279,6 +241,10 @@ static unsigned char inline IsUnlatched(void) {
   return (V_UNLATCHED < GetADC(ACTUATOR_ANALOG_PIN));
 }
 
+static unsigned char inline IsLatching(void) {
+  return (!(IsLatched() || IsUnlatched())); // if neither latched nor unlatched
+}
+
 /*
 Function: Map()
 Returns:
@@ -298,7 +264,6 @@ Notes:
 */
 static unsigned int Map(int value, int from_low, int from_high, 
                         int to_low, int to_high) {
-  
   // compute the linear interpolation
   unsigned int result = ((double)(value - from_low) / (double)(from_high - from_low))
                         * (double)(to_high - to_low) + to_low;
