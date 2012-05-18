@@ -133,8 +133,16 @@ void Arm_Base_Init(void)
   T2CONbits.TON = 1;
   TURRET_COAST_ON(1);
 
+  //wait some time before turning on power bus
+  for(i=0;i<25;i++)
+  {
+    ClrWdt();
+    block_ms(100);
+  }
+
   for(i=0;i<50;i++)
   {
+    ClrWdt();
     POWER_BUS_ON(1);
     block_ms(10);
     POWER_BUS_ON(0);
