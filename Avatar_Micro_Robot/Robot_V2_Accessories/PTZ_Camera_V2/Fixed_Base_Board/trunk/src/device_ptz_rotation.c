@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <math.h>
 
+#define TILT_USB_WATCHDOG_ON
+
 #ifndef max
 	#define max( a, b ) ( ((a) > (b)) ? (a) : (b) )
 #endif
@@ -50,6 +52,13 @@ typedef struct
 #define CAMERA_MESSAGE_QUERY_FOCUS 0x83
 
 #define USB_TIMEOUT 100
+
+//2500 is about 20 seconds
+#define ZOOM_MODULE_INIT_MS 2500
+
+//If the error is below this value, closed loop control is disabled
+#define TILT_POSITION_DEADBAND 2
+
 
 static volatile unsigned char uartRxData[UART_RX_BUFFER_SIZE];          
 static volatile int uartRxIndex = 0;
@@ -859,12 +868,27 @@ static void TiltControl()
 	int tiltDir = REG_CAMERA_VEL_ROT.tilt>=0;
 	int pwmDuty = 40;
 
+
+  #ifdef TILT_USB_WATCHDOG_ON
+  if(USB_timeout_ms >= ZOOM_MODULE_INIT_MS)
+  {
+     USB_timeout_ms = USB_TIMEOUT+1;
+    // Invert Image
+    CameraInvert();
+    while(U2STAbits.TRMT==0);
+    CameraShutterSetup(shutterSpeed);
+    while(U2STAbits.TRMT==0);
+    CameraSave();
+    while(U2STAbits.TRMT==0);
+
+  }
     //stop moving tilt if USB times out
-   if(USB_timeout_ms >= USB_TIMEOUT)
+   else if(USB_timeout_ms >= USB_TIMEOUT)
     {
       USB_timeout_ms = USB_TIMEOUT+1;
       REG_CAMERA_VEL_ROT.tilt = 0;
     }
+  #endif
 
 	if((lastTiltVelocity!=0) && (REG_CAMERA_VEL_ROT.tilt==0))
 	{
@@ -891,9 +915,9 @@ static void TiltControl()
 		int pidResult = (potProp<<5) + (potDiff) + tiltPidSum;
 		tiltDir = (pidResult) < 0;
 		absTiltVelocity = min(1000,abs(pidResult));
-		if(abs(potProp) < 2)
+		if(abs(potProp) < TILT_POSITION_DEADBAND)
                 {
-			PORTBbits.RB11=1;
+			PORTBbits.RB11=0;
 			T2CONbits.TON = 0;
 			pwmDuty = 0;
                 }
