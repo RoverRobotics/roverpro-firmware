@@ -63,7 +63,6 @@
 
 static void set_elbow_velocity(int velocity);
 static void set_shoulder_velocity(int velocity);
-static unsigned int return_adc_value(unsigned char ch);
 static void RS485_RX_ISR(void);
 static void RS485_TX_ISR(void);
 static unsigned int return_CRC(unsigned char* data, unsigned char length);
@@ -311,19 +310,6 @@ static void set_shoulder_velocity(int velocity)
   OC2R = abs(velocity)*20;
 
 
-}
-
-static unsigned int return_adc_value(unsigned char ch)
-{
-
-	unsigned int return_value = 0;
-	AD1CON1bits.ADON = 0;
-	AD1CHS0bits.CH0SA = ch;
-	AD1CON1bits.ADON = 1;	
-	AD1CON1bits.SAMP = 1;
-	while(!AD1CON1bits.DONE);
-	return_value = ADC1BUF0;
-	return return_value;
 }
 
 

@@ -38,6 +38,21 @@
 
 #define MAX_TURRET_SPEED 50
 
+#define TURRET_POT_1_CH     0
+#define TURRET_POT_2_CH     1
+#define SHOULDER_POT_1_CH   4
+#define SHOULDER_POT_2_CH   5
+#define CURRENT_SENSE_CH    2
+
+#define TURRET_POT_1_EN(a)  _PCFG0 = !a
+#define TURRET_POT_2_EN(a)  _PCFG1 = !a
+#define SHOULDER_POT_1_EN(a)  _PCFG4 = !a
+#define SHOULDER_POT_2_EN(a)  _PCFG5 = !a
+#define CURRENT_SENSE_EN(a)   _PCFG2 = !a
+
+#define POT_LOW_THRESHOLD 15
+#define POT_HIGH_THRESHOLD 1008
+
 static void motor_accel_loop(int desired_turret_velocity);
 static void set_turret_velocity(int velocity);
 static void RS485_RX_ISR(void);
@@ -63,6 +78,16 @@ static unsigned char rs485_base_message_ready = 0;
 
 static unsigned int messaging_timeout_counter = 0;
 int turret_motor_velocity;
+
+static unsigned int current_adc_counts = 0;
+
+static unsigned int return_calibrated_angle(unsigned char pot_1_ch, unsigned char pot_2_ch, unsigned int offset_angle);
+static unsigned int return_combined_pot_angle(unsigned char pot_1_ch, unsigned char pot_2_ch);
+
+static unsigned int return_adc_value(unsigned char ch);
+
+static unsigned int turret_angle = 0;
+static unsigned int shoulder_angle = 0;
 
 void Arm_Base_Init(void)
 {
@@ -103,6 +128,12 @@ void Arm_Base_Init(void)
   TURRET_DIR_ON(1);
   TURRET_BRAKE_ON(1);
 
+  TURRET_POT_1_EN(1);
+  TURRET_POT_2_EN(1);
+  SHOULDER_POT_1_EN(1);
+  SHOULDER_POT_2_EN(1);
+  CURRENT_SENSE_EN(1);
+
 	RS485_DI_OR = 3;
 
   U1RXInterruptUserFunction = RS485_RX_ISR;
@@ -133,6 +164,22 @@ void Arm_Base_Init(void)
   T2CONbits.TON = 1;
   TURRET_COAST_ON(1);
 
+
+
+	//initialize ADC
+	AD1CON1 = 0x0000;
+	AD1CON2 = 0x0000;
+	AD1CON3 = 0x0000;
+	
+	AD1CON3bits.ADCS = 0xff;
+	AD1CON3bits.SAMC = 0x1f;
+
+	//auto convert
+	AD1CON1bits.SSRC = 7;
+
+  AD1CON1bits.ADON = 1;
+
+
   //wait some time before turning on power bus
   for(i=0;i<25;i++)
   {
@@ -140,6 +187,7 @@ void Arm_Base_Init(void)
     block_ms(100);
   }
 
+  //pulse power bus at 25% duty cycle to charge up caps
   for(i=0;i<50;i++)
   {
     ClrWdt();
@@ -154,7 +202,7 @@ void Arm_Base_Init(void)
 
 void Base_Process_IO(void)
 {
-
+  unsigned int i;
 
      messaging_timeout_counter++;
      //see if there was a link2 message -- if so, send it
@@ -203,8 +251,26 @@ void Base_Process_IO(void)
   //clear receive overrun error, so receive doesn't stop
   U1STAbits.OERR = 0;
 
-  //pretty dumb control loop
+  current_adc_counts = return_adc_value(CURRENT_SENSE_CH);
 
+  //shut off power bus for 1 second if the arm is drawing more than 20A
+  //.01*.001mV/A * 11000 ohms = .11 V/A = 34.13 ADC counts/A
+  //20 amps = 682.6
+  if(current_adc_counts > 682)
+  {
+    POWER_BUS_ON(0);
+    for(i=0;i<10;i++)
+    {
+      ClrWdt();
+      block_ms(100);
+    }
+    POWER_BUS_ON(1);
+  }
+
+  turret_angle = return_calibrated_angle(TURRET_POT_1_CH, TURRET_POT_2_CH, 0);
+  shoulder_angle = return_calibrated_angle(SHOULDER_POT_1_CH, SHOULDER_POT_2_CH, 0);
+    
+  //pretty dumb control loop
   if(messaging_timeout_counter > 100)
   {
     motor_accel_loop(0);
@@ -387,10 +453,10 @@ static void send_rs485_message(void)
 
   //load motor velocities into array
   data_to_CRC[0] = DEVICE_ARM_BASE;
-  data_to_CRC[1] = 0x01;
-  data_to_CRC[2] = 0x02;
-  data_to_CRC[3] = 0x03;
-  data_to_CRC[4] = 0x04;
+  data_to_CRC[1] = turret_angle>>8;
+  data_to_CRC[2] = turret_angle&0xff;
+  data_to_CRC[3] = shoulder_angle>>8;
+  data_to_CRC[4] = shoulder_angle&0xff;
 
   for(i=0;i<RS485_BASE_LENGTH-4;i++)
   {
@@ -482,4 +548,133 @@ static unsigned int return_CRC(unsigned char* data, unsigned char length)
 		crc &= 0xFFFF;
 	}
 	return crc; 
+}
+
+static unsigned int return_calibrated_angle(unsigned char pot_1_ch, unsigned char pot_2_ch, unsigned int offset_angle)
+{
+  unsigned int combined_pot_angle = 0;
+  unsigned int calibrated_angle = 0;
+  combined_pot_angle = return_combined_pot_angle(pot_1_ch, pot_2_ch);
+
+  //if both pots are broken or unplugged, return special value
+  if(combined_pot_angle == 0xffff)
+  {
+    return 0xffff;
+  }
+
+  if(combined_pot_angle < offset_angle)
+  {
+    calibrated_angle = 365+combined_pot_angle-offset_angle;
+  }
+  else
+  {
+    calibrated_angle = combined_pot_angle-offset_angle;
+  }
+
+  return calibrated_angle;
+
+}
+
+static unsigned int return_combined_pot_angle(unsigned char pot_1_ch, unsigned char pot_2_ch)
+{
+  unsigned int pot_1_value, pot_2_value = 0;
+  int combined_pot_angle = 0;
+  int temp1 = 0;
+  int temp2 = 0;
+  float scale_factor = 0;
+  int pot_1_angle, pot_2_angle;
+  
+  pot_1_value = return_adc_value(pot_1_ch);
+  pot_2_value = 1023-return_adc_value(pot_2_ch);
+
+  //333.3 degrees, 1023 total counts, 333.3/1023 = .326
+  //13.35 degrees + 45 degrees = 58.35 degrees
+  pot_1_angle = pot_1_value*.326+58.35;
+  //wrap around if number is over 360
+  if(pot_1_angle > 360)
+    pot_1_angle-=360;
+
+  //333.3 degrees, 1023 total counts, 333.3/1023 = .326
+  pot_2_angle = pot_2_value*.326+13.35;
+
+
+  //if both pots are invalid
+  if( ( (pot_1_value < POT_LOW_THRESHOLD) || (pot_1_value > POT_HIGH_THRESHOLD) ) &&
+    ( (pot_2_value < POT_LOW_THRESHOLD) || (pot_2_value > POT_HIGH_THRESHOLD) ) )
+  {
+    return 0xffff;
+  }
+  //if pot 1 is out of linear range
+  else if( (pot_1_value < POT_LOW_THRESHOLD) || (pot_1_value > POT_HIGH_THRESHOLD) )
+  {
+    combined_pot_angle = pot_2_angle;
+  }
+  //if pot 2 is out of linear range
+  else if( (pot_2_value < POT_LOW_THRESHOLD) || (pot_2_value > POT_HIGH_THRESHOLD) )
+  {
+    combined_pot_angle = pot_1_angle;
+  }
+  //if both pot 1 and pot 2 values are valid
+  else
+  {
+
+    //figure out which one is closest to the end of range
+    temp1 = pot_1_value - 512;
+    temp2 = pot_2_value - 512;
+
+
+
+    //offset, so that both pot values should be the same
+    //45/333.33*1023 = 138.1
+    pot_1_value = pot_1_value+138;
+    if(pot_1_value > 1023)
+      pot_1_value = pot_1_value-1023;
+  
+
+    //if pot1 is closer to the end of range
+    if(abs(temp1) > abs(temp2) )
+    {
+      scale_factor = ( 512-abs(temp1) )/ 512.0;
+      //combined_pot_value = (pot_1_value*scale_factor + pot_2_value*(1-scale_factor));
+      combined_pot_angle = (pot_1_angle*scale_factor + pot_2_angle*(1-scale_factor));
+
+    }
+    //if pot2 is closer to the end of range
+    else
+    {
+
+      scale_factor = (512-abs(temp2) )/ 512.0;
+ //     combined_pot_value = (pot_2_value*scale_factor + pot_1_value*(1-scale_factor));
+      combined_pot_angle = (pot_2_angle*scale_factor + pot_1_angle*(1-scale_factor));
+
+    }
+
+    //333.3 degrees, 1023 total counts, 333.3/1023 = .326
+    //combined_pot_angle = combined_pot_value*.326+13.35;
+
+  }
+
+  if(combined_pot_angle >= 360)
+    combined_pot_angle-=360;
+  else if(combined_pot_angle < 0)
+    combined_pot_angle+=360;
+
+
+
+  return (unsigned int)combined_pot_angle;
+
+
+}
+
+static unsigned int return_adc_value(unsigned char ch)
+{
+
+	unsigned int return_value = 0;
+	AD1CON1bits.ADON = 0;
+	AD1CHS0bits.CH0SA = ch;
+	AD1CON1bits.ADON = 1;	
+	AD1CON1bits.SAMP = 1;
+	while(!AD1CON1bits.DONE);
+	return_value = ADC1BUF0;
+	return return_value;
 }
