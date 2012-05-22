@@ -1,7 +1,8 @@
 #include "device_arm_link2.h"
 #include "stdhdr.h"
+#include "DEE Emulation 16-bit.h"
 
-#define USB_TIMEOUT_ENABLED
+//#define USB_TIMEOUT_ENABLED
 
 #define GRIPPER_BRAKE_EN(a)   _TRISB15 = !a
 #define GRIPPER_BRAKE_ON(a)   _LATB15 = a
@@ -106,6 +107,9 @@
 #define POSITIVE_OVERSLIP_RESET_COMPLETE 3
 #define NEGATIVE_OVERSLIP_RESET_COMPLETE 4
 
+#define POT_LOW_THRESHOLD 15
+#define POT_HIGH_THRESHOLD 1008
+
 int return_adjusted_wrist_velocity(void);
 int return_angle_difference(unsigned int angle_1, unsigned int angle_2);
 
@@ -126,11 +130,12 @@ int return_adjusted_gripper_velocity(void);
 void test_arm_motors(void);
 void test_arm_motors_send_i2c(void);
 
+static char read_rs485_angle_values(void);
+
 void calibrate_angle_sensor(void);
-unsigned int return_calibrated_angle(unsigned char pot_1_ch, unsigned char pot_2_ch, unsigned int offset_angle);
+static unsigned int return_calibrated_angle(unsigned int uncalibrated_angle, unsigned int offset_angle);
 unsigned int return_combined_pot_angle(unsigned char pot_1_ch, unsigned char pot_2_ch);
 unsigned int wrist_angle_offset = 0;
-unsigned int wrist_angle = 0;
 unsigned int test_wrist_pot1_angle = 0;
 unsigned int test_wrist_pot2_angle = 0;
 unsigned int test_wrist_pot1_value = 0;
@@ -159,6 +164,17 @@ unsigned char rs485_link1_message_ready = 0;
 unsigned char rs485_base_message_ready = 0;
 
 unsigned char USB_timeout_counter = 0;
+
+unsigned int uncalibrated_turret_angle = 0;
+unsigned int uncalibrated_shoulder_angle = 0;
+
+static unsigned int elbow_angle_offset = 0;
+static unsigned int shoulder_angle_offset = 0;
+static unsigned int turret_angle_offset = 0;
+
+static void update_joint_angles(void);
+
+static void read_stored_angle_offsets(void);
 
 
 
@@ -280,7 +296,9 @@ void Arm_Link2_Init(void)
   GRIPPER_COAST_ON(1);
   WRIST_COAST_ON(1);
 
-  calibrate_angle_sensor();
+
+
+  read_stored_angle_offsets();
 
   //test_arm_motors();
   //infinite_gripper_test_loop();
@@ -298,6 +316,10 @@ void Link2_Process_IO(void)
   unsigned int i;
   int adjusted_gripper_velocity = 0;
   int adjusted_wrist_velocity = 0;
+
+  //if we receive these set speeds, run calibration
+  if( (REG_ARM_MOTOR_VELOCITIES.turret == 123) && (REG_ARM_MOTOR_VELOCITIES.shoulder == 456) && (REG_ARM_MOTOR_VELOCITIES.elbow == 789) )
+    calibrate_angle_sensor();
 
   gripper_pot_value = return_adc_value(GRIPPER_POT_CH);
   gripper_act_pot_value = return_adc_value(GRIPPER_ACT_POT_CH);
@@ -321,6 +343,8 @@ void Link2_Process_IO(void)
   //clear receive overrun error, so receive doesn't stop
   U1STAbits.OERR = 0;
 
+  read_rs485_angle_values();
+
   //pretty dumb control loop
   for(i=0;i<10;i++)
   {
@@ -338,7 +362,8 @@ void Link2_Process_IO(void)
     block_ms(10);
   }
   
-  wrist_angle = return_calibrated_angle(WRIST_POT_1_CH, WRIST_POT_2_CH, wrist_angle_offset);
+
+  update_joint_angles();
 
   #ifdef USB_TIMEOUT_ENABLED
     USB_timeout_counter++;
@@ -415,7 +440,7 @@ void RS485_RX_ISR(void)
   _U1RXIF = 0;
 
   //if we've gotten to the end of a message
-  if(message_index >= current_length)
+ /* if(message_index >= current_length)
   {
     if(current_device == DEVICE_ARM_BASE)
     {
@@ -437,7 +462,7 @@ void RS485_RX_ISR(void)
     message_index = 0;
     current_length = 100;
     return;
-  }
+  }*/
 
   rs485_rx_buffer[message_index] = U1RXREG;
 
@@ -494,6 +519,35 @@ void RS485_RX_ISR(void)
         
   }
   message_index++;
+
+ //if we've gotten to the end of a message
+  if(message_index >= current_length)
+  {
+    if(current_device == DEVICE_ARM_BASE)
+    {
+      for(i=0;i<RS485_BASE_LENGTH;i++)
+      {
+        rs485_base_message[i] = rs485_rx_buffer[i];
+      }
+      rs485_base_message_ready = 1;
+    }
+    else if(current_device == DEVICE_ARM_LINK1)
+    {
+      if(rs485_link1_message_ready==0)
+      {
+        for(i=0;i<RS485_LINK1_LENGTH;i++)
+        {
+          rs485_link1_message[i] = rs485_rx_buffer[i];
+        }
+        rs485_link1_message_ready = 1;
+      }
+    }
+    current_device = 0x00;
+    message_index = 0;
+    current_length = 100;
+    rs485_rx_buffer[2] = 0x00;
+    //return;
+  }
 
 
 }
@@ -680,23 +734,96 @@ void motor_accel_loop(int desired_gripper_velocity, int desired_wrist_velocity)
 
 void calibrate_angle_sensor(void)
 {
+
+  //set all motor speeds to zero
+  REG_ARM_MOTOR_VELOCITIES.turret = 0;
+  REG_ARM_MOTOR_VELOCITIES.shoulder = 0;
+  REG_ARM_MOTOR_VELOCITIES.elbow = 0;
+  REG_ARM_MOTOR_VELOCITIES.wrist = 0;
+  REG_ARM_MOTOR_VELOCITIES.gripper = 0;
+
+  while(1)
+  {
+    send_rs485_message();
+    //wait for message to finish sending
+    while(rs485_transmitting);
+    //wait for final byte to finish before changing to RX mode
+    while(U1STAbits.TRMT == 0);
+    RS485_OUTEN_ON(0);
+    
+    //clear receive overrun error, so receive doesn't stop
+    U1STAbits.OERR = 0;
+    ClrWdt();
+
+    block_ms(100);
+    //if turret and shoulder angles are read successfully, break from loop
+    if(read_rs485_angle_values())
+      break;
+
+  }
   wrist_angle_offset = return_combined_pot_angle(WRIST_POT_1_CH, WRIST_POT_2_CH);
+  turret_angle_offset = uncalibrated_turret_angle;
+  shoulder_angle_offset = uncalibrated_shoulder_angle;
+  elbow_angle_offset = return_combined_pot_angle(ELBOW_POT_1_CH, ELBOW_POT_2_CH);
+
+  DataEEInit();
+  Nop();
+  
+  DataEEWrite( (turret_angle_offset>>8),0);
+  Nop();
+  DataEEWrite( (turret_angle_offset&0xff),1);
+  Nop();
+
+  DataEEWrite( (shoulder_angle_offset>>8),2);
+  Nop();
+  DataEEWrite( (shoulder_angle_offset&0xff),3);
+  Nop();
+
+  DataEEWrite( (elbow_angle_offset>>8),4);
+  Nop();
+  DataEEWrite( (elbow_angle_offset&0xff),5);
+  Nop();
+
+  DataEEWrite( (wrist_angle_offset>>8),6);
+  Nop();
+  DataEEWrite( (wrist_angle_offset&0xff),7);
+  Nop();
+
+  //write 0xaa to index 8, so we can tell if this arm has been calibrated yet
+  DataEEWrite(0xaa,8);
+  Nop();
+
+  REG_ARM_MOTOR_VELOCITIES.shoulder = 20;
+  send_rs485_message();
+  block_ms(50);
+  send_rs485_message();
+  block_ms(50);
+  ClrWdt();
+  //block_ms(100);
+  REG_ARM_MOTOR_VELOCITIES.shoulder = 0;
+  while(1)
+  {
+    ClrWdt();
+    send_rs485_message();
+    block_ms(50);
+  }
 
 }
-unsigned int return_calibrated_angle(unsigned char pot_1_ch, unsigned char pot_2_ch, unsigned int offset_angle)
+static unsigned int return_calibrated_angle(unsigned int uncalibrated_angle, unsigned int offset_angle)
 {
-  unsigned int combined_pot_angle = 0;
   unsigned int calibrated_angle = 0;
-  combined_pot_angle = return_combined_pot_angle(pot_1_ch, pot_2_ch);
 
+  //if our angle reading is invalid, return an invalid value
+  if(uncalibrated_angle == 0xffff)
+    return 0xffff;
 
-  if(combined_pot_angle < offset_angle)
+  if(uncalibrated_angle < offset_angle)
   {
-    calibrated_angle = 365+combined_pot_angle-offset_angle;
+    calibrated_angle = 365+uncalibrated_angle-offset_angle;
   }
   else
   {
-    calibrated_angle = combined_pot_angle-offset_angle;
+    calibrated_angle = uncalibrated_angle-offset_angle;
   }
 
   return calibrated_angle;
@@ -705,48 +832,42 @@ unsigned int return_calibrated_angle(unsigned char pot_1_ch, unsigned char pot_2
 
 unsigned int return_combined_pot_angle(unsigned char pot_1_ch, unsigned char pot_2_ch)
 {
-  unsigned int combined_pot_value = 0;
   unsigned int pot_1_value, pot_2_value = 0;
-  unsigned int combined_pot_angle = 0;
+  int combined_pot_angle = 0;
   int temp1 = 0;
   int temp2 = 0;
   float scale_factor = 0;
+  int pot_1_angle, pot_2_angle;
   
   pot_1_value = return_adc_value(pot_1_ch);
   pot_2_value = 1023-return_adc_value(pot_2_ch);
 
+  //333.3 degrees, 1023 total counts, 333.3/1023 = .326
+  //13.35 degrees + 45 degrees = 58.35 degrees
+  pot_1_angle = pot_1_value*.326+58.35;
+  //wrap around if number is over 360
+  if(pot_1_angle > 360)
+    pot_1_angle-=360;
 
-  test_wrist_pot1_value = pot_1_value;
-  test_wrist_pot2_value = pot_2_value;
+  //333.3 degrees, 1023 total counts, 333.3/1023 = .326
+  pot_2_angle = pot_2_value*.326+13.35;
 
- // test_wrist_pot1_angle = pot_1_value*.326+341.7;
-  test_wrist_pot1_angle = pot_1_value*.326+58.35;
-  if(test_wrist_pot1_angle > 360)
+
+  //if both pots are invalid
+  if( ( (pot_1_value < POT_LOW_THRESHOLD) || (pot_1_value > POT_HIGH_THRESHOLD) ) &&
+    ( (pot_2_value < POT_LOW_THRESHOLD) || (pot_2_value > POT_HIGH_THRESHOLD) ) )
   {
-    test_wrist_pot1_angle = test_wrist_pot1_angle -360;
+    return 0xffff;
   }
-  test_wrist_pot2_angle = pot_2_value*.326+13.35;
-
-  //!!!!!!need to get full angle range out of this
-  //right now we only have 333 degrees
-  //maybe multiply by 360/333.3 somewhere?
-
   //if pot 1 is out of linear range
-  if( (pot_1_value < 15) || (pot_1_value > 1015) )
+  else if( (pot_1_value < POT_LOW_THRESHOLD) || (pot_1_value > POT_HIGH_THRESHOLD) )
   {
-    //333.3 degrees, 1023 total counts, 333.3/1023 = .326
-    combined_pot_angle = pot_2_value*.326+13.35;
+    combined_pot_angle = pot_2_angle;
   }
   //if pot 2 is out of linear range
-  else if( (pot_2_value < 15) || (pot_2_value > 1015) )
+  else if( (pot_2_value < POT_LOW_THRESHOLD) || (pot_2_value > POT_HIGH_THRESHOLD) )
   {
-    //333.3 degrees, 1023 total counts, 333.3/1023 = .326
-    //13.35 degrees + 45 degrees = 58.35 degrees
-    combined_pot_angle = pot_1_value*.326+58.35;
-    if(combined_pot_angle > 360)
-    {
-      combined_pot_angle = combined_pot_angle - 360;
-    }
+    combined_pot_angle = pot_1_angle;
   }
   //if both pot 1 and pot 2 values are valid
   else
@@ -755,6 +876,8 @@ unsigned int return_combined_pot_angle(unsigned char pot_1_ch, unsigned char pot
     //figure out which one is closest to the end of range
     temp1 = pot_1_value - 512;
     temp2 = pot_2_value - 512;
+
+
 
     //offset, so that both pot values should be the same
     //45/333.33*1023 = 138.1
@@ -767,7 +890,8 @@ unsigned int return_combined_pot_angle(unsigned char pot_1_ch, unsigned char pot
     if(abs(temp1) > abs(temp2) )
     {
       scale_factor = ( 512-abs(temp1) )/ 512.0;
-      combined_pot_value = (pot_1_value*scale_factor + pot_2_value*(1-scale_factor));
+      //combined_pot_value = (pot_1_value*scale_factor + pot_2_value*(1-scale_factor));
+      combined_pot_angle = (pot_1_angle*scale_factor + pot_2_angle*(1-scale_factor));
 
     }
     //if pot2 is closer to the end of range
@@ -775,19 +899,24 @@ unsigned int return_combined_pot_angle(unsigned char pot_1_ch, unsigned char pot
     {
 
       scale_factor = (512-abs(temp2) )/ 512.0;
-      combined_pot_value = (pot_2_value*scale_factor + pot_1_value*(1-scale_factor));
+ //     combined_pot_value = (pot_2_value*scale_factor + pot_1_value*(1-scale_factor));
+      combined_pot_angle = (pot_2_angle*scale_factor + pot_1_angle*(1-scale_factor));
 
     }
 
     //333.3 degrees, 1023 total counts, 333.3/1023 = .326
-    combined_pot_angle = combined_pot_value*.326+13.35;
+    //combined_pot_angle = combined_pot_value*.326+13.35;
 
   }
 
+  if(combined_pot_angle >= 360)
+    combined_pot_angle-=360;
+  else if(combined_pot_angle < 0)
+    combined_pot_angle+=360;
 
 
 
-  return combined_pot_angle;
+  return (unsigned int)combined_pot_angle;
 
 
 }
@@ -1043,7 +1172,7 @@ int return_adjusted_gripper_velocity(void)
 
 void test_arm_motors(void)
 {
-  unsigned int i,j;
+  unsigned int i;
 
 	IEC0bits.U1RXIE = 0;
 
@@ -1258,5 +1387,67 @@ int return_angle_difference(unsigned int angle_1, unsigned int angle_2)
     angle_difference = angle_difference+360;
 
   return angle_difference;
+
+}
+
+static char read_rs485_angle_values(void)
+{
+  if(rs485_base_message_ready)
+  {
+    rs485_base_message_ready = 0;
+    if(Is_CRC_valid(rs485_base_message,RS485_BASE_LENGTH))
+    {
+      if(rs485_base_message[3] == 0xff && rs485_base_message[4] == 0xff)
+        uncalibrated_turret_angle = 0xffff;
+      else
+        uncalibrated_turret_angle = rs485_base_message[3]*256+rs485_base_message[4];
+
+      if(rs485_base_message[5] == 0xff && rs485_base_message[6] == 0xff)
+        uncalibrated_shoulder_angle = 0xffff;
+      else
+        uncalibrated_shoulder_angle = rs485_base_message[5]*256+rs485_base_message[6];
+
+      return 1;
+    }
+    
+  }
+  return 0;
+}
+
+
+static void update_joint_angles(void)
+{
+
+  REG_ARM_JOINT_POSITIONS.wrist = return_calibrated_angle(return_combined_pot_angle(WRIST_POT_1_CH, WRIST_POT_2_CH),wrist_angle_offset);
+  REG_ARM_JOINT_POSITIONS.turret = return_calibrated_angle(uncalibrated_turret_angle,turret_angle_offset);
+  REG_ARM_JOINT_POSITIONS.shoulder = return_calibrated_angle(uncalibrated_shoulder_angle,shoulder_angle_offset);
+  REG_ARM_JOINT_POSITIONS.elbow = return_calibrated_angle(return_combined_pot_angle(ELBOW_POT_1_CH, ELBOW_POT_2_CH),elbow_angle_offset);
+
+
+
+}
+
+//read stored values from flash memory
+static void read_stored_angle_offsets(void)
+{
+  unsigned char angle_data[9];
+  unsigned int i;
+  DataEEInit();
+  Nop();
+  for(i=0;i<9;i++)
+  {
+    angle_data[i] = DataEERead(i);
+    Nop();
+  }
+
+  //only use stored values if we have stored the calibrated values before.
+  //we store 0xaa in position 8 so we know that the calibration has taken place.
+  if(angle_data[8] == 0xaa)
+  {
+    turret_angle_offset = angle_data[0]*256+angle_data[1];
+    shoulder_angle_offset = angle_data[2]*256+angle_data[3];
+    elbow_angle_offset = angle_data[4]*256+angle_data[5];
+    wrist_angle_offset = angle_data[6]*256+angle_data[7];
+  }
 
 }
