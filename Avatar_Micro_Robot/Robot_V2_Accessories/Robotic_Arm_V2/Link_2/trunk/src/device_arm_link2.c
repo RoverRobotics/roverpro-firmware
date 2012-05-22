@@ -2,7 +2,7 @@
 #include "stdhdr.h"
 #include "DEE Emulation 16-bit.h"
 
-//#define USB_TIMEOUT_ENABLED
+#define USB_TIMEOUT_ENABLED
 
 #define GRIPPER_BRAKE_EN(a)   _TRISB15 = !a
 #define GRIPPER_BRAKE_ON(a)   _LATB15 = a
@@ -72,7 +72,7 @@
 #define MIN_WRIST_SPEED 5
 
 #define MAX_GRIPPER_SPEED 20
-#define MIN_GRIPPER_SPEED 18
+#define MIN_GRIPPER_SPEED 5
 
 //#define MAX_GRIPPER_ACT 900
 //#define MIN_GRIPPER_ACT 500
@@ -133,7 +133,7 @@ void test_arm_motors_send_i2c(void);
 static char read_rs485_angle_values(void);
 
 void calibrate_angle_sensor(void);
-static unsigned int return_calibrated_angle(unsigned int uncalibrated_angle, unsigned int offset_angle);
+static unsigned int return_calibrated_angle(unsigned int uncalibrated_angle, unsigned int offset_angle, char direction);
 unsigned int return_combined_pot_angle(unsigned char pot_1_ch, unsigned char pot_2_ch);
 unsigned int wrist_angle_offset = 0;
 unsigned int test_wrist_pot1_angle = 0;
@@ -343,8 +343,6 @@ void Link2_Process_IO(void)
   //clear receive overrun error, so receive doesn't stop
   U1STAbits.OERR = 0;
 
-  read_rs485_angle_values();
-
   //pretty dumb control loop
   for(i=0;i<10;i++)
   {
@@ -362,7 +360,8 @@ void Link2_Process_IO(void)
     block_ms(10);
   }
   
-
+  //get raw angle values from RS-485 message and ADC
+  //apply the offset, and populate the REG_ARM_JOINT_POSITIONS registers
   update_joint_angles();
 
   #ifdef USB_TIMEOUT_ENABLED
@@ -793,14 +792,14 @@ void calibrate_angle_sensor(void)
   DataEEWrite(0xaa,8);
   Nop();
 
-  REG_ARM_MOTOR_VELOCITIES.shoulder = 20;
+  REG_ARM_MOTOR_VELOCITIES.turret = 20;
   send_rs485_message();
   block_ms(50);
   send_rs485_message();
   block_ms(50);
   ClrWdt();
   //block_ms(100);
-  REG_ARM_MOTOR_VELOCITIES.shoulder = 0;
+  REG_ARM_MOTOR_VELOCITIES.turret = 0;
   while(1)
   {
     ClrWdt();
@@ -809,7 +808,7 @@ void calibrate_angle_sensor(void)
   }
 
 }
-static unsigned int return_calibrated_angle(unsigned int uncalibrated_angle, unsigned int offset_angle)
+static unsigned int return_calibrated_angle(unsigned int uncalibrated_angle, unsigned int offset_angle, char direction)
 {
   unsigned int calibrated_angle = 0;
 
@@ -819,12 +818,17 @@ static unsigned int return_calibrated_angle(unsigned int uncalibrated_angle, uns
 
   if(uncalibrated_angle < offset_angle)
   {
-    calibrated_angle = 365+uncalibrated_angle-offset_angle;
+    calibrated_angle = 360+uncalibrated_angle-offset_angle;
   }
   else
   {
     calibrated_angle = uncalibrated_angle-offset_angle;
   }
+
+  if(direction > 0)
+    return calibrated_angle;
+  else
+    return 360-calibrated_angle;
 
   return calibrated_angle;
 
@@ -1417,11 +1421,13 @@ static char read_rs485_angle_values(void)
 
 static void update_joint_angles(void)
 {
+  //parse message from base, and populate uncalibrated_X_angle variables
+  read_rs485_angle_values();
 
-  REG_ARM_JOINT_POSITIONS.wrist = return_calibrated_angle(return_combined_pot_angle(WRIST_POT_1_CH, WRIST_POT_2_CH),wrist_angle_offset);
-  REG_ARM_JOINT_POSITIONS.turret = return_calibrated_angle(uncalibrated_turret_angle,turret_angle_offset);
-  REG_ARM_JOINT_POSITIONS.shoulder = return_calibrated_angle(uncalibrated_shoulder_angle,shoulder_angle_offset);
-  REG_ARM_JOINT_POSITIONS.elbow = return_calibrated_angle(return_combined_pot_angle(ELBOW_POT_1_CH, ELBOW_POT_2_CH),elbow_angle_offset);
+  REG_ARM_JOINT_POSITIONS.wrist = return_calibrated_angle(return_combined_pot_angle(WRIST_POT_1_CH, WRIST_POT_2_CH),wrist_angle_offset,1);
+  REG_ARM_JOINT_POSITIONS.turret = return_calibrated_angle(uncalibrated_turret_angle,turret_angle_offset,1);
+  REG_ARM_JOINT_POSITIONS.shoulder = return_calibrated_angle(uncalibrated_shoulder_angle,shoulder_angle_offset,-1);
+  REG_ARM_JOINT_POSITIONS.elbow = return_calibrated_angle(return_combined_pot_angle(ELBOW_POT_1_CH, ELBOW_POT_2_CH),elbow_angle_offset,-1);
 
 
 
