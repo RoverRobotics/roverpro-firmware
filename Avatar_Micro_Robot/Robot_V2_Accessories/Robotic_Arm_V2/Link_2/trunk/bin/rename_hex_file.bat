@@ -12,6 +12,11 @@ set time_name=%TIME:~0,2%_%TIME:~3,2%
 set time_name_short=%TIME:~0,2%%TIME:~3,2%
 set file_date=%DATE:~4,2%-%DATE:~7,2%-%DATE:~-4%
 
+if "%time_name_short:~0,1%"==" " (
+echo Correcting for space at beginning of time
+set time_name_short=%TIME:~1,1%_%TIME:~3,2%_%TIME:~6,2%
+)
+
 if "%time_name:~0,1%"==" " (
 echo Correcting for space at beginning of time
 set time_name=%TIME:~1,1%_%TIME:~3,2%_%TIME:~6,2%
