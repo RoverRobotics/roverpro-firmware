@@ -206,6 +206,12 @@ REGISTER(REG_OCU_CAMERA_POWER_ON, DEVICE_WRITE, DEVICE_OCU, SYNC, uint8_t)
 //  flipper angle, in degrees, from 0 to 359
 REGISTER( REG_MOTOR_FLIPPER_ANGLE, DEVICE_READ,  DEVICE_MOTOR,   SYNC,    uint16_t)
 
+//when nonzero, firmware will power cycle robot and copy value to REG_ROBOT_RESET_CODE
+REGISTER( REG_ROBOT_RESET_REQUEST,   DEVICE_WRITE,  DEVICE_CARRIER,   SYNC,    uint16_t)
+//tells sofware why the robot last reset.  Values 0x0000 through 0x00ff are reserved for
+//firmware, and the rest come from REG_ROBOT_RESET_REQUEST
+REGISTER( REG_ROBOT_RESET_CODE,   DEVICE_READ,  DEVICE_CARRIER,   SYNC,    uint16_t)
+
 
 REGISTER_END()
 
