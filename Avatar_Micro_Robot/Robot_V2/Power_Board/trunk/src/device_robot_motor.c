@@ -105,6 +105,7 @@ Response from Device to Host:
 #include "testing.h"
 #include "debug_uart.h"
 #include "device_robot_motor_i2c.h"
+#include "DEE Emulation 16-bit.h"
 
 //#define XbeeTest
 #define BATProtectionON
@@ -265,6 +266,10 @@ int8_t I2C3DataMSOut[20];//I2C3DataMSOut[0]--Lock indicator, 0-unlocked 1-locked
 int I2C1Channel=Available;
 int I2C2Channel=Available;
 int I2C3Channel=Available;
+
+unsigned int flipper_angle_offset = 0;
+void calibrate_flipper_angle_sensor(void);
+static void read_stored_angle_offset(void);
 
 
 unsigned int adc_test_reg = 0;
@@ -453,6 +458,9 @@ void DeviceRobotMotorInit()
 
 	initialize_i2c2_registers();
 	initialize_i2c3_registers();
+
+  //read flipper position from flash, and put it into a module variable
+  read_stored_angle_offset();
 	
 
 }
@@ -701,6 +709,14 @@ void Device_MotorController_Process()
  	int i;
  	long temp1,temp2;
 	static int overcurrent_counter = 0;
+
+  //check if software wants to calibrate flipper position
+  if(REG_MOTOR_VELOCITY.flipper == 12345)
+  {
+    calibrate_flipper_angle_sensor();
+  }
+
+
 // 	I2C2Update();
 //	I2C3Update();
  	//Check Timer
@@ -3082,8 +3098,14 @@ static unsigned int return_calibrated_pot_angle(unsigned int pot_1_value, unsign
   //special case -- invalid reading
   if(combined_pot_angle == 10000)
     return 10000;
+  else if(combined_pot_angle == 0xffff)
+    return 0xffff;
 
-  calibrated_pot_angle = combined_pot_angle - zero_pot_angle;
+  //if calibration didn't work right, return angle with no offset
+  if(flipper_angle_offset == 0xffff)
+    return combined_pot_angle;
+
+  calibrated_pot_angle = combined_pot_angle - flipper_angle_offset;
 
   if(calibrated_pot_angle < 0)
   {
@@ -3133,7 +3155,7 @@ static unsigned int return_combined_pot_angle(unsigned int pot_1_value, unsigned
   if( ((pot_1_value < LOW_POT_THRESHOLD) || (pot_1_value > HIGH_POT_THRESHOLD)) && 
       ((pot_2_value < LOW_POT_THRESHOLD) || (pot_2_value > HIGH_POT_THRESHOLD) ))
   {
-    return 10000;
+    return 0xffff;
   }
   //if pot 1 is out of linear range
   else if( (pot_1_value < LOW_POT_THRESHOLD) || (pot_1_value > HIGH_POT_THRESHOLD) )
@@ -3200,5 +3222,52 @@ static unsigned int return_combined_pot_angle(unsigned int pot_1_value, unsigned
 
   return (unsigned int)combined_pot_angle;
 
+
+}
+
+//read stored values from flash memory
+static void read_stored_angle_offset(void)
+{
+  unsigned char angle_data[3];
+  unsigned int i;
+  DataEEInit();
+  Nop();
+  for(i=0;i<3;i++)
+  {
+    angle_data[i] = DataEERead(i);
+    Nop();
+  }
+
+  //only use stored values if we have stored the calibrated values before.
+  //we store 0xaa in position 8 so we know that the calibration has taken place.
+  if(angle_data[2] == 0xaa)
+  {
+    flipper_angle_offset = angle_data[0]*256+angle_data[1];
+  }
+
+}
+
+void calibrate_flipper_angle_sensor(void)
+{
+  flipper_angle_offset = return_combined_pot_angle(REG_FLIPPER_FB_POSITION.pot1,REG_FLIPPER_FB_POSITION.pot2);
+
+  DataEEInit();
+  Nop();
+  
+  DataEEWrite( (flipper_angle_offset>>8),0);
+  Nop();
+  DataEEWrite( (flipper_angle_offset&0xff),1);
+  Nop();  
+
+  //write 0xaa to index 2, so we can tell if this robot has been calibrated yet
+  DataEEWrite(0xaa,2);
+  Nop();
+
+  //don't do anything again ever
+  while(1)
+  {
+    ClrWdt();
+
+  }
 
 }
