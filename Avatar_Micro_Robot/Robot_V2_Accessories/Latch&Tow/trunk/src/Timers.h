@@ -8,8 +8,10 @@ Description: This module encapsulates a 16-bit software timer based
 Notes: 
   - assumes global interrupts enabled externally
   - assumes exclusive use of Timer1
-  - assumes a 20MHz oscillator
+  - assumes f_osc = 32MHz
   - interrupt priority set to 1 (the lowest)
+  - can count up to about 3 days (longest timer if started at startup) after
+    initialization of this module
 
 Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 =============================================================================*/

@@ -5,7 +5,7 @@ File: Timers.c
 
 /*---------------------------Dependencies------------------------------------*/
 #include "./Timers.h"
-#include <p24FJ256GB106.h>
+#include "./StandardHeader.h"
 
 /*---------------------------Macros and Definitions--------------------------*/
 /*
@@ -13,11 +13,11 @@ Type: timer_t
 Description: A timer is comprised of a duration and a start time.
 */
 typedef struct {
-	unsigned int duration;        // the duration of the timer
-	unsigned int start_time;      // time at which the timer was started
+	unsigned long int duration;        // the duration of the timer
+	unsigned long int start_time;      // time at which the timer was started
 } timer_t;
 
-#define INTERRUPTS_PER_TICK 	7 // BUG ALERT: 0-based indexing
+#define INTERRUPTS_PER_TICK 	8
 #define TIMER_PERIOD 					250
 
 /*---------------------------Helper Function Prototypes----------------------*/
@@ -25,7 +25,7 @@ static void Timer_ISR(void);
 
 /*---------------------------Module Variables--------------------------------*/
 static timer_t timers[MAX_NUM_TIMERS];
-static unsigned int current_time;
+static unsigned long int current_time;
 
 /*---------------------------Test Harness------------------------------------*/
 #ifdef TEST_TIMERS
@@ -65,8 +65,8 @@ void __attribute__((__interrupt__, auto_psv)) _T1Interrupt(void) {
 Notes:
 	1) see p.143 of datasheet for initialization sequence
 	2) ms_per_tick = ((f_osc/2)/prescaler)^-1*timer_period*interrupts_per_tick
-                 = ((32MHz/2)/8)^-1*250*7
-		             = 1ms?????TODO: why doesn't math work out?
+                 = ((32MHz/2)/8)^-1*250*8
+		             = 1ms
 *****************************************************************************/
 void InitTimers(void) {
   T1CONbits.TCKPS1 = 0; T1CONbits.TCKPS0 = 1; // configure the timer prescaler ratio to 1/8 (see p.152 of datasheet)
@@ -91,11 +91,11 @@ void StartTimer(unsigned char timer_number, unsigned int new_time) {
 }
 
 unsigned char IsTimerExpired(unsigned char timer_number) {
-  unsigned char result;
   // BUG ALERT: stop interrupts!  This line takes several clock cylces to execute
-  //asm volatile ("disi #0x3FFF"); // disable interrupts
+  unsigned char result;
+  asm volatile ("disi #0x3FFF"); // disable interrupts
   result = (timers[timer_number].duration < (GetTime() - timers[timer_number].start_time));
-  //asm volatile ("disi #0");      // enable interrupts
+  asm volatile ("disi #0");      // enable interrupts
   
   return result;
 }
@@ -111,15 +111,14 @@ void Pause(unsigned int milliseconds) {
 
 /*---------------------------Private Function Definitions--------------------*/
 static void Timer_ISR(void) {
-  static unsigned char dummy = 0;
+  static unsigned char num_times_called = 0;
   
-  // only increment every fourth time
-  if (INTERRUPTS_PER_TICK <= dummy++) {
-    dummy = 0;
+  IFS0bits.T1IF = 0;  // clear the source of the interrupt
+  
+  if (INTERRUPTS_PER_TICK <= ++num_times_called) {
+    num_times_called = 0;
 	  current_time++;   // increment the GetTime() tick counter
 	}
-	
-	IFS0bits.T1IF = 0;  // clear the source of the interrupt
 }
 
 /*---------------------------End of File-------------------------------------*/
