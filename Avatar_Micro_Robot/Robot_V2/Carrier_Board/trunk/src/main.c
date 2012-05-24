@@ -482,6 +482,12 @@ BOOL USER_USB_CALLBACK_EVENT_HANDLER(USB_EVENT event, void *pdata, WORD size)
         case EVENT_RESUME:
             break;
         case EVENT_BUS_ERROR:
+	        //if there is an error, trigger a bus reset
+	        USBClearInterruptRegister(U1EIR);               // This clears UERRIF
+			USBResetIF = 1;
+			USBResetIE = 1;
+			Nop();
+            break;
             break;
         case EVENT_TRANSFER:
             break;
