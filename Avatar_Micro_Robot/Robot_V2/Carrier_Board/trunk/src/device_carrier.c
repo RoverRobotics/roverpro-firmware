@@ -1055,7 +1055,9 @@ static void handle_reset(void)
   if(REG_ROBOT_RESET_REQUEST > 0xff)
   {
     REG_ROBOT_RESET_CODE = REG_ROBOT_RESET_REQUEST;
+    display_int("RST_CODE:         \r\n", REG_ROBOT_RESET_CODE);
     REG_ROBOT_RESET_REQUEST = 0;
+    blink_led(2,300);
     hard_reset_robot();
     return;
   }
@@ -1085,8 +1087,8 @@ static void handle_reset(void)
       	send_lcd_string("No computer overheat detected  \r\n",33);
         REG_ROBOT_RESET_CODE = RST_SHUTDOWN;
       }
-      //blink twice so we know that the COM Express has shut down
-      blink_led(2,500);
+      //blink four times so we know that the COM Express has shut down
+      blink_led(4,300);
       hard_reset_robot();
    }
  }   

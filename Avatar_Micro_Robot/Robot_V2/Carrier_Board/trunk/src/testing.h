@@ -2,6 +2,7 @@
 void send_lcd_string(char* input_string, unsigned char len);
 void print_loop_number(void);
 void display_board_number(void);
+void display_int(char* description, unsigned int int_to_display);
 
 
 

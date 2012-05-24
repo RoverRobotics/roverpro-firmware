@@ -87,6 +87,32 @@ void display_register_value(char* description)
 
 }
 
+void display_int(char* description, unsigned int int_to_display)
+{
+	char string_to_display[20] = "                   \n";
+	char int_string[6];
+	unsigned int i;
+	unsigned int register_value;
+
+	for(i=0;i<20;i++)
+	{
+		string_to_display[i] = description[i];
+	}
+
+	register_value = RCON;
+	//register_value = 0xabcd;
+
+	int_to_string(int_to_display,(char*)int_string);
+
+	for(i=0;i<6;i++)
+	{
+		string_to_display[i+10] = int_string[i];
+	}
+
+	send_lcd_string(string_to_display,20);
+
+}
+
 void display_board_number(void)
 {
 	char board_number[5];
