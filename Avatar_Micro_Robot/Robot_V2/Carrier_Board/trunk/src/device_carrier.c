@@ -1046,9 +1046,13 @@ void hard_reset_robot(void)
 static void handle_reset(void)
 {
 
+  //counter so that we can wait after shutdown is detected
+  //for a certain number of cycles, before we restart robot
+  static unsigned int computer_shutdown_counter = 0;
 
   //check if software has requested a reset
-  if(REG_ROBOT_RESET_REQUEST)
+  //(0 through ff are invalid values)
+  if(REG_ROBOT_RESET_REQUEST > 0xff)
   {
     REG_ROBOT_RESET_CODE = REG_ROBOT_RESET_REQUEST;
     REG_ROBOT_RESET_REQUEST = 0;
@@ -1066,20 +1070,25 @@ static void handle_reset(void)
 	if(0)
 	#endif
 	{
-    if(NC_THERM_TRIP()==0)
+    computer_shutdown_counter++;
+    //if computer has been shut down for several cycles
+    if(computer_shutdown_counter > 10)
     {
-    	send_lcd_string("Computer overheat detected  \r\n",30);
-      REG_ROBOT_RESET_CODE = RST_SHUTDOWN_OVERHEAT;
+      computer_shutdown_counter = 0;
+      if(NC_THERM_TRIP()==0)
+      {
+      	send_lcd_string("Computer overheat detected  \r\n",30);
+        REG_ROBOT_RESET_CODE = RST_SHUTDOWN_OVERHEAT;
+      }
+      else
+      {
+      	send_lcd_string("No computer overheat detected  \r\n",33);
+        REG_ROBOT_RESET_CODE = RST_SHUTDOWN;
+      }
+      //blink twice so we know that the COM Express has shut down
+      blink_led(2,500);
       hard_reset_robot();
-    }
-    else
-    {
-    	send_lcd_string("No computer overheat detected  \r\n",33);
-      REG_ROBOT_RESET_CODE = RST_SHUTDOWN;
-    }
-    //blink twice so we know that the COM Express has shut down
-    blink_led(2,500);
-    hard_reset_robot();
- } 
+   }
+ }   
 
 }
