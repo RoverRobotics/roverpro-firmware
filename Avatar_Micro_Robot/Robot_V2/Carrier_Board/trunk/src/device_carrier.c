@@ -137,6 +137,13 @@ void toggle_wdt_loop(void);
 
 void read_EEPROM_string(void);
 
+
+#define RST_POWER_ON              0x0000
+#define RST_SHUTDOWN              0x0001
+#define RST_SHUTDOWN_OVERHEAT     0x0002
+#define RST_SHUTDOWN_USB_TIMEOUT  0x0003
+
+
 //unsigned int reg_robot_gps_message[100];
 //unsigned char eeprom_string[78];
 
@@ -178,6 +185,8 @@ void blink_led(unsigned int n, unsigned int ms);
 void init_pwm(void);
 void init_fan(void);
 void update_audio_power_state(void);
+void hard_reset_robot(void);
+static void handle_reset(void);
 
 // FUNCTIONS
 
@@ -187,6 +196,8 @@ void DeviceCarrierInit()
 {
 	int i = 0;
 	unsigned char force_reset = 0;
+
+  REG_ROBOT_RESET_CODE = RST_POWER_ON;
 
 	de_init_io();
 
@@ -837,7 +848,11 @@ void DeviceCarrierProcessIO()
 	static unsigned int displayed_overtemp_flag = 0;
 
 	i++;
+  
+  //see if a reset is required for any reason
+  handle_reset();
 
+/*
 	//if computer has shut down, flash white LED forever
 	#ifndef NO_COMPUTER_INSTALLED
 	if( (SUS_S3()==0) && (SUS_S5() == 0) )
@@ -869,14 +884,20 @@ void DeviceCarrierProcessIO()
 
 			if(displayed_overtemp_flag == 0)
 			{
-				displayed_overtemp_flag = 1;
+				//displayed_overtemp_flag = 1;
 				if(NC_THERM_TRIP()==0)
 				{
 					send_lcd_string("Computer overheat detected  \r\n",30);
+          REG_ROBOT_RESET_CODE = RST_SHUTDOWN_OVERHEAT;
+          hard_reset_robot();
+          break;
 				}
 				else
 				{
 					send_lcd_string("No computer overheat detected  \r\n",33);
+          REG_ROBOT_RESET_CODE = RST_SHUTDOWN;
+          hard_reset_robot();
+          break;
 				}
 			}
 	
@@ -896,7 +917,7 @@ void DeviceCarrierProcessIO()
 				}
 			}
 		}
-	}
+	}*/
 
 
 
@@ -976,5 +997,89 @@ void toggle_wdt_loop(void)
 		handle_watchdogs();
 		block_ms(10);
 	}
+
+}
+
+//reset the entire robot, without resetting the carrier board PIC
+void hard_reset_robot(void)
+{
+  unsigned int i;
+
+  //turn on white LED so we know the this was a planned reset
+  set_led_brightness(WHITE_LED, 50);
+  set_led_brightness(IR_LED, 0);
+
+  de_init_io();
+	_U2RXIE = 0;
+  _ADON = 0;
+  _U1TXIE = 0;
+  U1STAbits.UTXEN = 0;
+
+  I2C1CON = 0x0000;
+  I2C1STAT = 0x0000;
+  U1MODE = 0x0000;
+  U1STA = 0x0000;
+  U2MODE = 0x0000;
+  U2STA = 0x0000;
+
+  //disable/enable USB?
+  
+
+  //reenable WDT, so PIC stays up
+  WDT_PIN_EN(1);
+
+
+  //wait some time for power supplies to decay
+  for(i=0;i<5;i++)
+  {
+    handle_watchdogs();
+    block_ms(50);
+  }
+
+  DeviceCarrierInit();
+
+}
+
+//if computer has shut down, or software has requested
+//a reset, set correct reset code
+//and reset robot
+static void handle_reset(void)
+{
+
+
+  //check if software has requested a reset
+  if(REG_ROBOT_RESET_REQUEST)
+  {
+    REG_ROBOT_RESET_CODE = REG_ROBOT_RESET_REQUEST;
+    REG_ROBOT_RESET_REQUEST = 0;
+    hard_reset_robot();
+    return;
+  }
+
+
+
+
+	//if computer has shut down, trigger a hard reset (on everything but the PIC)
+	#ifndef NO_COMPUTER_INSTALLED
+	if( (SUS_S3()==0) && (SUS_S5() == 0) )
+	#else
+	if(0)
+	#endif
+	{
+    if(NC_THERM_TRIP()==0)
+    {
+    	send_lcd_string("Computer overheat detected  \r\n",30);
+      REG_ROBOT_RESET_CODE = RST_SHUTDOWN_OVERHEAT;
+      hard_reset_robot();
+    }
+    else
+    {
+    	send_lcd_string("No computer overheat detected  \r\n",33);
+      REG_ROBOT_RESET_CODE = RST_SHUTDOWN;
+    }
+    //blink twice so we know that the COM Express has shut down
+    blink_led(2,500);
+    hard_reset_robot();
+ } 
 
 }
