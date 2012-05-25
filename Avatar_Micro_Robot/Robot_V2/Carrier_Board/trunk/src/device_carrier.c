@@ -779,7 +779,6 @@ void DeviceCarrierGetTelemetry()
 
 int DeviceCarrierBoot()
 {
-	unsigned char a;
 	unsigned int i = 0;
 
 	V3V3_ON(1);
@@ -845,7 +844,6 @@ void DeviceCarrierProcessIO()
 {
 
 	static unsigned int i = 0;
-	static unsigned int displayed_overtemp_flag = 0;
 
 	i++;
   
@@ -1057,7 +1055,16 @@ static void handle_reset(void)
     REG_ROBOT_RESET_CODE = REG_ROBOT_RESET_REQUEST;
     display_int("RST_CODE:         \r\n", REG_ROBOT_RESET_CODE);
     REG_ROBOT_RESET_REQUEST = 0;
-    blink_led(2,300);
+
+    //blink 10 times if wifi module never detected
+    if(REG_ROBOT_RESET_CODE == 0x0101)
+    {
+       blink_led(10,300);
+    }
+    else
+    {
+      blink_led(2,300);
+    }
     hard_reset_robot();
     return;
   }
