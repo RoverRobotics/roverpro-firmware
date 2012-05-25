@@ -207,7 +207,7 @@ void debug_uart_tx_interrupt(void)
 
 }
 
-debug_uart_rx_interrupt(void)
+void debug_uart_rx_interrupt(void)
 {
   static unsigned char index = 0;
   unsigned char new_byte;

@@ -314,7 +314,6 @@ static unsigned int return_calibrated_pot_angle(unsigned int pot_1_value, unsign
 //If the flipper pot is above this threshold, it is invalid
 #define HIGH_POT_THRESHOLD 990
 #define FLIPPER_POT_OFFSET -55
-static int zero_pot_angle = 0;
 
 void bringup_board(void)
 {
@@ -1370,10 +1369,10 @@ int GetMotorSpeedTargetCoefficient(int Current)
 int GetDuty(long CurrentState, long Target, int RTCurrent, int Channel, int Mode)
 {
  	long TargetRPM;
- 	long TargetCurrent;
+// 	long TargetCurrent;
  	float result;
  	long TempSpeedError;
- 	long TempCurrentError;
+// 	long TempCurrentError;
 /*
  	if(LastTarget[Channel]!=Target)
  	{
@@ -3122,7 +3121,6 @@ static unsigned int return_calibrated_pot_angle(unsigned int pot_1_value, unsign
 
 static unsigned int return_combined_pot_angle(unsigned int pot_1_value, unsigned int pot_2_value)
 {
-  unsigned int combined_pot_value = 0;
   //unsigned int pot_1_value, pot_2_value = 0;
   int combined_pot_angle = 0;
   int pot_angle_1 = 0;
@@ -3250,6 +3248,11 @@ static void read_stored_angle_offset(void)
 void calibrate_flipper_angle_sensor(void)
 {
   flipper_angle_offset = return_combined_pot_angle(REG_FLIPPER_FB_POSITION.pot1,REG_FLIPPER_FB_POSITION.pot2);
+
+  //set motor speeds to 0
+	PWM1Duty(0);
+	PWM2Duty(0);
+	PWM3Duty(0);
 
   DataEEInit();
   Nop();
