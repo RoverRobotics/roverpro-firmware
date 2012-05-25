@@ -885,7 +885,6 @@ static void TiltControl()
     //stop moving tilt if USB times out
    else if(USB_timeout_ms >= USB_TIMEOUT)
     {
-      USB_timeout_ms = USB_TIMEOUT+1;
       REG_CAMERA_VEL_ROT.tilt = 0;
     }
   #endif
