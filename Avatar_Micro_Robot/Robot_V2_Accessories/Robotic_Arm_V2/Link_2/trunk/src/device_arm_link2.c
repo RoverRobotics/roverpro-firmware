@@ -741,6 +741,9 @@ void calibrate_angle_sensor(void)
   REG_ARM_MOTOR_VELOCITIES.wrist = 0;
   REG_ARM_MOTOR_VELOCITIES.gripper = 0;
 
+  set_wrist_velocity(0);
+  set_gripper_velocity(0);
+
   while(1)
   {
     send_rs485_message();
