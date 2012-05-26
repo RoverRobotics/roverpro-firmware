@@ -137,11 +137,15 @@ void toggle_wdt_loop(void);
 
 void read_EEPROM_string(void);
 
+static unsigned int number_of_resets = 0;
+unsigned int usb_timeout_counter = 0;
+unsigned char first_usb_message_received = 0;
 
-#define RST_POWER_ON              0x0000
-#define RST_SHUTDOWN              0x0001
-#define RST_SHUTDOWN_OVERHEAT     0x0002
-#define RST_SHUTDOWN_USB_TIMEOUT  0x0003
+#define RST_POWER_ON                  0x0000
+#define RST_SHUTDOWN                  0x0001
+#define RST_SHUTDOWN_OVERHEAT         0x0002
+#define RST_SHUTDOWN_USB_TIMEOUT      0x0003
+#define RST_SOFTWARE_FAIL             0x0004
 
 
 //unsigned int reg_robot_gps_message[100];
@@ -197,7 +201,10 @@ void DeviceCarrierInit()
 	int i = 0;
 	unsigned char force_reset = 0;
 
-  REG_ROBOT_RESET_CODE = RST_POWER_ON;
+  if(number_of_resets == 0)
+  {  
+    REG_ROBOT_RESET_CODE = RST_POWER_ON;
+  }
 
 	de_init_io();
 
@@ -846,6 +853,8 @@ void DeviceCarrierProcessIO()
 	static unsigned int i = 0;
 
 	i++;
+
+  usb_timeout_counter++;
   
   //see if a reset is required for any reason
   handle_reset();
@@ -1003,11 +1012,15 @@ void hard_reset_robot(void)
 {
   unsigned int i;
 
+  number_of_resets++;
+  usb_timeout_counter = 0;
+  first_usb_message_received = 0;
+
   //turn on white LED so we know the this was a planned reset
   set_led_brightness(WHITE_LED, 50);
   set_led_brightness(IR_LED, 0);
 
-  de_init_io();
+
 	_U2RXIE = 0;
   _ADON = 0;
   _U1TXIE = 0;
@@ -1026,8 +1039,23 @@ void hard_reset_robot(void)
   //reenable WDT, so PIC stays up
   WDT_PIN_EN(1);
 
+  //explicitly turn off all supplies
+  V3V3_ON(0);
+  V5_ON(0);
+  V12_ON(0);
+  COM_EXPRESS_PGOOD_ON(0);
 
   //wait some time for power supplies to decay
+  for(i=0;i<5;i++)
+  {
+    handle_watchdogs();
+    block_ms(50);
+  }
+
+  //set all pins to default state (inputs)
+  de_init_io();
+
+  //wait some more time
   for(i=0;i<5;i++)
   {
     handle_watchdogs();
@@ -1070,6 +1098,19 @@ static void handle_reset(void)
   }
 
 
+  //if the software hasn't started in a reasonable amount of time
+  //(evidenced by the lack of new USB messages), restart robot.
+  //This is only done after the robot has restarted, so that we are
+  //able to debug or push software on a clean boot.
+  //Also, if software starts and then stops, no reset will occur, since
+  //first_usb_message_received will be true
+  if( (usb_timeout_counter > 2000) && (number_of_resets > 0) && (first_usb_message_received == 0) )
+  {
+    REG_ROBOT_RESET_CODE = RST_SOFTWARE_FAIL;
+    blink_led(4,300);
+    hard_reset_robot();
+    return;
+  }
 
 
 	//if computer has shut down, trigger a hard reset (on everything but the PIC)

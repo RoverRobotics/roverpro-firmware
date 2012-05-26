@@ -448,6 +448,11 @@ OutPacket[71] = 0x19;*/
 			USBGenericInHandle = USBTxOnePacket((BYTE)USBGEN_EP_NUM,(BYTE*)&InPacket,(WORD)i);
 		}
 		gNewData = !gNewData; // toggle new data flag for those watching
+    
+    usb_timeout_counter = 0;
+
+    if(first_usb_message_received == 0)
+      first_usb_message_received=1;
 
 crapout5:
 		// Arm USB hardware to receive next packet.

@@ -15,3 +15,5 @@ void DeviceCarrierProcessIO();
 
 void handle_watchdogs(void);
 
+extern unsigned int usb_timeout_counter;
+extern unsigned char first_usb_message_received;
