@@ -32,11 +32,11 @@ void InitPWM(unsigned char pin, unsigned int ms);
 /*
 Function: UpdateDutyCycle()
 Parameters:
-	unsigned char duty_cycle, the percent high-time (0-to-100 inclusive)
+	double duty_cycle, the percent high-time (0.0-to-100.0 inclusive)
 Notes:
 	- does NOT check whether the given pin is valid and has been 
     previously initialized
 */
-void UpdateDutyCycle(unsigned char duty_cycle);
+void UpdateDutyCycle(double duty_cycle);
 
 #endif

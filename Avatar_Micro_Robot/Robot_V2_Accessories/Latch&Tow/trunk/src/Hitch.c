@@ -22,11 +22,11 @@ File: Hitch.c
 //---PWM Pin
 #define LATCH_PWM_PIN         2       // RP2
 #define T_PWM                 10      // [ms], period of the PWM signal
-#define MAX_DC                20      // T = 2ms
-#define MAX_ALLOWABLE_DC      16      // T = 1.6
-#define NEUTRAL_DC            15      // T = 1.5
-#define MIN_ALLOWABLE_DC      14      // T = 1.4
-#define MIN_DC                10      // T = 1ms
+#define MAX_DC                0.20    // T = 2ms
+#define MAX_ALLOWABLE_DC      0.155    // T = 1.6
+#define NEUTRAL_DC            0.148    // T = 1.5
+#define MIN_ALLOWABLE_DC      0.14    // T = 1.4
+#define MIN_DC                0.10    // T = 1ms
 //---Power Bus
 #define CONFIG_POWER_BUS(a)   (_TRISD9 = (a))
 #define TURN_POWER_BUS(a)     (_LATD9 = (a))
@@ -89,10 +89,10 @@ static unsigned char FinishedUnlatching(void);
 
 /*---------------------------Module Variables--------------------------------*/
 static int V_unlatched = V_UNLATCHED;           
-static int V_latched = 124;// V_LATCHED;
+static int V_latched = V_LATCHED;
 static state_t state = WAITING;
 
-static unsigned char open_hitch = 0;  // TODO: delete after testing
+//static unsigned char open_hitch = 0;  // TODO: delete after testing
 
 /*---------------------------Test Harness------------------------------------*/
 #ifdef TEST_HITCH
@@ -153,14 +153,14 @@ void ProcessHitchIO(void) {
   
   switch (state) {
     case WAITING:
-      if (IsLatched() && open_hitch && IsTimerExpired(TRANSITION_TIMER)) {
+      if (IsLatched() && REG_HITCH_OPEN && IsTimerExpired(TRANSITION_TIMER)) {
     	  Latch(OFF);
     	  state = LATCHING;
-    	} else if (IsUnlatched() && (!open_hitch) && IsTimerExpired(TRANSITION_TIMER)) {	  
+    	} else if (IsUnlatched() && (!REG_HITCH_OPEN) && IsTimerExpired(TRANSITION_TIMER)) {	  
     	  Latch(ON);
     	  state = LATCHING;
     	} else if (IsLatching() && IsTimerExpired(TRANSITION_TIMER)) {
-    	  Latch(open_hitch); // latch as software desires it
+    	  Latch(REG_HITCH_OPEN); // latch as software desires it
     	  state = LATCHING;
       }
   	  break;
@@ -186,7 +186,7 @@ void ProcessHitchIO(void) {
   	  StartTimer(HEARTBEAT_TIMER, 65000); // indicate an error
   		break;
   }
-  
+
   /*
   // basic test
   if (IsTimerExpired(TRANSITION_TIMER)) {
@@ -211,6 +211,7 @@ void ProcessHitchIO(void) {
 		StartTimer(TRANSITION_TIMER, 2000);
 	}
 	*/
+	
   
   
 }
@@ -283,11 +284,11 @@ static unsigned char IsLatching(void) {
 }
 
 static unsigned char FinishedLatching(void) {
-  return (IsLatched() && !open_hitch);
+  return (IsLatched() && !REG_HITCH_OPEN);
 }
 
 static unsigned char FinishedUnlatching(void) {
-  return (IsUnlatched() && open_hitch);
+  return (IsUnlatched() && REG_HITCH_OPEN);
 }
 
 

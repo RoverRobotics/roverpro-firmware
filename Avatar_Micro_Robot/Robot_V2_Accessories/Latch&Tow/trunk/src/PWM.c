@@ -53,8 +53,8 @@ void InitPWM(unsigned char pin, unsigned int ms) {
 	ConfigureOC2(ms);
 }
 
-void UpdateDutyCycle(unsigned char duty_cycle) {
-	OC2R = (((float)duty_cycle / 100.0) * (float)period);
+void UpdateDutyCycle(double duty_cycle) {
+	OC2R = (unsigned int)(duty_cycle * (double)period);
 }
 
 
