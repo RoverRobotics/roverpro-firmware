@@ -3,6 +3,7 @@ File: Hitch.c
 =============================================================================*/
 //#define TEST_HITCH
 /*---------------------------Dependencies------------------------------------*/
+#include "./Hitch.h"
 #include <p24FJ256GB106.h>
 #include "./Timers.h"
 #include "./ADC.h"
@@ -20,7 +21,7 @@ File: Hitch.c
 
 //---PWM Pin
 #define LATCH_PWM_PIN         2       // RP2
-#define T_PWM                 10      // [us], period of the PWM signal
+#define T_PWM                 10      // [ms], period of the PWM signal
 #define MAX_DC                20      // T = 2ms
 #define MAX_ALLOWABLE_DC      16      // T = 1.6
 #define NEUTRAL_DC            15      // T = 1.5
@@ -34,7 +35,7 @@ File: Hitch.c
 #define ACTUATOR_ANALOG_PIN   4
 #define V_UNLATCHED           976     // [au], (3.15 / 3.30) * 1023=
 #define V_LATCHED             124     // [au], (0.40 / 3.30) * 1023=
-#define ACTUATOR_HYSTERESIS   50      // [au]
+#define ACTUATOR_HYSTERESIS   50      // [au], (0.10 / 3.30) * 1023 ~= 31
 
 // Temperature Sensing
 #define TEMP_ANALOG_PIN       8
@@ -87,9 +88,11 @@ static unsigned char FinishedLatching(void);
 static unsigned char FinishedUnlatching(void);
 
 /*---------------------------Module Variables--------------------------------*/
-static unsigned int V_unlatched = V_UNLATCHED;           
-static unsigned int V_latched = V_LATCHED;
+static int V_unlatched = V_UNLATCHED;           
+static int V_latched = 124;// V_LATCHED;
 static state_t state = WAITING;
+
+static unsigned char open_hitch = 0;  // TODO: delete after testing
 
 /*---------------------------Test Harness------------------------------------*/
 #ifdef TEST_HITCH
@@ -125,6 +128,7 @@ void InitHitch(void) {
   
 	// prime any timers that require it
 	StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME);
+	StartTimer(TRANSITION_TIMER, 5000);
 }
 
 void ProcessHitchIO(void) {
@@ -141,21 +145,23 @@ void ProcessHitchIO(void) {
     state = COOLING_DOWN;
   }
   
+  // only update feedback to software as often as needed
+  if (IsTimerExpired(UPDATE_TIMER)) {
+    REG_HITCH_POSITION = Map(GetADC(ACTUATOR_ANALOG_PIN), V_UNLATCHED, V_LATCHED, 0, 100);
+    StartTimer(UPDATE_TIMER, UPDATE_TIME);
+  }
+  
   switch (state) {
     case WAITING:
-      if (IsLatched() && REG_HITCH_OPEN && IsTimerExpired(TRANSITION_TIMER)) {
+      if (IsLatched() && open_hitch && IsTimerExpired(TRANSITION_TIMER)) {
     	  Latch(OFF);
     	  state = LATCHING;
-    	} else if (IsUnlatched() && !REG_HITCH_OPEN && IsTimerExpired(TRANSITION_TIMER)) {	  
+    	} else if (IsUnlatched() && (!open_hitch) && IsTimerExpired(TRANSITION_TIMER)) {	  
     	  Latch(ON);
     	  state = LATCHING;
     	} else if (IsLatching() && IsTimerExpired(TRANSITION_TIMER)) {
-    	  Latch(REG_HITCH_OPEN); // latch as software desires it
+    	  Latch(open_hitch); // latch as software desires it
     	  state = LATCHING;
-      } else if (IsTimerExpired(UPDATE_TIMER)) {
-        // only update feedback to software as often as needed
-        REG_HITCH_POSITION = Map(GetADC(ACTUATOR_ANALOG_PIN), V_UNLATCHED, V_LATCHED, 0, 100);
-        StartTimer(UPDATE_TIMER, UPDATE_TIME);
       }
   	  break;
   	case LATCHING:
@@ -180,6 +186,33 @@ void ProcessHitchIO(void) {
   	  StartTimer(HEARTBEAT_TIMER, 65000); // indicate an error
   		break;
   }
+  
+  /*
+  // basic test
+  if (IsTimerExpired(TRANSITION_TIMER)) {
+		HEARTBEAT_PIN ^= 1;
+		
+		static unsigned char alternator = 0;
+		switch (++alternator % 4) {
+      case 0:
+        UpdateDutyCycle(MAX_ALLOWABLE_DC);
+        break;
+      case 1:
+        UpdateDutyCycle(NEUTRAL_DC);
+		    break;
+		  case 2:
+		    UpdateDutyCycle(MIN_ALLOWABLE_DC);
+		    break;
+		  case 3:
+		    UpdateDutyCycle(NEUTRAL_DC);
+		    break;
+    }
+		
+		StartTimer(TRANSITION_TIMER, 2000);
+	}
+	*/
+  
+  
 }
 
 /*---------------------------Helper Function Definitions---------------------*/
@@ -237,7 +270,7 @@ static unsigned char IsLatched(void) {
 static unsigned char IsUnlatched(void) {
   if (V_unlatched < GetADC(ACTUATOR_ANALOG_PIN)) {
     V_unlatched -= ACTUATOR_HYSTERESIS;
-    V_latched = V_LATCHED;    // make sure to restore the counterpart limit!
+    V_latched = V_LATCHED;
     return 1;
   }
   
@@ -245,15 +278,16 @@ static unsigned char IsUnlatched(void) {
 }
 
 static unsigned char IsLatching(void) {
-  return (!(IsLatched() || IsUnlatched())); // if neither latched nor unlatched
+  unsigned int position = GetADC(ACTUATOR_ANALOG_PIN);
+  return ((V_latched < position) && (position < V_unlatched));
 }
 
 static unsigned char FinishedLatching(void) {
-  return (IsLatched() && !REG_HITCH_OPEN);
+  return (IsLatched() && !open_hitch);
 }
 
 static unsigned char FinishedUnlatching(void) {
-  return (IsUnlatched() && REG_HITCH_OPEN);
+  return (IsUnlatched() && open_hitch);
 }
 
 

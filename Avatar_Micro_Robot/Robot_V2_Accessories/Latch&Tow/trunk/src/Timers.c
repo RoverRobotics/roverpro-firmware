@@ -93,9 +93,9 @@ void StartTimer(unsigned char timer_number, unsigned int new_time) {
 unsigned char IsTimerExpired(unsigned char timer_number) {
   // BUG ALERT: stop interrupts!  This line takes several clock cylces to execute
   unsigned char result;
-  asm volatile ("disi #0x3FFF"); // disable interrupts
+  //asm volatile ("disi #0x3FFF"); // disable interrupts
   result = (timers[timer_number].duration < (GetTime() - timers[timer_number].start_time));
-  asm volatile ("disi #0");      // enable interrupts
+  //asm volatile ("disi #0");      // enable interrupts
   
   return result;
 }

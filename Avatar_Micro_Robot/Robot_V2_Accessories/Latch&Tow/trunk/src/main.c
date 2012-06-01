@@ -10,9 +10,9 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 =============================================================================*/
 #define TEST_MAIN
 /*---------------------------Dependencies------------------------------------*/
-#include "stdhdr.h"
+#include "./stdhdr.h"
 #include "../../../../../Common/REV_A/USB/usb_communication.h"
-#include "Hitch.h"
+#include "./Hitch.h"
 
 // from usb_device.c
 extern volatile BDT_ENTRY *pBDTEntryOut[USB_MAX_EP_NUMBER+1];

@@ -6,7 +6,7 @@ Description: This is the overarching file that encapsulates the
   firmware modules and interfaces with external components.
   
 Notes:
-  - N/A
+  - The brown wire for the ESC is GND
   
 Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 =============================================================================*/
