@@ -551,7 +551,7 @@ void PanControl()
 	else if(REG_CAMERA_VEL_BASE != 0)
 	{
 		absPanVelocity = abs(REG_CAMERA_VEL_BASE);
-		pwmDuty = 0;
+		pwmDuty = 10;
 		PORTDbits.RD10=0;
 	}
 	else
