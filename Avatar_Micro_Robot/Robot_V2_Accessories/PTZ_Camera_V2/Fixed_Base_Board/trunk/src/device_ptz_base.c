@@ -33,6 +33,9 @@
 #define CAMERA_MESSAGE_QUERY_FOCUS 0x83
 
 #define USB_TIMEOUT 100
+#define PAN_USB_WATCHDOG_ON
+
+#define PAN_POSITION_DEADBAND 5
 
 static volatile unsigned char uartRxData[UART_RX_BUFFER_SIZE];          
 static volatile int uartRxIndex = 0;
@@ -206,6 +209,7 @@ static void ADC1Interrupt()
 	{
 		potentiometer = ((float)ADC1BUF0)*0.01f + potentiometer*0.99f;
 		potentiometer2 = ((float)ADC1BUF1)*0.01f + potentiometer2*0.99f;
+
         debug_pot = potentiometer;
         debug_pot2 = potentiometer2;
 	}
@@ -259,7 +263,16 @@ static void UART2Ini()
 static void PWM1Set(int duty, int period)
 {
 	int pr2Value = ((period<<4)-10);
-	OC1R = pr2Value - duty*(pr2Value/100);
+  //there's some weird difference in the math (rounding?), so add a special case for
+  //a duty cycle of 0
+  if(duty == 0)
+  {
+    OC1R = ((period<<4)-2);
+  }
+  else
+  {
+	  OC1R = pr2Value - duty*(pr2Value/100);
+  }
 	OC1RS = ((period<<4)-2);
 }
 
@@ -519,11 +532,14 @@ void PanControl()
   int pwmDuty = 40;
 
   //stop moving pan if USB times out
+  #ifdef PAN_USB_WATCHDOG_ON
  if(USB_timeout_ms >= USB_TIMEOUT)
   {
     USB_timeout_ms = USB_TIMEOUT+1;
     REG_CAMERA_VEL_BASE = 0;
   }
+  #endif
+
   panDir = REG_CAMERA_VEL_BASE>=0;
   
 
@@ -548,11 +564,11 @@ void PanControl()
 		int pidResult = 8*(potProp) + 0*(potDiff) + 0*(int)panPidSum;
 		panDir = (pidResult) > 0;
 		absPanVelocity = min(1000,abs(pidResult));
-                if((abs(potProp) < 5))
+                if((abs(potProp) < PAN_POSITION_DEADBAND))
                 {
                     panPidSum = 0.0f;
                     panPidLastProp = 0;
-					PORTDbits.RD10=1;
+					PORTDbits.RD10=0;
 					pwmDuty = 0;
                 }
                 else
