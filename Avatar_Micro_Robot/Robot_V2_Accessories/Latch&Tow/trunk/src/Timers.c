@@ -5,7 +5,7 @@ File: Timers.c
 
 /*---------------------------Dependencies------------------------------------*/
 #include "./Timers.h"
-#include "./StandardHeader.h"
+#include <p24FJ256GB106.h>
 
 /*---------------------------Macros and Definitions--------------------------*/
 /*
