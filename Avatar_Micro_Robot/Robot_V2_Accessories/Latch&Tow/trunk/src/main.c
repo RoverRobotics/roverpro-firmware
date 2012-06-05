@@ -31,7 +31,12 @@ extern USB_DEVICE_DESCRIPTOR device_dsc;
 #include "./ConfigurationBits.h"
 int main(void) {
   InitializeSystem();
-  while(1) ProcessIO();
+  
+  _SWDTEN = 1; // enable the watchdog timer
+  while(1) {
+    ProcessIO();
+    ClrWdt();  // clear the watchdog timer
+  }
 }
 #endif
 /*---------------------------End Test Harness--------------------------------*/

@@ -4,45 +4,39 @@ File: Hitch.c
 //#define TEST_HITCH
 /*---------------------------Dependencies------------------------------------*/
 #include "./Hitch.h"
-#include <p24FJ256GB106.h>
+#include "./StandardHeader.h" // for pic header file, Map() function, etc
 #include "./Timers.h"
 #include "./ADC.h"
 #include "./PWM.h"
 #include "./stdhdr.h"         // to get access to our custom registers
 
 /*---------------------------Wiring Macros-----------------------------------*/
-// General Definitions
-#define OUTPUT                0
-#define INPUT                 1  
-#define OFF                   0
-#define ON                    1
-#define CW                    0
-#define CCW                   1
-
-//---PWM Pin
+// PWM Pin
 #define LATCH_PWM_PIN         2       // RP2
 #define T_PWM                 10      // [ms], period of the PWM signal
 #define MAX_DC                0.20    // T = 2ms
-#define MAX_ALLOWABLE_DC      0.155    // T = 1.6
-#define NEUTRAL_DC            0.148    // T = 1.5
-#define MIN_ALLOWABLE_DC      0.14    // T = 1.4
+#define MAX_ALLOWABLE_DC      0.16   // T = 1.6
+#define NEUTRAL_DC            0.148   // T = 1.5
+#define MIN_ALLOWABLE_DC      0.130
 #define MIN_DC                0.10    // T = 1ms
-//---Power Bus
+
+// Power Bus
 #define CONFIG_POWER_BUS(a)   (_TRISD9 = (a))
 #define TURN_POWER_BUS(a)     (_LATD9 = (a))
 
 // Actuator Position Sensing
 #define ACTUATOR_ANALOG_PIN   4
-#define V_UNLATCHED           976     // [au], (3.15 / 3.30) * 1023=
-#define V_LATCHED             124     // [au], (0.40 / 3.30) * 1023=
-#define ACTUATOR_HYSTERESIS   50      // [au], (0.10 / 3.30) * 1023 ~= 31
+#define V_UNLATCHED           800 // [au], (au = 'arbitrary units')
+#define V_LATCHED             400//300 // [au]
+#define ACTUATOR_HYSTERESIS   50  // [au], (0.10 / 3.30) * 1023 ~= 31
+#define EXPECTED_DELTA_POT    10  // [au], the amount by which we expect to AT LEAST move each cycle
 
 // Temperature Sensing
 #define TEMP_ANALOG_PIN       8
 
 // Power Bus Current Sensing
 #define CURRENT_ANALOG_PIN    15
-#define UNSAFE_CURRENT_LEVEL  700     // 0.01S*(5A*0.05Ohm)*1k ~= 2.5V, (2.5 / 3.30) * 1023=
+#define UNSAFE_CURRENT_LEVEL  230 // 0.01S*(1.5A*0.05Ohm)*1k ~= 0.75V, (0.75 / 3.30) * 1023=
 
 // Heartbeat Indicator
 #define CONFIGURE_HEARTBEAT_PIN(a)   (_TRISE5 = (a))
@@ -52,28 +46,19 @@ File: Hitch.c
 #define _100ms                100
 #define HEARTBEAT_TIMER       0
 #define HEARTBEAT_TIME        (10*_100ms)
-#define ESC_DELAY_TIMER       1
-#define ESC_DELAY_TIME        (5*_100ms)
-#define LATCH_ACCEL_TIMER     2
-#define UPDATE_TIMER          3
+#define UPDATE_TIMER          1
 #define UPDATE_TIME           _100ms  // update software-register interfaces every ~10Hz
-//#define TEST_TIMER            4
-//#define TEST_TIME             (10*_100ms)
-#define OVERCURRENT_TIMER     5
-#define OVERCURRENT_TIME      (50*_100ms)
-#define LATCH_TIMER           6
-#define TYPICAL_LATCH_TIME    (10*_100ms)
-#define TRANSITION_TIMER      7
-#define TRANSITION_TIME       (12*_100ms) 
-//#define DELTA_DC              1
-//#define DELTA_LATCH_TIME      (_100ms)
+#define TRANSITION_TIMER      2
+#define TRANSITION_TIME       (10*_100ms)
+#define JAM_TIMER             3
+#define JAM_CHECK_PERIOD      (5*_100ms)
 
 /*---------------------------Type Definitions--------------------------------*/
 typedef enum {
   WAITING = 0,
   LATCHING,
-  COOLING_DOWN
-} state_t;  
+  UNLATCHING
+} state_t;
 
 /*---------------------------Helper Function Prototypes----------------------*/
 static void CalibrateHobbyMotorController(void);
@@ -81,18 +66,10 @@ static void Latch(unsigned char direction);
 static unsigned char IsLatched(void);
 static unsigned char IsUnlatched(void);
 static unsigned char IsLatching(void);
-static unsigned int Map(int value, int from_low, int from_high, 
-                        int to_low, int to_high);
 static unsigned char IsJammed(void);
-static unsigned char FinishedLatching(void);
-static unsigned char FinishedUnlatching(void);
 
 /*---------------------------Module Variables--------------------------------*/
-static int V_unlatched = V_UNLATCHED;           
-static int V_latched = V_LATCHED;
 static state_t state = WAITING;
-
-//static unsigned char open_hitch = 0;  // TODO: delete after testing
 
 /*---------------------------Test Harness------------------------------------*/
 #ifdef TEST_HITCH
@@ -101,8 +78,10 @@ static state_t state = WAITING;
 int main(void) {
 	InitHitch();
 
+  _SWDTEN = 1; // enable the watchdog timer
   while (1) {
     ProcessHitchIO();
+    ClrWdt(); // clear the watchdog timer 
 	}
 	
 	return 0;
@@ -141,44 +120,50 @@ void ProcessHitchIO(void) {
 	// turn off the power bus if we are drawing too much current (over-current protection)
 	if (UNSAFE_CURRENT_LEVEL < GetADC(CURRENT_ANALOG_PIN)) {
     TURN_POWER_BUS(OFF);
-    StartTimer(OVERCURRENT_TIMER, OVERCURRENT_TIME);
-    state = COOLING_DOWN;
+    Reset();
   }
   
   // only update feedback to software as often as needed
   if (IsTimerExpired(UPDATE_TIMER)) {
-    REG_HITCH_POSITION = Map(GetADC(ACTUATOR_ANALOG_PIN), V_UNLATCHED, V_LATCHED, 0, 100);
+    REG_HITCH_POSITION = Map(GetADC(ACTUATOR_ANALOG_PIN), 
+                             V_UNLATCHED - ACTUATOR_HYSTERESIS,
+                             V_LATCHED + ACTUATOR_HYSTERESIS, 0, 100);
     StartTimer(UPDATE_TIMER, UPDATE_TIME);
   }
   
+  // latch as required
   switch (state) {
     case WAITING:
-      if (IsLatched() && REG_HITCH_OPEN && IsTimerExpired(TRANSITION_TIMER)) {
-    	  Latch(OFF);
-    	  state = LATCHING;
-    	} else if (IsUnlatched() && (!REG_HITCH_OPEN) && IsTimerExpired(TRANSITION_TIMER)) {	  
-    	  Latch(ON);
-    	  state = LATCHING;
-    	} else if (IsLatching() && IsTimerExpired(TRANSITION_TIMER)) {
-    	  Latch(REG_HITCH_OPEN); // latch as software desires it
-    	  state = LATCHING;
+      if (IsTimerExpired(TRANSITION_TIMER)) {
+        if (REG_HITCH_OPEN && IsLatched()) {
+      	  Latch(OFF);
+      	  state = UNLATCHING;
+      	} else if (!(REG_HITCH_OPEN) && IsUnlatched()) {
+      	  Latch(ON);
+      	  state = LATCHING;
+      	} else if (IsLatching()) {
+      	  // latch as software desires
+      	  if (REG_HITCH_OPEN) {
+        	  Latch(OFF);
+      	    state = UNLATCHING;
+          } else {
+        	  Latch(ON);
+      	    state = LATCHING;
+      	  }
+        }
       }
   	  break;
   	case LATCHING:
-  	  if (FinishedUnlatching()) {
+  	  if (IsLatched() || IsJammed()) {
         UpdateDutyCycle(NEUTRAL_DC);
-        state = WAITING;
-      } else if (FinishedLatching()) {
-    	  UpdateDutyCycle(NEUTRAL_DC);
-        state = WAITING;
-      } else if (IsJammed()) {
-        UpdateDutyCycle(NEUTRAL_DC);
+        StartTimer(TRANSITION_TIMER, TRANSITION_TIME);
         state = WAITING;
       }
       break;
-    case COOLING_DOWN:
-      if (IsTimerExpired(OVERCURRENT_TIMER)) {
-        TURN_POWER_BUS(ON);
+    case UNLATCHING:
+      if (IsUnlatched() || IsJammed()) {
+        UpdateDutyCycle(NEUTRAL_DC);
+        StartTimer(TRANSITION_TIMER, TRANSITION_TIME);
         state = WAITING;
       }
       break;
@@ -211,9 +196,6 @@ void ProcessHitchIO(void) {
 		StartTimer(TRANSITION_TIMER, 2000);
 	}
 	*/
-	
-  
-  
 }
 
 /*---------------------------Helper Function Definitions---------------------*/
@@ -229,7 +211,6 @@ Notes:
 static void CalibrateHobbyMotorController(void) {
   // wait in nuetral long enough for the controller (beeps when ready)
   UpdateDutyCycle(NEUTRAL_DC);
-  //Pause(5000);
 }
   
 /*****************************************************************************
@@ -243,14 +224,27 @@ Notes:
 ******************************************************************************/
 static void Latch(unsigned char direction) {
   StartTimer(TRANSITION_TIMER, TRANSITION_TIME);
-  StartTimer(LATCH_TIMER, TYPICAL_LATCH_TIME);
+  StartTimer(JAM_TIMER, JAM_CHECK_PERIOD);
   
   if (direction == ON) UpdateDutyCycle(MAX_ALLOWABLE_DC);
   else if (direction == OFF) UpdateDutyCycle(MIN_ALLOWABLE_DC);
 }
 
+
 static unsigned char IsJammed(void) {
-  return (IsLatching() && IsTimerExpired(LATCH_TIMER));
+  // check whether the potentiometer is NOT changing as quickly as it should
+  if (IsTimerExpired(JAM_TIMER)) {
+    StartTimer(JAM_TIMER, JAM_CHECK_PERIOD);
+    static unsigned int last_position = 0;  // OK because we never reach 0 on the pot
+    unsigned int current_position = GetADC(ACTUATOR_ANALOG_PIN);
+  
+    unsigned int delta_position = abs((signed int)current_position - (signed int)last_position);
+    last_position = current_position;
+  
+    return (delta_position < EXPECTED_DELTA_POT);
+  }
+  
+  return 0;  
 }
 
 /*
@@ -259,70 +253,17 @@ Description: Determines the state of the latch from linear potentiometer
   limits to take into tolerance in the locking mechanism sliding back.
 */
 static unsigned char IsLatched(void) {
-  if (GetADC(ACTUATOR_ANALOG_PIN) < V_latched) {
-    V_latched += ACTUATOR_HYSTERESIS;
-    V_unlatched = V_UNLATCHED; // make sure to restore the counterpart limit!
-    return 1;
-  }
-  
-  return 0;
+  return (GetADC(ACTUATOR_ANALOG_PIN) <= V_LATCHED);
 }
 
 static unsigned char IsUnlatched(void) {
-  if (V_unlatched < GetADC(ACTUATOR_ANALOG_PIN)) {
-    V_unlatched -= ACTUATOR_HYSTERESIS;
-    V_latched = V_LATCHED;
-    return 1;
-  }
-  
-  return 0;
+  return (V_UNLATCHED <= GetADC(ACTUATOR_ANALOG_PIN));
 }
 
 static unsigned char IsLatching(void) {
   unsigned int position = GetADC(ACTUATOR_ANALOG_PIN);
-  return ((V_latched < position) && (position < V_unlatched));
+  return ((V_LATCHED < position) && (position < V_UNLATCHED));
 }
-
-static unsigned char FinishedLatching(void) {
-  return (IsLatched() && !REG_HITCH_OPEN);
-}
-
-static unsigned char FinishedUnlatching(void) {
-  return (IsUnlatched() && REG_HITCH_OPEN);
-}
-
-
-/*
-Function: Map()
-Returns:
-  unsigned int, the given value mapped to the new range
-Parameters:
-  int value,      the number to map
-  int from_low,   the lower bound of the value's current range
-  int from_high,  the upper bound of the value's current range
-  int to_low,     the lower bound of the value's target range
-  int to_high,    the upper bound of the value's target range
-Description: Re-maps a number from one range to another.
-Notes:
-  - constrains values to within the range
-  - be wary of overflow errors producing unexpected results
-  - promotes data types and forces division before multiplication 
-    to help mitigate unexpected overflow issues
-TODO: put this function in StandardHeader.h/.c
-*/
-static unsigned int Map(int value, int from_low, int from_high, 
-                        int to_low, int to_high) {
-  // compute the linear interpolation
-  unsigned int result = ((double)(value - from_low) / (double)(from_high - from_low))
-                        * (double)(to_high - to_low) + to_low;
-  
-  // constrain the result to within a valid output range
-  if (to_high < result) result = to_high;
-  else if (result < to_low) result = to_low;
-  
-  return result;
-}
-
   
 
 /*---------------------------End of File-------------------------------------*/
