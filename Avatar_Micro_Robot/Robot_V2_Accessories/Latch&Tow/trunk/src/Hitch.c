@@ -14,11 +14,11 @@ File: Hitch.c
 // PWM Pin
 #define LATCH_PWM_PIN         2       // RP2
 #define T_PWM                 10      // [ms], period of the PWM signal
-#define MAX_DC                0.20    // T = 2ms
-#define MAX_ALLOWABLE_DC      0.16    // T = 1.6
-#define NEUTRAL_DC            0.148   // T = 1.5
-#define MIN_ALLOWABLE_DC      0.130
-#define MIN_DC                0.10    // T = 1ms
+#define MAX_DC                0.20    // t_HI = 2ms
+#define MAX_ALLOWABLE_DC      0.158
+#define NEUTRAL_DC            0.15    // t_HI = 1.5ms
+#define MIN_ALLOWABLE_DC      0.142
+#define MIN_DC                0.10    // t_HI = 1ms
 
 // Power Bus
 #define CONFIG_POWER_BUS(a)   (_TRISD9 = (a))
@@ -108,10 +108,10 @@ void InitHitch(void) {
 	// prime any timers that require it
 	StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME);
 	StartTimer(TRANSITION_TIMER, 5000);
-	StartTimer(DUMMY_TIMER, DUMMY_TIME);
 }
 
 void ProcessHitchIO(void) {
+ 	/*
  	// toggle a pin to indicate normal operation
 	if (IsTimerExpired(HEARTBEAT_TIMER)) {
 		HEARTBEAT_PIN ^= 1;
@@ -176,8 +176,8 @@ void ProcessHitchIO(void) {
   	  StartTimer(HEARTBEAT_TIMER, 65000); // indicate an error
   		break;
   }
-
-  /*
+  */
+  
   // basic test
   if (IsTimerExpired(TRANSITION_TIMER)) {
 		HEARTBEAT_PIN ^= 1;
@@ -200,7 +200,7 @@ void ProcessHitchIO(void) {
 		
 		StartTimer(TRANSITION_TIMER, 2000);
 	}
-	*/
+	
 }
 
 /*---------------------------Helper Function Definitions---------------------*/

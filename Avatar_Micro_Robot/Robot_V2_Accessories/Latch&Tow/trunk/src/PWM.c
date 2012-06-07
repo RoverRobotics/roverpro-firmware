@@ -17,7 +17,8 @@ Notes:
 
 
 /*---------------------------Macros and Type Definitions---------------------*/
-#define TICKS_PER_MS				63	// Timer2 ticks per millisecond, 62.5 actually
+//#define TICKS_PER_MS				63	 // Timer2 ticks per millisecond, 62.5 actually (for 1/256 prescaler)
+#define TICKS_PER_MS          2000  // for divide-by-8 prescaler
 
 /*---------------------------Helper Function Prototypes----------------------*/
 static void ConfigureOC2(unsigned int ms);
@@ -73,7 +74,7 @@ static void ConfigureOC2(unsigned int ms) {
 
 static void InitTimer2(void) {
 	// using as 16-bit timer
-	T2CONbits.TCKPS = 0b11;				// configure the prescaler to divide-by-256 (see p.166)
+	T2CONbits.TCKPS = 0b01;				// configure the prescaler to divide-by-8 (see p.166)
 	PR2 = 0xffff;         				// configure the timer period
 	T2CONbits.TON = 1;						// turn on the timer
 }
