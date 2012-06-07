@@ -15,28 +15,28 @@ File: Hitch.c
 #define LATCH_PWM_PIN         2       // RP2
 #define T_PWM                 10      // [ms], period of the PWM signal
 #define MAX_DC                0.20    // T = 2ms
-#define MAX_ALLOWABLE_DC      0.16   // T = 1.6
+#define MAX_ALLOWABLE_DC      0.16    // T = 1.6
 #define NEUTRAL_DC            0.148   // T = 1.5
 #define MIN_ALLOWABLE_DC      0.130
 #define MIN_DC                0.10    // T = 1ms
 
 // Power Bus
 #define CONFIG_POWER_BUS(a)   (_TRISD9 = (a))
-#define TURN_POWER_BUS(a)     (_LATD9 = (a))
+#define TURN_POWER_BUS(a)     (_LATD9 = (a)); Nop(); Nop()
 
 // Actuator Position Sensing
 #define ACTUATOR_ANALOG_PIN   4
-#define V_UNLATCHED           800 // [au], (au = 'arbitrary units')
-#define V_LATCHED             400//300 // [au]
-#define ACTUATOR_HYSTERESIS   50  // [au], (0.10 / 3.30) * 1023 ~= 31
-#define EXPECTED_DELTA_POT    10  // [au], the amount by which we expect to AT LEAST move each cycle
+#define V_UNLATCHED           800     // [au], (au = 'arbitrary units')
+#define V_LATCHED             400     // [au]
+#define ACTUATOR_HYSTERESIS   50      // [au], (0.10 / 3.30) * 1023 ~= 31
+#define EXPECTED_DELTA_POT    10      // [au], the amount by which we expect to AT LEAST move each cycle
 
 // Temperature Sensing
 #define TEMP_ANALOG_PIN       8
 
 // Power Bus Current Sensing
 #define CURRENT_ANALOG_PIN    15
-#define UNSAFE_CURRENT_LEVEL  230 // 0.01S*(1.5A*0.05Ohm)*1k ~= 0.75V, (0.75 / 3.30) * 1023=
+#define UNSAFE_CURRENT_LEVEL  230     // 0.01S*(1.5A*0.05Ohm)*1k ~= 0.75V, (0.75 / 3.30) * 1023=
 
 // Heartbeat Indicator
 #define CONFIGURE_HEARTBEAT_PIN(a)   (_TRISE5 = (a))
@@ -102,12 +102,13 @@ void InitHitch(void) {
   InitPWM(LATCH_PWM_PIN, T_PWM);
   
   // initialize the latch motor controller
-  CONFIG_POWER_BUS(OUTPUT); TURN_POWER_BUS(ON); Nop(); Nop();
+  CONFIG_POWER_BUS(OUTPUT); TURN_POWER_BUS(ON);
   CalibrateHobbyMotorController();
   
 	// prime any timers that require it
 	StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME);
 	StartTimer(TRANSITION_TIMER, 5000);
+	StartTimer(DUMMY_TIMER, DUMMY_TIME);
 }
 
 void ProcessHitchIO(void) {
@@ -119,8 +120,12 @@ void ProcessHitchIO(void) {
 	
 	// turn off the power bus if we are drawing too much current (over-current protection)
 	if (UNSAFE_CURRENT_LEVEL < GetADC(CURRENT_ANALOG_PIN)) {
-    TURN_POWER_BUS(OFF);
-    Reset();
+  	// ensure that if this problem persists, the duty cycle is very low
+  	// BUG ALERT: ensure the power bus is turned off long enough 
+  	// to be able to reset the OTS controller
+  	TURN_POWER_BUS(OFF);
+  	Delay(_100ms);
+  	Reset();
   }
   
   // only update feedback to software as often as needed
