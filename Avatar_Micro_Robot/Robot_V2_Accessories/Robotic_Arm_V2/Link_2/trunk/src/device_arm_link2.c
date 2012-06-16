@@ -1,6 +1,7 @@
 #include "device_arm_link2.h"
 #include "stdhdr.h"
 #include "DEE Emulation 16-bit.h"
+#include "testing.h"
 
 #define USB_TIMEOUT_ENABLED
 
@@ -174,6 +175,8 @@ static void update_joint_angles(void);
 
 static void read_stored_angle_offsets(void);
 
+static void enter_debug_mode(void);
+
 
 
 
@@ -318,6 +321,10 @@ void Link2_Process_IO(void)
   //if we receive these set speeds, run calibration
   if( (REG_ARM_MOTOR_VELOCITIES.turret == 123) && (REG_ARM_MOTOR_VELOCITIES.shoulder == 456) && (REG_ARM_MOTOR_VELOCITIES.elbow == 789) )
     calibrate_angle_sensor();
+
+  //if we receive another special set of speeds, go into debug mode
+  if( (REG_ARM_MOTOR_VELOCITIES.turret == 987) && (REG_ARM_MOTOR_VELOCITIES.shoulder == 654) && (REG_ARM_MOTOR_VELOCITIES.elbow == 321) )
+    enter_debug_mode();
 
   gripper_pot_value = return_adc_value(GRIPPER_POT_CH);
   gripper_act_pot_value = return_adc_value(GRIPPER_ACT_POT_CH);
@@ -766,6 +773,10 @@ void calibrate_angle_sensor(void)
   shoulder_angle_offset = uncalibrated_shoulder_angle;
   elbow_angle_offset = return_combined_pot_angle(ELBOW_POT_1_CH, ELBOW_POT_2_CH);
 
+  //don't calibrate if any of the angles are invalid
+  if( (wrist_angle_offset == 0xffff) || (turret_angle_offset == 0xffff) || (shoulder_angle_offset == 0xffff) || (elbow_angle_offset == 0xffff) )
+    return;
+
   DataEEInit();
   Nop();
   
@@ -816,6 +827,14 @@ static unsigned int return_calibrated_angle(unsigned int uncalibrated_angle, uns
   //if our angle reading is invalid, return an invalid value
   if(uncalibrated_angle == 0xffff)
     return 0xffff;
+
+  //if our stored angle is bad, return 0xfffe
+  if(offset_angle == 0xffff)
+    return 0xfffe;
+
+  //if stored angle is greater than 360 (should never happen) return 0xfffd
+  if(offset_angle > 360)
+    return 0xfffd;
 
   if(uncalibrated_angle < offset_angle)
   {
@@ -1458,3 +1477,77 @@ static void read_stored_angle_offsets(void)
   }
 
 }
+
+//initialized uart to return debug information
+static void enter_debug_mode(void)
+{
+  unsigned int i;
+  unsigned char eeprom_flags = 0;
+  unsigned char angle_data[9];
+
+  init_debug_uart();
+
+  while(1)
+  {
+    ClrWdt();
+
+    update_joint_angles();
+    
+    display_int_in_dec("TUR               \r\n",REG_ARM_JOINT_POSITIONS.turret);
+    block_ms(20);
+    display_int_in_dec("SHO               \r\n",REG_ARM_JOINT_POSITIONS.shoulder);
+    block_ms(20);
+    display_int_in_dec("ELB               \r\n",REG_ARM_JOINT_POSITIONS.elbow);
+    block_ms(20);
+    display_int_in_dec("WRI               \r\n",REG_ARM_JOINT_POSITIONS.wrist);
+    block_ms(20);
+
+
+    ClrWdt();
+    display_int_in_dec("TUR_OFF           \r\n",turret_angle_offset);
+    block_ms(20);
+    display_int_in_dec("SHO_OFF           \r\n",shoulder_angle_offset);
+    block_ms(20);
+    display_int_in_dec("ELB_OFF           \r\n",elbow_angle_offset);
+    block_ms(20);
+    display_int_in_dec("WRI_OFF         \r\n\r\n",wrist_angle_offset);
+    block_ms(20);
+
+  for(i=0;i<9;i++)
+  {
+    ClrWdt();
+
+    angle_data[i] = DataEERead(i);
+    Nop();
+
+    eeprom_flags = 0;
+    if(dataEEFlags.addrNotFound) eeprom_flags |= 0x80;
+    if(dataEEFlags.expiredPage) eeprom_flags |= 0x40;
+    if(dataEEFlags.packBeforePageFull) eeprom_flags |= 0x20;
+    if(dataEEFlags.packBeforeInit) eeprom_flags |= 0x10;
+    if(dataEEFlags.packSkipped) eeprom_flags |= 0x08;
+    if(dataEEFlags.IllegalAddress) eeprom_flags |= 0x04;
+    if(dataEEFlags.pageCorrupt) eeprom_flags |= 0x02;
+    if(dataEEFlags.writeError) eeprom_flags |= 0x01;
+
+    display_int_in_dec("EEREAD              ",i);
+    block_ms(20);
+    
+    display_int_in_hex("EEFLAGS             ",eeprom_flags);
+    block_ms(20);
+    ClrWdt();
+    display_int_in_dec("READ:             \r\n",angle_data[i]);
+    block_ms(20);
+  }
+  for(i=0;i<20;i++)
+  {
+    ClrWdt();
+    block_ms(100);
+  }
+  send_debug_uart_string("\r\n\r\n\r\n", 6);
+  block_ms(20);
+
+  }
+
+}
+
