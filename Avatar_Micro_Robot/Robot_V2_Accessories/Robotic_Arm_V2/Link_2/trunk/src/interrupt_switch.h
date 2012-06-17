@@ -27,3 +27,5 @@ extern void (*U1TXInterruptUserFunction)(void);
 extern void (*U1RXInterruptUserFunction)(void);
 extern void (*U2RXInterruptUserFunction)(void);
 extern void (*I2C2InterruptUserFunction)(void);
+extern void (*U2TXInterruptUserFunction)(void);
+

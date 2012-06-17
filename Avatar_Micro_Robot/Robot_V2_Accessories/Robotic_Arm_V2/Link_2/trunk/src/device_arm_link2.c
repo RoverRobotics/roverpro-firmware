@@ -1,7 +1,7 @@
 #include "device_arm_link2.h"
 #include "stdhdr.h"
 #include "DEE Emulation 16-bit.h"
-#include "testing.h"
+#include "debug_uart.h"
 
 #define USB_TIMEOUT_ENABLED
 

@@ -28,6 +28,7 @@ void (*U1TXInterruptUserFunction)(void) = InterruptDummyFunction;
 void (*U1RXInterruptUserFunction)(void) = InterruptDummyFunction;
 void (*U2RXInterruptUserFunction)(void) = InterruptDummyFunction;
 void (*I2C2InterruptUserFunction)(void) = InterruptDummyFunction;
+void (*U2TXInterruptUserFunction)(void) = InterruptDummyFunction;
 
 
 #pragma code
@@ -112,6 +113,11 @@ void  __attribute__((__interrupt__, auto_psv)) _U2RXInterrupt(void)
 void  __attribute__((__interrupt__, auto_psv)) _U1TXInterrupt(void)
 {
  	U1TXInterruptUserFunction();
+}
+
+void  __attribute__((__interrupt__, auto_psv)) _U2TXInterrupt(void)
+{
+ 	U2TXInterruptUserFunction();
 }
 
 void  __attribute__((__interrupt__, auto_psv)) _MI2C1Interrupt(void)

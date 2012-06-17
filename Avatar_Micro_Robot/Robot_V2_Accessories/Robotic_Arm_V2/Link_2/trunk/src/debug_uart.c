@@ -1,5 +1,5 @@
 #include "stdhdr.h"
-#include "testing.h"
+#include "debug_uart.h"
 
 unsigned char sending_lcd_string = 0;
 unsigned int lcd_string_length = 0;
@@ -21,24 +21,24 @@ void test_init(void)
 
 void init_debug_uart(void)
 {
-	U1TXInterruptUserFunction = debug_uart_tx_interrupt;
+	U2TXInterruptUserFunction = debug_uart_tx_interrupt;
 
  	// Write appropriate baud rate value to the UxBRG register.
-	U1TX_RPn = 3;
+	PGED2_RPn = U2TX_NUM;
 	//UxBRG = Fcy/4/baud-1 = 16e6/4/38400
  	//U1BRG=104; //38400
 	//U1BRG = 417; //9600
-	U1BRG = 68; //57600
+	U2BRG = 68; //57600
  	//Enable the UART.
- 	U1MODE=0x0000;
+ 	U2MODE=0x0000;
  	//hight speed mode
- 	U1MODEbits.BRGH=1;
- 	U1STA=0x0000; 	
- 	U1MODEbits.UARTEN=1;//UART1 is enabled
- 	U1STAbits.UTXEN=1;//transmit enabled
- 	IFS0bits.U1TXIF=0;//clear the transmit flag
- 	IEC0bits.U1TXIE=1;//enable UART1 transmit interrupt
- 	IEC0bits.U1RXIE=0;//enable UART1 receive interrupt
+ 	U2MODEbits.BRGH=1;
+ 	U2STA=0x0000; 	
+ 	U2MODEbits.UARTEN=1;//UART1 is enabled
+ 	U2STAbits.UTXEN=1;//transmit enabled
+ 	_U2TXIF=0;//clear the transmit flag
+ 	_U2TXIE=1;//enable UART1 transmit interrupt
+ 	_U2RXIE=0;//enable UART1 receive interrupt
 
 	ClrWdt();
 
@@ -264,8 +264,8 @@ void send_debug_uart_string(char* input_string, unsigned char len)
 
 	sending_lcd_string = 1;
 
-	IEC0bits.U1TXIE=1;
-	U1TXREG = input_string[0];
+	_U2TXIE=1;
+	U2TXREG = input_string[0];
 
 }
 
@@ -274,17 +274,17 @@ void debug_uart_tx_interrupt(void)
 
 	static unsigned int i = 1;
 
-	IFS0bits.U1TXIF=0;
+	_U2TXIF=0;
 
 	if(i >= lcd_string_length)
 	{
 		i=1;
-		IEC0bits.U1TXIE=0;
+		_U2TXIE=0;
 		sending_lcd_string = 0;
 		return;
 	}
 
-	U1TXREG = lcd_string[i];
+	U2TXREG = lcd_string[i];
 	i++;
 
 }

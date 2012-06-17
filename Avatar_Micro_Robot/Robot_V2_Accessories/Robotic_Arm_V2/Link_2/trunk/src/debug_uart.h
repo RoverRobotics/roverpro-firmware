@@ -1,4 +1,5 @@
-#define U1TX_RPn _RP7R
+#define PGED2_RPn _RP7R
+#define U2TX_NUM 5
 void send_lcd_string(char* input_string, unsigned char len);
 void print_loop_number(void);
 void display_board_number(void);
