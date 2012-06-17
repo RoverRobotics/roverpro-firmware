@@ -1492,6 +1492,17 @@ static void enter_debug_mode(void)
     ClrWdt();
 
     update_joint_angles();
+
+    send_rs485_message();
+  
+    //wait for message to finish sending
+    while(rs485_transmitting);
+    //wait for final byte to finish before changing to RX mode
+    while(U1STAbits.TRMT == 0);
+    RS485_OUTEN_ON(0);
+  
+    //clear receive overrun error, so receive doesn't stop
+    U1STAbits.OERR = 0;
     
     display_int_in_dec("TUR               \r\n",REG_ARM_JOINT_POSITIONS.turret);
     block_ms(20);
