@@ -199,7 +199,6 @@ static void handle_reset(void);
 void DeviceCarrierInit()
 {
 	int i = 0;
-	unsigned char force_reset = 0;
 
   if(number_of_resets == 0)
   {  
@@ -658,7 +657,7 @@ void robot_gps_isr(void)
 
 	
 
-	static char gps_message_state = 0;
+	static unsigned char gps_message_state = 0;
 	static unsigned char gps_message_temp[100];
 
 	//filter for messages starting with $GPGGA
@@ -714,7 +713,8 @@ void robot_gps_isr(void)
 				//gps_message[i] = gps_message_temp[i];
 				REG_ROBOT_GPS_MESSAGE.data[i] = gps_message_temp[i];
 			}
-				gps_message_state = -1;
+				gps_message_state = 0;
+        return;
 				//IEC0bits.U1RXIE = 0;
 			
 

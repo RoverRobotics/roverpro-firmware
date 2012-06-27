@@ -5,8 +5,6 @@ unsigned char sending_lcd_string = 0;
 unsigned int lcd_string_length = 0;
 unsigned char lcd_string[100];
 
-
-void init_lcd_uart(void);
 void lcd_tx_interrupt(void);
 void int_to_string(unsigned int input, char* output);
 void display_register_value(char* description);
