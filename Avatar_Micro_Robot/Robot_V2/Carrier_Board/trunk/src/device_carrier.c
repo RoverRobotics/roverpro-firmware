@@ -207,14 +207,30 @@ void DeviceCarrierInit()
 
 	de_init_io();
 
+ 
+
+
 	//enable software watchdog if power button is not held down.  Otherwise, sleep forever.
 	if(POWER_BUTTON())
 	{
-		_SWDTEN = 0;
+    WDT_PIN_EN(1);
+    while(1)
+    {
+      WDT_PIN() = 0;
+      //block_ms(100);
+      Sleep();
+      WDT_PIN() = 1;
+      //loop, so that WDT_PIN stays high at least 1us
+      for(i=0;i<50;i++)
+      {
+        Nop();
+      }
+      ClrWdt();
+     }
 	}
 	else
 	{
-		_SWDTEN = 1;
+    //start robot normally
 	}
 
 	WDT_PIN_EN(1);
