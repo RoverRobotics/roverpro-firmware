@@ -9,7 +9,6 @@ Notes:
   - make sure to run shell script to suppress USB bug (forces device to be
     full-speed => 12-megabit)
 
-
 Responsible Engineer: Stellios Leventis sleventis@robotex.com
 ==============================================================================*/
 //#define DEBUGGING_MODE
@@ -24,6 +23,7 @@ Responsible Engineer: Stellios Leventis sleventis@robotex.com
 #include "./SDL/SDL.h"	// for Xbox controller inteface
 #include <time.h> 	    // for timing USB polling
 #include "unistd.h"	    // for blocking sleep() function
+#include "./XboxController.hpp"			// for Xbox controller interface
 
 /*---------------------------Macros-------------------------------------------*/
 #define CLUTCH_OFFSET           193 // [au], A/D counts when clutch is centered
@@ -74,63 +74,6 @@ FOOTER_L
 FOOTER_H
 */
 
-
-/*---Xbox CONTROLLER STUFF---*/
-// the number of buttons on the Xbox controller
-#define NUM_CONTROLLER_BUTTONS  11
-
-// see also: en.wikipedia.com/wiki/Xbox_360_Controller#Layout
-typedef enum {
-  kAButton = 0,
-  kBButton,
-  kXButton,
-  kYButton,
-  kLeftBumper,
-  kRightBumper,
-  kBackButton,
-  kStartButton,
-  kGuideButton,
-  kLeftStick,     // when left joystick is depressed
-  kRightStick,    // when right joystick is depressed
-  kConnectButton, // UNVALIDATED, only on wireless controllers
-} button_index_t;
-
-// TODO: enumerate constants for variable values
-
-typedef bool button_t;
-
-// up is negative, down is positive
-// left is negative, right is positive
-typedef struct {
-  int x;            // ranges to about +/- 3000?
-  int y;
-  button_t button;  // when the joystick is depressed
-} stick_t;
-
-typedef struct {
-  uint8_t left;
-  uint8_t right;
-  uint8_t up;
-  uint8_t down;
-} dPad_t;
-
-typedef struct {
-  button_t A;
-  button_t B;
-  button_t X;
-  button_t Y;
-  button_t rightBumper;
-  button_t leftBumper;
-  button_t Guide;
-  button_t Start;
-  button_t Back;
-  button_t leftStickButton;
-  button_t rightStickButton;
-  stick_t leftStick;
-  stick_t rightStick;
-  dPad_t dPad;
-} xbox_controller_t;
-
 /*---------------------------Type Definitions---------------------------------*/
 // from the perspective of software
 typedef uint8_t in_packet_t[240];
@@ -143,10 +86,10 @@ using namespace rbx::telemetry;
 /*---------------------------Constants----------------------------------------*/
 /*---------------------------Module Variables---------------------------------*/
 // TODO: get rid of these global variables
-SDL_Joystick *myController;
-button_t Y_button, A_button;
-stick_t leftStick;
-stick_t rightStick;
+//SDL_Joystick *myController;
+//button_t Y_button, A_button;
+//stick_t leftStick;
+//stick_t rightStick;
 
 // USB-related variables
 unsigned int register_indices[100];
@@ -166,15 +109,14 @@ out_packet_t out_packet;            // to firmware
 
 /*---------------------------Helper Function Prototypes-----------------------*/
 int Map(int value, int fromLow, int fromHigh, int toLow, int toHigh);
-void BuildPacket(void);
+void BuildPacket(XboxController *pController);
 void PressEnterToContinue(void);
 
-static void InitController(void);
-static void InitRoboteXDevice(void);
-static void UpdateControllerValues(void);
+static void UpdateControllerValues(XboxController *pController);
 static void PrintFirmwareFeedback(void);
 
 // our-USB-protocol-related
+static void InitRoboteXDevice(void);
 static int GetRegisterIndex(void *pRegister);
 
 // USB-related
@@ -189,16 +131,16 @@ void incoming_callback(struct libusb_transfer *transfer);
 void outgoing_callback(struct libusb_transfer *transfer);
 
 int main(int argn, char *argc[]) {
-  InitController();
+  XboxController myController;
+
   PressEnterToContinue();
 
   while (true) {
     InitRoboteXDevice();
 
     while (true) {
-      UpdateControllerValues();
-
-      BuildPacket();
+      UpdateControllerValues(&myController);
+      BuildPacket(&myController);
       if (!HandleUSBCommunication()) break;
       PrintFirmwareFeedback();
 	  }
@@ -218,46 +160,30 @@ static void InitRoboteXDevice(void) {
 
 
 /*
-Description: Initializes an XBox controller
-*/
-static void InitController(void) {
-  if (SDL_Init(SDL_INIT_JOYSTICK) < 0) printf("Error: trouble in SDL_Init()\n");
-  if (SDL_NumJoysticks() < 1) printf("Error: Couldn't find controller\n");
-  SDL_JoystickEventState(SDL_IGNORE);
-  myController = SDL_JoystickOpen(0);
-}
-
-
-/*
 Description: Updates the module-level buffers that store the controller data
 */
-static void UpdateControllerValues(void) {
-  // get the latest values from the controller
-  SDL_JoystickUpdate();
-  
-  // extract the updated values of interest
-  leftStick.x = SDL_JoystickGetAxis(myController, 0);
-  leftStick.y = SDL_JoystickGetAxis(myController, 1);
-  rightStick.x = SDL_JoystickGetAxis(myController, 3);
-  rightStick.y = SDL_JoystickGetAxis(myController, 4);
-  A_button = SDL_JoystickGetButton(myController, kAButton);
-  Y_button = SDL_JoystickGetButton(myController, kYButton);
+static void UpdateControllerValues(XboxController *pController) {
+	(*pController).getUpdatedValues();
   
   // map the values to a valid range if required
-  leftStick.x = Map(leftStick.x, -32767, 32768, -50, 50);
-  leftStick.y = Map(leftStick.y, -32767, 32768, -50, 50);
-  rightStick.x = Map(rightStick.x, -32767, 32768, -50, 50);
-  rightStick.y = Map(rightStick.y, -32767, 32768, -50, 50);
+  (*pController).leftStick.x= Map((*pController).leftStick.x, 
+																		MIN_AXIS_VALUE, MAX_AXIS_VALUE, -50, 50);
+  (*pController).leftStick.y = Map((*pController).leftStick.y, 
+																 		MIN_AXIS_VALUE, MAX_AXIS_VALUE, -50, 50);
+  (*pController).rightStick.x= Map((*pController).rightStick.x, 
+																 		MIN_AXIS_VALUE, MAX_AXIS_VALUE, -50, 50);
+  (*pController).rightStick.y = Map((*pController).rightStick.y, 
+																		MIN_AXIS_VALUE, MAX_AXIS_VALUE, -50, 50);
 
   // display the result to validate the sensor value
   printf("\r\nController\r\n");
   printf("--------------------\r\n");
-  printf("'Y' Button: %d\r\n", Y_button);
-  printf("'A' Button: %d\r\n", A_button);
-  printf("leftStick.x: %d\r\n", leftStick.x);
-  printf("leftStick.y: %d\r\n", leftStick.y);
-  printf("rightStick.x: %d\r\n", rightStick.x);
-  printf("rightStick.y: %d\r\n", rightStick.y);
+  printf("'Y' Button: %d\r\n", (*pController).Y);
+  printf("'A' Button: %d\r\n", (*pController).A);
+  printf("leftStick.x: %d\r\n", (*pController).leftStick.x);
+  printf("leftStick.y: %d\r\n", (*pController).leftStick.y);
+  printf("rightStick.x: %d\r\n", (*pController).rightStick.x);
+  printf("rightStick.y: %d\r\n", (*pController).rightStick.y);
   printf("\r\n");
 }
 
@@ -299,20 +225,21 @@ static void PrintFirmwareFeedback(void) {
 	}
 }
 
-/*******TODO: move this to Protocol-related file*******************************/
-void BuildPacket(void) {
-  // map the controller data to arm data  
-  int turretSpeed = leftStick.x;
-  int shoulderSpeed = leftStick.y;
-  int elbowSpeed = rightStick.y;
-  int wristSpeed = rightStick.x;
+
+void BuildPacket(XboxController *pController) {
+  // map the controller data to arm data
+  int turretSpeed = (*pController).leftStick.x;
+  int shoulderSpeed = (*pController).leftStick.y;
+  int elbowSpeed = (*pController).rightStick.y;
+  int wristSpeed = (*pController).rightStick.x;
   int gripperSpeed = 0;
-  gripperSpeed = A_button ? DEFAULT_GRIPPER_OPEN_SPEED : gripperSpeed;  
-  gripperSpeed = Y_button ? DEFAULT_GRIPPER_CLOSE_SPEED : gripperSpeed;
+  gripperSpeed = (*pController).A ? DEFAULT_GRIPPER_OPEN_SPEED : gripperSpeed;  
+  gripperSpeed = (*pController).Y ? DEFAULT_GRIPPER_CLOSE_SPEED : gripperSpeed;
 
   // only enable data on one axis per stick
-  (turretSpeed < shoulderSpeed) ? (turretSpeed = 0) : (shoulderSpeed = 0);  
-  (elbowSpeed < wristSpeed) ? (elbowSpeed = 0) : (wristSpeed = 0);
+  (abs(turretSpeed) < abs(shoulderSpeed)) ? (turretSpeed = 0) : (shoulderSpeed = 0);  
+  (abs(elbowSpeed) < abs(wristSpeed)) ? (elbowSpeed = 0) : (wristSpeed = 0);
+
 
   // build the outgoing packet for the firmware
   int armSpeedIndex = GetRegisterIndex(&telemetry::REG_ARM_MOTOR_VELOCITIES);
@@ -340,12 +267,11 @@ void BuildPacket(void) {
 
 /*******TODO: move this to register/firmware-related file*******/
 /*
-Description: Linearly searches through the registers array looking for a pointer
+Description: Linearly searches over the registers array looking for a pointer
   match.
 */
 static int GetRegisterIndex(void *pRegister) {
 	unsigned int i = 0;
-
 	while (registers[i].ptr) {
 		if (registers[i].ptr == pRegister) return i;
 		i++;
@@ -355,7 +281,7 @@ static int GetRegisterIndex(void *pRegister) {
 	return 0; 
 }
 
-/*---------------------------LIBUSB STUFF-------------------------------------*/
+/*---------------------------TODO: move this to general USB module------------*/
 /*
 Gets the first device for our USB vendor ID.
 ?puts all RoboteX devices into an array?
@@ -489,24 +415,10 @@ static int HandleUSBCommunication(void) {
 	int temp = libusb_submit_transfer(outgoing_transfer);
 
 	if (temp < 0) {
-		printf("USB error is %d\r\n", temp);
-
-    printf("libusb error error IO: %d\r\n", LIBUSB_ERROR_IO);
-    printf("libusb error invalid param: %d\r\n", LIBUSB_ERROR_INVALID_PARAM);
-    printf("libusb error access: %d\r\n", LIBUSB_ERROR_ACCESS);
-    printf("libusb error error no device: %d\r\n", LIBUSB_ERROR_NO_DEVICE);
-    printf("libusb error error not found: %d\r\n", LIBUSB_ERROR_NOT_FOUND);
-    printf("libusb error busy: %d\r\n", LIBUSB_ERROR_BUSY);
-    printf("libusb error error timeout: %d\r\n", LIBUSB_ERROR_TIMEOUT);
-    printf("libusb error error overflow: %d\r\n", LIBUSB_ERROR_OVERFLOW);
-    printf("libusb error error pipe: %d\r\n", LIBUSB_ERROR_PIPE);
-    printf("libusb error interrupted: %d\r\n", LIBUSB_ERROR_INTERRUPTED);
-    printf("libusb error error no mem: %d\r\n", LIBUSB_ERROR_NO_MEM);
-    printf("libusb error error not supported: %d\r\n", LIBUSB_ERROR_NOT_SUPPORTED);
-    printf("libusb error error other: %d\r\n", LIBUSB_ERROR_OTHER);
+		PrintUSBErrorString(temp);
 
     if (temp == LIBUSB_ERROR_NO_DEVICE || 
-        temp == LIBUSB_ERROR_NOT_FOUND) { //|| temp == LIBUSB_ERROR_IO) {
+        temp == LIBUSB_ERROR_NOT_FOUND) {
       return temp;
     }
 	}
@@ -518,6 +430,52 @@ static int HandleUSBCommunication(void) {
 	return 1;
 }
 
+static void PrintUSBErrorString(int errorCode) {
+	switch (errorCode) {
+		case LIBUSB_ERROR_IO:	
+    	printf("libusb error error IO: %d\r\n", LIBUSB_ERROR_IO);
+			break;
+		case LIBUSB_ERROR_INVALID_PARAM:
+    	printf("libusb error invalid parameter: %d\r\n", LIBUSB_ERROR_INVALID_PARAM);
+			break;
+    case LIBUSB_ERROR_ACCESS:
+			printf("libusb error access: %d\r\n", LIBUSB_ERROR_ACCESS);
+			break;
+    case LIBUSB_ERROR_NO_DEVICE:
+			printf("libusb error error no device: %d\r\n", LIBUSB_ERROR_NO_DEVICE);
+		  break;
+    case LIBUSB_ERROR_NOT_FOUND:
+			printf("libusb error error not found: %d\r\n", LIBUSB_ERROR_NOT_FOUND);
+      break;
+    case LIBUSB_ERROR_BUSY:
+		  printf("libusb error busy: %d\r\n", LIBUSB_ERROR_BUSY);
+      break;
+    case LIBUSB_ERROR_TIMEOUT:
+		  printf("libusb error error timeout: %d\r\n", LIBUSB_ERROR_TIMEOUT);
+      break;
+    case LIBUSB_ERROR_OVERFLOW:
+		  printf("libusb error error overflow: %d\r\n", LIBUSB_ERROR_OVERFLOW);
+      break;
+    case LIBUSB_ERROR_PIPE:
+		  printf("libusb error error pipe: %d\r\n", LIBUSB_ERROR_PIPE);
+      break;
+    case LIBUSB_ERROR_INTERRUPTED:
+		  printf("libusb error interrupted: %d\r\n", LIBUSB_ERROR_INTERRUPTED);
+      break;
+    case LIBUSB_ERROR_NO_MEM:
+		  printf("libusb error error no memory: %d\r\n", LIBUSB_ERROR_NO_MEM);
+      break;
+    case LIBUSB_ERROR_NOT_SUPPORTED:
+		  printf("libusb error error not supported: %d\r\n", LIBUSB_ERROR_NOT_SUPPORTED);
+      break;
+    case LIBUSB_ERROR_OTHER:
+		  printf("libusb error error other: %d\r\n", LIBUSB_ERROR_OTHER);
+      break;
+    default:
+      printf("Unrecognized USB error");
+      break;
+	}
+}
 
 static void CleanupUSB(void) {
   libusb_release_interface(robotex_device_handles[0], 0); 
