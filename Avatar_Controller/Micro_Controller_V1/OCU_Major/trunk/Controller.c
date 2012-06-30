@@ -197,6 +197,7 @@ void Construct_Controller_Message(void)
 		else
 		{
 			Audio_Receive();
+      block_ms(2);
 			Audio_Unmute();
 		}
 	}
