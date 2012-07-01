@@ -80,6 +80,7 @@ void Construct_Controller_Message(void)
 	static unsigned char last_light_button;
 	static unsigned char last_light_state = OFF;
 	unsigned char battery_voltage = 0;
+  static unsigned char talk_button_last_held = 1;
 
 
 //header bytes
@@ -193,12 +194,15 @@ void Construct_Controller_Message(void)
 			 button_states[0] |= OCU_TO_ROBOT_TALK_MASK;
 			Audio_Transmit();
 			Audio_Mute();
+      talk_button_last_held = 1;
 		}
 		else
 		{
 			Audio_Receive();
-      block_ms(2);
+      if(talk_button_last_held)
+        block_ms(50);
 			Audio_Unmute();
+      talk_button_last_held = 0;
 		}
 	}
 
