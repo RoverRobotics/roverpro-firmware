@@ -3,7 +3,7 @@
 #include "DEE Emulation 16-bit.h"
 #include "debug_uart.h"
 
-#define USB_TIMEOUT_ENABLED
+//#define USB_TIMEOUT_ENABLED
 
 #define GRIPPER_BRAKE_EN(a)   _TRISB15 = !a
 #define GRIPPER_BRAKE_ON(a)   _LATB15 = a
@@ -37,9 +37,11 @@
 
 #define WRIST_FF1()         _RB13
 #define WRIST_FF2()         _RB12
-#define WRIST_DIRO()        _RB14
+#define WRIST_DIRO()        _RD3
 
 #define WRIST_PWM_OR        _RP21R
+
+#define WRIST_RP            26
 
 #define GRIPPER_POT_EN(a)       _PCFG4 = !a
 #define GRIPPER_ACT_POT_EN(a)   _PCFG5 = !a
@@ -177,6 +179,23 @@ static void read_stored_angle_offsets(void);
 
 static void enter_debug_mode(void);
 
+//For interrupt-driven timing:
+static void Timer2_ISR(void);
+static unsigned int millisecond_counter = 0;
+static unsigned int ten_millisecond_counter = 0;
+static unsigned int hundred_millisecond_counter = 0;
+
+void wrist_IC_interrupt(void);
+void setup_input_capture(void);
+unsigned int wrist_interval = 0xffff;
+unsigned char new_IC_data = 0;
+float debug_wrist_speed;
+float debug_error;
+float debug_error_accumulator;
+float debug_driver_command_speed ;
+
+
+
 
 
 
@@ -292,10 +311,21 @@ void Arm_Link2_Init(void)
   set_gripper_velocity(0);
   set_wrist_velocity(0);
 
+
+  T2InterruptUserFunction = Timer2_ISR;
+  //T2 frequency is Fosc/2 = 16 MHz
+  //Max timer interrupt at 2^16/16MHz = 4.096ms
+  //Let's set PR2 to 16000, to get interrupts every 1ms:
+  PR2 = 16000;
+  _T2IE = 1;
+  
+
   T2CONbits.TON = 1;
 
   GRIPPER_COAST_ON(1);
   WRIST_COAST_ON(1);
+
+  setup_input_capture();
 
 
 
@@ -309,78 +339,129 @@ void Arm_Link2_Init(void)
     motor_accel_loop(REG_ARM_MOTOR_VELOCITIES.gripper, 0);
   }*/
 
+  //test_wrist_closed_loop_control();
+
+}
+
+void setup_input_capture(void)
+{
+  unsigned int temp;
+
+  //setup timer 3
+
+  //1/256 prescale
+  //T3CONbits.TCKPS = 3;
+  //1/64 prescale
+  T3CONbits.TCKPS = 2;
+
+  //turn on timer
+  T3CONbits.TON = 1;
+
+	while(IC1CON1bits.ICBNE==SET)
+	{
+	 	temp=IC1BUF;
+ 	}
+
+  IC1CON2bits.SYNCSEL=0;
+  //Use timer 2
+  //IC1CON1bits.ICTSEL = 1;
+  //Use timer 3
+   IC1CON1bits.ICTSEL = 0;
+  //Interrupt every fourth capture event
+  IC1CON1bits.ICI=0;
+  //Capture on every rising edge
+  //IC1CON1bits.ICM=3;
+  //Capture on every sixteenth rising edge
+  IC1CON1bits.ICM=0b101;
+  //set wrist feedback tach to IC1
+  _IC1R = WRIST_RP;
+  IC1InterruptUserFunction = wrist_IC_interrupt;
+  _IC1IE = 1;
+
 }
 
 void Link2_Process_IO(void)
 {
 
-  unsigned int i;
+//  unsigned int i;
   int adjusted_gripper_velocity = 0;
   int adjusted_wrist_velocity = 0;
 
-  //if we receive these set speeds, run calibration
-  if( (REG_ARM_MOTOR_VELOCITIES.turret == 123) && (REG_ARM_MOTOR_VELOCITIES.shoulder == 456) && (REG_ARM_MOTOR_VELOCITIES.elbow == 789) )
-    calibrate_angle_sensor();
-
-  //if we receive another special set of speeds, go into debug mode
-  if( (REG_ARM_MOTOR_VELOCITIES.turret == 987) && (REG_ARM_MOTOR_VELOCITIES.shoulder == 654) && (REG_ARM_MOTOR_VELOCITIES.elbow == 321) )
-    enter_debug_mode();
-
-  gripper_pot_value = return_adc_value(GRIPPER_POT_CH);
-  gripper_act_pot_value = return_adc_value(GRIPPER_ACT_POT_CH);
-  elbow_pot_1_value = return_adc_value(ELBOW_POT_1_CH);
-  elbow_pot_2_value = return_adc_value(ELBOW_POT_2_CH);
-  wrist_pot_1_value = return_adc_value(WRIST_POT_1_CH);
-  wrist_pot_2_value = return_adc_value(WRIST_POT_2_CH);
-  thermistor_value = return_adc_value(THERMISTOR_CH);
-
-  REG_ARM_JOINT_POSITIONS.gripper = gripper_pot_value;
-  REG_ARM_JOINT_POSITIONS.gripper_actuator = gripper_act_pot_value;
-
-  send_rs485_message();
-
-  //wait for message to finish sending
-  while(rs485_transmitting);
-  //wait for final byte to finish before changing to RX mode
-  while(U1STAbits.TRMT == 0);
-  RS485_OUTEN_ON(0);
-
-  //clear receive overrun error, so receive doesn't stop
-  U1STAbits.OERR = 0;
-
-  //pretty dumb control loop
-  for(i=0;i<10;i++)
+  //run this at 10ms
+  if(ten_millisecond_counter)
   {
-    adjusted_gripper_velocity = return_adjusted_gripper_velocity();
-    adjusted_wrist_velocity = return_adjusted_wrist_velocity();
+    ten_millisecond_counter = 0;   
 
-    //if the gripper is fully open, the wrist joint is too
-    //jammed to move
-    /*if(REG_ARM_JOINT_POSITIONS.gripper >= GRIPPER_FULLY_OPEN)
-      adjusted_wrist_velocity = 0;*/
-
-    motor_accel_loop(adjusted_gripper_velocity, adjusted_wrist_velocity);
-    //motor_accel_loop(0, REG_ARM_MOTOR_VELOCITIES.wrist);
-
-    block_ms(10);
-  }
+    //if we receive these set speeds, run calibration
+    if( (REG_ARM_MOTOR_VELOCITIES.turret == 123) && (REG_ARM_MOTOR_VELOCITIES.shoulder == 456) && (REG_ARM_MOTOR_VELOCITIES.elbow == 789) )
+      calibrate_angle_sensor();
   
-  //get raw angle values from RS-485 message and ADC
-  //apply the offset, and populate the REG_ARM_JOINT_POSITIONS registers
-  update_joint_angles();
+    //if we receive another special set of speeds, go into debug mode
+    if( (REG_ARM_MOTOR_VELOCITIES.turret == 987) && (REG_ARM_MOTOR_VELOCITIES.shoulder == 654) && (REG_ARM_MOTOR_VELOCITIES.elbow == 321) )
+      enter_debug_mode();
+  
+    gripper_pot_value = return_adc_value(GRIPPER_POT_CH);
+    gripper_act_pot_value = return_adc_value(GRIPPER_ACT_POT_CH);
+    elbow_pot_1_value = return_adc_value(ELBOW_POT_1_CH);
+    elbow_pot_2_value = return_adc_value(ELBOW_POT_2_CH);
+    wrist_pot_1_value = return_adc_value(WRIST_POT_1_CH);
+    wrist_pot_2_value = return_adc_value(WRIST_POT_2_CH);
+    thermistor_value = return_adc_value(THERMISTOR_CH);
+  
+    REG_ARM_JOINT_POSITIONS.gripper = gripper_pot_value;
+    REG_ARM_JOINT_POSITIONS.gripper_actuator = gripper_act_pot_value;
+  
 
-  #ifdef USB_TIMEOUT_ENABLED
-    USB_timeout_counter++;
-    if(USB_timeout_counter > USB_TIMEOUT_COUNTS)
-    {
-      USB_timeout_counter = USB_TIMEOUT_COUNTS+1;
-      REG_ARM_MOTOR_VELOCITIES.turret = 0;
-      REG_ARM_MOTOR_VELOCITIES.shoulder = 0;
-      REG_ARM_MOTOR_VELOCITIES.elbow = 0;
-      REG_ARM_MOTOR_VELOCITIES.wrist = 0;
-      REG_ARM_MOTOR_VELOCITIES.gripper = 0;
-    }
-  #endif
+  
+    //pretty dumb control loop
+ //   for(i=0;i<10;i++)
+//    {
+      adjusted_gripper_velocity = return_adjusted_gripper_velocity();
+      adjusted_wrist_velocity = return_adjusted_wrist_velocity();
+  
+      //if the gripper is fully open, the wrist joint is too
+      //jammed to move
+      /*if(REG_ARM_JOINT_POSITIONS.gripper >= GRIPPER_FULLY_OPEN)
+        adjusted_wrist_velocity = 0;*/
+  
+      motor_accel_loop(adjusted_gripper_velocity, adjusted_wrist_velocity);
+      //motor_accel_loop(0, REG_ARM_MOTOR_VELOCITIES.wrist);
+  
+//      block_ms(10);
+//    }
+    
+    //get raw angle values from RS-485 message and ADC
+    //apply the offset, and populate the REG_ARM_JOINT_POSITIONS registers
+    update_joint_angles();
+  
+    #ifdef USB_TIMEOUT_ENABLED
+      USB_timeout_counter++;
+      if(USB_timeout_counter > USB_TIMEOUT_COUNTS)
+      {
+        USB_timeout_counter = USB_TIMEOUT_COUNTS+1;
+        REG_ARM_MOTOR_VELOCITIES.turret = 0;
+        REG_ARM_MOTOR_VELOCITIES.shoulder = 0;
+        REG_ARM_MOTOR_VELOCITIES.elbow = 0;
+        REG_ARM_MOTOR_VELOCITIES.wrist = 0;
+        REG_ARM_MOTOR_VELOCITIES.gripper = 0;
+      }
+    #endif
+  }
+  if(hundred_millisecond_counter)
+  {
+    hundred_millisecond_counter = 0;
+
+    send_rs485_message();
+  
+    //wait for message to finish sending
+    while(rs485_transmitting);
+    //wait for final byte to finish before changing to RX mode
+    while(U1STAbits.TRMT == 0);
+    RS485_OUTEN_ON(0);
+  
+    //clear receive overrun error, so receive doesn't stop
+    U1STAbits.OERR = 0;
+  }
 
  }
 
@@ -1560,5 +1641,137 @@ static void enter_debug_mode(void)
 
   }
 
+}
+
+void test_wrist_closed_loop_control(void)
+{
+  //unsigned int i;
+  unsigned int IC_reset_counter;
+  //unsigned int PI_speed = 0;
+//  unsigned int error = 0;
+  float actual_wrist_speed = 0;
+  float error = 0;
+  float error_accumulator = 0;
+  float Ki = .08;
+  float Kp = .03;
+  float desired_speed = 10;
+  float driver_command_speed = 0;
+  float integral_term = 0;
+  float max_integral_term = .1;
+
+  //unsigned long actual_wrist_speed = 0;
+  
+  while(1)
+  {
+
+
+    if(WRIST_DIRO())
+      actual_wrist_speed = -65535.0/wrist_interval;
+    else
+      actual_wrist_speed = 65535.0/wrist_interval;
+
+    if(new_IC_data == 0)
+      IC_reset_counter++;
+    else
+    {
+      IC_reset_counter = 0;
+    }
+    new_IC_data = 0;
+
+    if(IC_reset_counter >= 10 )
+    {
+      actual_wrist_speed = 0;
+      //IC_reset_counter = 0;
+      IC_reset_counter = 1000;
+    }
+    
+
+
+    debug_wrist_speed = actual_wrist_speed;
+    error = desired_speed-actual_wrist_speed;
+    //error_accumulator+=error;
+    integral_term+=error*Ki;
+    //integral_term = error_accumulator*Ki;
+
+    //cap integral term to prevent windup
+    if(integral_term > max_integral_term)
+      integral_term = max_integral_term;
+    else if(integral_term < -max_integral_term)
+      integral_term = -max_integral_term;
+    
+
+    driver_command_speed+=Kp*error+integral_term;
+    debug_error = error;
+    debug_error_accumulator = error_accumulator;
+    debug_driver_command_speed = driver_command_speed;
+    //debug_driver_command_speed = driver_command_speed;
+
+    if( (desired_speed > 0) && (driver_command_speed < 0) )
+    {
+      driver_command_speed = 0;
+      error_accumulator = 0;
+    }
+    else if( (desired_speed < 0) && (driver_command_speed > 0) )
+    {
+      driver_command_speed = 0;
+      error_accumulator = 0;
+    }
+
+    if(driver_command_speed > 50)
+      driver_command_speed = 50;
+    else if(driver_command_speed < -50)
+      driver_command_speed = -50;
+
+    WRIST_COAST_ON(1);
+    set_wrist_velocity((int)driver_command_speed);
+    ClrWdt();
+    block_ms(10);
+
+
+
+  }
+
+
+}
+
+void wrist_IC_interrupt(void)
+{
+//  unsigned int test = 0;
+  static unsigned int last_value = 0;
+  unsigned int value = 0;
+  _IC1IF = 0;
+  value = IC1BUF;
+  if(value > last_value)
+   wrist_interval = value-last_value;
+  else
+    wrist_interval = 0xffff-last_value+value;
+
+  last_value = value;
+
+  new_IC_data = 1;
+  
+
+
+}
+
+void Timer2_ISR(void)
+{
+  _T2IF = 0;
+  millisecond_counter++;
+  
+  //Make sure rollover is at a multiple of 10
+  if(millisecond_counter == 10000)
+    millisecond_counter = 0;
+
+
+  if(millisecond_counter%10 == 0)
+  {
+    ten_millisecond_counter++;
+    if(ten_millisecond_counter%10 == 0)
+    {
+      hundred_millisecond_counter++;
+     
+    }
+  }
 }
 
