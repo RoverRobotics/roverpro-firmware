@@ -1,6 +1,7 @@
 #include "include/Compiler.h"
 #include "Controller.h"
 #include "Audio.h"
+#include "Timers.h"
 
 #define INPUT 1
 
@@ -200,7 +201,7 @@ void Construct_Controller_Message(void)
 		{
 			Audio_Receive();
       if(talk_button_last_held)
-        block_ms(50);
+        block_ms(100);
 			Audio_Unmute();
       talk_button_last_held = 0;
 		}
