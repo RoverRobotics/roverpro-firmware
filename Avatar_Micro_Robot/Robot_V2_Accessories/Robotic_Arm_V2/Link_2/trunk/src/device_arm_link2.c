@@ -1767,7 +1767,7 @@ void Timer2_ISR(void)
   if(millisecond_counter%10 == 0)
   {
     ten_millisecond_counter++;
-    if(ten_millisecond_counter%10 == 0)
+    if(millisecond_counter%100 == 0)
     {
       hundred_millisecond_counter++;
      
