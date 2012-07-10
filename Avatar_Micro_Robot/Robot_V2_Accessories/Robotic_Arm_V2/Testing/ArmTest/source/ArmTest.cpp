@@ -85,12 +85,6 @@ using namespace rbx::telemetry;
 
 /*---------------------------Constants----------------------------------------*/
 /*---------------------------Module Variables---------------------------------*/
-// TODO: get rid of these global variables
-//SDL_Joystick *myController;
-//button_t Y_button, A_button;
-//stick_t leftStick;
-//stick_t rightStick;
-
 // USB-related variables
 unsigned int register_indices[100];
 char *register_names[100];
@@ -120,7 +114,8 @@ static void InitRoboteXDevice(void);
 static int GetRegisterIndex(void *pRegister);
 
 // USB-related
-static int SetupUSBDevice(void);
+static void PrintUSBErrorString(int errorCode);
+static int InitUSBDevice(void);
 static void CleanupUSB(void);
 static void ReinitUSB(void);
 
@@ -155,7 +150,7 @@ int main(int argn, char *argc[]) {
 /*---------------------------Helper Function Definitions----------------------*/
 static void InitRoboteXDevice(void) {
   // search until the device is found through USB interface  
-  while (!SetupUSBDevice());
+  while (!InitUSBDevice());
 }
 
 
@@ -207,7 +202,7 @@ static void PrintFirmwareFeedback(void) {
                                   in_packet[GRIPPER_ACT_POS_L_INDEX];
 	  int gripperPosition = (in_packet[GRIPPER_POS_H_INDEX] << 8) + 
                           in_packet[GRIPPER_POS_L_INDEX];
-	  int gripperClutchSlip = gripperActuatorPosition - gripperActuatorPosition - CLUTCH_OFFSET;
+    int gripperClutchSlip = gripperPosition - gripperActuatorPosition - CLUTCH_OFFSET;
 
     // print the parsed information with context
     printf("\r\nJoint Angles\r\n");
@@ -285,9 +280,9 @@ static int GetRegisterIndex(void *pRegister) {
 /*
 Gets the first device for our USB vendor ID.
 ?puts all RoboteX devices into an array?
-TODO: decompose and simplify this function
+TODO: decompose this function
 */
-static int SetupUSBDevice(void) {
+static int InitUSBDevice(void) {
   unsigned char is_unsupported_device = 0;
 	int errorCode = 0;
   printf("\r\nSetting up USB device... ");
@@ -356,6 +351,7 @@ static int SetupUSBDevice(void) {
 
   // do stuff with devices
 
+
   if (libusb_kernel_driver_active(robotex_device_handles[0], 0)) {
     printf("kernel driver already attached\n");
 
@@ -386,7 +382,7 @@ static int SetupUSBDevice(void) {
                             0,                          // user_data
                             0);                         // timeout
   
-  // TO CONFIGURE LIBUSB 
+  // configure libusb 
   libusb_set_iso_packet_lengths(outgoing_transfer, sizeof(out_packet_t));
   incoming_transfer = libusb_alloc_transfer(1);
 
@@ -507,7 +503,7 @@ static void ReinitUSB(void) {
 	CleanupUSB();
 	
   // keep trying until the device is found
-	while (SetupUSBDevice() == 0) {
+	while (InitUSBDevice() == 0) {
 		sleep(1);
 		if (10 < attemptCounter) {
 			printf("USB reinitialization failed\r\n");
