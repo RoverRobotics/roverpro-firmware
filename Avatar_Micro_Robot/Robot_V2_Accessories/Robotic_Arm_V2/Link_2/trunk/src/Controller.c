@@ -22,10 +22,6 @@ typedef struct {
 static controller_t controllers[MAX_NUM_CONTROLLERS];
 
 /*---------------------------Public Function Definitions----------------------*/
-/*******************************************************************************
-Note(s):
-	- 
-*******************************************************************************/
 void InitController(unsigned char i, float yMax, float yMin, 
                     float Kp, float Ki, float Kd) {
   // populate the fields that comprise a controller
@@ -47,13 +43,11 @@ void InitController(unsigned char i, float yMax, float yMin,
 }
 
 
-/*
-Description: This control algorithm attempts to control a system below its
-  output ability -- ie acheive an effective yDesired that is below its yMin 
-*/
 float ComputeControlOutput(unsigned char i, float yDesired, float yActual) {
   static float integralTerm, yActualLast = 0;
   float error, deltaY, yCommand = 0;
+  
+  if (yDesired < 0) yDesired = -yDesired;
   
   error = yDesired - yActual;
   integralTerm += (controllers[i].Ki * error);
@@ -78,11 +72,3 @@ float ComputeControlOutput(unsigned char i, float yDesired, float yActual) {
   yActualLast = yActual;
   return yCommand;
 }
-
-float ComputeBangBangOutput(unsigned char i, float yDesired, float yActual) {
-  if (yDesired < yActual) return 0;
-  else return controllers[i].yMin;
-}
-  
-/*---------------------------Private Function Definitions---------------------*/
-

@@ -2,6 +2,7 @@
 #include "stdhdr.h"
 #include "DEE Emulation 16-bit.h"
 #include "debug_uart.h"
+#include "./Controller.h"
 
 //#define USB_TIMEOUT_ENABLED
 
@@ -41,7 +42,7 @@
 
 #define WRIST_PWM_OR        _RP21R
 
-#define WRIST_RP            26
+#define WRIST_RP            26          // wrist remappable pin, mapped as input-capture 1 from the tachometer output of the driver IC
 
 #define GRIPPER_POT_EN(a)       _PCFG4 = !a
 #define GRIPPER_ACT_POT_EN(a)   _PCFG5 = !a
@@ -98,9 +99,9 @@
 //4.25mm*1023 counts/45mm = 96.6 counts
 //#define MAX_GRIPPER_SLIP 96
 //5.25mm*1023 counts/45mm = 119.35
-#define MAX_GRIPPER_SLIP 125
+#define MAX_GRIPPER_SLIP            125
 #define MAX_FULLY_OPEN_GRIPPER_SLIP 105
-#define GRIPPER_SLIP_HYSTERESIS 20
+#define GRIPPER_SLIP_HYSTERESIS     20
 
 #define NORMAL_OPERATION 0
 #define POSITIVE_OVERSLIP_RESET 1
@@ -111,25 +112,30 @@
 #define POT_LOW_THRESHOLD 15
 #define POT_HIGH_THRESHOLD 1008
 
-int return_adjusted_wrist_velocity(void);
+// TODO: these should be in a standard header
+#define CW            0
+#define CCW           1
+#define NO_DIRECTION  2
+
+int return_adjusted_wrist_speed(void);
 int return_angle_difference(unsigned int angle_1, unsigned int angle_2);
 
 #define USB_TIMEOUT_COUNTS 5
 
-
-void set_gripper_velocity(int velocity);
-void set_wrist_velocity(int velocity);
+void set_gripper_speed(int speed);
+void set_wrist_speed(int speed);
 unsigned int return_adc_value(unsigned char ch);
 void RS485_RX_ISR(void);
 void RS485_TX_ISR(void);
 unsigned int return_CRC(unsigned char* data, unsigned char length);
 char Is_CRC_valid(unsigned char* data, unsigned char length);
 void send_rs485_message(void);
-void motor_accel_loop(int desired_gripper_velocity, int desired_wrist_velocity);
-int return_adjusted_gripper_velocity(void);
+void motor_accel_loop(int desired_gripper_speed, int desired_wrist_speed);
+int return_adjusted_gripper_speed(void);
 
 void test_arm_motors(void);
 void test_arm_motors_send_i2c(void);
+void test_wrist_closed_loop_control(void);
 
 static char read_rs485_angle_values(void);
 
@@ -179,29 +185,33 @@ static void read_stored_angle_offsets(void);
 
 static void enter_debug_mode(void);
 
+static unsigned char WristDriverStopped(void);
+static void UpdateGains(const unsigned char controllerIndex); // for investigating gain parameters
+static unsigned char IsWristStalled(int desiredSpeed, 
+                                    unsigned char disabledDirection, 
+                                    int millisecondsPassed);
+static unsigned char GetDirection(int speed);
+float GetWristDriverSpeed(void);
+void UpdateInputCapture1(void);
+unsigned char inputCapture1Stopped = 0;
+                                    
 //For interrupt-driven timing:
 static void Timer2_ISR(void);
 static unsigned int millisecond_counter = 0;
 static unsigned int ten_millisecond_counter = 0;
 static unsigned int hundred_millisecond_counter = 0;
 
-void wrist_IC_interrupt(void);
-void setup_input_capture(void);
-unsigned int wrist_interval = 0xffff;
-unsigned char new_IC_data = 0;
+void WristTachometerISR(void);
+static void ConfigureInputCapture1(void);
+unsigned int wristInterval = 0xffff;
+unsigned char newICData = 0;
 float debug_wrist_speed;
 float debug_error;
 float debug_error_accumulator;
 float debug_driver_command_speed ;
+int debugCommandSpeed = 0.0;
 
-
-
-
-
-
-void Arm_Link2_Init(void)
-{
-
+void Arm_Link2_Init(void) {
   AD1CON1 = 0x0000;
 	AD1CON2 = 0x0000;
 	AD1CON3 = 0x0000;
@@ -308,9 +318,8 @@ void Arm_Link2_Init(void)
 	OC2CON1bits.OCTSEL=0b000;//Timer2
 	OC2CON1bits.OCM=0b110;
 
-  set_gripper_velocity(0);
-  set_wrist_velocity(0);
-
+  set_gripper_speed(0);
+  set_wrist_speed(0);
 
   T2InterruptUserFunction = Timer2_ISR;
   //T2 frequency is Fosc/2 = 16 MHz
@@ -319,15 +328,12 @@ void Arm_Link2_Init(void)
   PR2 = 16000;
   _T2IE = 1;
   
-
   T2CONbits.TON = 1;
 
   GRIPPER_COAST_ON(1);
   WRIST_COAST_ON(1);
 
-  setup_input_capture();
-
-
+  ConfigureInputCapture1();
 
   read_stored_angle_offsets();
 
@@ -339,57 +345,45 @@ void Arm_Link2_Init(void)
     motor_accel_loop(REG_ARM_MOTOR_VELOCITIES.gripper, 0);
   }*/
 
-  //test_wrist_closed_loop_control();
-
+  test_wrist_closed_loop_control();
 }
 
-void setup_input_capture(void)
-{
-  unsigned int temp;
 
-  //setup timer 3
-
-  //1/256 prescale
-  //T3CONbits.TCKPS = 3;
-  //1/64 prescale
-  T3CONbits.TCKPS = 2;
-
-  //turn on timer
-  T3CONbits.TON = 1;
-
-	while(IC1CON1bits.ICBNE==SET)
-	{
-	 	temp=IC1BUF;
- 	}
-
-  IC1CON2bits.SYNCSEL=0;
-  //Use timer 2
-  //IC1CON1bits.ICTSEL = 1;
-  //Use timer 3
-   IC1CON1bits.ICTSEL = 0;
-  //Interrupt every fourth capture event
-  IC1CON1bits.ICI=0;
-  //Capture on every rising edge
-  //IC1CON1bits.ICM=3;
-  //Capture on every sixteenth rising edge
-  IC1CON1bits.ICM=0b101;
-  //set wrist feedback tach to IC1
-  _IC1R = WRIST_RP;
-  IC1InterruptUserFunction = wrist_IC_interrupt;
-  _IC1IE = 1;
-
+/*
+Description: Configures input capture 1 to fire an interrupt on every
+  16*3 => 48th rising edge.
+Notes:
+  - uses Timer3
+    time_per_tick = ((f_osc/2)/prescaler)^-1
+                  = ((32MHz/2)/256)^-1
+                  = 16us
+  - see ~p.171 of datasheet
+*/
+static void ConfigureInputCapture1(void) {
+  T3CONbits.TCKPS = 0b11;   // configure prescaler to divide-by-256
+  T3CONbits.TON = 1;        // turn on the timer
+  
+  // clear the input capture FIFO buffer
+  int temp;
+	while (IC1CON1bits.ICBNE == SET) {temp = IC1BUF;};
+  
+  // configure the input capture
+  IC1CON1bits.ICTSEL = 0;   // use Timer3 as the time base
+  IC1CON1bits.ICI = 0b00; //11;   // fire the interrupt every capture event
+  IC1CON1bits.ICM = 0b101;  // capture event on every 16th rising edge
+  
+  _IC1R = WRIST_RP;         // map the wrist tachometer pin to be input capture
+  IC1InterruptUserFunction = WristTachometerISR;  // respond to the event with our own interrupt-service routine
+  _IC1IF = 0;               // begin with the interrupt flag cleared
+  _IC1IE = 1;               // enable interrupts
 }
 
-void Link2_Process_IO(void)
-{
 
-//  unsigned int i;
-  int adjusted_gripper_velocity = 0;
-  int adjusted_wrist_velocity = 0;
+void Link2_Process_IO(void) {
+  int adjusted_gripper_speed = 0;
+  int adjusted_wrist_speed = 0;
 
-  //run this at 10ms
-  if(ten_millisecond_counter)
-  {
+  if(ten_millisecond_counter) {
     ten_millisecond_counter = 0;   
 
     //if we receive these set speeds, run calibration
@@ -410,21 +404,20 @@ void Link2_Process_IO(void)
   
     REG_ARM_JOINT_POSITIONS.gripper = gripper_pot_value;
     REG_ARM_JOINT_POSITIONS.gripper_actuator = gripper_act_pot_value;
-  
-
+ 
   
     //pretty dumb control loop
  //   for(i=0;i<10;i++)
 //    {
-      adjusted_gripper_velocity = return_adjusted_gripper_velocity();
-      adjusted_wrist_velocity = return_adjusted_wrist_velocity();
+      adjusted_gripper_speed = return_adjusted_gripper_speed();
+      adjusted_wrist_speed = return_adjusted_wrist_speed();
   
       //if the gripper is fully open, the wrist joint is too
       //jammed to move
       /*if(REG_ARM_JOINT_POSITIONS.gripper >= GRIPPER_FULLY_OPEN)
-        adjusted_wrist_velocity = 0;*/
+        adjusted_wrist_speed = 0;*/
   
-      motor_accel_loop(adjusted_gripper_velocity, adjusted_wrist_velocity);
+      motor_accel_loop(adjusted_gripper_speed, adjusted_wrist_speed);
       //motor_accel_loop(0, REG_ARM_MOTOR_VELOCITIES.wrist);
   
 //      block_ms(10);
@@ -465,45 +458,30 @@ void Link2_Process_IO(void)
 
  }
 
-void set_gripper_velocity(int velocity)
+void set_gripper_speed(int speed) 
 {
+  if (100 < speed) speed = 100;
+  else if (speed < -100) speed = -100;
 
-  if(velocity > 100)
-    velocity = 100;
-  else if(velocity < -100)
-    velocity = -100;
+  if (0 < speed) GRIPPER_DIR_ON(1);
+  else GRIPPER_DIR_ON(0);
 
-  if(velocity > 0)
-    GRIPPER_DIR_ON(1);
-  else
-    GRIPPER_DIR_ON(0);
-
-  OC1R = abs(velocity)*20;
-
-
+  OC1R = abs(speed)*20;
 }
 
-void set_wrist_velocity(int velocity)
+void set_wrist_speed(int speed) 
 {
+  if (speed > 100) speed = 100;
+  else if(speed < -100) speed = -100;
 
-  if(velocity > 100)
-    velocity = 100;
-  else if(velocity < -100)
-    velocity = -100;
+  if (speed > 0) WRIST_DIR_ON(1);
+  else WRIST_DIR_ON(0);
 
-  if(velocity > 0)
-    WRIST_DIR_ON(1);
-  else
-    WRIST_DIR_ON(0);
-
-  OC2R = abs(velocity)*20;
-
-
+  OC2R = abs(speed)*20;
 }
 
 unsigned int return_adc_value(unsigned char ch)
 {
-
 	unsigned int return_value = 0;
 	AD1CON1bits.ADON = 0;
 	AD1CHS0bits.CH0SA = ch;
@@ -517,7 +495,6 @@ unsigned int return_adc_value(unsigned char ch)
 
 void RS485_RX_ISR(void)
 {
-
   static unsigned char message_index = 0;
   static unsigned char current_length = 100;
   static unsigned char current_device = 0x00;
@@ -766,53 +743,53 @@ void send_rs485_message(void)
 
 }
 
-void motor_accel_loop(int desired_gripper_velocity, int desired_wrist_velocity)
+void motor_accel_loop(int desired_gripper_speed, int desired_wrist_speed)
 {
-  static int gripper_velocity;
-  static int wrist_velocity;
+  static int gripper_speed;
+  static int wrist_speed;
   unsigned char step_size = 2;
 
-  /*if( abs(desired_gripper_velocity) < 15)
+  /*if( abs(desired_gripper_speed) < 15)
   {
-    gripper_velocity = 0;
-    set_gripper_velocity(0);
+    gripper_speed = 0;
+    set_gripper_speed(0);
   }
-  if( abs(desired_wrist_velocity) < 15 )
+  if( abs(desired_wrist_speed) < 15 )
   {
-    wrist_velocity = 0;
-    set_wrist_velocity(0);
+    wrist_speed = 0;
+    set_wrist_speed(0);
   }*/
 
-  if(desired_gripper_velocity > (gripper_velocity + step_size))
-    gripper_velocity+=step_size;
-  else if (desired_gripper_velocity < (gripper_velocity - step_size) )
-    gripper_velocity-=step_size;
+  if(desired_gripper_speed > (gripper_speed + step_size))
+    gripper_speed+=step_size;
+  else if (desired_gripper_speed < (gripper_speed - step_size) )
+    gripper_speed-=step_size;
 
-  if(desired_wrist_velocity > (wrist_velocity + step_size) )
-    wrist_velocity+=step_size;
-  else if (desired_wrist_velocity < (wrist_velocity - step_size) )
-    wrist_velocity-=step_size;
+  if(desired_wrist_speed > (wrist_speed + step_size) )
+    wrist_speed+=step_size;
+  else if (desired_wrist_speed < (wrist_speed - step_size) )
+    wrist_speed-=step_size;
 
-  if(gripper_velocity > MAX_GRIPPER_SPEED)
-    gripper_velocity = MAX_GRIPPER_SPEED;
-  else if(gripper_velocity < -MAX_GRIPPER_SPEED)
-    gripper_velocity = -MAX_GRIPPER_SPEED;
+  if(gripper_speed > MAX_GRIPPER_SPEED)
+    gripper_speed = MAX_GRIPPER_SPEED;
+  else if(gripper_speed < -MAX_GRIPPER_SPEED)
+    gripper_speed = -MAX_GRIPPER_SPEED;
   
-  if(wrist_velocity > MAX_WRIST_SPEED)
-    wrist_velocity = MAX_WRIST_SPEED;
-  else if(wrist_velocity < -MAX_WRIST_SPEED)
-    wrist_velocity = -MAX_WRIST_SPEED;
+  if(wrist_speed > MAX_WRIST_SPEED)
+    wrist_speed = MAX_WRIST_SPEED;
+  else if(wrist_speed < -MAX_WRIST_SPEED)
+    wrist_speed = -MAX_WRIST_SPEED;
 
 
-  if(abs(gripper_velocity) < MIN_GRIPPER_SPEED)
-    set_gripper_velocity(0);
+  if(abs(gripper_speed) < MIN_GRIPPER_SPEED)
+    set_gripper_speed(0);
   else
-    set_gripper_velocity(gripper_velocity);
+    set_gripper_speed(gripper_speed);
 
-  if(abs(wrist_velocity) < MIN_WRIST_SPEED)
-    set_wrist_velocity(0);
+  if(abs(wrist_speed) < MIN_WRIST_SPEED)
+    set_wrist_speed(0);
   else
-    set_wrist_velocity(wrist_velocity);
+    set_wrist_speed(wrist_speed);
 
 
 }
@@ -827,8 +804,8 @@ void calibrate_angle_sensor(void)
   REG_ARM_MOTOR_VELOCITIES.wrist = 0;
   REG_ARM_MOTOR_VELOCITIES.gripper = 0;
 
-  set_wrist_velocity(0);
-  set_gripper_velocity(0);
+  set_wrist_speed(0);
+  set_gripper_speed(0);
 
   while(1)
   {
@@ -1002,28 +979,19 @@ unsigned int return_combined_pot_angle(unsigned char pot_1_ch, unsigned char pot
     //if pot2 is closer to the end of range
     else
     {
-
       scale_factor = (512-abs(temp2) )/ 512.0;
  //     combined_pot_value = (pot_2_value*scale_factor + pot_1_value*(1-scale_factor));
       combined_pot_angle = (pot_2_angle*scale_factor + pot_1_angle*(1-scale_factor));
-
     }
 
     //333.3 degrees, 1023 total counts, 333.3/1023 = .326
     //combined_pot_angle = combined_pot_value*.326+13.35;
-
   }
 
-  if(combined_pot_angle >= 360)
-    combined_pot_angle-=360;
-  else if(combined_pot_angle < 0)
-    combined_pot_angle+=360;
-
-
+  if(combined_pot_angle >= 360) combined_pot_angle-=360;
+  else if(combined_pot_angle < 0) combined_pot_angle+=360;
 
   return (unsigned int)combined_pot_angle;
-
-
 }
 
 
@@ -1034,15 +1002,15 @@ unsigned int return_combined_pot_angle(unsigned char pot_1_ch, unsigned char pot
 //        Furthest from the gripper = 0
 //        Positive gripper motor speed moves the motor
 //        closest to the gripper (to open)
-int return_adjusted_gripper_velocity(void)
+int return_adjusted_gripper_speed(void)
 {
-  int adjusted_gripper_velocity = 0;
-  adjusted_gripper_velocity = REG_ARM_MOTOR_VELOCITIES.gripper;
+  int adjusted_gripper_speed = 0;
+  adjusted_gripper_speed = REG_ARM_MOTOR_VELOCITIES.gripper;
   unsigned int adjusted_gripper_pot_value = 0;
   int gripper_clutch_slip = 0;
-  int input_gripper_velocity = 0;
+  int input_gripper_speed = 0;
   static unsigned char gripper_clutch_state = 0;
-  static int last_gripper_velocity = 0;
+  static int last_gripper_speed = 0;
   static unsigned int last_gripper_pot_value = 0;
   static unsigned int gripper_close_slip_counter = 0;
   static unsigned int gripper_pos_sample_timer = 0;
@@ -1052,9 +1020,9 @@ int return_adjusted_gripper_velocity(void)
 
 
 
-  input_gripper_velocity = REG_ARM_MOTOR_VELOCITIES.gripper;
+  input_gripper_speed = REG_ARM_MOTOR_VELOCITIES.gripper;
 
-  adjusted_gripper_velocity = input_gripper_velocity;
+  adjusted_gripper_speed = input_gripper_speed;
 
   //don't move the gripper motor too close to a hard stop
 
@@ -1063,7 +1031,7 @@ int return_adjusted_gripper_velocity(void)
   {
     if(REG_ARM_MOTOR_VELOCITIES.gripper < 0)
     {
-      adjusted_gripper_velocity = 0;
+      adjusted_gripper_speed = 0;
       gripper_direction_latch = -1;
       gripper_actuator_overtravel_direction = -1;
     }
@@ -1073,7 +1041,7 @@ int return_adjusted_gripper_velocity(void)
   {
     if(REG_ARM_MOTOR_VELOCITIES.gripper > 0)
     {
-      adjusted_gripper_velocity = 0;
+      adjusted_gripper_speed = 0;
       gripper_direction_latch = 1;
       gripper_actuator_overtravel_direction = 1;
     }
@@ -1106,7 +1074,7 @@ int return_adjusted_gripper_velocity(void)
     case NORMAL_OPERATION:
       gripper_clutch_overtravel_direction = 0;
       //if gripper is opening
-      if(adjusted_gripper_velocity > 0)
+      if(adjusted_gripper_speed > 0)
       {
         //if the gripper is close to being fully open
         if(REG_ARM_JOINT_POSITIONS.gripper >= GRIPPER_FULLY_OPEN)
@@ -1114,7 +1082,7 @@ int return_adjusted_gripper_velocity(void)
           //if the clutch slip is too high, go into negative overslip reset and stop the motor
           if(gripper_clutch_slip <= -MAX_FULLY_OPEN_GRIPPER_SLIP)
           {  
-            adjusted_gripper_velocity = 0;
+            adjusted_gripper_speed = 0;
             gripper_clutch_state = NEGATIVE_OVERSLIP_RESET;             
           
           }
@@ -1125,7 +1093,7 @@ int return_adjusted_gripper_velocity(void)
           //if the gripper is opening (but not fully open), and there is too much negative slip, stop the motor
           if(gripper_clutch_slip <= -MAX_GRIPPER_SLIP)
           {  
-            adjusted_gripper_velocity = 0;
+            adjusted_gripper_speed = 0;
             gripper_clutch_state = NEGATIVE_OVERSLIP_RESET;             
           
           }
@@ -1134,9 +1102,9 @@ int return_adjusted_gripper_velocity(void)
   
       }
       //if the gripper is closing, and there is too much positive slip, stop the motor
-      else if( (adjusted_gripper_velocity < 0) && (gripper_clutch_slip >= MAX_GRIPPER_SLIP) )
+      else if( (adjusted_gripper_speed < 0) && (gripper_clutch_slip >= MAX_GRIPPER_SLIP) )
       {
-        adjusted_gripper_velocity = 0;
+        adjusted_gripper_speed = 0;
         gripper_clutch_state = POSITIVE_OVERSLIP_RESET;
       }
     break;
@@ -1146,53 +1114,53 @@ int return_adjusted_gripper_velocity(void)
     case POSITIVE_OVERSLIP_RESET:
       gripper_clutch_overtravel_direction = 1;
       //if gripper is opening, stop motors when the clutch is centered
-      if ( (adjusted_gripper_velocity > 0) && (gripper_clutch_slip <= 0))
+      if ( (adjusted_gripper_speed > 0) && (gripper_clutch_slip <= 0))
       {
-        adjusted_gripper_velocity = 0;
+        adjusted_gripper_speed = 0;
         gripper_clutch_state = POSITIVE_OVERSLIP_RESET_COMPLETE;
       }
       //only disallow closing the gripper if the slip is close to the max slip amount
-      else if( (adjusted_gripper_velocity < 0) && (gripper_clutch_slip >= (MAX_GRIPPER_SLIP-GRIPPER_SLIP_HYSTERESIS) ) )
-      //else if( (adjusted_gripper_velocity < 0) && (gripper_clutch_slip >=(MAX_GRIPPER_SLIP-GRIPPER_SLIP_HYSTERESIS) ) )
+      else if( (adjusted_gripper_speed < 0) && (gripper_clutch_slip >= (MAX_GRIPPER_SLIP-GRIPPER_SLIP_HYSTERESIS) ) )
+      //else if( (adjusted_gripper_speed < 0) && (gripper_clutch_slip >=(MAX_GRIPPER_SLIP-GRIPPER_SLIP_HYSTERESIS) ) )
       {
-        adjusted_gripper_velocity = 0;
+        adjusted_gripper_speed = 0;
       }
 
     break;
     case POSITIVE_OVERSLIP_RESET_COMPLETE:
       //wait for command to close the gripper before changing states
       //(even if this value is adjusted to zero for some reason
-      if(input_gripper_velocity < 0)
+      if(input_gripper_speed < 0)
       {
         gripper_clutch_state = NORMAL_OPERATION;
       }
       //don't allow the gripper the keep opening
-      else if(adjusted_gripper_velocity > 0)
+      else if(adjusted_gripper_speed > 0)
       {
-        adjusted_gripper_velocity = 0;
+        adjusted_gripper_speed = 0;
       }
     break;
     //gripper has slipped too much when opening
     case NEGATIVE_OVERSLIP_RESET:
       gripper_clutch_overtravel_direction = -1;
       //if gripper is closing, stop motors when the clutch is centered
-      /*if ( (adjusted_gripper_velocity < 0) && (gripper_clutch_slip >= 0))
+      /*if ( (adjusted_gripper_speed < 0) && (gripper_clutch_slip >= 0))
       {
         //gripper_clutch_reset_in_progress = 0;
-        adjusted_gripper_velocity = 0;
+        adjusted_gripper_speed = 0;
         //gripper_direction_latch = -1;
         gripper_clutch_state = NEGATIVE_OVERSLIP_RESET_COMPLETE;
       }
       //only disallow opening the gripper if the slip is close to the max slip amount
-      else if( (adjusted_gripper_velocity > 0) && (gripper_clutch_slip <= (-MAX_GRIPPER_SLIP+GRIPPER_SLIP_HYSTERESIS) ) )
+      else if( (adjusted_gripper_speed > 0) && (gripper_clutch_slip <= (-MAX_GRIPPER_SLIP+GRIPPER_SLIP_HYSTERESIS) ) )
       {
-        adjusted_gripper_velocity = 0;
+        adjusted_gripper_speed = 0;
       }*/
-      if( (adjusted_gripper_velocity > 0) && (gripper_clutch_slip <= (-MAX_GRIPPER_SLIP+GRIPPER_SLIP_HYSTERESIS) ) )
+      if( (adjusted_gripper_speed > 0) && (gripper_clutch_slip <= (-MAX_GRIPPER_SLIP+GRIPPER_SLIP_HYSTERESIS) ) )
       {
-        adjusted_gripper_velocity = 0;
+        adjusted_gripper_speed = 0;
       }
-      else if(input_gripper_velocity < 0)
+      else if(input_gripper_speed < 0)
       {
           gripper_clutch_state = NORMAL_OPERATION;
       }
@@ -1200,20 +1168,20 @@ int return_adjusted_gripper_velocity(void)
     case NEGATIVE_OVERSLIP_RESET_COMPLETE:
       //wait for command to open the gripper before changing states
       //(even if this value is adjusted to zero for some reason
-      if(input_gripper_velocity > 0)
+      if(input_gripper_speed > 0)
       {
         gripper_clutch_reset_in_progress = 0;
         gripper_clutch_state = NORMAL_OPERATION;
       }
       //don't allow the gripper the keep closing
-      else if(adjusted_gripper_velocity < 0)
+      else if(adjusted_gripper_speed < 0)
       {
-        adjusted_gripper_velocity = 0;
+        adjusted_gripper_speed = 0;
       }
     break;
     default:
       //logic error.  Stop motor and reset state machine
-      adjusted_gripper_velocity = 0;
+      adjusted_gripper_speed = 0;
       gripper_clutch_state = NORMAL_OPERATION;
     break;
   }
@@ -1223,12 +1191,12 @@ int return_adjusted_gripper_velocity(void)
   if(gripper_pos_sample_timer%10 == 0)
   {
     //if gripper is closing
-    if(adjusted_gripper_velocity < 0)
+    if(adjusted_gripper_speed < 0)
     {
       
       if( abs((int)REG_ARM_JOINT_POSITIONS.gripper-(int)last_gripper_pot_value) < GRIPPER_CLOSE_SLIP_HYSTERESIS )
       {
-        if(last_gripper_velocity < 0)
+        if(last_gripper_speed < 0)
           gripper_close_slip_counter++;
       }
       else
@@ -1238,18 +1206,18 @@ int return_adjusted_gripper_velocity(void)
   
       if(gripper_close_slip_counter > 10)
       {
-        adjusted_gripper_velocity = 0;
+        adjusted_gripper_speed = 0;
         gripper_direction_latch = -1;
       }
   
     }
-    else if(input_gripper_velocity > 0)
+    else if(input_gripper_speed > 0)
     {
       gripper_close_slip_counter = 0;
     }
   
     last_gripper_pot_value = REG_ARM_JOINT_POSITIONS.gripper;
-    last_gripper_velocity = adjusted_gripper_velocity;
+    last_gripper_speed = adjusted_gripper_speed;
     
   }
 
@@ -1258,20 +1226,20 @@ int return_adjusted_gripper_velocity(void)
   //don't move in that direction until the motor spins in the other direction
   if(gripper_direction_latch == 1)
   {
-    if(adjusted_gripper_velocity > 0)
-      adjusted_gripper_velocity = 0;
-    else if(adjusted_gripper_velocity < 0)
+    if(adjusted_gripper_speed > 0)
+      adjusted_gripper_speed = 0;
+    else if(adjusted_gripper_speed < 0)
       gripper_direction_latch = 0;
   }
   else if(gripper_direction_latch == -1)
   {
-    if(adjusted_gripper_velocity < 0)
-      adjusted_gripper_velocity = 0;
-    else if(adjusted_gripper_velocity > 0)
+    if(adjusted_gripper_speed < 0)
+      adjusted_gripper_speed = 0;
+    else if(adjusted_gripper_speed > 0)
       gripper_direction_latch = 0;
   }
   
-  return adjusted_gripper_velocity;
+  return adjusted_gripper_speed;
 
 }
 
@@ -1317,7 +1285,7 @@ void test_arm_motors(void)
     motor_accel_loop(0, REG_ARM_MOTOR_VELOCITIES.wrist);
     block_ms(10);
   }
-  set_wrist_velocity(0);
+  set_wrist_speed(0);
 
   while(1)
   {
@@ -1347,7 +1315,7 @@ void test_arm_motors_send_i2c(void)
 
 void infinite_gripper_test_loop(void)
 {
-  int adjusted_gripper_velocity = 0;
+  int adjusted_gripper_speed = 0;
   unsigned int i,j;
 
   REG_ARM_MOTOR_VELOCITIES.gripper = -20;
@@ -1359,9 +1327,9 @@ void infinite_gripper_test_loop(void)
     {
       for(i=0;i<10;i++)
       {
-        adjusted_gripper_velocity = return_adjusted_gripper_velocity();
+        adjusted_gripper_speed = return_adjusted_gripper_speed();
     
-        motor_accel_loop(adjusted_gripper_velocity, REG_ARM_MOTOR_VELOCITIES.wrist);
+        motor_accel_loop(adjusted_gripper_speed, REG_ARM_MOTOR_VELOCITIES.wrist);
         //motor_accel_loop(0, REG_ARM_MOTOR_VELOCITIES.wrist);
     
         block_ms(10);
@@ -1373,9 +1341,9 @@ void infinite_gripper_test_loop(void)
     {
       for(i=0;i<10;i++)
       {
-        adjusted_gripper_velocity = return_adjusted_gripper_velocity();
+        adjusted_gripper_speed = return_adjusted_gripper_speed();
     
-        motor_accel_loop(adjusted_gripper_velocity, REG_ARM_MOTOR_VELOCITIES.wrist);
+        motor_accel_loop(adjusted_gripper_speed, REG_ARM_MOTOR_VELOCITIES.wrist);
         //motor_accel_loop(0, REG_ARM_MOTOR_VELOCITIES.wrist);
     
         block_ms(10);
@@ -1386,17 +1354,17 @@ void infinite_gripper_test_loop(void)
 
 }
 
-int return_adjusted_wrist_velocity(void)
+int return_adjusted_wrist_speed(void)
 {
-  int adjusted_wrist_velocity = 0;
+  int adjusted_wrist_speed= 0;
   static unsigned int last_wrist_angle = 0;
   static unsigned int wrist_pos_sample_timer = 0;
   unsigned int wrist_angle = 0;
   static char wrist_direction_latch = 0;
-  static int last_wrist_velocity = 0;
+  static int last_wrist_speed = 0;
   static unsigned int wrist_stall_counter = 0;
 
-  adjusted_wrist_velocity = REG_ARM_MOTOR_VELOCITIES.wrist;
+  adjusted_wrist_speed = REG_ARM_MOTOR_VELOCITIES.wrist;
   
   wrist_angle = return_combined_pot_angle(WRIST_POT_1_CH, WRIST_POT_2_CH);
 
@@ -1406,7 +1374,7 @@ int return_adjusted_wrist_velocity(void)
   if(wrist_pos_sample_timer%10 == 0)
   {
     //if wrist is turning counterclockwise (from camera's perspective)
-    if(adjusted_wrist_velocity < 0)
+    if(adjusted_wrist_speed < 0)
     {
       
       if( return_angle_difference(wrist_angle, last_wrist_angle) > WRIST_STALL_DEADBAND )
@@ -1415,20 +1383,20 @@ int return_adjusted_wrist_velocity(void)
       }
       else
       {
-        if(last_wrist_velocity < 0)
+        if(last_wrist_speed < 0)
           wrist_stall_counter++;
       }
   
       if(wrist_stall_counter > 5)
       {
-        adjusted_wrist_velocity = 0;
+        adjusted_wrist_speed = 0;
         wrist_direction_latch = -1;
         wrist_stall_counter = 0;
       }
   
     }
     //if wrist is turning clockwise (from camera's perspective)
-    else if(adjusted_wrist_velocity > 0)
+    else if(adjusted_wrist_speed > 0)
     {
      if( return_angle_difference(wrist_angle, last_wrist_angle) < -WRIST_STALL_DEADBAND )
       {
@@ -1436,21 +1404,21 @@ int return_adjusted_wrist_velocity(void)
       }
       else
       {
-        if(last_wrist_velocity > 0)
+        if(last_wrist_speed > 0)
           wrist_stall_counter++;
 
       }
   
       if(wrist_stall_counter > 5)
       {
-        adjusted_wrist_velocity = 0;
+        adjusted_wrist_speed = 0;
         wrist_direction_latch = 1;
         wrist_stall_counter = 0;
       }
     }
   
     last_wrist_angle = wrist_angle;
-    last_wrist_velocity = adjusted_wrist_velocity;
+    last_wrist_speed = adjusted_wrist_speed;
     
   }
 
@@ -1459,22 +1427,20 @@ int return_adjusted_wrist_velocity(void)
   //reversed
   if(wrist_direction_latch == 1)
   {
-    if(adjusted_wrist_velocity > 0)
-      adjusted_wrist_velocity = 0;
-    else if(adjusted_wrist_velocity < 0)
+    if(adjusted_wrist_speed > 0)
+      adjusted_wrist_speed = 0;
+    else if(adjusted_wrist_speed < 0)
       wrist_direction_latch = 0;
   }
   else if(wrist_direction_latch == -1)
   {
-    if(adjusted_wrist_velocity < 0)
-      adjusted_wrist_velocity = 0;
-    else if(adjusted_wrist_velocity > 0)
+    if(adjusted_wrist_speed < 0)
+      adjusted_wrist_speed = 0;
+    else if(adjusted_wrist_speed > 0)
       wrist_direction_latch = 0;
   }
 
-  return adjusted_wrist_velocity; 
- 
-
+  return adjusted_wrist_speed; 
 }
 
 //implements angle1-angle2 to the closest angle
@@ -1529,9 +1495,6 @@ static void update_joint_angles(void)
   REG_ARM_JOINT_POSITIONS.turret = return_calibrated_angle(uncalibrated_turret_angle,turret_angle_offset,1);
   REG_ARM_JOINT_POSITIONS.shoulder = return_calibrated_angle(uncalibrated_shoulder_angle,shoulder_angle_offset,-1);
   REG_ARM_JOINT_POSITIONS.elbow = return_calibrated_angle(return_combined_pot_angle(ELBOW_POT_1_CH, ELBOW_POT_2_CH),elbow_angle_offset,-1);
-
-
-
 }
 
 //read stored values from flash memory
@@ -1643,134 +1606,213 @@ static void enter_debug_mode(void)
 
 }
 
-void test_wrist_closed_loop_control(void)
-{
-  //unsigned int i;
-  unsigned int IC_reset_counter;
-  //unsigned int PI_speed = 0;
-//  unsigned int error = 0;
-  float actual_wrist_speed = 0;
-  float error = 0;
-  float error_accumulator = 0;
-  float Ki = .08;
-  float Kp = .03;
-  float desired_speed = 10;
-  float driver_command_speed = 0;
-  float integral_term = 0;
-  float max_integral_term = .1;
 
-  //unsigned long actual_wrist_speed = 0;
-  
-  while(1)
-  {
-
-
-    if(WRIST_DIRO())
-      actual_wrist_speed = -65535.0/wrist_interval;
-    else
-      actual_wrist_speed = 65535.0/wrist_interval;
-
-    if(new_IC_data == 0)
-      IC_reset_counter++;
-    else
-    {
-      IC_reset_counter = 0;
-    }
-    new_IC_data = 0;
-
-    if(IC_reset_counter >= 10 )
-    {
-      actual_wrist_speed = 0;
-      //IC_reset_counter = 0;
-      IC_reset_counter = 1000;
+/*
+Description: Closed-loop control law to keep the wrist rotation steady
+  in the presence of external variable force and subject to the constraints
+  of the motor (ie in case it stalls, etc).
+*/
+// gripper closed-loop control constants
+//#define MAX_ALLOWABLE_COMMAND_SPEED   50
+//#define MIN_ALLOWABLE_COMMAND_SPEED   10
+void test_wrist_closed_loop_control(void) {  
+	float desiredSpeed = 10.00;
+	unsigned int updateCounter = 0;
+	
+	//UpdateGains(0);
+	// 0.15, 0.03
+  unsigned char disabledDirection = NO_DIRECTION;
+	InitController(0, MAX_WRIST_SPEED, 0, 0.08, 0.03, 0.00);
+  while (1) {
+    
+    if (ten_millisecond_counter) {
+      ten_millisecond_counter = 0;
+      UpdateInputCapture1();
+      
+      /*
+      // testing: update the Kp, Ki values every 5seconds
+      if (500 < ++updateCounter) {
+        updateCounter = 0;
+        set_wrist_speed(0);
+        UpdateGains(0);
+      }
+      */
+      
+      if (1000 < ++updateCounter) {
+        updateCounter = 0;
+        desiredSpeed = -desiredSpeed;
+      }
+      
+      float dummyWristSpeed = GetWristDriverSpeed();
+      int commandedWristSpeed = (int)ComputeControlOutput(0, abs(desiredSpeed), dummyWristSpeed);
+      if (desiredSpeed < 0) commandedWristSpeed *= -1;
+      
+      unsigned char currentDirection = GetDirection(commandedWristSpeed);
+      
+      if (IsWristStalled(desiredSpeed, disabledDirection, 10)) disabledDirection = currentDirection;
+      
+      // if the current direction is different from the disabled direction, 
+      // clear the disabled direction
+      if (disabledDirection != NO_DIRECTION &&
+          currentDirection != disabledDirection) disabledDirection = NO_DIRECTION;
+      
+      if (disabledDirection == NO_DIRECTION) set_wrist_speed(commandedWristSpeed);
+      else set_wrist_speed(0);
     }
     
-
-
-    debug_wrist_speed = actual_wrist_speed;
-    error = desired_speed-actual_wrist_speed;
-    //error_accumulator+=error;
-    integral_term+=error*Ki;
-    //integral_term = error_accumulator*Ki;
-
-    //cap integral term to prevent windup
-    if(integral_term > max_integral_term)
-      integral_term = max_integral_term;
-    else if(integral_term < -max_integral_term)
-      integral_term = -max_integral_term;
-    
-
-    driver_command_speed+=Kp*error+integral_term;
-    debug_error = error;
-    debug_error_accumulator = error_accumulator;
-    debug_driver_command_speed = driver_command_speed;
-    //debug_driver_command_speed = driver_command_speed;
-
-    if( (desired_speed > 0) && (driver_command_speed < 0) )
-    {
-      driver_command_speed = 0;
-      error_accumulator = 0;
-    }
-    else if( (desired_speed < 0) && (driver_command_speed > 0) )
-    {
-      driver_command_speed = 0;
-      error_accumulator = 0;
-    }
-
-    if(driver_command_speed > 50)
-      driver_command_speed = 50;
-    else if(driver_command_speed < -50)
-      driver_command_speed = -50;
-
-    WRIST_COAST_ON(1);
-    set_wrist_velocity((int)driver_command_speed);
     ClrWdt();
-    block_ms(10);
-
-
-
   }
-
-
 }
 
-void wrist_IC_interrupt(void)
-{
-//  unsigned int test = 0;
-  static unsigned int last_value = 0;
-  unsigned int value = 0;
-  _IC1IF = 0;
-  value = IC1BUF;
-  if(value > last_value)
-   wrist_interval = value-last_value;
-  else
-    wrist_interval = 0xffff-last_value+value;
-
-  last_value = value;
-
-  new_IC_data = 1;
+/*
+Description: Returns the wrist speed derived from the tachometer output
+  of the driver IC in units of [rad/s].
   
-
-
+  Notes:
+  - wristInterval meters the time between two interrupts in units of Timer3 ticks.
+    The distance travelled is always the same
+  - computing the distance travelled across a wrist interval:
+    as input capture 1 is currently configured:
+    RevPerInterrupt = (16risingEdges / interruptEvent) * (2commutations / risingEdge) * 1rev / 6commutations => 5.33333rev / interrupt
+    
+    GR_overall = GR_gearhead * GR_stage2 // neglecting variable diameter of gripper
+               = (1 / 139) * (24 / 40) => 3 / 695
+   
+   (5.333 rev / interrupt)* 1 interrupt cycle * (3 / 695) * (2pi rad / 1 rev) => 0.14464887rad travelled per interruptEvent
+*/
+float GetWristDriverSpeed(void) {
+  if (inputCapture1Stopped) return 0;
+  // Note: ONLY as currently configured:
+  //#define DISTANCE_TRAVELLED  0.14464887  // [rad]
+  //#define TIMER3_TICKS_PER_S  16000000.0  // [s]
+  //return (DISTANCE_TRAVELLED / (wristInterval * TIMER3_TICKS_PER_S)) // [rad/s]
+  
+  // what fraction of the full range of the 16-bit register
+  // have we counted up to?
+  return (65535.0 / wristInterval);
 }
 
-void Timer2_ISR(void)
-{
+
+static unsigned char GetDirection(int speed) {
+  if (0 < speed) return CCW;
+  else return CW;
+}
+
+
+static unsigned char IsWristStalled(int desiredSpeed, 
+                                    unsigned char disabledDirection, 
+                                    int millisecondsPassed) {
+  // if we are commanding a non-zero speed and have NOT seen a change in the
+  // wrist position for a contiguous amount of non-negligible time, 
+  // assume that we are stalled
+  const unsigned char kTolerance = 1;  // tolerance on the wrist angle
+  static unsigned int stallCounter = 0;
+  static unsigned int lastWristAngle = 0;
+  unsigned int currentWristAngle = return_combined_pot_angle(WRIST_POT_1_CH, WRIST_POT_2_CH);
+  
+  if ((desiredSpeed != 0) &&
+      (GetDirection(desiredSpeed) != disabledDirection) &&
+      (abs(lastWristAngle - currentWristAngle) < kTolerance)) stallCounter++;
+  else stallCounter = 0;
+  
+  lastWristAngle = currentWristAngle;
+  
+  // if after ~0.5s we still have NOT reset the stall counter
+  // BUG ALERT: THIS ASSUMES CALLED EVERY 10MS
+  if (500 < (stallCounter * millisecondsPassed)) {
+    int dummy = 0;
+    return 1;
+  }
+  
+  return 0;
+}
+
+
+// TODO: consider encapsulating this in an InputCapture.c module
+// BUG ALERT: 10 is application-dependent and assumes called at 10ms intervals
+void UpdateInputCapture1(void) {
+  static unsigned int ICResetCounter = 0;
+  
+  if (!newICData) ICResetCounter++;
+  else ICResetCounter = 0;
+  
+  newICData = 0;
+	// 10 = longest time ever expected at speeds we're going between interrupts
+  if (10 < ICResetCounter) {
+		ICResetCounter = 1000;	// 0xfffe = arbitrary large number
+		inputCapture1Stopped = 1;
+  }
+	
+  inputCapture1Stopped = 0;
+}
+
+
+/*
+Test function used to programmatically iterate through a variety of 
+potential gain choices.
+*/
+static float Kp = 0.01;
+static float Ki = 0.00;
+static float Kd = 0.00;
+static void UpdateGains(const unsigned char controllerIndex) {
+  const float deltaKp = 0.01;
+  const float deltaKi = 0.01;
+  
+  static unsigned char currentRow, currentColumn = 0;
+  const unsigned char kNumRows = 10;
+  const unsigned char kNumColums = 10;
+  
+  // increment to the next element
+  if (kNumRows < ++currentRow) {
+    currentRow = 0;
+    if (kNumColums < ++currentColumn) currentColumn = 0;
+  }
+  
+  // get the value stored at that element
+  Kp = currentRow * deltaKp;
+  Ki = currentColumn * deltaKi;
+  
+  int dummyForBreakpoint = 0;
+  
+  // re-initialize the controller
+  InitController(0, MAX_WRIST_SPEED, 0, Kp, Ki, Kd);
+}  
+
+  
+/*
+Description: This interrupt fires on every nth rising edge of the 
+  wrist motor driver's tachometer output.
+  
+Notes:
+  - 48rising_edges * 2commutations / rising_edge * 1rev / 6commutations => 16rev
+*/
+// UpdateIC1IntervalISR(void)
+void WristTachometerISR(void) {
+  _IC1IF = 0;
+  
+  static unsigned int lastValue = 0;
+  unsigned int currentValue = IC1BUF; // current running Timer3 tick value (you must subtract off last value)
+  
+	// handle rollover, remove old offset
+  if (lastValue < currentValue) wristInterval = currentValue - lastValue;
+  else wristInterval = 0xffff - lastValue + currentValue;
+  
+  lastValue = currentValue;
+  newICData = 1;  // set a flag to indicate that new input-capture data is available
+}
+
+
+void Timer2_ISR(void) {
   _T2IF = 0;
   millisecond_counter++;
   
-  //Make sure rollover is at a multiple of 10
-  if(millisecond_counter == 10000)
-    millisecond_counter = 0;
+  // make sure rollover is at a multiple of 10
+  if(millisecond_counter == 10000) millisecond_counter = 0;
 
-
-  if(millisecond_counter%10 == 0)
-  {
+  if ((millisecond_counter % 10) == 0) {
     ten_millisecond_counter++;
-    if(millisecond_counter%100 == 0)
-    {
+    if ((millisecond_counter % 100) == 0) {
       hundred_millisecond_counter++;
-     
     }
   }
 }

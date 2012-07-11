@@ -10,7 +10,7 @@
 
 void InterruptDummyFunction();
 
-extern void (*T1InterruptUserFunction)(void);
+//extern void (*T1InterruptUserFunction)(void);
 extern void (*T2InterruptUserFunction)(void);
 extern void (*T3InterruptUserFunction)(void);
 extern void (*T4InterruptUserFunction)(void);

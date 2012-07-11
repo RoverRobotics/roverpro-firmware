@@ -1,14 +1,16 @@
 /*==============================================================================
 File: Controller.h
  
-Description: This module encapsulates the control of a motor.  Initialze a 
-  controller then re-compute the control output at a consistent rate.
+Description: This module encapsulates PID control.  Initialze the controller 
+  with the appropriate constants then re-compute the control output at a 
+  consistent rate.
 
 Notes:
-  - only handles positive inputs (if you have a desired speed take abs(yDesired)
-    then negate the result)
-  - PID control
-  - the computation time (double-math) provides a lower limit on the loop rate
+  - WARNING: assumes a direct-acting process -- that is, an increase in the
+    output causes an increase in the input.  It is up to the user to make
+    the signs of Kp, Ki and Kd all negative if the process is reverse-acting.
+  - WARNING: assumes that all associated numbers are positive or zero
+    (just take abs() before you give a parameter)
     
 Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 ==============================================================================*/
@@ -16,7 +18,8 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 #define CONTROLLER_H
 /*---------------------------Macros-------------------------------------------*/
 #define MAX_NUM_CONTROLLERS   8 // change to support as many controllers 
-                                // as needed
+                                // as needed (used to avoid need for dynamic
+                                // memory management)
 
 /*---------------------------Public Functions---------------------------------*/
 /****************************************************************************
@@ -24,11 +27,11 @@ Function: InitController
 Parameters:
   unsigned char controllerIndex, the index (0-based) of the controller 
                                  on which to operate
-	double yMax,      the maximum value the output can produce
-	double yMin,      the minimum value the output can produce
-	double Kp,        proportional gain
-	double Ki,        integral gain
-	double Kd,        derivative gain
+	float yMax,      the maximum value the output can produce
+	float yMin,      the minimum value the output can produce
+	float Kp,        proportional gain
+	float Ki,        integral gain
+	float Kd,        derivative gain
 ******************************************************************************/
 void InitController(unsigned char controllerIndex, float yMax, float yMin, 
                     float Kp, float Ki, float Kd);
@@ -37,29 +40,15 @@ void InitController(unsigned char controllerIndex, float yMax, float yMin,
 /****************************************************************************
 Function: ComputeControlOutput
 Returns:
-	double,	the resulting value to command for the current iteration
+	float,	the resulting value to command for the current iteration
 Parameters:
   unsigned char controllerIndex, the index (0-based) of the controller
                                  on which to operate
-	double yDesired,  the desired value of the output
-	double yActual,   the current value of the output
+	float yDesired,  the desired value of the output
+	float yActual,   the current value of the output
 ******************************************************************************/
 float ComputeControlOutput(unsigned char controllerIndex, 
                            float yDesired, float yActual);
-
-
-/****************************************************************************
-Function: ComputeBangBangOutput
-Returns:
-	double,	the resulting value to command for the current iteration
-Parameters:
-  unsigned char controllerIndex, the index (0-based) of the controller
-                                 on which to operate
-	double yDesired,  the desired value of the output
-	double yActual,   the current value of the output
-******************************************************************************/
-float ComputeBangBangOutput(unsigned char controllerIndex, 
-                            float yDesired, float yActual);
 
 // TODO: add Autotune(&Kp, &Ki, &Kd);
 #endif

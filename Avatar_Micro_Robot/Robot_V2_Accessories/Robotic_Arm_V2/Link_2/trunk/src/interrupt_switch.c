@@ -11,7 +11,7 @@
 
 #pragma idata
 
-void (*T1InterruptUserFunction)(void) = InterruptDummyFunction;
+//void (*T1InterruptUserFunction)(void) = InterruptDummyFunction;
 void (*T2InterruptUserFunction)(void) = InterruptDummyFunction;
 void (*T3InterruptUserFunction)(void) = InterruptDummyFunction;
 void (*T4InterruptUserFunction)(void) = InterruptDummyFunction;
@@ -38,10 +38,12 @@ void InterruptDummyFunction()
 {
 }
 
+/*
 void  __attribute__((__interrupt__, auto_psv)) _T1Interrupt(void)
 {
 	T1InterruptUserFunction();
 }
+*/
 
 void  __attribute__((__interrupt__, auto_psv)) _T2Interrupt(void)
 {
