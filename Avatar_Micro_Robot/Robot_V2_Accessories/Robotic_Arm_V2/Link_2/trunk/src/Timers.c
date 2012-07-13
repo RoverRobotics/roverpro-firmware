@@ -1,32 +1,32 @@
-/*=============================================================================
+/*==============================================================================
 File: Timers.c
-=============================================================================*/
+==============================================================================*/
 //#define TEST_TIMERS
-/*---------------------------Dependencies------------------------------------*/
+/*---------------------------Dependencies-------------------------------------*/
 #include "./Timers.h"
 #include <p24FJ256GB106.h>
 
-/*---------------------------Macros and Definitions--------------------------*/
+/*---------------------------Macros and Type Definitions----------------------*/
 /*
 Type: timer_t
 Description: A timer is comprised of a duration and a start time.
 */
 typedef struct {
 	unsigned long int duration;        // the duration of the timer
-	unsigned long int start_time;      // time at which the timer was started
+	unsigned long int startTime;       // time at which the timer was started
 } timer_t;
 
 #define INTERRUPTS_PER_TICK 	8
 #define TIMER_PERIOD 					250
 
-/*---------------------------Helper Function Prototypes----------------------*/
+/*---------------------------Helper Function Prototypes-----------------------*/
 static void Timer_ISR(void);
 
-/*---------------------------Module Variables--------------------------------*/
+/*---------------------------Module Variables---------------------------------*/
 static timer_t timers[MAX_NUM_TIMERS];
-static unsigned long int current_time;
+static unsigned long int currentTime;
 
-/*---------------------------Test Harness------------------------------------*/
+/*---------------------------Test Harness-------------------------------------*/
 #ifdef TEST_TIMERS
 #include "./ConfigurationBits.h"
 
@@ -53,22 +53,22 @@ int main(void) {
 	return 0;
 }
 #endif
-/*---------------------------End Test Harness--------------------------------*/
-
-/*---------------------------Public Function Definitions---------------------*/
+/*---------------------------End Test Harness---------------------------------*/
+/*---------------------------Public Function Definitions----------------------*/
 void __attribute__((__interrupt__, auto_psv)) _T1Interrupt(void) {
   Timer_ISR();
 }
 
-/****************************************************************************
+/*******************************************************************************
 Notes:
 	- see p.143 of datasheet for initialization sequence
 	- ms_per_tick = ((f_osc/2)/prescaler)^-1*timer_period*interrupts_per_tick
                 = ((32MHz/2)/8)^-1*250*8
 		            = 1ms
-*****************************************************************************/
+*******************************************************************************/
 void InitTimers(void) {
-  T1CONbits.TCKPS = 0b01;           // configure the timer prescaler to divide-by-8 (see p.162 of datasheet)
+  T1CONbits.TCKPS = 0b01;           // configure the timer prescaler to 
+	                                  // divide-by-8 (see p.162 of datasheet)
   T1CONbits.TCS = 0;                // do NOT use the external clock
   if (T1CONbits.TCS == 0) T1CONbits.TGATE = 0;// DISABLE gated time accumulation
   if (T1CONbits.TCS == 1) T1CONbits.TSYNC = 1;// synchronize external clock input
@@ -76,48 +76,50 @@ void InitTimers(void) {
 	
 	// configure the Timer1 interrupt
   _T1IP = 4;                        // configure interrupt priority
-  _T1IF = 0;	                      // clear the Timer1 Interrupt Flag
-  _T1IE = 1;	                      // enable the interrupt for Timer1 (Timer1 Interrupt Enable bit)
+  _T1IF = 0;	                      // begin with the interrupt flag cleared
+  _T1IE = 1;	                      // enable the interrupt
 	
 	T1CONbits.TON = 1;                // turn on timer1
 }
 
 
-void StartTimer(unsigned char timer_number, unsigned int new_time) {
+void StartTimer(unsigned char timerNumber, unsigned int newTime) {
 	// schedule when the timer expires
-	timers[timer_number].duration = new_time;
-	timers[timer_number].start_time = GetTime();
+	timers[timerNumber].duration = newTime;
+	timers[timerNumber].startTime = GetTime();
 }
 
-unsigned char IsTimerExpired(unsigned char timer_number) {
+
+unsigned char IsTimerExpired(unsigned char timerNumber) {
   // BUG ALERT: stop interrupts!  This line takes several clock cylces to execute
   unsigned char result;
   //asm volatile ("disi #0x3FFF"); // disable interrupts
-  result = (timers[timer_number].duration < (GetTime() - timers[timer_number].start_time));
+  result = (timers[timerNumber].duration < 
+	         (GetTime() - timers[timerNumber].startTime));
   //asm volatile ("disi #0");      // enable interrupts
   
   return result;
 }
 
+
 unsigned int GetTime(void) {
-	return current_time;
+	return currentTime;
 }
+
 
 void Pause(unsigned int milliseconds) {
-  unsigned int start_ticks = GetTime();
-  while ((GetTime() - start_ticks) < milliseconds) {}
+  unsigned int startTicks = GetTime();
+  while ((GetTime() - startTicks) < milliseconds) {}
 }
 
-/*---------------------------Private Function Definitions--------------------*/
+/*---------------------------Private Function Definitions---------------------*/
 static void Timer_ISR(void) {
-  static unsigned char num_times_called = 0;
+  static unsigned char numTimesCalled = 0;
   
   IFS0bits.T1IF = 0;  // clear the source of the interrupt
   
-  if (INTERRUPTS_PER_TICK <= ++num_times_called) {
-    num_times_called = 0;
-	  current_time++;   // increment the GetTime() tick counter
+  if (INTERRUPTS_PER_TICK <= ++numTimesCalled) {
+    numTimesCalled = 0;
+	  currentTime++;
 	}
 }
-
-/*---------------------------End of File-------------------------------------*/

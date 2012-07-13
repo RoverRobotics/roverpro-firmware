@@ -17,7 +17,6 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 ==============================================================================*/
 #ifndef TIMERS_H
 #define TIMERS_H
-
 /*---------------------------Macros-------------------------------------------*/
 #define MAX_NUM_TIMERS    8 // the maximum number of timer this module can 
                             // keep track of
@@ -31,6 +30,7 @@ Notes:
 *******************************************************************************/
 void InitTimers(void);
 
+
 /*******************************************************************************
 Function: StartTimer()
 Paramters:
@@ -39,6 +39,7 @@ Paramters:
  												  		which this timer will expire
 *******************************************************************************/
 void StartTimer(unsigned char timerIndex, unsigned int milliseconds);
+
 
 /*******************************************************************************
 Function: InitBase()
@@ -55,6 +56,7 @@ Returns:
 	unsigned int, the number of milliseconds passed since initialization
 *******************************************************************************/
 unsigned int GetTime(void);
+
 
 /*******************************************************************************
 Function: Pause()
