@@ -1,18 +1,16 @@
 /*==============================================================================
 File: PIDController.c
+
 Notes:
   - You can usually just set the integrator minimum and maximum as the drive 
     maximum and minimum.  If you know your disturbances are small and you 
-    want quicker settlines, you can limit the integrator further.
+    want quicker settling, you can limit the integrator further.
 
 See also:
   - control system block diagram
-    
-Inpired By: 
   - "PID without a PhD" by Tim Wescott
   - http://brettbeauregard.com/
   - http://www.cds.caltech.edu/~murray/courses/cds101/fa04/caltech/am04_ch8-3nov04.pdf
-  - friends and colleagues
 ==============================================================================*/
 /*---------------------------Dependencies-------------------------------------*/
 #include "./PIDController.h"
@@ -25,8 +23,6 @@ typedef struct {
 	double Ki;    // integral gain
   double Kd;    // derivative gain
 } controller_t;
-
-/*---------------------------Helper Function Prototypes-----------------------*/
 
 /*---------------------------Module Variables---------------------------------*/
 static controller_t controllers[MAX_NUM_CONTROLLERS];

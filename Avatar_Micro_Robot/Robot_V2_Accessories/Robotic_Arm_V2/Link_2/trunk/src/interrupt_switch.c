@@ -13,7 +13,7 @@
 
 //void (*T1InterruptUserFunction)(void) = InterruptDummyFunction;
 void (*T2InterruptUserFunction)(void) = InterruptDummyFunction;
-void (*T3InterruptUserFunction)(void) = InterruptDummyFunction;
+//void (*T3InterruptUserFunction)(void) = InterruptDummyFunction;
 void (*T4InterruptUserFunction)(void) = InterruptDummyFunction;
 void (*T5InterruptUserFunction)(void) = InterruptDummyFunction;
 void (*IC1InterruptUserFunction)(void) = InterruptDummyFunction;
@@ -50,10 +50,12 @@ void  __attribute__((__interrupt__, auto_psv)) _T2Interrupt(void)
  	T2InterruptUserFunction();
 }
 
+/*
 void  __attribute__((__interrupt__, auto_psv)) _T3Interrupt(void)
 {
  	T3InterruptUserFunction();
 }
+*/
 
 void  __attribute__((__interrupt__, auto_psv)) _T4Interrupt(void)
 {
