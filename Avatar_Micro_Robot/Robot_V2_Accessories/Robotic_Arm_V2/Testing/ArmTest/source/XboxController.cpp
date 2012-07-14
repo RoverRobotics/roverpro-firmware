@@ -77,8 +77,6 @@ int main(int argn, char *argc[]) {
 #endif
 /*---------------------------Public Method Definitions------------------------*/
 XboxController::XboxController() {
-  printf("Constructing controller...\r\n");
-
   if (SDL_Init(SDL_INIT_JOYSTICK) < 0) printf("Error: trouble in SDL_Init()\n");
   if (SDL_NumJoysticks() < 1) printf("Error: Couldn't find controller\n");
   SDL_JoystickEventState(SDL_IGNORE);
@@ -86,7 +84,6 @@ XboxController::XboxController() {
 }
 
 XboxController::~XboxController() {
-  printf("Destroying controller...\r\n");
   SDL_JoystickClose(this->myJoystick);
   // free all internal objects out
 }

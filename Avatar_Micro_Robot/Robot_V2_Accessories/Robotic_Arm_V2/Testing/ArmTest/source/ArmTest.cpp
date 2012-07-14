@@ -9,7 +9,8 @@ Notes:
   - make sure to run shell script to suppress USB bug (forces device to be
     full-speed => 12-megabit)
 
-Responsible Engineer: Stellios Leventis sleventis@robotex.com
+Responsible Engineer(s): 
+Taylor Penn taylor@robotex.com | Stellios Leventis sleventis@robotex.com
 ==============================================================================*/
 //#define DEBUGGING_MODE
 /*---------------------------Dependencies-------------------------------------*/
