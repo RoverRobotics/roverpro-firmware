@@ -1,22 +1,19 @@
-/*=============================================================================
+/*==============================================================================
 File: StandardHeader.c
-=============================================================================*/
+==============================================================================*/
 //#define TEST_STANDARD_HEADER
-/*---------------------------Dependencies------------------------------------*/
+/*---------------------------Dependencies-------------------------------------*/
 #include "./StandardHeader.h"
 
-/*---------------------------Macros------------------------------------------*/
+/*---------------------------Macros-------------------------------------------*/
 #define OPS_PER_MS            3200  // operations per millisecond, for current 
                                     // oscillator choice and 
                                     // configuration-bit settings
 
-/*---------------------------Helper Function Prototypes----------------------*/
-
-/*---------------------------Test Harness------------------------------------*/
+/*---------------------------Test Harness-------------------------------------*/
 #ifdef TEST_STANDARD_HEADER
 int main(void) {
   _TRISE5 = OUTPUT; _RE5 = 0;       // configure a debugging pin
-  
   
   unsigned char i = 0;
 	while (1) {
@@ -34,14 +31,14 @@ int main(void) {
 	return 0;
 }
 #endif
-/*---------------------------End Test Harness--------------------------------*/
-/*---------------------------Public Function Definitions---------------------*/
+/*---------------------------Public Function Definitions----------------------*/
 void Delay(unsigned int milliseconds) {
   unsigned int i,j;
 	for (i = 0; i < OPS_PER_MS; i++) {
     for (j = 0; j < milliseconds; j++);
   }
 }
+
 
 unsigned int Map(int value, int from_low, int from_high, 
                  int to_low, int to_high) {
@@ -55,5 +52,3 @@ unsigned int Map(int value, int from_low, int from_high,
   
   return result;
 }
-
-/*---------------------------Helper Function Definitions---------------------*/

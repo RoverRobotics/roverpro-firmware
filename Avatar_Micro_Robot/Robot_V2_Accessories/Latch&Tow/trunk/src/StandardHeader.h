@@ -1,38 +1,38 @@
-/*=============================================================================
+/*==============================================================================
 File: StandardHeader.c
 
-Description: This file provides organizes common dependencies, macros,
-  type definitions, general functions and other generally useful facilities 
+Description: This file organizes common dependencies, macros, type definitions, 
+  general utility functions and other generally useful facilities 
   across an application.  As this file will be included in nearly every file,
   it should be kept concise.
 
 Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
-=============================================================================*/
+==============================================================================*/
 #ifndef STANDARD_HEADER_H
 #define STANDARD_HEADER_H
-/*---------------------------Dependencies------------------------------------*/
+/*---------------------------Dependencies-------------------------------------*/
 #include <p24FJ256GB106.h>
-//#include <stdbool.h>    // included in C30 compiler
 
-/*---------------------------Macros------------------------------------------*/
-#define ON                    1
+/*---------------------------Macros-------------------------------------------*/
 #define OFF                   0
+#define ON                    1
 
-#define YES                   1
-#define NO                    0
-
-#define INPUT                 1
 #define OUTPUT                0
+#define INPUT                 1
 
-#define CCW                   1
 #define CW                    0
+#define CCW                   1
+#define NO_DIRECTION					2
 
-// boolean for true/false
+#define FALSE     						0
+#define TRUE      						(!FALSE)
 
+#define NO                    0
+#define YES                   (!NO)
 
-/*---------------------------Constants---------------------------------------*/
+/*---------------------------Constants----------------------------------------*/
 
-/*---------------------------Public Function Prototypes----------------------*/
+/*---------------------------Public Function Prototypes-----------------------*/
 /*
 Function: Map()
 

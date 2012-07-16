@@ -1,38 +1,38 @@
-/*=============================================================================
+/*==============================================================================
 File: StandardHeader.c
 
-Description: This file provides organizes common dependencies, macros,
-  type definitions, general functions and other generally useful facilities 
+Description: This file organizes common dependencies, macros, type definitions, 
+  general utility functions and other generally useful facilities 
   across an application.  As this file will be included in nearly every file,
-  it should be kept concise.  To emphasize the value placed on brevity, all
-  functions are additionally implemented in this file.
+  it should be kept concise.
 
 Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
-=============================================================================*/
+==============================================================================*/
 #ifndef STANDARD_HEADER_H
 #define STANDARD_HEADER_H
-/*---------------------------Dependencies------------------------------------*/
+/*---------------------------Dependencies-------------------------------------*/
 #include <p24FJ256GB106.h>
 
-/*---------------------------Macros------------------------------------------*/
-#define ON        1
-#define OFF       0
+/*---------------------------Macros-------------------------------------------*/
+#define OFF                   0
+#define ON                    1
 
-#define YES       1
-#define NO        0
+#define OUTPUT                0
+#define INPUT                 1
 
-#define INPUT     1
-#define OUTPUT    0
+#define CW                    0
+#define CCW                   1
+#define NO_DIRECTION					2
 
-#define CCW       1
-#define CW        0
+#define FALSE     						0
+#define TRUE      						(!FALSE)
 
-#define FALSE     0
-#define TRUE      (!FALSE)
+#define NO                    0
+#define YES                   (!NO)
 
-/*---------------------------Constants---------------------------------------*/
+/*---------------------------Constants----------------------------------------*/
 
-/*---------------------------Public Function Prototypes----------------------*/
+/*---------------------------Public Function Prototypes-----------------------*/
 /*
 Function: Map()
 
@@ -56,17 +56,7 @@ Notes:
 TODO: put this function in StandardHeader.h/.c
 */
 unsigned int Map(int value, int from_low, int from_high, 
-                 int to_low, int to_high) {  
-  // compute the linear interpolation
-  unsigned int result = ((double)(value - from_low) / (double)(from_high - from_low))
-                        * (double)(to_high - to_low) + to_low;
-  
-  // constrain the result to within a valid output range
-  if (to_high < result) result = to_high;
-  else if (result < to_low) result = to_low;
-  
-  return result;
-}
+                 int to_low, int to_high);
 
 
 /*
@@ -79,19 +69,11 @@ Parameters:
                              of entering and exiting the loop reduces the 
                              longer you pause for.
 Notes:
-  - assumes f_osc = 32MHz
+  - assumes a 20MHz external oscillator
   - entirely blocking code
   - note the limit of the data type capping the maximum number of millieconds
     you can pause for (~65535ms)
 */
-#define OPS_PER_MS            3200  // operations per millisecond, for current 
-                                    // oscillator choice and 
-                                    // configuration-bit settings
-void Delay(unsigned int milliseconds) {
-  unsigned int i,j;
-	for (i = 0; i < OPS_PER_MS; i++) {
-    for (j = 0; j < milliseconds; j++);
-  }
-}
+void Delay(unsigned int milliseconds);
 
 #endif
