@@ -24,11 +24,11 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 #define CCW                   1
 #define NO_DIRECTION					2
 
-#define FALSE     						0
-#define TRUE      						(!FALSE)
+//#define FALSE     						0
+//#define TRUE      						(!FALSE)
 
-#define NO                    0
-#define YES                   (!NO)
+//#define NO                    0
+//#define YES                   (!NO)
 
 /*---------------------------Constants----------------------------------------*/
 
@@ -41,10 +41,10 @@ Returns:
 
 Parameters:
   int value,      the number to map
-  int from_low,   the lower bound of the value's current range
-  int from_high,  the upper bound of the value's current range
-  int to_low,     the lower bound of the value's target range
-  int to_high,    the upper bound of the value's target range
+  int fromLow,    the lower bound of the value's current range
+  int fromHigh,   the upper bound of the value's current range
+  int toLow,      the lower bound of the value's target range
+  int toHigh,     the upper bound of the value's target range
 
 Description: Re-maps a number from one range to another.
 
@@ -55,8 +55,8 @@ Notes:
     to help mitigate unexpected overflow issues
 TODO: put this function in StandardHeader.h/.c
 */
-unsigned int Map(int value, int from_low, int from_high, 
-                 int to_low, int to_high);
+unsigned int Map(int value, int fromLow, int fromHigh, 
+                 int toLow, int toHigh);
 
 
 /*

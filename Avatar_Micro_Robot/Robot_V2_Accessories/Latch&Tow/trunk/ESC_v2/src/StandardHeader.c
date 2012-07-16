@@ -40,15 +40,15 @@ void Delay(unsigned int milliseconds) {
 }
 
 
-unsigned int Map(int value, int from_low, int from_high, 
-                 int to_low, int to_high) {
+unsigned int Map(int value, int fromLow, int fromHigh, 
+                 int toLow, int toHigh) {
   // compute the linear interpolation
-  unsigned int result = ((double)(value - from_low) / (double)(from_high - from_low))
-                        * (double)(to_high - to_low) + to_low;
+  unsigned int result = ((double)(value - fromLow) / (double)(fromHigh - fromLow))
+                        * (double)(toHigh - toLow) + toLow;
   
   // constrain the result to within a valid output range
-  if (to_high < result) result = to_high;
-  else if (result < to_low) result = to_low;
+  if (toHigh < result) result = toHigh;
+  else if (result < toLow) result = toLow;
   
   return result;
 }

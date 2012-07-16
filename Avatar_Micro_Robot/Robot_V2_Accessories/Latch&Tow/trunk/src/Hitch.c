@@ -4,11 +4,11 @@ File: Hitch.c
 //#define TEST_HITCH
 /*---------------------------Dependencies------------------------------------*/
 #include "./Hitch.h"
-#include "./StandardHeader.h" // for pic header file, Map() function, etc
 #include "./Timers.h"
 #include "./ADC.h"
 #include "./PWM.h"
 #include "./stdhdr.h"         // to get access to our custom registers
+#include "./StandardHeader.h" // for pic header file, Map() function, etc
 
 /*---------------------------Wiring Macros-----------------------------------*/
 // PWM Pin
@@ -111,7 +111,6 @@ void InitHitch(void) {
 }
 
 void ProcessHitchIO(void) {
- 	/*
  	// toggle a pin to indicate normal operation
 	if (IsTimerExpired(HEARTBEAT_TIMER)) {
 		HEARTBEAT_PIN ^= 1;
@@ -176,8 +175,8 @@ void ProcessHitchIO(void) {
   	  StartTimer(HEARTBEAT_TIMER, 65000); // indicate an error
   		break;
   }
-  */
   
+  /*
   // basic test
   if (IsTimerExpired(TRANSITION_TIMER)) {
 		HEARTBEAT_PIN ^= 1;
@@ -200,7 +199,7 @@ void ProcessHitchIO(void) {
 		
 		StartTimer(TRANSITION_TIMER, 2000);
 	}
-	
+	*/
 }
 
 /*---------------------------Helper Function Definitions---------------------*/
