@@ -183,6 +183,10 @@ static void update_joint_angles(void);
 static void read_stored_angle_offsets(void);
 
 static void enter_debug_mode(void);
+float debug_wrist_speed;
+float debug_error;
+float debug_error_accumulator;
+float debug_driver_command_speed ;
 
 /*---------------------------Macros-------------------------------------------*/
 // TODO: these should be in a standard header
@@ -366,12 +370,17 @@ void Link2_Process_IO(void) {
   
   if (IsTimerExpired(TAYLORS_TIMER)) {
     StartTimer(TAYLORS_TIMER, TAYLORS_TIMER_TIME);
-
+			
     // if we receive these set speeds, run calibration
     if ((REG_ARM_MOTOR_VELOCITIES.turret == 123) &&
         (REG_ARM_MOTOR_VELOCITIES.shoulder == 456) &&
-        (REG_ARM_MOTOR_VELOCITIES.elbow == 789) ) calibrate_angle_sensor();
+        (REG_ARM_MOTOR_VELOCITIES.elbow == 789)) calibrate_angle_sensor();
   
+	  //if we receive another special set of speeds, go into debug mode
+    if ((REG_ARM_MOTOR_VELOCITIES.turret == 987) && 
+		    (REG_ARM_MOTOR_VELOCITIES.shoulder == 654) && 
+				(REG_ARM_MOTOR_VELOCITIES.elbow == 321)) enter_debug_mode();
+		
     gripper_pot_value = return_adc_value(GRIPPER_POT_CH);
     gripper_act_pot_value = return_adc_value(GRIPPER_ACT_POT_CH);
     elbow_pot_1_value = return_adc_value(ELBOW_POT_1_CH);
