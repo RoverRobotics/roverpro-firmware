@@ -1,14 +1,14 @@
 /*==============================================================================
 File: Controller.h
  
-Description: This module encapsulates a basic PID controller.  Initialze the 
-  controller with the appropriate constants then re-compute the control output
-	at a consistent rate.
+Description: This module encapsulates a PID controller with nominal output.  
+  Initialze the controller with the appropriate constants and lookup table, then
+	re-compute the control output at a consistent rate.
 
 Notes:
   - WARNING: assumes a direct-acting process -- that is, an increase in the
     output causes an increase in the input.  It is up to the user to make
-    the signs of Kp, Ki and Kd all negative if the process is reverse-acting.
+    the signs of Kp, Ki and Kd negative if the process is reverse-acting.
   - If employing differential control, be wary of noise and high-frequency
     oscillations.
     
@@ -30,7 +30,7 @@ Sampling Rate Considerations.
     amount of time from the moment the drive comes out of saturation until the 
     control system has effectively settled out.
 
-// TODO: add Autotune(&Kp, &Ki, &Kd);
+// TODO: implement an auto-tuner: Autotune(&Kp, &Ki, &Kd);
   
 Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 ==============================================================================*/
@@ -38,9 +38,8 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 #define PID_CONTROLLER_H
 /*---------------------------Macros-------------------------------------------*/
 #define MAX_NUM_CONTROLLERS   8 // change to support as many controllers 
-                                // as needed (used to avoid need for dynamic
-                                // memory management)
-
+                                // as needed (used to obviate the need for 
+																// dynamic memory management)
 /*---------------------------Public Functions---------------------------------*/
 /****************************************************************************
 Function: InitPIDController
@@ -51,9 +50,9 @@ Parameters:
 	float yMin,      the minimum value the output can produce
 	float Kp,        proportional gain
 	float Ki,        integral gain
-	float Kd,        derivative gain
+	float Kd,        differential gain
 ******************************************************************************/
-void InitPIDController(const unsigned char controllerIndex, 
+void InitPIDController(const unsigned char controllerIndex,
                        const float yMax, const float yMin, 
                        float Kp, float Ki, float Kd);
 
@@ -65,10 +64,14 @@ Returns:
 Parameters:
   unsigned char controllerIndex, the index (0-based) of the controller
                                  on which to operate
-	float yDesired,  the desired value of the output
-	float yActual,   the current value of the output
+	float yDesired,  	the desired output value
+	float yActual,   	the current, actual output value
+	float yNominal,		the nominal, steady-state output for the desired output.
+	                  input 0 if nominal offset is NOT desired.
 ******************************************************************************/
-float ComputeControlOutput(const unsigned char controllerIndex, 
-                           const float yDesired, const float yActual);
+float ComputeControlOutput(const unsigned char controllerIndex,
+                           const float yDesired,
+													 const float yActual,
+													 const float yNominal);
 
 #endif

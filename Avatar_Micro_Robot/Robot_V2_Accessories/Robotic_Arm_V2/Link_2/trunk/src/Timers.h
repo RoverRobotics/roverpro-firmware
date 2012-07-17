@@ -53,9 +53,9 @@ unsigned char IsTimerExpired(unsigned char timerIndex);
 /*******************************************************************************
 Function: GetTime()
 Returns:
-	unsigned int, the number of milliseconds passed since initialization
+	unsigned long int, the number of milliseconds passed since initialization
 *******************************************************************************/
-unsigned int GetTime(void);
+unsigned long int GetTime(void);
 
 
 /*******************************************************************************

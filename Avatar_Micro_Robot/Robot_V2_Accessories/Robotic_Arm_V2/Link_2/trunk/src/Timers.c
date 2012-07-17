@@ -102,7 +102,7 @@ unsigned char IsTimerExpired(unsigned char timerNumber) {
 }
 
 
-unsigned int GetTime(void) {
+unsigned long int GetTime(void) {
 	return currentTime;
 }
 

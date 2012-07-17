@@ -223,6 +223,7 @@ static float GetActualWristSpeed(void);
 void WristTachometerISR(void);
 static unsigned char IsJointStalled(joint_t *joint, 
                                     unsigned int millisecondsPassed);
+static float GetNominalWristEffort(const float desiredSpeed);
 
 /*---------------------------Module Variables---------------------------------*/
 static unsigned char volatile inputCapture1Stopped = 0;
@@ -230,7 +231,6 @@ static unsigned char volatile newICData = 0;
 static unsigned int volatile wristInterval = 0xffff;
 
 static joint_t wrist = {0, 0, NO_DIRECTION};
-static volatile float desiredRPM = 20.0;//30.0;
 
 /*---------------------------Public Function Definitions----------------------*/
 void Arm_Link2_Init(void) {
@@ -358,7 +358,7 @@ void Arm_Link2_Init(void) {
   StartTimer(TAYLORS_TIMER, TAYLORS_TIMER_TIME);
   StartTimer(JOINT_UPDATE_TIMER, JOINT_UPDATE_TIME);
   StartTimer(CONTROL_TIMER, CONTROL_LOOP_RATE);
-} 
+}
 
 
 void Link2_Process_IO(void) {
@@ -368,8 +368,8 @@ void Link2_Process_IO(void) {
     StartTimer(TAYLORS_TIMER, TAYLORS_TIMER_TIME);
 
     // if we receive these set speeds, run calibration
-    if ((REG_ARM_MOTOR_VELOCITIES.turret == 123) && 
-        (REG_ARM_MOTOR_VELOCITIES.shoulder == 456) && 
+    if ((REG_ARM_MOTOR_VELOCITIES.turret == 123) &&
+        (REG_ARM_MOTOR_VELOCITIES.shoulder == 456) &&
         (REG_ARM_MOTOR_VELOCITIES.elbow == 789) ) calibrate_angle_sensor();
   
     gripper_pot_value = return_adc_value(GRIPPER_POT_CH);
@@ -407,20 +407,9 @@ void Link2_Process_IO(void) {
   //-----------------------wrist code
   if (IsTimerExpired(JOINT_UPDATE_TIMER)) {
     StartTimer(JOINT_UPDATE_TIMER, JOINT_UPDATE_TIME); 
-
+    
     UpdateInputCapture1();
-    
     wrist.desiredSpeed = REG_ARM_MOTOR_VELOCITIES.wrist;
-    /*
-    static int dummy = 0;
-    if (1000 < dummy++) {
-      dummy = 0;
-      static unsigned char alternator = 0;
-      if (++alternator % 2) wrist.desiredSpeed = -desiredRPM;
-      else wrist.desiredSpeed = desiredRPM;
-    }
-    */
-    
     if (IsJointStalled(&wrist, 10)) wrist.disabledDirection = GetDirection(wrist.commandedSpeed);    
   }
   
@@ -428,11 +417,15 @@ void Link2_Process_IO(void) {
     StartTimer(CONTROL_TIMER, CONTROL_LOOP_RATE);
     
     wrist.actualSpeed = GetActualWristSpeed();
-    // TODO: if the desired speed suddenly flips signs, 
-    // be sure to clear PID history variables? or just pick better constants
-    wrist.commandedSpeed = ComputeControlOutput(WRIST_CONTROLLER, wrist.desiredSpeed, wrist.actualSpeed);
+    float yNominal = GetNominalWristEffort(wrist.desiredSpeed);
+    wrist.commandedSpeed = ComputeControlOutput(WRIST_CONTROLLER, 
+                                                wrist.desiredSpeed, 
+                                                wrist.actualSpeed, 
+                                                yNominal);
     
     if (wrist.disabledDirection == GetDirection(wrist.commandedSpeed)) {
+      int dummy1;
+      dummy1 = 1;
       set_wrist_speed(0);
     } else {
       set_wrist_speed(wrist.commandedSpeed);
@@ -460,10 +453,56 @@ void Link2_Process_IO(void) {
 
 /*---------------------------Helper Function Definitions----------------------*/
 static void InitWrist(void) {
-  #define MAX_WRIST_RPM     50
-  #define MIN_WRIST_RPM     (-MAX_WRIST_RPM)
+  #define MAX_WRIST_DC     MAX_WRIST_SPEED
+  #define MIN_WRIST_DC     (-MAX_WRIST_DC)
   ConfigureInputCapture1();
-  InitPIDController(WRIST_CONTROLLER, MAX_WRIST_RPM, MIN_WRIST_RPM, Kp, Ki, Kd);
+  InitPIDController(WRIST_CONTROLLER, MAX_WRIST_DC, MIN_WRIST_DC, Kp, Ki, Kd);
+}
+
+
+/*
+Description: Configures input capture 1 to fire an interrupt on every
+  16*1 => 16th rising edge and meters the result in units of Timer3 ticks
+Notes:
+  - time_per_tick = ((f_osc/2)/prescaler)^-1 => ((32MHz/2)/256)^-1 => 16us
+  - see ~p.171 of datasheet
+*/
+static void ConfigureInputCapture1(void) {
+  T3CONbits.TCKPS = 0b11;   // configure prescaler to divide-by-256
+  T3CONbits.TON = 1;        // turn on the timer
+  
+  // clear the input capture FIFO buffer
+  int temp;
+	while (IC1CON1bits.ICBNE == SET) {temp = IC1BUF;};
+  
+  // configure the input capture
+  IC1CON1bits.ICTSEL = 0;   // use Timer3 as the time base
+  IC1CON1bits.ICI = 0b00;   // fire the interrupt every capture event (otherwise Timer3 overflows)
+  IC1CON1bits.ICM = 0b101;  // capture event on every 16th rising edge
+  
+  _IC1R = WRIST_RP;         // map the wrist tachometer pin to be input capture
+  IC1InterruptUserFunction = WristTachometerISR;  // respond to the event with our own interrupt-service routine
+  _IC1IF = 0;               // begin with the interrupt flag cleared
+  _IC1IE = 1;               // enable interrupts
+}
+
+
+/*
+Description: Returns the approximate steady-state effort required to maintain 
+  the given desired speed.  As this will vary across assemblies, the mapping
+  is approximated as the mean of empirical data.
+
+Notes:
+  - finer resolution can lower the settling time but comes at the cost of 
+    longer lookup time and memory usage
+  - lookup table (statically-declared array) of nominal, steady-state control
+    effort outputs for the desired output
+*/
+static float GetNominalWristEffort(const float desiredSpeed) {
+  // transfer function found empirically (see spreadsheet for data)
+  // desiredSpeed = 2.2656*dutyCycle - 11.371
+  if (desiredSpeed < 0) return ((0.44 * desiredSpeed) - 5.03);
+  else return ((0.44 * desiredSpeed) + 5.03);
 }
 
 
@@ -485,11 +524,7 @@ Description: Returns the wrist speed derived from the tachometer output
    (16/3motorRev/interrupEvent) * (3/695wristRev/motorRev) => 16/695 => 0.0230215827rev travelled per interruptEvent
 */
 static float GetActualWristSpeed(void) {
-  if (inputCapture1Stopped) {
-    volatile int makeSureActualSpeedShows0 = 0;
-    makeSureActualSpeedShows0 = 1;
-    return 0;
-  }
+  if (inputCapture1Stopped) return 0;
   // Note: ONLY as currently configured:
   //#define DISTANCE_TRAVELLED    0.0230215827  // [rev]
   //#define TIMER3_TICKS_PER_MIN  3750000.0     // [ticks/min], (62500ticks/s)*(60s/min)=
@@ -580,37 +615,6 @@ static void UpdateInputCapture1(void) {
 
 
 /*
-Test function used to programmatically iterate through a variety of 
-potential gain choices.  Gains declared as module-level variables
-to inspect in watch window whenever debugger is paused
-*/
-//static float Kp = 0.01;
-//static float Ki = 0.00;
-//static float Kd = 0.00;
-static void UpdateGains(const unsigned char controllerIndex) {
-  const float deltaKp = 0.01;
-  const float deltaKi = 0.01;
-  
-  static unsigned char currentRow, currentColumn = 0;
-  const unsigned char kNumRows = 10;
-  const unsigned char kNumColums = 10;
-  
-  // increment to the next element
-  if (kNumRows < ++currentRow) {
-    currentRow = 0;
-    if (kNumColums < ++currentColumn) currentColumn = 0;
-  }
-  
-  // get the value stored at that element
-  //Kp = currentRow * deltaKp;
-  //Ki = currentColumn * deltaKi;
-  
-  // re-initialize the controller
-  InitPIDController(0, MAX_WRIST_SPEED, 0, Kp, Ki, Kd);
-}  
-
-  
-/*
 Description: This interrupt fires on every nth rising edge of the 
   wrist motor driver's tachometer output.
 */
@@ -629,37 +633,6 @@ void WristTachometerISR(void) {
   newICData = 1;  // set a flag to indicate that new input-capture data is available
 }
 
-
-/*
-Description: Configures input capture 1 to fire an interrupt on every
-  16*3 => 48th rising edge.
-Notes:
-  - uses Timer3
-    time_per_tick = ((f_osc/2)/prescaler)^-1
-                  = ((32MHz/2)/256)^-1
-                  = 16us
-  - see ~p.171 of datasheet
-*/
-static void ConfigureInputCapture1(void) {
-  T3CONbits.TCKPS = 0b11;   // configure prescaler to divide-by-256
-  T3CONbits.TON = 1;        // turn on the timer
-  
-  // clear the input capture FIFO buffer
-  int temp;
-	while (IC1CON1bits.ICBNE == SET) {temp = IC1BUF;};
-  
-  // configure the input capture
-  IC1CON1bits.ICTSEL = 0;   // use Timer3 as the time base
-  IC1CON1bits.ICI = 0b00;   // fire the interrupt every capture event (otherwise Timer3 overflows)
-  IC1CON1bits.ICM = 0b101;  // capture event on every 16th rising edge
-  
-  _IC1R = WRIST_RP;         // map the wrist tachometer pin to be input capture
-  IC1InterruptUserFunction = WristTachometerISR;  // respond to the event with our own interrupt-service routine
-  _IC1IF = 0;               // begin with the interrupt flag cleared
-  _IC1IE = 1;               // enable interrupts
-}
-
-
 /*---------------------------Pre-existing Stuff-------------------------------*/
 void set_gripper_speed(int speed) 
 {
@@ -672,6 +645,7 @@ void set_gripper_speed(int speed)
   OC1R = abs(speed)*20;
 }
 
+
 void set_wrist_speed(int speed) 
 {
   if (speed > 100) speed = 100;
@@ -682,6 +656,7 @@ void set_wrist_speed(int speed)
 
   OC2R = abs(speed)*20;
 }
+
 
 unsigned int return_adc_value(unsigned char ch)
 {
@@ -839,7 +814,6 @@ void RS485_TX_ISR(void)
 }
 
 
-
 unsigned int return_CRC(unsigned char* data, unsigned char length)
 {
 	static unsigned int crc;
@@ -857,6 +831,7 @@ unsigned int return_CRC(unsigned char* data, unsigned char length)
 	}
 	return crc; 
 }
+
 
 char Is_CRC_valid(unsigned char* data, unsigned char length)
 {
@@ -883,6 +858,7 @@ char Is_CRC_valid(unsigned char* data, unsigned char length)
 
 
 }
+
 
 void send_rs485_message(void)
 {
@@ -1045,6 +1021,8 @@ void calibrate_angle_sensor(void) {
   }
 
 }
+
+
 static unsigned int return_calibrated_angle(unsigned int uncalibrated_angle, unsigned int offset_angle, char direction)
 {
   unsigned int calibrated_angle = 0;
@@ -1078,6 +1056,7 @@ static unsigned int return_calibrated_angle(unsigned int uncalibrated_angle, uns
   return calibrated_angle;
 
 }
+
 
 unsigned int return_combined_pot_angle(unsigned char pot_1_ch, unsigned char pot_2_ch)
 {
@@ -1411,7 +1390,6 @@ int return_adjusted_gripper_speed(void)
 }
 
 
-
 void infinite_gripper_test_loop(void) {
   int adjusted_gripper_speed = 0;
   unsigned int i,j;
@@ -1429,6 +1407,7 @@ void infinite_gripper_test_loop(void) {
   }
 
 }
+
 
 int return_adjusted_wrist_speed(void) {
   int adjusted_wrist_speed= 0;
@@ -1541,6 +1520,7 @@ static void update_joint_angles(void) {
   REG_ARM_JOINT_POSITIONS.elbow = return_calibrated_angle(return_combined_pot_angle(ELBOW_POT_1_CH, ELBOW_POT_2_CH),elbow_angle_offset,-1);
 }
 
+
 //read stored values from flash memory
 static void read_stored_angle_offsets(void) {
   unsigned char angle_data[9];
@@ -1561,8 +1541,6 @@ static void read_stored_angle_offsets(void) {
     wrist_angle_offset = angle_data[6]*256+angle_data[7];
   }
 }
-
-
 
 /*---------------------------Test Code----------------------------------------*/
 void test_arm_motors(void) {
@@ -1613,6 +1591,8 @@ void test_arm_motors(void) {
   }
 
 }
+
+
 void test_arm_motors_send_i2c(void)
 {
   unsigned int i;

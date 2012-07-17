@@ -1,36 +1,37 @@
 /*==============================================================================
 File: PIDController.c
-
 Notes:
   - You can usually just set the integrator minimum and maximum as the drive 
     maximum and minimum.  If you know your disturbances are small and you 
-    want quicker settling, you can limit the integrator further.
+    want quicker settlines, you can limit the integrator further.
 
 See also:
   - control system block diagram
+    
+Inpired By: 
   - "PID without a PhD" by Tim Wescott
   - http://brettbeauregard.com/
   - http://www.cds.caltech.edu/~murray/courses/cds101/fa04/caltech/am04_ch8-3nov04.pdf
+  - friends and colleagues
 ==============================================================================*/
 /*---------------------------Dependencies-------------------------------------*/
 #include "./PIDController.h"
 
 /*---------------------------Macros and Definitions---------------------------*/
 typedef struct {
-  double yMax;  // the maximum value the output can produce
-  double yMin;  // the minimum value the output can produce
-	double Kp;    // proportional gain
-	double Ki;    // integral gain
-  double Kd;    // derivative gain
+  float yMax;		// the maximum value the output can produce
+  float yMin;   // the minimum value the output can produce
+	float Kp;    	// proportional gain
+	float Ki;    	// integral gain
+  float Kd;    	// derivative gain
 } controller_t;
-
 /*---------------------------Module Variables---------------------------------*/
 static controller_t controllers[MAX_NUM_CONTROLLERS];
 
 /*---------------------------Public Function Definitions----------------------*/
 void InitPIDController(unsigned char i, float yMax, float yMin, 
-                       float Kp, float Ki, float Kd) {
-  // populate the fields that comprise a controller
+                       float Kp, float Ki, float Kd) {	
+	// populate the fields that comprise a controller
   controllers[i].yMax = yMax;
   controllers[i].yMin = yMin;
   controllers[i].Kp = Kp;
@@ -38,7 +39,7 @@ void InitPIDController(unsigned char i, float yMax, float yMin,
   controllers[i].Kd = Kd;
   
   /*
-  // initialize for "bumpless transfer" 
+  // TODO: initialize for "bumpless transfer" 
   yLast = yActual;
   integralTerm = yCommand;
   if (yMax < integralTerm) integralTerm = yMax;
@@ -51,7 +52,8 @@ void InitPIDController(unsigned char i, float yMax, float yMin,
 
 float ComputeControlOutput(const unsigned char i, 
                            const float yDesired, 
-                           const float yActual) {
+                           const float yActual, 
+													 const float yNominal) {
   static float integralTerm, yActualLast = 0;
   float error, deltaY, yCommand = 0;
   
@@ -64,7 +66,8 @@ float ComputeControlOutput(const unsigned char i,
   else if (integralTerm < controllers[i].yMin) integralTerm = controllers[i].yMin;
   
   // compute the PID Output
-  yCommand = (controllers[i].Kp * error) + integralTerm - (controllers[i].Kd * deltaY);
+  yCommand = (controllers[i].Kp * error) + integralTerm - 
+	          (controllers[i].Kd * deltaY) + yNominal;
   
   // if we've saturated, remove the current error term from 
   // the integral term to prevent integrator windup
