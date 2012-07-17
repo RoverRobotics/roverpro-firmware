@@ -416,7 +416,7 @@ static int HandleUSBCommunication(void) {
 
     if (temp == LIBUSB_ERROR_NO_DEVICE || 
         temp == LIBUSB_ERROR_NOT_FOUND) {
-      return temp;
+      return 0;
     }
 	}
 	
