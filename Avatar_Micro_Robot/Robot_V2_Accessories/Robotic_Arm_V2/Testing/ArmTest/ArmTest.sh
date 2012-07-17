@@ -3,7 +3,7 @@
 # BUG ALERT: if compilation step fails, it will just run old version of code
 
 #get path of current script
-shell_script=`readlink -f $0`
+shell_script=`readlink -f "$0"`
 
 # allow FS PIC to work through hub.  This will break HS device functionality.
 # cd /sys/bus/pci/drivers/ehci_hcd/
