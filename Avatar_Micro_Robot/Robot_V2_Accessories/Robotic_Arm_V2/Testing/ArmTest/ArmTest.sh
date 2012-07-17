@@ -2,6 +2,9 @@
 
 # BUG ALERT: if compilation step fails, it will just run old version of code
 
+#get path of current script
+shell_script=`readlink -f $0`
+
 # allow FS PIC to work through hub.  This will break HS device functionality.
 # cd /sys/bus/pci/drivers/ehci_hcd/
 # sudo sh -c 'find ./ -name "0000:00:*" -print| sed "s/\.\///">unbind'
@@ -18,7 +21,8 @@ for device in *; do
 done
 
 # compile the program
-cd ~/Desktop/ArmTest/source
+current_folder=`dirname $shell_script`
+cd $current_folder/source
 sudo make
 
 # run the program
