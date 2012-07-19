@@ -126,22 +126,38 @@ static int HandleUSBCommunication(void);
 void incoming_callback(struct libusb_transfer *transfer);
 void outgoing_callback(struct libusb_transfer *transfer);
 
+void enable_debug_uart(void);
+void calibrate_arm(void);
+
 int main(int argn, char *argc[]) {
   XboxController myController;
 
-  PressEnterToContinue();
+  char* input_argument = argc[1];
 
-  while (true) {
-    InitRoboteXDevice();
+  //PressEnterToContinue();
 
-    while (true) {
-      UpdateControllerValues(&myController);
-      BuildPacket(&myController);
-      if (!HandleUSBCommunication()) break;
-      PrintFirmwareFeedback();
+  if(input_argument[0] == 'm')
+  {
+	  while (true) {
+	    InitRoboteXDevice();
+
+	    while (true) {
+	      UpdateControllerValues(&myController);
+	      BuildPacket(&myController);
+	      if (!HandleUSBCommunication()) break;
+	      PrintFirmwareFeedback();
+		  }
+	    
+	    CleanupUSB();
 	  }
-    
-    CleanupUSB();
+  }
+  else if(input_argument[0] == 'd')
+  {
+    enable_debug_uart();
+  }
+  else if(input_argument[0] == 'c')
+  {
+    calibrate_arm();
   }
 
   return EXIT_SUCCESS;
@@ -514,6 +530,95 @@ static void ReinitUSB(void) {
 	}
 
   printf("USB reinitialization succeeded\r\n");
+}
+
+
+
+void enable_debug_uart(void)
+{
+
+	int arm_speed_index = GetRegisterIndex(&telemetry::REG_ARM_MOTOR_VELOCITIES);
+	//int shoulder_speed_index = return_register_index(&telemetry::REG_ARM_MOTOR_VELOCITIES.shoulder);
+	//int elbow_speed_index = return_register_index(&telemetry::REG_ARM_MOTOR_VELOCITIES.elbow);
+	int turret_speed = 987;
+	int shoulder_speed = 654;
+	int elbow_speed = 321;
+	int gripper_speed = 0;
+
+	InitRoboteXDevice();
+
+        printf("\r\n\r\n\r\nEntering debug mode....\r\n");
+
+	while(1)
+	{
+		out_packet[0] = arm_speed_index;
+		out_packet[1] = 0x00;
+		out_packet[2] = turret_speed&0xff;
+		out_packet[3] = turret_speed>>8;
+		out_packet[4] = shoulder_speed&0xff;
+		out_packet[5] = shoulder_speed>>8;
+		out_packet[6] = elbow_speed&0xff;
+		out_packet[7] = elbow_speed>>8;
+		out_packet[8] = 0x00;
+		out_packet[9] = 0x00;
+		out_packet[10] = gripper_speed&0xff;
+		out_packet[11] = gripper_speed>>8;
+		out_packet[12] = 0xff;
+		out_packet[13] = 0xff;
+
+		if (!HandleUSBCommunication())
+			return;
+	}
+
+
+
+}
+
+void calibrate_arm(void)
+{
+
+	int arm_speed_index = GetRegisterIndex(&telemetry::REG_ARM_MOTOR_VELOCITIES);
+	//int shoulder_speed_index = return_register_index(&telemetry::REG_ARM_MOTOR_VELOCITIES.shoulder);
+	//int elbow_speed_index = return_register_index(&telemetry::REG_ARM_MOTOR_VELOCITIES.elbow);
+	int turret_speed = 123;
+	int shoulder_speed = 456;
+	int elbow_speed = 789;
+	int gripper_speed = 0;
+        unsigned int i;
+
+        InitRoboteXDevice();
+
+        printf("\r\n\r\n\r\nCalbrating arm...\r\n\r\n");
+
+	for(i=0;i<30;i++)
+	{
+		out_packet[0] = arm_speed_index;
+		out_packet[1] = 0x00;
+		out_packet[2] = turret_speed&0xff;
+		out_packet[3] = turret_speed>>8;
+		out_packet[4] = shoulder_speed&0xff;
+		out_packet[5] = shoulder_speed>>8;
+		out_packet[6] = elbow_speed&0xff;
+		out_packet[7] = elbow_speed>>8;
+		out_packet[8] = 0x00;
+		out_packet[9] = 0x00;
+		out_packet[10] = gripper_speed&0xff;
+		out_packet[11] = gripper_speed>>8;
+		out_packet[12] = 0xff;
+		out_packet[13] = 0xff;
+
+		if (!HandleUSBCommunication())
+			return;
+
+            usleep(100000);
+
+	}
+
+        printf("Calibration finished.  Please power cycle arm and verify successful calibration.\r\n");
+	sleep(3);
+
+
+
 }
 
 

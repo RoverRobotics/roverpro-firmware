@@ -5,25 +5,48 @@
 #get path of current script
 shell_script=`readlink -f "$0"`
 
-# allow FS PIC to work through hub.  This will break HS device functionality.
-# cd /sys/bus/pci/drivers/ehci_hcd/
-# sudo sh -c 'find ./ -name "0000:00:*" -print| sed "s/\.\///">unbind'
 
-# figure out which device ehci_hcd is using, and remove it
-cd /sys/bus/pci/drivers/ehci_hcd
-for device in *; do
-  if test `echo $device | grep -c "0000:"` -eq 0; then
-    echo "this is not the device we're looking for";
-  else
-    echo "Removing " $device
-    sudo su -c "echo '1' > /sys/bus/pci/devices/$device/remove"
-  fi
-done
+while [ true ]
+do
+user_input=""
+echo "\r\n\r\n\r\n"
+echo "[m]ove arm"
+echo "[c]alibrate arm"
+echo "[d]ebug mode"
+echo "[f]irmware version"
+echo "[v]ideo test"
+echo "[q]uit"
+read user_input
 
-# compile the program
+
 current_folder=`dirname $shell_script`
 cd $current_folder/source
-sudo make
 
-# run the program
-sudo ./ArmTest
+if [ $user_input = "m" ]; then
+sh shell_scripts/handle_arm_test.sh m
+
+
+elif [ $user_input = "c" ]; then
+sh shell_scripts/handle_arm_test.sh c
+
+
+elif [ $user_input = "d" ]; then
+sh shell_scripts/handle_arm_test.sh d
+	
+
+elif [ $user_input = "f" ]; then
+echo "\r\n\r\nFirmware Version:\r\n\r\n"
+sudo lsusb -v -d 2694:000d | grep "RoboteX" -A 2
+
+elif [ $user_input = "v" ]; then
+sh shell_scripts/video_display.sh
+
+elif [ $user_input = "q" ]; then
+break
+
+
+else
+echo "\r\n\r\nInvalid input.  Try again.\r\n"
+fi
+
+done
