@@ -8,8 +8,9 @@ File: device_arm_link2.c
 #include "debug_uart.h"
 #include "./PIDController.h"
 #include "./Timers.h"
+#include "./StandardHeader.h"
 
-//#define USB_TIMEOUT_ENABLED
+#define USB_TIMEOUT_ENABLED
 /*---------------------------Macros-------------------------------------------*/
 #define GRIPPER_BRAKE_EN(a)   _TRISB15 = !a
 #define GRIPPER_BRAKE_ON(a)   _LATB15 = a
@@ -189,19 +190,24 @@ float debug_error_accumulator;
 float debug_driver_command_speed ;
 
 /*---------------------------Macros-------------------------------------------*/
-// TODO: these should be in a standard header
-#define CW            0
-#define CCW           1
-#define NO_DIRECTION  2
-
-// at 10 loop rate, Kp can NOT be larger than 0.4 with Ki = 0
-#define Kp                    0.2//0.1500//0.25//1.75//1.00//0.2//0.3//0.15//0.08
-#define Ki                    0.02//0.025//0.08//0.25//0.001//0.00//0.03
-#define Kd                    0.00
 #define WRIST_CONTROLLER      0
+#define Kp                    0.2
+#define Ki                    0.02
+#define Kd                    0.00
 
+// The minimum speed that can move the system in BOTH directions with
+// 95% confidence across assemblies.  This number is used to detect stall.
+#define MIN_WRIST_MOVEABLE_SPEED  10
+
+// limits on the desired speeds we can expect from software
+#define MIN_WRIST_SOFTWARE_SPEED  0
+#define MAX_WRIST_SOFTWARE_SPEED  50//1000
+#define MIN_WRIST_ALLOWABLE_SPEED 0
+#define MAX_WRIST_ALLOWABLE_SPEED 50
+
+                                                
 #define TX_TIMER              1
-#define TX_TIME               100 // [ms]
+#define TX_TIME               100   // [ms]
 #define JOINT_UPDATE_TIMER    2
 #define JOINT_UPDATE_TIME     10
 #define CONTROL_TIMER         3
@@ -228,6 +234,7 @@ void WristTachometerISR(void);
 static unsigned char IsJointStalled(joint_t *joint, 
                                     unsigned int millisecondsPassed);
 static float GetNominalWristEffort(const float desiredSpeed);
+static int MapWristSpeed(int softwareSpeed);
 
 /*---------------------------Module Variables---------------------------------*/
 static unsigned char volatile inputCapture1Stopped = 0;
@@ -418,19 +425,21 @@ void Link2_Process_IO(void) {
     StartTimer(JOINT_UPDATE_TIMER, JOINT_UPDATE_TIME); 
     
     UpdateInputCapture1();
-    wrist.desiredSpeed = REG_ARM_MOTOR_VELOCITIES.wrist;
-    if (IsJointStalled(&wrist, 10)) wrist.disabledDirection = GetDirection(wrist.commandedSpeed);    
+    wrist.desiredSpeed = MapWristSpeed(REG_ARM_MOTOR_VELOCITIES.wrist);
+    
+    if (IsJointStalled(&wrist, JOINT_UPDATE_TIME)) {
+      wrist.disabledDirection = GetDirection(wrist.commandedSpeed);
+    }  
   }
   
   if (IsTimerExpired(CONTROL_TIMER)) {
     StartTimer(CONTROL_TIMER, CONTROL_LOOP_RATE);
     
     wrist.actualSpeed = GetActualWristSpeed();
-    float yNominal = GetNominalWristEffort(wrist.desiredSpeed);
     wrist.commandedSpeed = ComputeControlOutput(WRIST_CONTROLLER, 
                                                 wrist.desiredSpeed, 
                                                 wrist.actualSpeed, 
-                                                yNominal);
+                                                GetNominalWristEffort(wrist.desiredSpeed));
     
     if (wrist.disabledDirection == GetDirection(wrist.commandedSpeed)) {
       int dummy1;
@@ -509,9 +518,37 @@ Notes:
 */
 static float GetNominalWristEffort(const float desiredSpeed) {
   // transfer function found empirically (see spreadsheet for data)
-  // desiredSpeed = 2.2656*dutyCycle - 11.371
-  if (desiredSpeed < 0) return ((0.44 * desiredSpeed) - 5.03);
-  else return ((0.44 * desiredSpeed) + 5.03);
+  //if (desiredSpeed < 0) return ((0.44 * desiredSpeed) - 5.03);
+  //else return ((0.44 * desiredSpeed) + 5.03);
+  
+  if (desiredSpeed < 0) return ((1.7481 * desiredSpeed) - 4.1539);
+  else return ((1.7481 * desiredSpeed) + 4.1539);
+}
+
+
+/*
+Description: Maps the given speed as software passes us to units of 
+  revolutions-per-minute interprets it as needed.
+*/
+static int MapWristSpeed(int softwareSpeed) {
+  // reject unintentionally low speeds from the controller
+  // (e.g. noise when the joystick is left untouched)
+  if (0 < softwareSpeed &&
+      0 < (softwareSpeed - 10)) {
+    return (softwareSpeed - 10);
+  } else if (softwareSpeed < 0 &&
+             (softwareSpeed + 10) < 0) {
+    return (softwareSpeed + 10);
+  }
+  
+  return 0;
+  /*
+  wrist.desiredSpeed = Map(REG_ARM_MOTOR_VELOCITIES.wrist, 
+                           MIN_WRIST_SOFTWARE_SPEED, 
+                           MAX_WRIST_SOFTWARE_SPEED,
+                           MIN_WRIST_ALLOWABLE_SPEED, 
+                           MAX_WRIST_ALLOWABLE_SPEED);
+  */
 }
 
 
@@ -529,15 +566,19 @@ Description: Returns the wrist speed derived from the tachometer output
 
     GR_overall = GR_gearhead * GR_stage2
                = (1 / 139) * (24 / 40) => 3 / 695
+               = (1 / 721) * (24 / 40) => 3 / 3605
    
    (16/3motorRev/interrupEvent) * (3/695wristRev/motorRev) => 16/695 => 0.0230215827rev travelled per interruptEvent
+   (16/3motorRev/interrupEvent) * (3/3605wristRev/motorRev) => 16/3605rev => 0.00443828017rev travelled per interruptEvent
 */
 static float GetActualWristSpeed(void) {
   if (inputCapture1Stopped) return 0;
   // Note: ONLY as currently configured:
   //#define DISTANCE_TRAVELLED    0.0230215827  // [rev]
+  //#define DISTANCE_TRAVELLED    0.00443828017 // [rev]
   //#define TIMER3_TICKS_PER_MIN  3750000.0     // [ticks/min], (62500ticks/s)*(60s/min)=
-  #define REV_TICK_PER_MIN        86330.9353    // [rev*tick/min)], pre-multiplied to reduce computation
+  //#define REV_TICK_PER_MIN        86330.9353  // [rev*tick/min)], pre-multiplied to reduce computation
+  #define REV_TICK_PER_MIN        16643.5506    // [rev*tick/min)], pre-multiplied to reduce computation
   
   if (WRIST_DIRO() == CW) {
     volatile int dummy;
@@ -565,8 +606,6 @@ Description: If we are commanding a speed that can move the motor but have
   - assumes millisecondsPassed is constant
 */
 static unsigned char IsJointStalled(joint_t *joint, unsigned int millisecondsPassed) {
-  #define MIN_MOVEABLE_SPEED  10  // the minimum speed (as currently configured)
-                                  // that can move the system
   const unsigned char kAngleTolerance = 5;  // must be greater than noise
   
   // TODO: to generalize for many joints, these variables must be associated with each joint
@@ -593,7 +632,7 @@ static unsigned char IsJointStalled(joint_t *joint, unsigned int millisecondsPas
   //    the speed we're trying to go is something that should cause a change in angle
   //    BUT we do NOT see a meaningful change in angle
   if ((GetDirection(joint->desiredSpeed) != joint->disabledDirection) &&
-      (MIN_MOVEABLE_SPEED < abs(joint->commandedSpeed)) &&
+      (MIN_WRIST_MOVEABLE_SPEED < abs(joint->commandedSpeed)) &&
       (abs(lastAngle - currentAngle) < kAngleTolerance)) numStallEvents++;
   else numStallEvents = 0;
   
