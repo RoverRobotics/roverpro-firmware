@@ -15,7 +15,7 @@ Notes:
 
 Author: Stellios Leventis (sleventis@robotex.com)
 =============================================================================*/
-#define TEST_BASE
+//#define TEST_BASE
 /*---------------------------Dependencies------------------------------------*/
 #include <p24FJ256GB106.h>
 #include "./Timers.h"

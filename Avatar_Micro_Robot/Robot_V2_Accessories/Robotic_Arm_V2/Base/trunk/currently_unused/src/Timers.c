@@ -1,7 +1,7 @@
 /*=============================================================================
 File: Timers.c
 =============================================================================*/
-//#define TEST_TIMERS
+#define TEST_TIMERS
 
 /*---------------------------Dependencies------------------------------------*/
 #include "./Timers.h"
@@ -38,6 +38,19 @@ static unsigned int current_time;
 #define HEARTBEAT_TIME    _500ms
 
 int main(void) {
+	// test Timer3 initialization is 1us ticks
+  T3CONbits.TCKPS = 0b00;   // configure prescaler to divide-by-1
+  PR3 = 200; // = 0xffff; by default
+  T3CONbits.TON = 1;        // turn on the timer
+  
+  _TRISE5 = 0;
+  
+  IFS0bits.T3IF = 0;	      // clear the Timer3 Interrupt Flag
+  IEC0bits.T3IE = 1;	      // enable the interrupt for Timer3
+	T3CONbits.TON = 1;        // turn on timer3
+	
+	while (1) {};
+	/*
 	InitTimers();
 	StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME); // prime any timers that require it
 	
@@ -50,6 +63,7 @@ int main(void) {
 			_RE5 ^= 1;
 		}
 	}
+	*/
 	
 	return 0;
 }
@@ -60,6 +74,13 @@ int main(void) {
 void __attribute__((__interrupt__, auto_psv)) _T1Interrupt(void) {
   Timer_ISR();
 }
+
+
+void __attribute__((__interrupt__, auto_psv)) _T3Interrupt(void) {
+  IFS0bits.T3IF = 0;  // clear the source of the interrupt
+  _RE5 ^= 1;
+} 
+
 
 /****************************************************************************
 Notes:
