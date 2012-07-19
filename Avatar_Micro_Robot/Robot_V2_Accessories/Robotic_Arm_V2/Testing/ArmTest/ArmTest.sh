@@ -21,6 +21,7 @@ echo "[c]alibrate arm"
 echo "[d]ebug mode"
 echo "[f]irmware version"
 echo "[v]ideo test"
+echo "[u]sb device check"
 echo "[q]uit"
 read user_input
 
@@ -52,6 +53,9 @@ break
 
 elif [ "$user_input" = "l" ]; then
 sh shell_scripts/handle_arm_test.sh l
+
+elif [ "$user_input" = "u" ]; then
+sh shell_scripts/check_usb_devices.sh
 
 elif [ a$user_input = "a" ]; then
 echo "blank line"
