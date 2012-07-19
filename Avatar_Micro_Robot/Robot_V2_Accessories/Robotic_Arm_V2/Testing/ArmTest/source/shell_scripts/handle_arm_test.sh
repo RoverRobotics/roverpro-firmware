@@ -30,5 +30,34 @@ cd ..
 #echo "Hit Enter"
 #read dummy
 
+user_input=""
+
+#keep 
+if [ "$1" = "m" ]; then
+  while [ 1 ]; do
+
+    sudo ./ArmTest m
+    echo "Device removed.  Hit [ENTER]"
+    echo "to continue, [q] to quit"
+    read user_input
+
+    if [ "$user_input" = "q" ]; then
+      break
+    fi
+
+  done
+
+
+
+elif [ "$1" = "l" ]; then
+  while [ 1 ]; do
+    sudo ./ArmTest m
+ done
+
+else
+  sudo ./ArmTest $1
+
+fi
+
 # run the program
-sudo ./ArmTest $1
+#sudo ./ArmTest $1

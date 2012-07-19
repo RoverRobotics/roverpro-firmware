@@ -138,7 +138,7 @@ int main(int argn, char *argc[]) {
 
   if(input_argument[0] == 'm')
   {
-	  while (true) {
+	  //while (true) {
 	    InitRoboteXDevice();
 
 	    while (true) {
@@ -149,7 +149,7 @@ int main(int argn, char *argc[]) {
 		  }
 	    
 	    CleanupUSB();
-	  }
+	  //}
   }
   else if(input_argument[0] == 'd')
   {
@@ -544,13 +544,15 @@ void enable_debug_uart(void)
 	int shoulder_speed = 654;
 	int elbow_speed = 321;
 	int gripper_speed = 0;
-
+	int i = 0;
+	
 	InitRoboteXDevice();
 
         printf("\r\n\r\n\r\nEntering debug mode....\r\n");
 
-	while(1)
+	for(i=0;i<30;i++)
 	{
+
 		out_packet[0] = arm_speed_index;
 		out_packet[1] = 0x00;
 		out_packet[2] = turret_speed&0xff;
@@ -568,7 +570,11 @@ void enable_debug_uart(void)
 
 		if (!HandleUSBCommunication())
 			return;
+            usleep(100000);
+
 	}
+
+	printf("Debug mode should be enabled.\r\n");
 
 
 
