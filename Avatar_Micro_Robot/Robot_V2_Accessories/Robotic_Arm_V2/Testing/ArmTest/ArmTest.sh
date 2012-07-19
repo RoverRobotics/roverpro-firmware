@@ -16,7 +16,6 @@ do
 user_input=""
 echo "\r\n\r\n\r\n"
 echo "[m]ove arm"
-echo "[l]oop 'move arm'"
 echo "[c]alibrate arm"
 echo "[d]ebug mode"
 echo "[f]irmware version"
@@ -50,9 +49,6 @@ sh shell_scripts/video_display.sh
 
 elif [ "$user_input" = "q" ]; then
 break
-
-elif [ "$user_input" = "l" ]; then
-sh shell_scripts/handle_arm_test.sh l
 
 elif [ "$user_input" = "u" ]; then
 sh shell_scripts/check_usb_devices.sh

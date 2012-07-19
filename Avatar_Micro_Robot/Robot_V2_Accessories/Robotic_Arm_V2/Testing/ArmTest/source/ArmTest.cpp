@@ -138,18 +138,19 @@ int main(int argn, char *argc[]) {
 
   if(input_argument[0] == 'm')
   {
-	  //while (true) {
+	  while (true) {
 	    InitRoboteXDevice();
 
 	    while (true) {
 	      UpdateControllerValues(&myController);
 	      BuildPacket(&myController);
 	      if (!HandleUSBCommunication()) break;
+              if(myController.Back) return 0;
 	      PrintFirmwareFeedback();
 		  }
 	    
 	    CleanupUSB();
-	  //}
+	  }
   }
   else if(input_argument[0] == 'd')
   {
@@ -166,8 +167,16 @@ int main(int argn, char *argc[]) {
 
 /*---------------------------Helper Function Definitions----------------------*/
 static void InitRoboteXDevice(void) {
+
+  XboxController myController;
+
   // search until the device is found through USB interface  
-  while (!InitUSBDevice());
+  // make sure to break if the "back" button is pressed on the controller
+  while (!InitUSBDevice()) {
+	      UpdateControllerValues(&myController);
+	      BuildPacket(&myController);
+              if(myController.Back) return;
+  }
 }
 
 
