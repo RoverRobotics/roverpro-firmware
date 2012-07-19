@@ -2,6 +2,9 @@
 
 # BUG ALERT: if compilation step fails, it will just run old version of code
 
+#prompt for password at beginning
+sudo echo ""
+
 #get path of current script
 shell_script=`readlink -f "$0"`
 
