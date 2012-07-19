@@ -2,11 +2,13 @@
 
 # BUG ALERT: if compilation step fails, it will just run old version of code
 
-#prompt for password at beginning
-sudo echo ""
-
 #get path of current script
 shell_script=`readlink -f "$0"`
+
+# compile the program
+current_folder=`dirname $shell_script`
+cd $current_folder/source
+sudo make
 
 
 while [ true ]

@@ -25,10 +25,10 @@ done
 current_folder=`dirname $shell_script`
 cd $current_folder
 cd ..
-sudo make
+#sudo make
 
-echo "Hit Enter"
-read dummy
+#echo "Hit Enter"
+#read dummy
 
 # run the program
 sudo ./ArmTest $1
