@@ -1,5 +1,7 @@
 #include "system.h"
 
+#define MAX_TURNING_SPEED 55
+
 unsigned int T3_Interrupt_Count;
 unsigned int last_T3_Interrupt_Count;
 unsigned int Current_Interrupt_Count = 0;
@@ -96,10 +98,10 @@ void speed_control_loop_quadrants(char motors_off)
 	{
 		for(i=0;i<2;i++)
 		{
-			if(PI_motor_effort[i] > 35)
-				PI_motor_effort[i] = 35;
-			else if(PI_motor_effort[i] < -35)
-				PI_motor_effort[i] = -35;
+			if(PI_motor_effort[i] > MAX_TURNING_SPEED)
+				PI_motor_effort[i] = MAX_TURNING_SPEED;
+			else if(PI_motor_effort[i] < -MAX_TURNING_SPEED)
+				PI_motor_effort[i] = -MAX_TURNING_SPEED;
 		}
 	}
 
