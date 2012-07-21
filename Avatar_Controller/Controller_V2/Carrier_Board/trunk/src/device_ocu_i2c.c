@@ -1,6 +1,8 @@
 #include "stdhdr.h"
 #include "device_ocu_i2c.h"
 
+void re_init_i2c1(void);
+
 unsigned char ocu_i2c1_i2c_read = 0;
 unsigned char ocu_i2c1_interrupt_state = 0;
 unsigned char ocu_i2c1_slave_address = 0;
@@ -984,7 +986,6 @@ void ocu_i2c1_fsm(void)
 	static unsigned char ocu_i2c1_busy = 0;
 	static unsigned int timeout_counter = 0;
   static unsigned char i2c_message_failures[NUM_I2C1_MESSAGES] = {0,0,0,0,0,0,0,0,0,0};
-  unsigned char dummy = 0;
   unsigned char i;
 
 	last_i2c1_device_state = i2c1_device_state;
@@ -1167,23 +1168,14 @@ void ocu_i2c1_fsm(void)
 		ocu_i2c1_rx_byte3 = 0xff;
 		ocu_i2c1_rx_byte4= 0xff;
 		ocu_i2c1_interrupt_state = 0x00;
-		
-		//I2C1CONbits.PEN = 1;
 
-    I2C1CONbits.RCEN = 0;
-    I2C1CONbits.ACKEN = 0;
-    I2C1CONbits.PEN = 0;
-    I2C1CONbits.RSEN = 0;
-    I2C1CONbits.SEN = 0;
-		I2C1STAT = 0;
-    //read I2C1RCV to clear RBF
-    dummy = I2C1RCV;
+    //make sure multiplexer starts out in the correct place
+    I2C_MUX_CH(0);
 
+    //hard reset i2c module (will block for 100ms)
+    re_init_i2c1();
 
     i2c_message_failures[i2c1_device_state]++;
-
-    
-		block_ms(100);
 
 		ocu_i2c1_receive_word_completed = 0;
 		ocu_i2c1_busy = 0;
@@ -1249,5 +1241,25 @@ void ocu_i2c1_fsm(void)
     REG_OCU_REL_SOC_L = 0xffff;
   if(REG_OCU_REL_SOC_R > 100)
     REG_OCU_REL_SOC_R = 0xffff;
+
+}
+
+
+//bring down i2c module and initialize it again
+void re_init_i2c1(void)
+{
+  _MI2C1IE = 0;
+
+	I2C1CONbits.I2CEN = 0;
+  I2C1STAT = 0;
+  I2C1CON = 0;
+
+  block_ms(100);
+	I2C1CON = 0x1000;
+	//FCY should be 16M
+	//I2C2BRG = FCY/100000-FCY/10000000-1;	//should be 157.4 (between 9D and 9E)
+	I2C1BRG = 0xff;
+  I2C1CONbits.I2CEN = 1;
+  _MI2C1IE = 1;
 
 }

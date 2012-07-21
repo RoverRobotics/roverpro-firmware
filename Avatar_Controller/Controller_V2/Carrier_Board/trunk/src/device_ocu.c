@@ -494,7 +494,7 @@ void bringup_i2c1(void)
 void bringup_board(void)
 {
 
-	static unsigned int power_down_counter = 0;
+//	static unsigned int power_down_counter = 0;
 
 /*
 	init_io();
@@ -812,7 +812,7 @@ void DeviceOcuProcessIO()
 void handle_gas_gauge(void)
 {
 
-	static unsigned int low_voltage_counter = 0;
+//	static unsigned int low_voltage_counter = 0;
   static unsigned int low_capacity_counter = 0;
   static unsigned int initial_low_capacity_counter = 0;
   unsigned char i;
