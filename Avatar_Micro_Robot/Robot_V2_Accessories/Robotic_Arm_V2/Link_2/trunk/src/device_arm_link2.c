@@ -383,7 +383,7 @@ void Link2_Process_IO(void) {
         (REG_ARM_MOTOR_VELOCITIES.shoulder == 456) &&
         (REG_ARM_MOTOR_VELOCITIES.elbow == 789)) calibrate_angle_sensor();
   
-	  //if we receive another special set of speeds, go into debug mode
+	  // if we receive another special set of speeds, go into debug mode
     if ((REG_ARM_MOTOR_VELOCITIES.turret == 987) && 
 		    (REG_ARM_MOTOR_VELOCITIES.shoulder == 654) && 
 				(REG_ARM_MOTOR_VELOCITIES.elbow == 321)) enter_debug_mode();
@@ -406,18 +406,6 @@ void Link2_Process_IO(void) {
     // get raw angle values from RS-485 message and ADC
     // apply the offset
     update_joint_angles();
-    #ifdef USB_TIMEOUT_ENABLED
-    USB_timeout_counter++;
-    if (USB_TIMEOUT_COUNTS < USB_timeout_counter) {
-      USB_timeout_counter = USB_TIMEOUT_COUNTS + 1;
-      // populate the REG_ARM_JOINT_POSITIONS registers
-      REG_ARM_MOTOR_VELOCITIES.turret = 0;
-      REG_ARM_MOTOR_VELOCITIES.shoulder = 0;
-      REG_ARM_MOTOR_VELOCITIES.elbow = 0;
-      REG_ARM_MOTOR_VELOCITIES.wrist = 0;
-      REG_ARM_MOTOR_VELOCITIES.gripper = 0;
-    }
-    #endif
   }
   
   //-----------------------wrist code
@@ -454,7 +442,20 @@ void Link2_Process_IO(void) {
   
   if (IsTimerExpired(TX_TIMER)) {
     StartTimer(TX_TIMER, TX_TIME);
-
+    
+    #ifdef USB_TIMEOUT_ENABLED
+    USB_timeout_counter++;
+    if (USB_TIMEOUT_COUNTS < USB_timeout_counter) {
+      USB_timeout_counter = USB_TIMEOUT_COUNTS + 1;
+      // populate the REG_ARM_JOINT_POSITIONS registers
+      REG_ARM_MOTOR_VELOCITIES.turret = 0;
+      REG_ARM_MOTOR_VELOCITIES.shoulder = 0;
+      REG_ARM_MOTOR_VELOCITIES.elbow = 0;
+      REG_ARM_MOTOR_VELOCITIES.wrist = 0;
+      REG_ARM_MOTOR_VELOCITIES.gripper = 0;
+    }
+    #endif
+    
     send_rs485_message();
   
     //wait for message to finish sending
