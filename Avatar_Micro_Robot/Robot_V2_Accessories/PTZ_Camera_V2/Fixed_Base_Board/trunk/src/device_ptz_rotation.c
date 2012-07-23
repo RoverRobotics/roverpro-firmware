@@ -929,7 +929,7 @@ static void TiltControl()
 
 	lastTiltVelocity = REG_CAMERA_VEL_ROT.tilt;	
 
-	if(((potentiometer > TILT_STEPPER_UPPER) && (REG_CAMERA_VEL_ROT.tilt>=0)) || ((potentiometer < TILT_STEPPER_LOWER) && (REG_CAMERA_VEL_ROT.tilt<0)))
+	if(((potentiometer > TILT_STEPPER_UPPER) && (REG_CAMERA_VEL_ROT.tilt>0)) || ((potentiometer < TILT_STEPPER_LOWER) && (REG_CAMERA_VEL_ROT.tilt<0)))
 		absTiltVelocity = 0;
 	Stepper1SetDir(tiltDir);
 	PWM1Set(pwmDuty, (int)(262000.0f*(1.0f/(5.0f*((float)absTiltVelocity+1.0f)))));
