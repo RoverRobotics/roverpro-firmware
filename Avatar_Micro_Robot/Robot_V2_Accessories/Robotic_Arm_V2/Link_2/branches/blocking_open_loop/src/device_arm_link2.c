@@ -70,7 +70,7 @@
 #define RS485_LINK1_LENGTH 5
 
 #define MAX_WRIST_SPEED 50
-#define MIN_WRIST_SPEED 5
+#define MIN_WRIST_SPEED 10
 
 #define MAX_GRIPPER_SPEED 20
 #define MIN_GRIPPER_SPEED 5
@@ -317,7 +317,7 @@ void Link2_Process_IO(void)
   unsigned int i;
   int adjusted_gripper_velocity = 0;
   int adjusted_wrist_velocity = 0;
-
+  static int last_adjusted_wrist_velocity = 0;
   //if we receive these set speeds, run calibration
   if( (REG_ARM_MOTOR_VELOCITIES.turret == 123) && (REG_ARM_MOTOR_VELOCITIES.shoulder == 456) && (REG_ARM_MOTOR_VELOCITIES.elbow == 789) )
     calibrate_angle_sensor();
@@ -354,9 +354,21 @@ void Link2_Process_IO(void)
     adjusted_gripper_velocity = return_adjusted_gripper_velocity();
     adjusted_wrist_velocity = return_adjusted_wrist_velocity();
 
-    //implement some sort of exponential control
-    adjusted_wrist_velocity = (adjusted_wrist_velocity*adjusted_wrist_velocity)/50;
+    //exponential control due to jerkiness
+    //adjusted_wrist_velocity = (adjusted_wrist_velocity*adjusted_wrist_velocity)/50;
+    //adjusted_wrist_velocity/=3;
+    if(adjusted_wrist_velocity >= MIN_WRIST_SPEED+10)
+		adjusted_wrist_velocity = 15;
+    else if( (adjusted_wrist_velocity >= MIN_WRIST_SPEED) && (last_adjusted_wrist_velocity==15) )
+        adjusted_wrist_velocity = 15;    
+    else if(adjusted_wrist_velocity <= -MIN_WRIST_SPEED-10)
+		adjusted_wrist_velocity = -15;
+    else if( (adjusted_wrist_velocity <= -MIN_WRIST_SPEED) && (last_adjusted_wrist_velocity == -15) )
+        adjusted_wrist_velocity = -15;
+    else
+        adjusted_wrist_velocity = 0;
 
+     last_adjusted_wrist_velocity = adjusted_wrist_velocity;
     //if the gripper is fully open, the wrist joint is too
     //jammed to move
     /*if(REG_ARM_JOINT_POSITIONS.gripper >= GRIPPER_FULLY_OPEN)
@@ -705,16 +717,26 @@ void motor_accel_loop(int desired_gripper_velocity, int desired_wrist_velocity)
     set_wrist_velocity(0);
   }*/
 
+
   if(desired_gripper_velocity > (gripper_velocity + step_size))
     gripper_velocity+=step_size;
   else if (desired_gripper_velocity < (gripper_velocity - step_size) )
     gripper_velocity-=step_size;
 
-  if(desired_wrist_velocity > (wrist_velocity + step_size) )
+//Don't factor in 
+  if(desired_wrist_velocity > (wrist_velocity) )
     wrist_velocity+=step_size;
-  else if (desired_wrist_velocity < (wrist_velocity - step_size) )
+  else if (desired_wrist_velocity < (wrist_velocity) )
     wrist_velocity-=step_size;
 
+  //don't allow speed to exceed desired speed
+  if( (wrist_velocity > 0) && (wrist_velocity > desired_wrist_velocity) )
+    wrist_velocity = desired_wrist_velocity;
+  else if( (wrist_velocity < 0) && (wrist_velocity < desired_wrist_velocity) )
+    wrist_velocity = desired_wrist_velocity;
+
+
+//don't allow speed to exceed max settings
   if(gripper_velocity > MAX_GRIPPER_SPEED)
     gripper_velocity = MAX_GRIPPER_SPEED;
   else if(gripper_velocity < -MAX_GRIPPER_SPEED)
@@ -1322,6 +1344,9 @@ int return_adjusted_wrist_velocity(void)
   
   wrist_angle = return_combined_pot_angle(WRIST_POT_1_CH, WRIST_POT_2_CH);
 
+  //if wrist is stopped, reset all counters
+  if(adjusted_wrist_velocity < MIN_WRIST_SPEED)
+    wrist_stall_counter = 0;
   
   //let's run this slower, so the difference in gripper position is larger
   wrist_pos_sample_timer++;
@@ -1343,7 +1368,7 @@ int return_adjusted_wrist_velocity(void)
           wrist_stall_counter++;
       }
   
-      if(wrist_stall_counter > 5)
+      if(wrist_stall_counter > 10)
       {
         adjusted_wrist_velocity = 0;
         wrist_direction_latch = -1;
@@ -1366,7 +1391,7 @@ int return_adjusted_wrist_velocity(void)
 
       }
   
-      if(wrist_stall_counter > 5)
+      if(wrist_stall_counter > 10)
       {
         adjusted_wrist_velocity = 0;
         wrist_direction_latch = 1;
