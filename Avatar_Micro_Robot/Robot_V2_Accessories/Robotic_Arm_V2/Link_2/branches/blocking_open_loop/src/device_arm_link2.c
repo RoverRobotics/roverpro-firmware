@@ -70,7 +70,9 @@
 #define RS485_LINK1_LENGTH 5
 
 #define MAX_WRIST_SPEED 50
-#define MIN_WRIST_SPEED 25
+#define MIN_WRIST_SPEED 10
+#define MIN_WRIST_SPEED_INPUT 25
+#define FIXED_WRIST_SPEED 10
 
 #define MAX_GRIPPER_SPEED 20
 #define MIN_GRIPPER_SPEED 5
@@ -109,7 +111,7 @@
 #define POT_LOW_THRESHOLD 15
 #define POT_HIGH_THRESHOLD 1008
 
-int return_adjusted_wrist_velocity(void);
+int return_adjusted_wrist_velocity(int input_wrist_velocity);
 int return_angle_difference(unsigned int angle_1, unsigned int angle_2);
 
 #define USB_TIMEOUT_COUNTS 5
@@ -351,22 +353,30 @@ void Link2_Process_IO(void)
   //pretty dumb control loop
   for(i=0;i<10;i++)
   {
+
+   adjusted_wrist_velocity = REG_ARM_MOTOR_VELOCITIES.wrist;
+
+   //implement single speed control with hysteresis
+    if(adjusted_wrist_velocity >= MIN_WRIST_SPEED_INPUT)
+		adjusted_wrist_velocity = FIXED_WRIST_SPEED;
+    else if( (adjusted_wrist_velocity >= (MIN_WRIST_SPEED_INPUT-10) ) && (last_adjusted_wrist_velocity==FIXED_WRIST_SPEED) )
+        adjusted_wrist_velocity = FIXED_WRIST_SPEED;    
+    else if(adjusted_wrist_velocity <= -MIN_WRIST_SPEED_INPUT)
+		adjusted_wrist_velocity = -FIXED_WRIST_SPEED;
+    else if( (adjusted_wrist_velocity <= (-MIN_WRIST_SPEED_INPUT+10) ) && (last_adjusted_wrist_velocity == -FIXED_WRIST_SPEED) )
+        adjusted_wrist_velocity = -FIXED_WRIST_SPEED;
+    else
+        adjusted_wrist_velocity = 0;
+
+    //REG_ARM_MOTOR_VELOCITIES.wrist = adjusted_wrist_velocity;
+
     adjusted_gripper_velocity = return_adjusted_gripper_velocity();
-    adjusted_wrist_velocity = return_adjusted_wrist_velocity();
+    adjusted_wrist_velocity = return_adjusted_wrist_velocity(adjusted_wrist_velocity);
 
     //exponential control due to jerkiness
     //adjusted_wrist_velocity = (adjusted_wrist_velocity*adjusted_wrist_velocity)/50;
     //adjusted_wrist_velocity/=3;
-    if(adjusted_wrist_velocity >= MIN_WRIST_SPEED)
-		adjusted_wrist_velocity = 15;
-    else if( (adjusted_wrist_velocity >= (MIN_WRIST_SPEED-10) ) && (last_adjusted_wrist_velocity==15) )
-        adjusted_wrist_velocity = 15;    
-    else if(adjusted_wrist_velocity <= -MIN_WRIST_SPEED)
-		adjusted_wrist_velocity = -15;
-    else if( (adjusted_wrist_velocity <= (-MIN_WRIST_SPEED+10) ) && (last_adjusted_wrist_velocity == -15) )
-        adjusted_wrist_velocity = -15;
-    else
-        adjusted_wrist_velocity = 0;
+
 
      last_adjusted_wrist_velocity = adjusted_wrist_velocity;
     //if the gripper is fully open, the wrist joint is too
@@ -1330,7 +1340,7 @@ void infinite_gripper_test_loop(void)
 
 }
 
-int return_adjusted_wrist_velocity(void)
+int return_adjusted_wrist_velocity(int input_wrist_velocity)
 {
   int adjusted_wrist_velocity = 0;
   static unsigned int last_wrist_angle = 0;
@@ -1340,7 +1350,8 @@ int return_adjusted_wrist_velocity(void)
   static int last_wrist_velocity = 0;
   static unsigned int wrist_stall_counter = 0;
 
-  adjusted_wrist_velocity = REG_ARM_MOTOR_VELOCITIES.wrist;
+  //adjusted_wrist_velocity = REG_ARM_MOTOR_VELOCITIES.wrist;
+  adjusted_wrist_velocity = input_wrist_velocity;
   
   wrist_angle = return_combined_pot_angle(WRIST_POT_1_CH, WRIST_POT_2_CH);
 
@@ -1368,7 +1379,7 @@ int return_adjusted_wrist_velocity(void)
           wrist_stall_counter++;
       }
   
-      if(wrist_stall_counter > 10)
+      if(wrist_stall_counter > 5)
       {
         adjusted_wrist_velocity = 0;
         wrist_direction_latch = -1;
