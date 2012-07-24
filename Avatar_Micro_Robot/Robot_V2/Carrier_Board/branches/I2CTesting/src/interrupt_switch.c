@@ -23,11 +23,11 @@ void (*IC4InterruptUserFunction)(void) = InterruptDummyFunction;
 void (*IC5InterruptUserFunction)(void) = InterruptDummyFunction;
 void (*IC6InterruptUserFunction)(void) = InterruptDummyFunction;
 void (*ADC1InterruptUserFunction)(void) = InterruptDummyFunction;
-void (*I2C1InterruptUserFunction)(void) = InterruptDummyFunction;
+//void (*I2C1InterruptUserFunction)(void) = InterruptDummyFunction;
 void (*U1TXInterruptUserFunction)(void) = InterruptDummyFunction;
 void (*U1RXInterruptUserFunction)(void) = InterruptDummyFunction;
 void (*U2RXInterruptUserFunction)(void) = InterruptDummyFunction;
-void (*I2C2InterruptUserFunction)(void) = InterruptDummyFunction;
+//void (*I2C2InterruptUserFunction)(void) = InterruptDummyFunction;
 
 
 #pragma code
@@ -114,6 +114,7 @@ void  __attribute__((__interrupt__, auto_psv)) _U1TXInterrupt(void)
  	U1TXInterruptUserFunction();
 }
 
+/*
 void  __attribute__((__interrupt__, auto_psv)) _MI2C1Interrupt(void)
 {
  	I2C1InterruptUserFunction();
@@ -123,3 +124,4 @@ void  __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void)
 {
  	I2C2InterruptUserFunction();
 }
+*/

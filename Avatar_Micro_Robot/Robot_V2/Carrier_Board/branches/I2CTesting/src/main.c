@@ -88,13 +88,11 @@ extern USB_DEVICE_DESCRIPTOR device_dsc;
 // -------------------------------------------------------------------------
 
 #pragma code
-
-int main(void)
-{
-    InitializeSystem();
-
-    while(1) { ProcessIO(); }
-
+int main(void) {
+  InitializeSystem();
+  while (1) {
+    ProcessIO();
+  }
 }
 
 static void InitializeSystem(void)

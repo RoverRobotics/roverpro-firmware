@@ -1,66 +1,13 @@
-/**
- * @file device_carrier.c
- * @author J. Brinton
- * @author Robotex, Inc.
- *
- * Robotex carrier PIC firmware.
- *
- * DEVICE MAPPING
- * Hardware Revision 30 (Robotex Robot Carrier Board)
- *
- * ----------------------------------------------------------------------------
- * DIGITAL OUTPUTS
- * ----------------------------------------------------------------------------
- * NAME                 PIN PORT  DEF FUNCTION
- * ------------------------------
- * EN_SMBPWR            4   RG6   0   EN +3.3V_SMB, HW pulldown
- * CODEC_PD# (EN_AUDIO) 5   RG7   0   EN +3.3V_AUDIO and +5V_AUDIO, HW pulldown
- * 12V_ENABLE (EN_12V#) 6   RG8   1   EN +12V supply, HW pullup
- * EN_RADIOBRD          8   RG9   0   EN +3.3V_RBRD, HW pulldown
- * NCOM_WAKE0#          30  RB15  1   COMEx PCIE wake (pullup on COMEx)
- * NCOM_SYSRST#         22  RB9   Z   Rst push-button on PCB, (pullup on COMEx & PCB), don't override button
- * EN_COMXPRESS         59  RF1   0   EN 3.3V to +3.3V_C-XPRS, HW pulldown
- * NCOM_WAKE1#          58  RF0   1   COMEx AUX Wake (pull-up on COMEx)
- * PWR_OK               23  RB10  0   COMEx power good signal
- * EN_PAYLOAD2          24  RB11  0   EN raw power to payload #2, HW pulldown
- * EN_PAYLOAD1          27  RB12  0   EN raw power to payload #1, HW pulldown
- * EN_MOTORCNTL         28  RB13  0   EN 5V to Motor Controller, HW pulldown
- * 3V3_ENABLE           48  RC14  0   EN +3.3V_ALWS, HW pulldown
- * 5V_ENABLE            32  RF5   0   EN +5V, HW pulldown
- * EN_GPS               31  RF4   0   EN 3.3V to +3.3V_GPS, HW pulldown
- * PWRBTN#              42  RD8   Z   Pwr push-button on PCB, (pull-up on COMEx & PCB), don't override button
- * PWM_IRLED            51  RD3   0   Straight out to Camera Board 
- * PWM_LED              52  RD4   0   Straight out to Camera Board
- * EN_CAMERABRD         2   RE6   0   EN 5V, 3.3V and 12V to Camera Board
- *
- * ---------------------------------------------------------------------------
- * DIGITAL INPUTS
- * ---------------------------------------------------------------------------
- * PIC_WAKE0#           29  RB14  Z   wake from radio PCIE
- * PAYLOAD1_PRESENT#    21  RB8   Z   indicates payload #1 connected
- * PAYLOAD2_PRESENT#    13  RB3   Z   indicates payload #2 connected
- * COMPASS_DRDY#        14  RB2   Z   indicates compass data ready (check!)
- * PWR_BTN#             12  RB4   Z   Pwr push-button on PCB, (pull-up on COMEx & PCB), don't override button
- * SUS_S5#              11  RB5   Z   indicates system is suspended to disk
- * SMB_ALERT#           47  RC13  Z   indicates message pending on SMBus, HW pullup
- * 33V_ALWS_GOOD        49  RD1   Z   if not good probably not alive
- * 12V_GOOD             50  RD2   Z   12V main good signal
- * 5V_PGOOD             54  RD6   Z   indicates 5V is good
- * SUS_S3#              1   RE5   Z   indicates system is suspended to RAM
- * NC_THRMTRIP#         3   RE7   Z   indicates thermal problem with COMEx
- *
- * ---------------------------------------------------------------------------
- * ANALOG INPUTS
- * ---------------------------------------------------------------------------
- * EX_TEMP_SNS          16   AN0  Z   pulled to 3.3V with 100k
- * HUMIDITY_SENSOR      15   AN1  Z   humidity sensor
- *
- *
- */
+/*******************************************************************************
+File: I2C.c
 
+Notes:
+  - assumes an instruction cycle clock of F_CY = 16MHz
+*******************************************************************************/
 #define NO_COMPUTER_INSTALLED
 /*---------------------------Dependencies-------------------------------------*/
 #include "stdhdr.h"
+#include "I2C_new.h"
 #include "device_carrier.h"
 #include "testing.h"
 
@@ -142,13 +89,13 @@
 /*---------------------------Type Definitions---------------------------------*/
 // state machine states
 typedef enum {
-	CARRIER_INIT = 0,      ///< TRANSITIONAL when carrier board is power cycled everything is driven off
-	CARRIER_WAIT = 1,      ///<              wait for ext PWR button to be pressed
-	CARRIER_BOOT = 2,      ///< TRANSITIONAL boot sequence for full power
-	CARRIER_RUN  = 3,      ///<              running normally with full power
-	CARRIER_SHUTDOWN = 4,  ///< TRANSITIONAL go back into all off mode
-	CARRIER_SUSPEND = 5,   ///< TRANSITIONAL S3 suspend to RAM with wake-on-lan or PWR button
-	CARRIER_SUSPENDED = 6  ///<              running suspended
+	CARRIER_INIT = 0,      // TRANSITIONAL when carrier board is power cycled everything is driven off
+	CARRIER_WAIT = 1,      //              wait for ext PWR button to be pressed
+	CARRIER_BOOT = 2,      // TRANSITIONAL boot sequence for full power
+	CARRIER_RUN  = 3,      //              running normally with full power
+	CARRIER_SHUTDOWN = 4,  // TRANSITIONAL go back into all off mode
+	CARRIER_SUSPEND = 5,   // TRANSITIONAL S3 suspend to RAM with wake-on-lan or PWR button
+	CARRIER_SUSPENDED = 6  //              running suspended
 } CARRIER_STATE_ENUM;
 
 /*---------------------------Helper Function Prototypes-----------------------*/
@@ -188,9 +135,10 @@ typedef struct {
   float accelerometerZ;
   float temperature;
 } dummy_t;
-  
-extern dummy_t debuggingOutputs = {0, 0, 0, 0, 0, 0, 0};
-  
+
+//extern dummy_t debuggingOutputs = {0, 0, 0, 0, 0, 0, 0};
+extern int dummyData = 0; // TODO: delete this after testing!!!
+
 
 /*---------------------------Public Function Definitions----------------------*/
 #pragma code
@@ -270,7 +218,7 @@ void DeviceCarrierInit(void) {
 	CODEC_PWR_ON(1);
 	handle_watchdogs();
 
-	initI2C();
+	//initI2C();  // TODO: undo when done
 
 	block_ms(100);
 	handle_watchdogs();
@@ -301,6 +249,10 @@ void DeviceCarrierInit(void) {
 	REG_CARRIER_SPEAKER_ON = 1;
 	REG_CARRIER_MIC_ON = 1;
 
+  #define TEMP_SENSOR_ADDRESS   0x48
+  I2C_Init(kBaudRate100kHz);
+  I2C_RequestData(TEMP_SENSOR_ADDRESS);      // TODO: remove when done
+  
 	send_lcd_string("Init finished  \r\n",17);
 }
 
@@ -317,6 +269,11 @@ void DeviceCarrierProcessIO(void) {
 		set_led_brightness(WHITE_LED, REG_WHITE_LED);
 		set_led_brightness(IR_LED, REG_IR_LED);
 		update_audio_power_state();
+	
+	  if (I2C_IsDataAvailable()) {
+  	  I2C_RequestData(TEMP_SENSOR_ADDRESS);
+  	  dummyData = I2C_GetData(TEMP_SENSOR_ADDRESS);
+  	}
 	}
 
 	if (REAR_PL_PRESENT() == 0) REAR_PL_PWR_ON(1);
@@ -324,6 +281,7 @@ void DeviceCarrierProcessIO(void) {
 
 	block_ms(10);
 	print_loop_number();
+	
 }
 
 
@@ -417,26 +375,18 @@ static void read_EEPROM_string(void) {
 static int DeviceCarrierReadAdxl345Register(unsigned char add, unsigned char reg) {
 	int a,b;
 	int c;
-
 	a = readI2C_Reg(add,reg);
 	b = readI2C_Reg(add,reg+1);
-
-
 	c = a | (b << 8);
-
 	return c;
 }
 
 
 static int DeviceCarrierReadTmp112Register(unsigned char add, unsigned char reg) {
 	int a, b, c;
-
 	a = readI2C_Reg(add,reg);
-
 	b = readI2C_Reg(add,reg+1);
-
 	c = (b >> 4) | (a << 4);
-
 	return c;
 }
 
@@ -444,13 +394,9 @@ static int DeviceCarrierReadTmp112Register(unsigned char add, unsigned char reg)
 static int DeviceCarrierReadHmc5843Register(unsigned char add, unsigned char reg) {
 	unsigned char a, b;
 	int c;
-
 	a = readI2C_Reg(add,reg);
-
 	b = readI2C_Reg(add,reg+1);
-
 	c = b | (a << 8);
-
 	return c;
 }
 
@@ -461,7 +407,6 @@ static void init_fan(void) {
 	//set fan configuration
 	writeI2CReg(FAN_CONTROLLER_ADDRESS, 0x02, 0b00011010);
 	block_ms(5);
-
 
   /* For thermistor control */
 	//make thermistor 1 control fan 2, and vice versa
@@ -536,13 +481,15 @@ static void DeviceCarrierGetTelemetry() {
 	REG_ACCEL_Z = -(float)c * 16.0 / 4096.0;
 
 	d = DeviceCarrierReadTmp112Register(TMP112_0_ADDRESS, 0x00); // Temperature
-	REG_TEMP_INT0 = (float)d / 16.0; 
+	REG_TEMP_INT0 = (float)d / 16.0;
+	
+	
 
 	REG_MAGNETIC_X = (float)DeviceCarrierReadHmc5843Register(HMC5843_ADDRESS, 0x03); // Magnet X-Axis Data
 	REG_MAGNETIC_Y = (float)DeviceCarrierReadHmc5843Register(HMC5843_ADDRESS, 0x05); // Magnet Y-Axis Data 0
 	REG_MAGNETIC_Z = (float)DeviceCarrierReadHmc5843Register(HMC5843_ADDRESS, 0x07); // Magnet Z-Axis Data 0
 
-
+  /*
   // monitor reads in debugger
   debuggingOutputs.magneticX = REG_MAGNETIC_X;
   debuggingOutputs.magneticY = REG_MAGNETIC_Y;
@@ -551,6 +498,7 @@ static void DeviceCarrierGetTelemetry() {
   debuggingOutputs.accelerometerY = REG_ACCEL_Y;
   debuggingOutputs.accelerometerZ = REG_ACCEL_Z;
   debuggingOutputs.temperature = REG_TEMP_INT0;
+  */
 
   // get an analog reading from the humidity sensor
 	_ADON = 0;
