@@ -354,6 +354,9 @@ void Link2_Process_IO(void)
     adjusted_gripper_velocity = return_adjusted_gripper_velocity();
     adjusted_wrist_velocity = return_adjusted_wrist_velocity();
 
+    //implement some sort of exponential control
+    adjusted_wrist_velocity = (adjusted_wrist_velocity*adjusted_wrist_velocity)/50;
+
     //if the gripper is fully open, the wrist joint is too
     //jammed to move
     /*if(REG_ARM_JOINT_POSITIONS.gripper >= GRIPPER_FULLY_OPEN)
