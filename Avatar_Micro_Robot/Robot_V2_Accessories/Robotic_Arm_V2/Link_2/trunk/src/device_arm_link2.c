@@ -235,6 +235,7 @@ static unsigned char IsJointStalled(joint_t *joint,
                                     unsigned int millisecondsPassed);
 static float GetNominalWristEffort(const float desiredSpeed);
 static int MapWristSpeed(int softwareSpeed);
+static int RollingAverage(int x);
 
 /*---------------------------Module Variables---------------------------------*/
 static unsigned char volatile inputCapture1Stopped = 0;
@@ -532,6 +533,9 @@ Description: Maps the given speed as software passes us to units of
   revolutions-per-minute interprets it as needed.
 */
 static int MapWristSpeed(int softwareSpeed) {
+  // (software low-pass) filter speeds from the controller
+  softwareSpeed = RollingAverage(softwareSpeed);
+  
   // reject unintentionally low speeds from the controller
   // (e.g. noise when the joystick is left untouched)
   if (0 < softwareSpeed &&
@@ -552,7 +556,37 @@ static int MapWristSpeed(int softwareSpeed) {
   */
 }
 
+static int RollingAverage(int x) {
+  // take a rolling average of the past 16 values
+  #define NUM_SAMPLES 16
+  static int samples[NUM_SAMPLES] = {0};
+  static unsigned char currentIndex = 0;
+  
+  // add in the new value
+  samples[currentIndex] = x;
+  if (NUM_SAMPLES < ++currentIndex) currentIndex = 0;
+  
+  // sum the contents of the array
+  // Note: we can reduce computation by only summing the front
+  // and subtracting the end, but it is marginal improvement for
+  // this situation
+  unsigned char i;
+  long int sum = 0;
+  for (i = 0; i < NUM_SAMPLES; i++) sum += samples[i];
+  
+  return (sum / NUM_SAMPLES);
+}
 
+
+static int LowPassFilter(int x) {
+  #define FILTER_SHIFT      5
+  static unsigned char yLast = 0;
+  int y = yLast + (x - yLast) / FILTER_SHIFT;
+  yLast = y;
+  
+  return y;
+}
+  
 /*
 Description: Returns the wrist speed derived from the tachometer output
   of the driver IC in units of [rev/min].  This is the feedback, the actual speed. 
