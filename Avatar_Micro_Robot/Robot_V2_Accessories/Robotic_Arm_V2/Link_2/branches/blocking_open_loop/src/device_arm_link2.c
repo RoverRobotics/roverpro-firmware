@@ -83,7 +83,7 @@
 #define GRIPPER_CLOSE_SLIP_HYSTERESIS 5
 
 //angle wrist has to move so that we know it isn't stalled
-#define WRIST_STALL_DEADBAND 5
+#define WRIST_STALL_DEADBAND 10
 
 
 //number of ADC counts that gripper pot differs from gripper actuator pot
@@ -1322,8 +1322,9 @@ int return_adjusted_wrist_velocity(void)
   
   //let's run this slower, so the difference in gripper position is larger
   wrist_pos_sample_timer++;
-  if(wrist_pos_sample_timer%10 == 0)
+  if(wrist_pos_sample_timer > 10)
   {
+    wrist_pos_sample_timer = 0;
     //if wrist is turning counterclockwise (from camera's perspective)
     if(adjusted_wrist_velocity < 0)
     {
@@ -1331,6 +1332,7 @@ int return_adjusted_wrist_velocity(void)
       if( return_angle_difference(wrist_angle, last_wrist_angle) > WRIST_STALL_DEADBAND )
       {
         wrist_stall_counter = 0;
+        last_wrist_angle = wrist_angle;
       }
       else
       {
@@ -1352,6 +1354,7 @@ int return_adjusted_wrist_velocity(void)
      if( return_angle_difference(wrist_angle, last_wrist_angle) < -WRIST_STALL_DEADBAND )
       {
         wrist_stall_counter = 0;
+        last_wrist_angle = wrist_angle;
       }
       else
       {
@@ -1368,7 +1371,7 @@ int return_adjusted_wrist_velocity(void)
       }
     }
   
-    last_wrist_angle = wrist_angle;
+    //last_wrist_angle = wrist_angle;
     last_wrist_velocity = adjusted_wrist_velocity;
     
   }
