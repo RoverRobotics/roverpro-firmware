@@ -34,11 +34,9 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 
 /*---------------------------Public Function Prototypes-----------------------*/
 /*
-Function: Map()
-
+Function: Map
 Returns:
   unsigned int, the given value mapped to the new range
-
 Parameters:
   int value,      the number to map
   int from_low,   the lower bound of the value's current range
@@ -47,7 +45,6 @@ Parameters:
   int to_high,    the upper bound of the value's target range
 
 Description: Re-maps a number from one range to another.
-
 Notes:
   - constrains values to within the range
   - be wary of overflow errors producing unexpected results
@@ -60,9 +57,9 @@ unsigned int Map(int value, int from_low, int from_high,
 
 
 /*
+Function: Delay
 Description: Performs a BLOCKING pause to aid in debugging.  You weren't 
   thinking about actually leaving this in your code were you?
-
 Parameters:
   unsigned int milliseconds, the approximate number of milliseconds for
                              which to pause.  The influence of the overhead 

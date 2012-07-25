@@ -25,7 +25,7 @@ Notes:
   - see also http://gregstanleyandassociates.com/whitepapers/FaultDiagnosis/Filtering/Hysteresis-Filters/hysteresis-filters.htm
   - see also COK chapter ???
 *******************************************************************************/
-BOOL DeadBandFilter(const float x, const float threshold,
+unsigned char DeadBandFilter(const float x, const float threshold,
                              const float hysteresis);
 
 														 
@@ -39,15 +39,26 @@ float ChangeBandFilter(const float x, const float minDelta);
 
 
 /*******************************************************************************
-Function: IIR
+Function: IIRFilter
 Description: Passes the input through an Infinite-Impulse-Response filter
   characterized by the parameter alpha.
 Paramters:
-	unsigned char dspIndex,	  the index of the digital signal processor
 	float x,                  the current sample to be filtered
-	float alpha,              the knob on how much to filter???, [0,1)
+	float alpha,              the knob on how much to filter, [0,1)
+	                          alpha = t / (t + dT)
+                            where t = the low-pass filter's time-constant
+                                 dT = the sample rate
 *******************************************************************************/
-float IIR(const float alpha, const float x);
+float IIRFilter(const float x, const float alpha);
 
-// TODO: FIR(), Butterworth(), Kalman(), Chebychev(), make their own modules?
+
+/*******************************************************************************
+Function: FIRFilter
+Description: Passes the input through a Finite-Impulse-Response filter
+  (also known as a 'moving average filter')characterized by the given coefficients.
+Paramters:
+	float x,                  the current sample to be filtered
+*******************************************************************************/
+float FIRFilter(const float x);
+ 
 #endif

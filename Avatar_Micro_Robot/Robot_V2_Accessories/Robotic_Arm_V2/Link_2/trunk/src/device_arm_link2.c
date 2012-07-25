@@ -6,9 +6,10 @@ File: device_arm_link2.c
 #include "stdhdr.h"
 #include "DEE Emulation 16-bit.h"
 #include "debug_uart.h"
+#include "./StandardHeader.h"
 #include "./PIDController.h"
 #include "./Timers.h"
-#include "./StandardHeader.h"
+#include "./Filters.h"
 
 #define USB_TIMEOUT_ENABLED
 /*---------------------------Macros-------------------------------------------*/
@@ -221,28 +222,28 @@ typedef struct {
   float actualSpeed;
   float commandedSpeed;
   unsigned char disabledDirection;
-} joint_t;
+} Joint;
 
 /*---------------------------Helper Function Prototypes-----------------------*/
 static void InitWrist(void);
 static void ConfigureInputCapture1(void);
 static void UpdateInputCapture1(void);
-//static void UpdateGains(const unsigned char controllerIndex); // for investigating gain parameters
 static unsigned char GetDirection(int speed);
 static float GetActualWristSpeed(void);
 void WristTachometerISR(void);
-static unsigned char IsJointStalled(joint_t *joint, 
+static unsigned char IsJointStalled(Joint *joint, 
                                     unsigned int millisecondsPassed);
 static float GetNominalWristEffort(const float desiredSpeed);
-static int MapWristSpeed(int softwareSpeed);
-static int RollingAverage(int x);
-
+static int FilterWristSpeed(const int softwareSpeed);
+static int ApplyHysteresis(const int x, const int threshold, 
+                                     const int hysteresis);
+                                       
 /*---------------------------Module Variables---------------------------------*/
 static unsigned char volatile inputCapture1Stopped = 0;
 static unsigned char volatile newICData = 0;
 static unsigned int volatile wristInterval = 0xffff;
 
-static joint_t wrist = {0, 0, NO_DIRECTION};
+static Joint wrist = {0, 0, NO_DIRECTION};
 
 /*---------------------------Public Function Definitions----------------------*/
 void Arm_Link2_Init(void) {
@@ -405,7 +406,6 @@ void Link2_Process_IO(void) {
     motor_accel_loop(adjusted_gripper_speed);
     
     // get raw angle values from RS-485 message and ADC
-    // apply the offset
     update_joint_angles();
   }
   
@@ -414,7 +414,7 @@ void Link2_Process_IO(void) {
     StartTimer(JOINT_UPDATE_TIMER, JOINT_UPDATE_TIME); 
     
     UpdateInputCapture1();
-    wrist.desiredSpeed = MapWristSpeed(REG_ARM_MOTOR_VELOCITIES.wrist);
+    //wrist.desiredSpeed = FilterWristSpeed(REG_ARM_MOTOR_VELOCITIES.wrist);
     
     if (IsJointStalled(&wrist, JOINT_UPDATE_TIME)) {
       wrist.disabledDirection = GetDirection(wrist.commandedSpeed);
@@ -444,6 +444,8 @@ void Link2_Process_IO(void) {
   if (IsTimerExpired(TX_TIMER)) {
     StartTimer(TX_TIMER, TX_TIME);
     
+    wrist.desiredSpeed = FilterWristSpeed(REG_ARM_MOTOR_VELOCITIES.wrist);  // every 100ms
+        
     #ifdef USB_TIMEOUT_ENABLED
     USB_timeout_counter++;
     if (USB_TIMEOUT_COUNTS < USB_timeout_counter) {
@@ -529,64 +531,40 @@ static float GetNominalWristEffort(const float desiredSpeed) {
 
 
 /*
-Description: Maps the given speed as software passes us to units of 
-  revolutions-per-minute interprets it as needed.
+Description: Filters the given speed.  This function
+  limits temporary noise and creates a "dead zone" when the controller is
+  near zero.
 */
-static int MapWristSpeed(int softwareSpeed) {
-  // (software low-pass) filter speeds from the controller
-  softwareSpeed = RollingAverage(softwareSpeed);
+static int FilterWristSpeed(const int softwareSpeed) {  
+  #define THRESHOLD             7         // [rpm]
+  #define HYSTERESIS            3         // [rpm]
+  #define ALPHA                 0.5
+  int tempSpeed = IIRFilter(softwareSpeed, ALPHA);
   
-  // reject unintentionally low speeds from the controller
+  // create a "dead zone" when the controller is near zero,
+  // rejecting unintentionally low speeds from the controller
   // (e.g. noise when the joystick is left untouched)
-  if (0 < softwareSpeed &&
-      0 < (softwareSpeed - 10)) {
-    return (softwareSpeed - 10);
-  } else if (softwareSpeed < 0 &&
-             (softwareSpeed + 10) < 0) {
-    return (softwareSpeed + 10);
-  }
   
-  return 0;
-  /*
-  wrist.desiredSpeed = Map(REG_ARM_MOTOR_VELOCITIES.wrist, 
-                           MIN_WRIST_SOFTWARE_SPEED, 
-                           MAX_WRIST_SOFTWARE_SPEED,
-                           MIN_WRIST_ALLOWABLE_SPEED, 
-                           MAX_WRIST_ALLOWABLE_SPEED);
-  */
-}
+  // additionally add hysteresis at the crossover between the dead zone
+  // cutoff and a slower speed
 
-static int RollingAverage(int x) {
-  // take a rolling average of the past 16 values
-  #define NUM_SAMPLES 16
-  static int samples[NUM_SAMPLES] = {0};
-  static unsigned char currentIndex = 0;
-  
-  // add in the new value
-  samples[currentIndex] = x;
-  if (NUM_SAMPLES < ++currentIndex) currentIndex = 0;
-  
-  // sum the contents of the array
-  // Note: we can reduce computation by only summing the front
-  // and subtracting the end, but it is marginal improvement for
-  // this situation
-  unsigned char i;
-  long int sum = 0;
-  for (i = 0; i < NUM_SAMPLES; i++) sum += samples[i];
-  
-  return (sum / NUM_SAMPLES);
+  tempSpeed = ApplyHysteresis(abs(tempSpeed), THRESHOLD, HYSTERESIS);
+  if (softwareSpeed < 0) tempSpeed *= -1; // if tempSpeed was negative, 
+                                          // return it to being negative
+  tempSpeed /= 2;
+  //LogSample(1, softwareSpeed);
+  //LogSample(2, tempSpeed);
+  return tempSpeed;
 }
 
 
-static int LowPassFilter(int x) {
-  #define FILTER_SHIFT      5
-  static unsigned char yLast = 0;
-  int y = yLast + (x - yLast) / FILTER_SHIFT;
-  yLast = y;
-  
-  return y;
+static int ApplyHysteresis(const int x, const int threshold, 
+                                     const int hysteresis) {
+  if (DeadBandFilter(x, threshold, hysteresis) == 1) return x;
+  else return 0;
 }
-  
+
+
 /*
 Description: Returns the wrist speed derived from the tachometer output
   of the driver IC in units of [rev/min].  This is the feedback, the actual speed. 
@@ -640,7 +618,7 @@ Description: If we are commanding a speed that can move the motor but have
     as we expect there should be
   - assumes millisecondsPassed is constant
 */
-static unsigned char IsJointStalled(joint_t *joint, unsigned int millisecondsPassed) {
+static unsigned char IsJointStalled(Joint *joint, unsigned int millisecondsPassed) {
   const unsigned char kAngleTolerance = 5;  // must be greater than noise
   
   // TODO: to generalize for many joints, these variables must be associated with each joint
@@ -659,7 +637,7 @@ static unsigned char IsJointStalled(joint_t *joint, unsigned int millisecondsPas
     
     // update for the next cycle
     lastAngle = currentAngle;
-    numCycles = 0; 
+    numCycles = 0;
     numStallEvents = 0;
   }
   
@@ -1626,6 +1604,23 @@ static void read_stored_angle_offsets(void) {
 }
 
 /*---------------------------Test Code----------------------------------------*/
+/*
+#define DUMMY_NUM_SAMPLES   255
+extern int noisyInputSpeeds[DUMMY_NUM_SAMPLES] = {0};
+extern int noisyOutputSpeeds[DUMMY_NUM_SAMPLES] = {0};
+static void LogSample(const char array, const int x) {
+  static unsigned char i, j = 0;
+  if (array == 1) {
+    if (DUMMY_NUM_SAMPLES <= i) i = 0;
+    noisyInputSpeeds[i++] = x;
+  } else if (array == 2) {
+    if (DUMMY_NUM_SAMPLES <= j) j = 0;
+    noisyOutputSpeeds[j++] = x;
+  }
+}
+*/
+
+
 void test_arm_motors(void) {
   unsigned int i;
 
