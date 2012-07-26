@@ -1,14 +1,11 @@
 /*******************************************************************************
-File: I2C.c
-
-Notes:
-  - assumes an instruction cycle clock of F_CY = 16MHz
+File: device_carrier.c
 *******************************************************************************/
 #define NO_COMPUTER_INSTALLED
 /*---------------------------Dependencies-------------------------------------*/
-#include "stdhdr.h"
-#include "I2C_new.h"
+#include "./I2C_new.h"
 #include "device_carrier.h"
+#include "stdhdr.h"
 #include "testing.h"
 
 /*---------------------------Macros-------------------------------------------*/
@@ -136,7 +133,7 @@ typedef struct {
   float temperature;
 } dummy_t;
 
-//extern dummy_t debuggingOutputs = {0, 0, 0, 0, 0, 0, 0};
+extern dummy_t debuggingOutputs = {0, 0, 0, 0, 0, 0, 0};
 extern int dummyData = 0; // TODO: delete this after testing!!!
 
 
@@ -217,8 +214,9 @@ void DeviceCarrierInit(void) {
 	block_ms(100);
 	CODEC_PWR_ON(1);
 	handle_watchdogs();
-
-	//initI2C();  // TODO: undo when done
+  
+  /*
+	initI2C();  // TODO: undo when done
 
 	block_ms(100);
 	handle_watchdogs();
@@ -229,29 +227,35 @@ void DeviceCarrierInit(void) {
 	block_ms(5);
 	writeI2CReg( ADXL345_ADDRESS, 0x31,0x0b);	
 	block_ms(5);
+  */
 
 	// enable A/D Converter
 	_SSRC = 0x07; // auto-convert
 	_SAMC = 0x1f; // holding (enable this to sample)
 	_ADON = 1;
 
-	init_fan();
+	//init_fan(); // TODO: undo when done
 
 	U2RXInterruptUserFunction = robot_gps_isr;
 
 	robot_gps_init();
 	_U2RXIE = 1;
-
 	read_EEPROM_string();
-
+	  
+  //---I2C testing
+  // TODO: remove when done
+  #define TEMP_SENSOR_ADDRESS   0x48
+  I2C_Init(kBaudRate100kHz);
+  while (!I2C_IsBusIdle()) {};
+  I2C_RequestData(TEMP_SENSOR_ADDRESS);     
+  //---end I2C testing
+	
 	display_board_number();
 
 	REG_CARRIER_SPEAKER_ON = 1;
 	REG_CARRIER_MIC_ON = 1;
 
-  #define TEMP_SENSOR_ADDRESS   0x48
-  I2C_Init(kBaudRate100kHz);
-  I2C_RequestData(TEMP_SENSOR_ADDRESS);      // TODO: remove when done
+ 
   
 	send_lcd_string("Init finished  \r\n",17);
 }
@@ -265,15 +269,19 @@ void DeviceCarrierProcessIO(void) {
 
 	if (10 < i) {
 		i = 0;
-		DeviceCarrierGetTelemetry();
+		//DeviceCarrierGetTelemetry();
 		set_led_brightness(WHITE_LED, REG_WHITE_LED);
 		set_led_brightness(IR_LED, REG_IR_LED);
 		update_audio_power_state();
 	
-	  if (I2C_IsDataAvailable()) {
-  	  I2C_RequestData(TEMP_SENSOR_ADDRESS);
+	  //---I2C testing
+	  static int blah = 0;
+	  if (I2C_IsNewDataAvailable(TEMP_SENSOR_ADDRESS) && I2C_IsBusIdle()) {
   	  dummyData = I2C_GetData(TEMP_SENSOR_ADDRESS);
+  	  blah++;
+  	  I2C_RequestData(TEMP_SENSOR_ADDRESS);
   	}
+  	//---end I2C testing
 	}
 
 	if (REAR_PL_PRESENT() == 0) REAR_PL_PWR_ON(1);
@@ -281,7 +289,6 @@ void DeviceCarrierProcessIO(void) {
 
 	block_ms(10);
 	print_loop_number();
-	
 }
 
 
@@ -343,6 +350,7 @@ static void robot_gps_isr(void) {
 /*---------------------------Private Function Definitions---------------------*/
 /*---------------------------I2C-Related--------------------------------------*/
 static void initI2C(void) {
+  /*
 	// Configure I2C for 7 bit address mode 100kHz
 	ODCGbits.ODG3 = 1; // SDA1 is set to open drain
 	ODCGbits.ODG2 = 1; // SCL1 is set to open drain
@@ -357,58 +365,69 @@ static void initI2C(void) {
 	handle_watchdogs();
 	block_ms(100);
 	handle_watchdogs();
+  */
 }
-
 
 //reads PCB information from the EEPROM.  This is pretty inefficient, but it should only run once, while the COM Express
 //is booting.
 static void read_EEPROM_string(void) {
+  /*
 	unsigned int i;
 	for (i = 0; i < 78; i++) {
 		handle_watchdogs();
 		REG_ROBOT_BOARD_DATA.data[i] = readI2C_Reg(EEPROM_ADDRESS,i);
 		block_ms(5);
 	}
+	*/
 }
 /*---------------------------end I2C-Related--------------------------------------*/
-
 static int DeviceCarrierReadAdxl345Register(unsigned char add, unsigned char reg) {
+	/*
 	int a,b;
 	int c;
 	a = readI2C_Reg(add,reg);
 	b = readI2C_Reg(add,reg+1);
 	c = a | (b << 8);
 	return c;
+	*/
+	return 0;
 }
 
 
 static int DeviceCarrierReadTmp112Register(unsigned char add, unsigned char reg) {
+	/*
 	int a, b, c;
 	a = readI2C_Reg(add,reg);
 	b = readI2C_Reg(add,reg+1);
 	c = (b >> 4) | (a << 4);
 	return c;
+	*/
+	return 0;
 }
 
 
 static int DeviceCarrierReadHmc5843Register(unsigned char add, unsigned char reg) {
+	/*
 	unsigned char a, b;
 	int c;
 	a = readI2C_Reg(add,reg);
 	b = readI2C_Reg(add,reg+1);
 	c = b | (a << 8);
 	return c;
+	*/
+	return 0;
 }
 
 
 static void init_fan(void) {
+  /*
 	handle_watchdogs();
 
 	//set fan configuration
 	writeI2CReg(FAN_CONTROLLER_ADDRESS, 0x02, 0b00011010);
 	block_ms(5);
 
-  /* For thermistor control */
+  // For thermistor control
 	//make thermistor 1 control fan 2, and vice versa
 	writeI2CReg(FAN_CONTROLLER_ADDRESS, 0x11, 0b00011000);
 	block_ms(5);
@@ -434,6 +453,7 @@ static void init_fan(void) {
 	block_ms(5);
 	
 	handle_watchdogs();
+	*/
 }
 
 
@@ -459,6 +479,7 @@ static void blink_led(unsigned int n, unsigned int ms) {
 
 
 static void DeviceCarrierGetTelemetry() {
+  /*
 	unsigned char a, b;
 	signed int c;
 	int d;
@@ -483,13 +504,10 @@ static void DeviceCarrierGetTelemetry() {
 	d = DeviceCarrierReadTmp112Register(TMP112_0_ADDRESS, 0x00); // Temperature
 	REG_TEMP_INT0 = (float)d / 16.0;
 	
-	
-
 	REG_MAGNETIC_X = (float)DeviceCarrierReadHmc5843Register(HMC5843_ADDRESS, 0x03); // Magnet X-Axis Data
 	REG_MAGNETIC_Y = (float)DeviceCarrierReadHmc5843Register(HMC5843_ADDRESS, 0x05); // Magnet Y-Axis Data 0
 	REG_MAGNETIC_Z = (float)DeviceCarrierReadHmc5843Register(HMC5843_ADDRESS, 0x07); // Magnet Z-Axis Data 0
 
-  /*
   // monitor reads in debugger
   debuggingOutputs.magneticX = REG_MAGNETIC_X;
   debuggingOutputs.magneticY = REG_MAGNETIC_Y;
@@ -498,7 +516,6 @@ static void DeviceCarrierGetTelemetry() {
   debuggingOutputs.accelerometerY = REG_ACCEL_Y;
   debuggingOutputs.accelerometerZ = REG_ACCEL_Z;
   debuggingOutputs.temperature = REG_TEMP_INT0;
-  */
 
   // get an analog reading from the humidity sensor
 	_ADON = 0;
@@ -511,6 +528,7 @@ static void DeviceCarrierGetTelemetry() {
 	REG_ROBOT_HUMIDITY = ADC1BUF0 * ADC_REF_VOLTAGE / ADC_SAMPLE_COUNT;
 
 	REG_TELEMETRY_COUNT++;
+	*/
 }
 
 
@@ -535,7 +553,6 @@ static void init_io(void) {
 	CODEC_PWR_ON(0);
 	COM_EXPRESS_PGOOD_ON(0);
 	REAR_PL_PWR_ON(0);
-
 
 	VBAT_DIGI_EN(1);
 	V3V3_EN(1);
@@ -599,8 +616,8 @@ static void hard_reset_robot(void) {
   _U1TXIE = 0;
   U1STAbits.UTXEN = 0;
 
-  I2C1CON = 0x0000;
-  I2C1STAT = 0x0000;
+  //I2C1CON = 0x0000; // TODO: undo when done
+  //I2C1STAT = 0x0000;
   U1MODE = 0x0000;
   U1STA = 0x0000;
   U2MODE = 0x0000;
