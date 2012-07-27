@@ -980,8 +980,8 @@ void handle_power_button(void)
 						computer_on_flag = 1;
 						block_ms(100);
 						initialize_i2c_devices();
-						init_fan_controller();
 						V12V_ON(1);
+						init_fan_controller();
 					}
 					
 
@@ -1102,6 +1102,9 @@ void init_fan_controller(void)
 //	unsigned char temp2 = 0;	
 
 	IEC3bits.MI2C2IE = 1;
+
+  //wait to make sure the +3.3V supply stabilizes
+  block_ms(500);
 
 	//set fan configuration
 	start_ocu_batt_i2c_write(I2C_ADD_FAN_CONTROLLER,0x02,0b00011010);

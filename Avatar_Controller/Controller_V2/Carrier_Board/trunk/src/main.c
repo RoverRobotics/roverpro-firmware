@@ -76,20 +76,20 @@ USB_HANDLE USBGenericInHandle = 0;
 
 #pragma code
 
-#define BL_PRI   __attribute__(( section("bootloader"),space(prog),address(0x200) ))
+/*#define BL_PRI   __attribute__(( section("bootloader"),space(prog),address(0x200) ))
 #define BL       __attribute__(( section("bootloader"),space(prog) ))
-#define FIRMWARE __attribute__(( section("firmware"),space(prog),address(0x400) ))
+#define FIRMWARE __attribute__(( section("firmware"),space(prog),address(0x400) ))*/
 
 // from usb_device.c
 extern volatile BDT_ENTRY *pBDTEntryOut[USB_MAX_EP_NUMBER+1];
 #define USB_NEXT_PING_PONG 0x0004
 
 // adjust this to make sure bootloader is exactly 0x200 in length
-const char __bootloader_buffer[20] BL = { 0 };
-const char __firmware_buffer[] FIRMWARE = "Robotex Firmware begins here\n\r";
+/*const char __bootloader_buffer[20] BL = { 0 };
+const char __firmware_buffer[] FIRMWARE = "Robotex Firmware begins here\n\r";*/
 
 // rearm USB endpoint after processing of packet, must be 512byte packets
-USB_HANDLE BL arm_bdt_for_bootloader()
+/*USB_HANDLE BL arm_bdt_for_bootloader()
 {
 	volatile BDT_ENTRY* handle;
 
@@ -158,7 +158,7 @@ void BL_PRI bootloader(void)
 		// macro (no external function call)
 		USBClearUSBInterrupt();
 	}
-}
+}*/
 
 
 
