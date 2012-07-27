@@ -49,6 +49,11 @@ REM set /P svn_revision="Enter SVN revision number: "
 	set hour_string=!time_string:~0,2!
 	set minute_string=!time_string:~3,2!
 	set am_pm=!time_string:~6,2!
+	
+	REM Convert to 24 hour time
+	if "!am_pm!" == "PM" (
+	  set /a hour_string=!hour_string!+12
+	)
 
 	REM set backup_folder=backup_!year_string!_!month_string!_!day_string!_file_time_!hour_string!_!minute_string!_!am_pm!_backed_up_%file_name%
 	REM echo %backup_folder%
@@ -57,7 +62,7 @@ REM set /P svn_revision="Enter SVN revision number: "
 	mkdir releases\"%date_name%_%time_name%"\
 
 
-	copy firmware.hex releases\"%date_name%_%time_name%"\firmware_compiled_!year_string!_!month_string!_!day_string!_time_!hour_string!_!minute_string!_!am_pm!_(%date_name_short%.%time_name_short%).hex
+	copy firmware.hex releases\"%date_name%_%time_name%"\Power_Board_compiled_!year_string!_!month_string!_!day_string!_time_!hour_string!_!minute_string!_(%date_name_short%.%time_name_short%).hex
 
 
 )
