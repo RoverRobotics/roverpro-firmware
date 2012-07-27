@@ -2138,7 +2138,9 @@ void FANCtrlIni()
 
 	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x0B,240);
 	ClrWdt();
-	block_ms(500);
+  block_ms(250);
+  ClrWdt();
+	block_ms(250);
 	ClrWdt();
 	//writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x0B,0);
 
