@@ -447,6 +447,7 @@ void DeviceRobotMotorInit()
 		Cell_Ctrl(Cell_A,Cell_OFF);
 		Cell_Ctrl(Cell_B,Cell_OFF);	
 		block_ms(40);
+    ClrWdt();
 
 	}
  //	Cell_Ctrl(Cell_A,Cell_ON);
@@ -696,6 +697,7 @@ void read_EEPROM_string(void)
 	{
 		REG_MOTOR_BOARD_DATA.data[i] = readI2C2_Reg(EEPROM_ADDRESS,i);
 		block_ms(5);
+    ClrWdt();
 
 	}
 
