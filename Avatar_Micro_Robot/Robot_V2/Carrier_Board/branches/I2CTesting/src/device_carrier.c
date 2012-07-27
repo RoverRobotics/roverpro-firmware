@@ -3,7 +3,7 @@ File: device_carrier.c
 *******************************************************************************/
 #define NO_COMPUTER_INSTALLED
 /*---------------------------Dependencies-------------------------------------*/
-#include "./I2C_new.h"
+#include "./I2C.h"
 #include "device_carrier.h"
 #include "stdhdr.h"
 #include "testing.h"
@@ -115,6 +115,7 @@ static void initI2C(void);
 static void DeviceCarrierGetTelemetry(void);
 static void read_EEPROM_string(void);
 
+static void UpdateSensors(void);
 
 /*---------------------------Module Variables---------------------------------*/
 static unsigned int number_of_resets = 0;
@@ -134,16 +135,41 @@ typedef struct {
 } dummy_t;
 
 extern dummy_t debuggingOutputs = {0, 0, 0, 0, 0, 0, 0};
-extern int dummyData = 0; // TODO: delete this after testing!!!
+extern I2CDevice temperatureSensor = {
+  .address = TMP112_0_ADDRESS,
+  .subaddress = 0x00, // subaddress which contains the sensor data
+  .numDataBytes = 2,  // number of data bytes the sensor will send us
+  .data = {0, 0}      // statically-declared array of with length = numDataBytes
+};
 
+extern I2CDevice accelerometerX = {
+  .address = ADXL345_ADDRESS,
+  .subaddress = 0x32,
+  .numDataBytes = 2,
+  .data = {0, 0}
+};
 
+extern I2CDevice accelerometerY = {
+  .address = ADXL345_ADDRESS,
+  .subaddress = 0x34,
+  .numDataBytes = 2,
+  .data = {0, 0}  
+};
+
+extern I2CDevice accelerometerZ = {
+  .address = ADXL345_ADDRESS,
+  .subaddress = 0x36,
+  .numDataBytes = 2,
+  .data = {0, 0}
+};
+	  
 /*---------------------------Public Function Definitions----------------------*/
 #pragma code
 void DeviceCarrierInit(void) {
   if (number_of_resets == 0) REG_ROBOT_RESET_CODE = RST_POWER_ON;
 
 	de_init_io();
-
+  
 	//enable software watchdog if power button is not held down.  Otherwise, sleep forever.
   if (POWER_BUTTON()) {
     WDT_PIN_EN(1);
@@ -244,10 +270,9 @@ void DeviceCarrierInit(void) {
 	  
   //---I2C testing
   // TODO: remove when done
-  #define TEMP_SENSOR_ADDRESS   0x48
-  I2C_Init(kBaudRate100kHz);
+  I2C_Init(kI2CBaudRate100kHz);
   while (!I2C_IsBusIdle()) {};
-  I2C_RequestData(TEMP_SENSOR_ADDRESS);     
+  I2C_RequestData(temperatureSensor);    
   //---end I2C testing
 	
 	display_board_number();
@@ -255,8 +280,6 @@ void DeviceCarrierInit(void) {
 	REG_CARRIER_SPEAKER_ON = 1;
 	REG_CARRIER_MIC_ON = 1;
 
- 
-  
 	send_lcd_string("Init finished  \r\n",17);
 }
 
@@ -269,18 +292,20 @@ void DeviceCarrierProcessIO(void) {
 
 	if (10 < i) {
 		i = 0;
-		//DeviceCarrierGetTelemetry();
+		DeviceCarrierGetTelemetry();
 		set_led_brightness(WHITE_LED, REG_WHITE_LED);
 		set_led_brightness(IR_LED, REG_IR_LED);
 		update_audio_power_state();
 	
 	  //---I2C testing
-	  static int blah = 0;
-	  if (I2C_IsNewDataAvailable(TEMP_SENSOR_ADDRESS) && I2C_IsBusIdle()) {
-  	  dummyData = I2C_GetData(TEMP_SENSOR_ADDRESS);
+	  if (I2C_ErrorHasOccurred()) {
+  	  static int blah = 0;
   	  blah++;
-  	  I2C_RequestData(TEMP_SENSOR_ADDRESS);
-  	}
+  	} else {
+  	  if (I2C_IsNewDataAvailable() && I2C_IsBusIdle()) {
+    	  UpdateSensors();
+    	}  
+	  }
   	//---end I2C testing
 	}
 
@@ -292,6 +317,57 @@ void DeviceCarrierProcessIO(void) {
 }
 
 
+static void UpdateSensors(void) {
+  #define NUM_SENSORS     4
+  static unsigned char currentSensor = 0;
+
+  static char sensorData[2] = {0, 0};  
+
+  // get your data, then request it for the next guy
+  switch (currentSensor) {
+    case 0:
+      I2C_GetData(&temperatureSensor);
+      I2C_RequestData(accelerometerX);
+      break;
+    case 1:
+      I2C_GetData(&accelerometerX);
+      I2C_RequestData(accelerometerY);
+      break;
+    case 2:
+      I2C_GetData(&accelerometerY);
+      I2C_RequestData(accelerometerZ);
+      break;
+    /*
+    case 3:
+      I2C_GetData(accelerometerZ);
+      I2C_RequestData(humiditySensor);
+      // 67 milli-second typical delay should be allowed by the I2C master
+  	  // before querying the HMC5883L data registers for new measurements
+      break;
+    */
+    case 3:
+      I2C_GetData(&accelerometerZ);
+      I2C_RequestData(temperatureSensor);
+      break;
+  }
+  
+  float dummy1, dummy2, dummy3 = 0; 
+  int dummy4 = 0;
+  
+  dummy1 = (accelerometerX.data[0] << 8) | accelerometerX.data[1];
+  dummy2 = (accelerometerY.data[0] << 8) | accelerometerY.data[1];
+  dummy3 = (accelerometerZ.data[0] << 8) | accelerometerZ.data[1];
+  dummy4 = (temperatureSensor.data[1] << 8) | temperatureSensor.data[0];
+  sensorData[0] = temperatureSensor.data[0];
+  sensorData[1] = temperatureSensor.data[1];
+  int blah; 
+  blah++;
+  
+  // advance to sample the next sensor, considering rollover
+  if (NUM_SENSORS <= ++currentSensor) currentSensor = 0;
+}
+
+  
 void handle_watchdogs(void) {
 	static unsigned char previous_wdt_pin_state = 0;
 

@@ -20,7 +20,7 @@
 #include "GenericTypeDefs.h"
 #include "Compiler.h"
 #include "USB/usb.h"
-#include "i2c.h"
+#include "i2c_Microchip.h"
 #include "PwrMgnt.h"
 #include "interrupt_switch.h"
 
