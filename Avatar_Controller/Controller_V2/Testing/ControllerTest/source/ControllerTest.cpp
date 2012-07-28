@@ -20,6 +20,7 @@ Taylor Penn taylor@robotex.com | Stellios Leventis sleventis@robotex.com
 #include <vector>
 #include <unistd.h>
 #include <cstdlib>
+#include <stdio.h>
 #include "./firmware/usb_config.h" // for our register definitions
 //#include "./SDL/SDL.h"	// for Xbox controller inteface
 #include <time.h> 	    // for timing USB polling
@@ -113,7 +114,7 @@ void outgoing_callback(struct libusb_transfer *transfer);
 void TurnOnCameraPower(void);
 
 int main(int argn, char *argc[]) {
-  XboxController myController;
+  //XboxController myController;
 
   char* input_argument = argc[1];
 
@@ -416,7 +417,7 @@ void PressEnterToContinue(void) {
 
 void TurnOnCameraPower(void)  {
   
-  
+  int i;
 	int camera_power_index = GetRegisterIndex(&telemetry::REG_OCU_CAMERA_POWER_ON);
 	
 	        InitRoboteXDevice();
