@@ -10,7 +10,7 @@ current_folder=`dirname $shell_script`
 cd $current_folder/source
 
 #change timestamps on each file, so everything compiles okay
-find . -exec touch {} \;
+sudo find . -exec touch {} \;
 
 #build executable
 sudo make
