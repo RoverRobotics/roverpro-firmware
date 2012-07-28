@@ -38,7 +38,7 @@ typedef enum {
 // (1 = read, 0 = write from perspective of master)
 typedef enum {
   kIndicationWrite = 0,
-  kIndicationRead = 1,
+  kIndicationRead = 1
 } Indication;
 
 /*---------------------------Macros-------------------------------------------*/
@@ -122,12 +122,12 @@ inline unsigned char I2C_IsBusIdle(void) {
 }
 
 
-void I2C_RequestData(const I2CDevice device) {
-  slaveAddress = device.address;
-  slaveSubaddress = device.subaddress;
+void I2C_RequestData(const I2CDevice *device) {
+  slaveAddress = device->address;
+  slaveSubaddress = device->subaddress;
   indication = kIndicationRead;
-  remainingRxBytes = device.numDataBytes;
-  logicalLength = device.numDataBytes;
+  remainingRxBytes = device->numDataBytes;
+  logicalLength = device->numDataBytes;
   I2C1CONbits.SEN = 1;	  // start the start event
   state = kStarting;
 }
@@ -151,11 +151,12 @@ void I2C_GetData(I2CDevice *pDevice) {
 }
 
 
-void I2C_WriteData(const I2CDevice device, const char data[]) {
-  slaveAddress = device.address;
-  slaveSubaddress = device.subaddress;
+void I2C_WriteData(const I2CDevice *device, const unsigned char data[]) {
+  slaveAddress = device->address;
+  slaveSubaddress = device->subaddress;
   indication = kIndicationWrite;
-  remainingTxBytes = sizeof(data) / sizeof(char);
+  // BUG ALERT: subtract off the null-terminator
+  remainingTxBytes = sizeof(data) / sizeof(unsigned char) - 1;
   logicalLength = remainingTxBytes;
   
   // copy in the data to write
@@ -165,16 +166,6 @@ void I2C_WriteData(const I2CDevice device, const char data[]) {
   I2C1CONbits.SEN = 1;	  // start the start event
   state = kStarting;
 }
-
-
-/*
-unsigned char IsDeviceOnI2CBus(const unsigned char deviceAddress) {
-  // TODO: need to make non-blocking
-  I2C_RequestData(deviceAddress);
-  while (!I2C_IsDataAvailable(deviceAddress)) {};
-  return YES;
-}
-*/
 
 
 void I2C_RefreshModule(void) {
@@ -240,6 +231,7 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C1Interrupt(void) {
           I2C1CONbits.PEN = 1;          // start a restart event. PEN, then SEN
           state = kShortstopping;
    	    } else if (indication == kIndicationWrite) {
+   	      I2C1TRN = buffer[(logicalLength - remainingTxBytes)];
    	      state = kWriting;
  	      }
  	    }
@@ -302,7 +294,7 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C1Interrupt(void) {
  	  case kStopping:
  	    // wait for the confirmation of hardware clearing the stop bit
  	    if (!I2C1CONbits.PEN) {
-   	    isNewDataAvailable = YES;
+   	    if (indication == kIndicationRead) isNewDataAvailable = YES;
    	    state = kWaiting;
  	    }
  	    break;
