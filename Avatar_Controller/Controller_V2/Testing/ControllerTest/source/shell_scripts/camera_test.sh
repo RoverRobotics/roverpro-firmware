@@ -30,7 +30,7 @@ vlc v4l2:///dev/video0
 
 
 elif [ "$user_input" = "r" ]; then
-vlc v4l2:///dev/video0
+vlc v4l2:///dev/video1
 
 
 elif [ "$user_input" = "q" ]; then

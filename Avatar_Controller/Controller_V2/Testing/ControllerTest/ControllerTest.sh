@@ -8,6 +8,11 @@ shell_script=`readlink -f "$0"`
 # compile the program
 current_folder=`dirname $shell_script`
 cd $current_folder/source
+
+#change timestamps on each file, so everything compiles okay
+find . -exec touch {} \;
+
+#build executable
 sudo make
 
 

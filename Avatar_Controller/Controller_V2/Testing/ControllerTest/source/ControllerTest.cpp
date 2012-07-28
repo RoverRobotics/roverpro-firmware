@@ -431,6 +431,10 @@ void TurnOnCameraPower(void)  {
 		out_packet[2] = 0x01;
 		out_packet[3] = 0xff;
 		out_packet[4] = 0xff;
+		
+		//hard code checksum -- 107+1+255+255 = 618 = 0x026a
+		out_packet[5] = 0x6a;
+		out_packet[6] = 0x02;
 
 		if (!HandleUSBCommunication())
 			return;
@@ -438,6 +442,7 @@ void TurnOnCameraPower(void)  {
             usleep(100000);
 
 	}
+	  printf("Cameras powered.\r\n");
   
   
   }
