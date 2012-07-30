@@ -551,7 +551,7 @@ static int FilterWristSpeed(const int softwareSpeed) {
   tempSpeed = ApplyHysteresis(abs(tempSpeed), THRESHOLD, HYSTERESIS);
   if (softwareSpeed < 0) tempSpeed *= -1; // if tempSpeed was negative, 
                                           // return it to being negative
-  tempSpeed /= 2;
+  tempSpeed /= 4;
   //LogSample(1, softwareSpeed);
   //LogSample(2, tempSpeed);
   return tempSpeed;
