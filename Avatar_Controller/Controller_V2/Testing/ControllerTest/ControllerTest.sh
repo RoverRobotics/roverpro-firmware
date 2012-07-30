@@ -24,6 +24,7 @@ echo "[f]irmware version"
 echo "[c]amera test"
 echo "[u]sb device check"
 echo "[q]uit"
+echo "[s]hutdown"
 read user_input
 
 
@@ -51,6 +52,9 @@ break
 
 elif [ "$user_input" = "u" ]; then
 sh shell_scripts/check_usb_devices.sh
+
+elif [ "$user_input" = "s" ]; then
+sudo shutdown -h now
 
 elif [ a$user_input = "a" ]; then
 echo "blank line"
