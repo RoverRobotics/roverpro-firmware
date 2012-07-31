@@ -50,6 +50,7 @@ static void ConfigureBaudRate(I2CBaudRate baudRate);
 
 /*---------------------------Module Variables---------------------------------*/
 static volatile unsigned char isNewDataAvailable = NO;
+static volatile unsigned char errorHasOccurred = NO;
 static volatile unsigned char slaveAddress = 0;
 static volatile unsigned char slaveSubaddress = 0;
 static volatile unsigned char indication = kIndicationRead;
@@ -143,11 +144,13 @@ unsigned char I2C_IsNewDataAvailable(void) {
 }
 
 
-void I2C_GetData(I2CDevice *pDevice) {
+void I2C_GetData(I2CDevice *device) {
   // copy in as much of the buffer as is relevant
-  unsigned char i;  
-  for (i = 0; i < logicalLength; i++) pDevice->data[i] = buffer[i];
-  // TODO: clear out the data to avoid bugs?
+  unsigned char i;
+  for (i = 0; i < logicalLength; i++) device->data[i] = buffer[i];
+  
+  // clear out irrelevant data?
+  //for (i = logicalLength: i < I2C_MAX_DATA_LENGTH; i++) buffer[i] = 0;
 }
 
 
@@ -186,27 +189,29 @@ void I2C_RefreshModule(void) {
   I2C1STATbits.IWCOL = 0;	// clear 'write-collision-error' flag
   I2C1STATbits.I2COV = 0; // clear 'receive-overflow-error' flag
   I2C1CONbits.RCEN = 0;		// clear 'currently-receiving' flag
-  char temp = I2C1RCV;		// read the hardware Rx buffer to ensure it begins cleared
+  char temp;
+  temp = I2C1RCV;		      // read to ensure the Rx buffer begins cleared
 }
 
 
 unsigned char I2C_ErrorHasOccurred(void) {
   // check whether there has been a collision or receive overflow
-  return (I2C1STATbits.BCL || I2C1STATbits.I2COV || I2C1STATbits.IWCOL);
+  return (I2C1STATbits.BCL || I2C1STATbits.I2COV || I2C1STATbits.IWCOL || 
+         errorHasOccurred);
 }
 
 /*---------------------------Interrupt Service Routines-----------------------*/
 /*
 Description: This ISR contains a state machine that constitues the core of this
-  module.  It is written to be event-driven so that it can be taken outside
-  this ISR if needed.
+  module.  It is written to be event-driven so that it can be ported to the
+  main thread if needed.
 */
 void __attribute__((__interrupt__, auto_psv)) _MI2C1Interrupt(void) {
   IFS1bits.MI2C1IF = 0;
   
   switch (state) {
     case kWaiting:
-      // should never get here
+      errorHasOccurred = YES;     // should never get here in interrupt
       break;
     case kStarting:
  	    // wait for confirmation of the hardware clearing the start bit
@@ -228,7 +233,7 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C1Interrupt(void) {
  	    // wait for confirmation of the slave acknowledging
  	    if (I2C1STATbits.ACKSTAT == ACK) {
         if (indication == kIndicationRead) {
-          I2C1CONbits.PEN = 1;          // start a restart event. PEN, then SEN
+          I2C1CONbits.PEN = 1;    // start a restart event. PEN, then SEN
           state = kShortstopping;
    	    } else if (indication == kIndicationWrite) {
    	      I2C1TRN = buffer[(logicalLength - remainingTxBytes)];
@@ -240,7 +245,7 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C1Interrupt(void) {
  	    // wait for confirmation of the slave acknowledging
    	  if (I2C1STATbits.ACKSTAT == ACK) {  
      	  if (!remainingTxBytes) {
-     	    I2C1CONbits.PEN = 1;          // start the stop event
+     	    I2C1CONbits.PEN = 1;    // start the stop event
      	    state = kStopping;
      	    return;
      	  }
@@ -297,6 +302,9 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C1Interrupt(void) {
    	    if (indication == kIndicationRead) isNewDataAvailable = YES;
    	    state = kWaiting;
  	    }
+ 	    break;
+ 	  default:
+ 	    errorHasOccurred = YES;     // indicate an error
  	    break;
   }
 }

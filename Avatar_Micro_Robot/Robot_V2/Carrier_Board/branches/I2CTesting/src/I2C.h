@@ -3,14 +3,10 @@ File: I2C.h
 
 Description: This module provides an interface to the I2C1 hardware module on
   the PIC24FJ256GB106 as a master in single-master mode.
-  Common peripheral devices on an I2C bus include serial EEPROMs, 
-  display drivers and A/D Converters.
   
   As currently configured, this module supports:
     - single-master operation
     - 7-bit addressing (can support 128 devices on the I2C bus)
-    - only can read (no writing yet)
-    - can NOT communicate with devices on same bus with same address
     
 Notes:
 	- N/A

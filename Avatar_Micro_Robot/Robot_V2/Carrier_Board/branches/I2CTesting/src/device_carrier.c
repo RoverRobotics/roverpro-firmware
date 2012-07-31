@@ -3,10 +3,13 @@ File: device_carrier.c
 *******************************************************************************/
 #define NO_COMPUTER_INSTALLED
 /*---------------------------Dependencies-------------------------------------*/
+#include "./Timers.h"
+#include "./ADC.h"          // for the humidity sensor
 #include "./I2C.h"
+#include "./I2CDeviceHeaders/ADXL345.h"
+#include "./I2CDeviceHeaders/HMC5843.h"
 #include "device_carrier.h"
-#include "stdhdr.h"
-#include "testing.h"
+#include "./StandardHeader.h"
 
 /*---------------------------Macros-------------------------------------------*/
 #define V3V3_ON(a)              (_LATC14 = (a))
@@ -38,20 +41,21 @@ File: device_carrier.c
 #define CODEC_PWR_EN(a)			    (_TRISG7 = !(a))
 #define CODEC_PWR_ON(a)		  	  (_LATG7 = (a))
 
-
 #define SUS_S5()					      _RB5
 #define SUS_S3()					      _RE5
 
 #define HUMIDITY_SENSOR_CH       1 
 #define HUMIDITY_SENSOR_EN(a)	  (_PCFG1 = !(a))
 
-#define ADC_REF_VOLTAGE         3.3f
-#define ADC_SAMPLE_COUNT        1024
+// new-magnetometer-data-is-available pin
+#define ENABLE_DRDY(a)          (_TRISB2 = (a)) 
+#define DRDY()                  _RB2
 
 #define WHITE_LED_OR			      _RP25R
 #define IR_LED_OR				        _RP22R
 
 #define POWER_BUTTON()			    !_RB4
+#define ENABLE_POWER_BUTTON(a)   (_TRISB4 = (a))
 
 #define GPS_TX_OR				        _RP12R
 #define GPS_RX_PIN				      11
@@ -62,15 +66,13 @@ File: device_carrier.c
 #define WDT_PIN()				        _LATF1
 
 #define REAR_PL_PWR_EN(a)		    (_TRISB12 = !(a))
-#define REAR_PL_PWR_ON(a)		    _LATB12 = a
+#define REAR_PL_PWR_ON(a)		    (_LATB12 = (a))
 
 #define REAR_PL_PRESENT()		    _RB8
 
 // I2C slave addresses
-#define ADXL345_ADDRESS         0x53
 #define TMP112_0_ADDRESS        0x48
 #define TMP112_1_ADDRESS        0x49
-#define HMC5843_ADDRESS         0x1E
 #define EEPROM_ADDRESS          0x50 // to 0x57 (0x50 to 0x53 address four 256-byte blocks
 #define FAN_CONTROLLER_ADDRESS  0x18
 
@@ -82,6 +84,14 @@ File: device_carrier.c
 
 #define IR_LED		              0
 #define WHITE_LED	              1
+
+// timers
+#define I2C_TIMEOUT_TIMER       1
+#define I2C_TIMEOUT_TIME        100  // [ms]
+#define I2C_UPDATE_TIMER        2
+#define I2C_UPDATE_TIME         1000
+#define FAN_TIMER               3
+#define FAN_TIME                5000
 
 /*---------------------------Type Definitions---------------------------------*/
 // state machine states
@@ -96,26 +106,34 @@ typedef enum {
 } CARRIER_STATE_ENUM;
 
 /*---------------------------Helper Function Prototypes-----------------------*/
-static void set_led_brightness(unsigned char led_type, unsigned char duty_cycle);
-static int DeviceCarrierBoot(void);
+static void set_led_brightness(unsigned char ledType, unsigned char dutyCycle);
+//static int DeviceCarrierBoot(void);
 
 static void robot_gps_isr(void);
 static void robot_gps_init(void);
 
-static void init_io(void);
-static void de_init_io(void);
+static void InitPins(void);
+static void DeInitPins(void);
 static void blink_led(unsigned int n, unsigned int ms);
 static void init_pwm(void);
-static void init_fan(void);
 static void update_audio_power_state(void);
 static void hard_reset_robot(void);
 static void handle_reset(void);
 
-static void initI2C(void);
-static void DeviceCarrierGetTelemetry(void);
 static void read_EEPROM_string(void);
 
+static void WriteBuildTime(void);
+static void InitI2CDevices(void);
+static void InitTemperatureSensor(void);
+static void InitAccelerometer(void);
+static void InitMagnetometer(void);
+static void InitFan(void);
 static void UpdateSensors(void);
+static void UpdateI2CSensors(void);
+static inline float DecodeAccelerometerData(I2CDevice *device);
+static inline float DecodeTemperatureData(I2CDevice *device);
+static inline float DecodeMagnetometerData(I2CDevice *device);
+static void TestI2C(void); // TODO: delete when done
 
 /*---------------------------Module Variables---------------------------------*/
 static unsigned int number_of_resets = 0;
@@ -123,52 +141,76 @@ unsigned int usb_timeout_counter = 0;
 unsigned char first_usb_message_received = 0;
 
 int gRegCarrierState;
-
-typedef struct {
-  float magneticX;
-  float magneticY;
-  float magneticZ;
-  float accelerometerX;
-  float accelerometerY;
-  float accelerometerZ;
-  float temperature;
-} dummy_t;
-
-extern dummy_t debuggingOutputs = {0, 0, 0, 0, 0, 0, 0};
-extern I2CDevice temperatureSensor = {
+static unsigned char dater2temp[2] = {0};
+static unsigned char dater2AX[2] = {0};
+static unsigned char dater2AY[2] = {0};
+static unsigned char dater2AZ[2] = {0};
+static unsigned char dater2CX[2] = {0};
+static unsigned char dater2CY[2] = {0};
+static unsigned char dater2CZ[2] = {0};
+static I2CDevice temperatureSensor = {
   .address = TMP112_0_ADDRESS,
   .subaddress = 0x00, // subaddress which contains the sensor data
   .numDataBytes = 2,  // number of data bytes the sensor will send us
-  .data = {0, 0}      // statically-declared array of with length = numDataBytes
+  .data = dater2temp
 };
 
-extern I2CDevice accelerometerX = {
+static I2CDevice accelerometerX = {
   .address = ADXL345_ADDRESS,
-  .subaddress = 0x32,
+  .subaddress = ADXL345_DATAX0,
   .numDataBytes = 2,
-  .data = {0, 0}
+  .data = dater2AX
 };
 
-extern I2CDevice accelerometerY = {
+static I2CDevice accelerometerY = {
   .address = ADXL345_ADDRESS,
-  .subaddress = 0x34,
+  .subaddress = ADXL345_DATAY0,
   .numDataBytes = 2,
-  .data = {0, 0}  
+  .data = dater2AY
 };
 
-extern I2CDevice accelerometerZ = {
+static I2CDevice accelerometerZ = {
   .address = ADXL345_ADDRESS,
-  .subaddress = 0x36,
+  .subaddress = ADXL345_DATAZ0,
   .numDataBytes = 2,
-  .data = {0, 0}
+  .data = dater2AZ
 };
-	  
+
+static I2CDevice magnetometerX = {
+  .address = HMC5843_ADDRESS,
+  .subaddress = HMC5843_X_A,
+  .numDataBytes = 2,
+  .data = dater2CX
+};
+
+static I2CDevice magnetometerY = {
+  .address = HMC5843_ADDRESS,
+  .subaddress = HMC5843_Y_A,
+  .numDataBytes = 2,
+  .data = dater2CY
+};
+
+static I2CDevice magnetometerZ = {
+  .address = HMC5843_ADDRESS, 
+  .subaddress = HMC5843_Z_A, 
+  .numDataBytes = 2, 
+  .data = dater2CZ
+};
+
+static I2CDevice fan = {
+  .address = FAN_CONTROLLER_ADDRESS
+};
+
+/*---------------------------Interrupt Service Routines-----------------------*/
+void  __attribute__((__interrupt__, auto_psv)) _U2RXInterrupt(void) {
+ 	robot_gps_isr();
+}
+
 /*---------------------------Public Function Definitions----------------------*/
-#pragma code
 void DeviceCarrierInit(void) {
   if (number_of_resets == 0) REG_ROBOT_RESET_CODE = RST_POWER_ON;
 
-	de_init_io();
+	DeInitPins();
   
 	//enable software watchdog if power button is not held down.  Otherwise, sleep forever.
   if (POWER_BUTTON()) {
@@ -188,8 +230,8 @@ void DeviceCarrierInit(void) {
 	handle_watchdogs();
 
 	//wait some time to stabilize voltages
-	block_ms(50);
-	init_io();
+	Delay(50);
+	InitPins();
 
 	//turn on rear payload power (if necessary) now,
 	//in case we need power to a keyboard to control the BIOS
@@ -197,19 +239,8 @@ void DeviceCarrierInit(void) {
 	else REAR_PL_PWR_ON(0);
 
 	WDT_PIN_EN(1);
-
-	const unsigned char build_date[12] = __DATE__; 
-	const unsigned char build_time[12] = __TIME__;
-  int i = 0;
-	for (i = 0; i < 12; i++) {
-		if ((build_date[i] == 0)) REG_ROBOT_FIRMWARE_BUILD.data[i] = ' ';
-		else REG_ROBOT_FIRMWARE_BUILD.data[i] = build_date[i];
-		
-		if (build_time[i] == 0) REG_ROBOT_FIRMWARE_BUILD.data[i+12] = ' ';
-		else REG_ROBOT_FIRMWARE_BUILD.data[i+12] = build_time[i];
-	}
-
-	init_lcd_uart();
+  WriteBuildTime();
+	//init_lcd_uart();
 	init_pwm();
 	
 	//turn on 12V regulator, and MOSFET for 12V regulator input
@@ -231,56 +262,34 @@ void DeviceCarrierInit(void) {
 			{__asm__ volatile ("reset");};
 		} else {
 		  break;
-		}			
+		}
 	}
 	#endif
 	
-	send_lcd_string("Computer booted  \r\n",19);
-
-	block_ms(100);
+	//send_lcd_string("Computer booted  \r\n",19); Delay(100); handle_watchdogs();
+	
 	CODEC_PWR_ON(1);
-	handle_watchdogs();
-  
-  /*
-	initI2C();  // TODO: undo when done
-
-	block_ms(100);
-	handle_watchdogs();
-
-	writeI2CReg( HMC5843_ADDRESS, 0x02,0x00);
-	block_ms(5);
-	writeI2CReg( ADXL345_ADDRESS, 0x2d,0x08);	
-	block_ms(5);
-	writeI2CReg( ADXL345_ADDRESS, 0x31,0x0b);	
-	block_ms(5);
-  */
-
-	// enable A/D Converter
-	_SSRC = 0x07; // auto-convert
-	_SAMC = 0x1f; // holding (enable this to sample)
-	_ADON = 1;
-
-	//init_fan(); // TODO: undo when done
-
-	U2RXInterruptUserFunction = robot_gps_isr;
+	
+	//U2RXInterruptUserFunction = robot_gps_isr;
 
 	robot_gps_init();
 	_U2RXIE = 1;
-	read_EEPROM_string();
-	  
-  //---I2C testing
-  // TODO: remove when done
-  I2C_Init(kI2CBaudRate100kHz);
-  while (!I2C_IsBusIdle()) {};
-  I2C_RequestData(temperatureSensor);    
-  //---end I2C testing
-	
-	display_board_number();
-
+	read_EEPROM_string();  
+  //display_board_number();
 	REG_CARRIER_SPEAKER_ON = 1;
 	REG_CARRIER_MIC_ON = 1;
 
-	send_lcd_string("Init finished  \r\n",17);
+  //---I2C testing
+  InitTimers();
+  ADC_Init((1 << HUMIDITY_SENSOR_CH));
+  I2C_Init(kI2CBaudRate100kHz);
+  InitI2CDevices();
+
+  // begin the sensor updating process
+  StartTimer(I2C_TIMEOUT_TIMER, I2C_TIMEOUT_TIME);
+  StartTimer(I2C_UPDATE_TIMER, I2C_UPDATE_TIME);
+  
+  //send_lcd_string("Init finished  \r\n", 17);
 }
 
 
@@ -288,90 +297,128 @@ void DeviceCarrierProcessIO(void) {
 	static unsigned int i = 0;
 	i++;
   usb_timeout_counter++;
-  handle_reset();   //see if a reset is required for any reason
+  handle_reset();   // see if a reset is required for any reason
 
 	if (10 < i) {
 		i = 0;
-		DeviceCarrierGetTelemetry();
 		set_led_brightness(WHITE_LED, REG_WHITE_LED);
 		set_led_brightness(IR_LED, REG_IR_LED);
 		update_audio_power_state();
-	
-	  //---I2C testing
-	  if (I2C_ErrorHasOccurred()) {
-  	  static int blah = 0;
-  	  blah++;
-  	} else {
-  	  if (I2C_IsNewDataAvailable() && I2C_IsBusIdle()) {
-    	  UpdateSensors();
-    	}  
-	  }
-  	//---end I2C testing
 	}
 
 	if (REAR_PL_PRESENT() == 0) REAR_PL_PWR_ON(1);
 	else REAR_PL_PWR_ON(0);
 
-	block_ms(10);
-	print_loop_number();
+  TestI2C();
+  
+//	print_loop_number();
+}
+
+
+static void TestI2C(void) {
+  StartTimer(I2C_TIMEOUT_TIMER, I2C_TIMEOUT_TIME);
+    
+  // if an error has occurred, restart the I2C module
+  if (I2C_ErrorHasOccurred() || IsTimerExpired(I2C_TIMEOUT_TIMER)) {
+	  I2C_Init(kI2CBaudRate100kHz);
+    I2C_RequestData(&temperatureSensor); // prime the sensor update loop
+  }
+  
+  UpdateSensors();
+	
+	
+	/*
+	if (I2C_IsBusIdle() && IsTimerExpired(FAN_TIMER)) {
+  	StartTimer(FAN_TIMER, FAN_TIME);
+    // toggle the temperature at which the fan will start
+	  static unsigned char alternator = 0;
+	  if ((++alternator % 2)) {
+  	  // set fan to turn on at temperature lower than ambient
+      dater1[0] = 15;
+      fan.subaddress = 0x10;
+      I2C_WriteData(&fan, dater1);
+  	} else {
+      // set fan to turn on at a temperature higher than ambient
+      dater1[0] = 40;
+      fan.subaddress = 0x10;
+      I2C_WriteData(&fan, dater1);
+  	}
+  }
+  */
 }
 
 
 static void UpdateSensors(void) {
-  #define NUM_SENSORS     4
-  static unsigned char currentSensor = 0;
+  if (I2C_IsBusIdle() && IsTimerExpired(I2C_UPDATE_TIMER)) {
+    StartTimer(I2C_UPDATE_TIMER, I2C_UPDATE_TIME);
+	  UpdateI2CSensors();
+	}
+	
+	// populate the shared registers with the latest values
+  REG_TEMP_INT0 = DecodeTemperatureData(&temperatureSensor);
+  REG_ACCEL_X = DecodeAccelerometerData(&accelerometerX);
+  REG_ACCEL_Y = DecodeAccelerometerData(&accelerometerY);
+  REG_ACCEL_Z = DecodeAccelerometerData(&accelerometerZ);
+  REG_MAGNETIC_X = DecodeMagnetometerData(&magnetometerX);
+  REG_MAGNETIC_Y = DecodeMagnetometerData(&magnetometerY);
+  REG_MAGNETIC_Z = DecodeMagnetometerData(&magnetometerZ);
+	REG_ROBOT_HUMIDITY = ADC_GetConversion(HUMIDITY_SENSOR_CH);
+}  
 
-  static char sensorData[2] = {0, 0};  
+
+static void UpdateI2CSensors(void) {
+  #define NUM_I2C_SENSORS     7
+  static unsigned char currentSensor = 0;
 
   // get your data, then request it for the next guy
   switch (currentSensor) {
     case 0:
       I2C_GetData(&temperatureSensor);
-      I2C_RequestData(accelerometerX);
+      I2C_RequestData(&accelerometerX);
       break;
     case 1:
       I2C_GetData(&accelerometerX);
-      I2C_RequestData(accelerometerY);
+      I2C_RequestData(&accelerometerY);
       break;
     case 2:
       I2C_GetData(&accelerometerY);
-      I2C_RequestData(accelerometerZ);
+      I2C_RequestData(&accelerometerZ);
       break;
-    /*
     case 3:
-      I2C_GetData(accelerometerZ);
-      I2C_RequestData(humiditySensor);
+      I2C_GetData(&accelerometerZ);
+      I2C_RequestData(&magnetometerX);
       // 67 milli-second typical delay should be allowed by the I2C master
   	  // before querying the HMC5883L data registers for new measurements
       break;
-    */
+    case 4:
+      I2C_GetData(&magnetometerX);
+      I2C_RequestData(&magnetometerY);      
+      break;
+    case 5:
+      I2C_GetData(&magnetometerY);
+      I2C_RequestData(&magnetometerZ);
+      break;
+    case 6:
+      I2C_GetData(&magnetometerZ);
+      I2C_RequestData(&temperatureSensor);
+      break;
+    /*
     case 3:
       I2C_GetData(&accelerometerZ);
-      I2C_RequestData(temperatureSensor);
+      I2C_RequestData(&temperatureSensor);
       break;
+    */
   }
   
-  float dummy1, dummy2, dummy3 = 0; 
-  int dummy4 = 0;
-  
-  dummy1 = (accelerometerX.data[0] << 8) | accelerometerX.data[1];
-  dummy2 = (accelerometerY.data[0] << 8) | accelerometerY.data[1];
-  dummy3 = (accelerometerZ.data[0] << 8) | accelerometerZ.data[1];
-  dummy4 = (temperatureSensor.data[1] << 8) | temperatureSensor.data[0];
-  sensorData[0] = temperatureSensor.data[0];
-  sensorData[1] = temperatureSensor.data[1];
-  int blah; 
-  blah++;
-  
   // advance to sample the next sensor, considering rollover
-  if (NUM_SENSORS <= ++currentSensor) currentSensor = 0;
+  if (NUM_I2C_SENSORS <= ++currentSensor) currentSensor = 0;
 }
 
   
 void handle_watchdogs(void) {
 	static unsigned char previous_wdt_pin_state = 0;
 
-	//toggle pin to hardware WDT
+	// toggle the pin to hardware WDT
 	if (previous_wdt_pin_state) {
 		WDT_PIN() = 0;
 		previous_wdt_pin_state = 0;
@@ -380,7 +427,7 @@ void handle_watchdogs(void) {
 		previous_wdt_pin_state = 1;
 	}
 
-	ClrWdt();
+	ClrWdt(); // clear the software WDT
 }
 
 /*---------------------------Interrupt Service Routines-----------------------*/
@@ -424,110 +471,139 @@ static void robot_gps_isr(void) {
 }
 
 /*---------------------------Private Function Definitions---------------------*/
-/*---------------------------I2C-Related--------------------------------------*/
-static void initI2C(void) {
-  /*
-	// Configure I2C for 7 bit address mode 100kHz
-	ODCGbits.ODG3 = 1; // SDA1 is set to open drain
-	ODCGbits.ODG2 = 1; // SCL1 is set to open drain
-
-	OpenI2C1(I2C_ON & I2C_IDLE_CON & I2C_CLK_HLD & I2C_IPMI_DIS & I2C_7BIT_ADD  
-                & I2C_SLW_DIS & I2C_SM_DIS & I2C_GCALL_DIS & I2C_STR_DIS 
-				& I2C_NACK, I2C_RATE_SETTING);
-
-	IdleI2C1();
-
-	// wait a little before continuing...
-	handle_watchdogs();
-	block_ms(100);
-	handle_watchdogs();
-  */
+static inline float DecodeAccelerometerData(I2CDevice *device) {
+  //const float kScalingDivisor = 256;  // = G-range / numResolutionBits
+                                      // = 16 / 2^12 => 1 / 256
+  // Note: it's important to first multiply so as to lose less resolution
+  
+  // for ADXL345
+  int placeholder = (device->data[0] << 8) | (device->data[1]);
+   
+  return ((float)placeholder) * 16.0 / 4096.0;
 }
 
-//reads PCB information from the EEPROM.  This is pretty inefficient, but it should only run once, while the COM Express
-//is booting.
+
+static inline float DecodeTemperatureData(I2CDevice *device) {
+  #define COUNTS_PER_DEGREE_C   16.0
+  // for TMP112 (see p.8 of datasheet)
+  unsigned int placeholder = device->data[1];
+  placeholder = (placeholder << 4) | (device->data[0] >> 4);
+  
+  // if the MSB is high (negative number), take the two's complement
+  if (placeholder & (1 << 12)) placeholder = ~placeholder + 1;
+  
+  return (placeholder / COUNTS_PER_DEGREE_C);
+}  
+
+
+static inline float DecodeMagnetometerData(I2CDevice *device) {
+  // for HMC5843
+	return (device->data[1] | (device->data[0] << 8));
+	
+	//REG_MAGNETIC_X, _Y, _Z
+}
+
+
+//reads PCB information from the EEPROM.  This is pretty inefficient, 
+// but it should only run once, while the COM Express is booting.
 static void read_EEPROM_string(void) {
+  // TODO: what is 78?
   /*
 	unsigned int i;
 	for (i = 0; i < 78; i++) {
 		handle_watchdogs();
 		REG_ROBOT_BOARD_DATA.data[i] = readI2C_Reg(EEPROM_ADDRESS,i);
-		block_ms(5);
+		Delay(5);
 	}
 	*/
 }
-/*---------------------------end I2C-Related--------------------------------------*/
-static int DeviceCarrierReadAdxl345Register(unsigned char add, unsigned char reg) {
-	/*
-	int a,b;
-	int c;
-	a = readI2C_Reg(add,reg);
-	b = readI2C_Reg(add,reg+1);
-	c = a | (b << 8);
-	return c;
-	*/
-	return 0;
+
+
+static void InitI2CDevices(void) {
+	InitFan();
+  InitTemperatureSensor();
+  InitAccelerometer();
+  InitMagnetometer();
+  I2C_RequestData(&temperatureSensor); // prime the sensor update loop
+}
+  
+
+static void InitAccelerometer(void) {
+  handle_watchdogs();
+  
+  // TODO: populate the fields of the static variable(s)?
+  I2CDevice *device;
+  device->address = ADXL345_ADDRESS;
+  device->subaddress = ADXL345_POWER_CTL;
+  unsigned char data[1] = {0};
+  data[0] = (1 << ADXL345_MEASURE_BIT);
+  I2C_WriteData(device, data); Delay(5); handle_watchdogs();
+  
+  device->subaddress = ADXL345_DATA_FORMAT;
+  data[0] = (1 << ADXL345_FULL_RES_BIT) | (1 << ADXL345_RANGE_BIT1) | (1 << ADXL345_RANGE_BIT0);
+  I2C_WriteData(device, data); Delay(5); handle_watchdogs();
 }
 
 
-static int DeviceCarrierReadTmp112Register(unsigned char add, unsigned char reg) {
-	/*
-	int a, b, c;
-	a = readI2C_Reg(add,reg);
-	b = readI2C_Reg(add,reg+1);
-	c = (b >> 4) | (a << 4);
-	return c;
-	*/
-	return 0;
+static void InitMagnetometer(void) {
+  handle_watchdogs();
+  
+  I2CDevice device;
+  device.address = HMC5843_ADDRESS;
+  device.subaddress = HMC5843_MODE;
+  unsigned char data[1] = {0};
+  data[0] = 0x00; // continuous-conversion mode
+  I2C_WriteData(&device, data); Delay(5); handle_watchdogs();
 }
 
 
-static int DeviceCarrierReadHmc5843Register(unsigned char add, unsigned char reg) {
-	/*
-	unsigned char a, b;
-	int c;
-	a = readI2C_Reg(add,reg);
-	b = readI2C_Reg(add,reg+1);
-	c = b | (a << 8);
-	return c;
-	*/
-	return 0;
+static void InitTemperatureSensor(void) {
+  // TODO: implement
 }
 
 
-static void init_fan(void) {
-  /*
+static void InitFan(void) {
 	handle_watchdogs();
 
-	//set fan configuration
-	writeI2CReg(FAN_CONTROLLER_ADDRESS, 0x02, 0b00011010);
-	block_ms(5);
+	// set fan configuration
+	unsigned char data[1] = {0b00011010};
+	fan.subaddress = 0x02;
+	I2C_WriteData(&fan, data); Delay(5); handle_watchdogs();
+	
+	// set the duty cycle rate-of-change to be instant for fan 2
+	// TODO: remove when done
+	fan.subaddress = 0x12;
+	data[1] = 0b00011100;
+	I2C_WriteData(&fan, data); Delay(5); handle_watchdogs();
+	
+  // make fan 2 start as a function of thermistor 1 data
+  data[0] = 0b00011000;
+  fan.subaddress = 0x11;
+	I2C_WriteData(&fan, data); Delay(5); handle_watchdogs();
+	
+	// set fan start duty cycle = 120 / 240 => 50%
+	data[0] = 120;
+	fan.subaddress = 0x07;
+	I2C_WriteData(&fan, data); Delay(5); handle_watchdogs();
+	
+	// set fan to turn on at 15C
+	data[0] = 15;
+	fan.subaddress = 0x10;
+	I2C_WriteData(&fan, data); Delay(5); handle_watchdogs();
 
-  // For thermistor control
-	//make thermistor 1 control fan 2, and vice versa
-	writeI2CReg(FAN_CONTROLLER_ADDRESS, 0x11, 0b00011000);
-	block_ms(5);
-
-	//set fan start duty cycle -> 120/240 = 50%
-	writeI2CReg(FAN_CONTROLLER_ADDRESS, 0x07, 120);
-	block_ms(5);
-
-	//first, set fan to turn on at 15C
-	writeI2CReg(FAN_CONTROLLER_ADDRESS, 0x10, 15);
-
-	block_ms(5);
-
-	//wait a while
-	int i;
+	/*
+  //wait a while
+	unsigned char i;
 	for (i = 0; i < 50; i++) {
 		handle_watchdogs();
-		block_ms(20);
+		Delay(20);
 	}
 
-	//fan turns on at 40C
-	writeI2CReg(FAN_CONTROLLER_ADDRESS, 0x10, 40);
-	block_ms(5);
-	
+	// set fan to turn on at 40C
+	data[0] = 40;
+	fan.subaddress = 0x10;
+	I2C_WriteData(&fan, data);
+	Delay(5);
 	handle_watchdogs();
 	*/
 }
@@ -542,78 +618,25 @@ static void blink_led(unsigned int n, unsigned int ms) {
 	for (i = 0; i<n; i++) {
 		set_led_brightness(WHITE_LED,50);
 		for (j = 0;j < max_j; j++) {
-			block_ms(10);
+			Delay(10);
 			handle_watchdogs();
 		}
 		set_led_brightness(WHITE_LED,0);
 		for (j = 0; j < max_j; j++) {
-			block_ms(10);
+			Delay(10);
 			handle_watchdogs();
 		}
 	}
 }
 
 
-static void DeviceCarrierGetTelemetry() {
-  /*
-	unsigned char a, b;
-	signed int c;
-	int d;
-
- 	IFS0bits.T1IF = 0;	//clear interrupt flag ??
-
-	a = DeviceCarrierReadAdxl345Register(ADXL345_ADDRESS, 0x32); // Accel X-Axis Data 0
-	b = DeviceCarrierReadAdxl345Register(ADXL345_ADDRESS, 0x33); // Accel X-Axis Data 1
-	c = a | (b << 8);
-	REG_ACCEL_X = (float)c * 16.0 / 4096.0;
-
-	a = DeviceCarrierReadAdxl345Register(ADXL345_ADDRESS, 0x34); // Accel Y-Axis Data 0
-	b = DeviceCarrierReadAdxl345Register(ADXL345_ADDRESS, 0x35); // Accel Y-Axis Data 1
-	c = a | (b << 8);
-	REG_ACCEL_Y = (float)c * 16.0 / 4096.0;
-
-	a = DeviceCarrierReadAdxl345Register(ADXL345_ADDRESS, 0x36); // Accel Z-Axis Data 0
-	b = DeviceCarrierReadAdxl345Register(ADXL345_ADDRESS, 0x37); // Accel Z-Axis Data 1
-	c = a | (b << 8);
-	REG_ACCEL_Z = -(float)c * 16.0 / 4096.0;
-
-	d = DeviceCarrierReadTmp112Register(TMP112_0_ADDRESS, 0x00); // Temperature
-	REG_TEMP_INT0 = (float)d / 16.0;
-	
-	REG_MAGNETIC_X = (float)DeviceCarrierReadHmc5843Register(HMC5843_ADDRESS, 0x03); // Magnet X-Axis Data
-	REG_MAGNETIC_Y = (float)DeviceCarrierReadHmc5843Register(HMC5843_ADDRESS, 0x05); // Magnet Y-Axis Data 0
-	REG_MAGNETIC_Z = (float)DeviceCarrierReadHmc5843Register(HMC5843_ADDRESS, 0x07); // Magnet Z-Axis Data 0
-
-  // monitor reads in debugger
-  debuggingOutputs.magneticX = REG_MAGNETIC_X;
-  debuggingOutputs.magneticY = REG_MAGNETIC_Y;
-  debuggingOutputs.magneticZ = REG_MAGNETIC_Z;
-  debuggingOutputs.accelerometerX = REG_ACCEL_X;
-  debuggingOutputs.accelerometerY = REG_ACCEL_Y;
-  debuggingOutputs.accelerometerZ = REG_ACCEL_Z;
-  debuggingOutputs.temperature = REG_TEMP_INT0;
-
-  // get an analog reading from the humidity sensor
-	_ADON = 0;
-	_CH0SA = HUMIDITY_SENSOR_CH;
-	_ADON = 1;
-	_SAMP = 1;
-	
-	while (!_DONE) {};
-
-	REG_ROBOT_HUMIDITY = ADC1BUF0 * ADC_REF_VOLTAGE / ADC_SAMPLE_COUNT;
-
-	REG_TELEMETRY_COUNT++;
-	*/
-}
-
-
-static void init_io(void) {
+static void InitPins(void) {
+	// reset the A/D module
 	AD1CON1 = 0x0000;
 	AD1CON2 = 0x0000;
 	AD1CON3 = 0x0000;
-
-	AD1PCFGL = 0xffff;
+  AD1PCFGL = 0xffff;
+	
 	TRISB = 0xffff;
 	TRISC = 0xffff;
 	TRISD = 0xffff;
@@ -638,17 +661,18 @@ static void init_io(void) {
 	MIC_PWR_EN(1);
 	CODEC_PWR_EN(1);
 	COM_EXPRESS_PGOOD_EN(1);
-	HUMIDITY_SENSOR_EN(1);
+	ENABLE_POWER_BUTTON(1);
+	ENABLE_DRDY(1);
 	REAR_PL_PWR_EN(1);
 }
 
 
-static void de_init_io(void) {
-	AD1CON1 = 0x0000;
-	AD1CON2 = 0x0000;
-	AD1CON3 = 0x0000;
-
-	AD1PCFGL = 0xffff;
+static void DeInitPins(void) {
+  AD1CON1 = 0x0000;
+  AD1CON2 = 0x0000;
+  AD1CON3 = 0x0000;
+  AD1PCFGL = 0xffff;
+  
 	TRISB = 0xffff;
 	TRISC = 0xffff;
 	TRISD = 0xffff;
@@ -692,14 +716,10 @@ static void hard_reset_robot(void) {
   _U1TXIE = 0;
   U1STAbits.UTXEN = 0;
 
-  //I2C1CON = 0x0000; // TODO: undo when done
-  //I2C1STAT = 0x0000;
   U1MODE = 0x0000;
   U1STA = 0x0000;
   U2MODE = 0x0000;
   U2STA = 0x0000;
-
-  //disable/enable USB?
 
   //reenable WDT, so PIC stays up
   WDT_PIN_EN(1);
@@ -714,16 +734,16 @@ static void hard_reset_robot(void) {
   unsigned int i;
   for (i = 0; i < 5; i++) {
     handle_watchdogs();
-    block_ms(50);
+    Delay(50);
   }
 
   //set all pins to default state (inputs)
-  de_init_io();
+  DeInitPins();
 
   //wait some more time
   for (i = 0; i < 5; i++) {
     handle_watchdogs();
-    block_ms(50);
+    Delay(50);
   }
 
   DeviceCarrierInit();
@@ -742,7 +762,7 @@ static void handle_reset(void) {
   //(0 through ff are invalid values)
   if (0xff < REG_ROBOT_RESET_REQUEST) {
     REG_ROBOT_RESET_CODE = REG_ROBOT_RESET_REQUEST;
-    display_int("RST_CODE:         \r\n", REG_ROBOT_RESET_CODE);
+    //display_int("RST_CODE:         \r\n", REG_ROBOT_RESET_CODE);
     REG_ROBOT_RESET_REQUEST = 0;
 
     //blink 10 times if wifi module never detected
@@ -784,12 +804,12 @@ static void handle_reset(void) {
       computer_shutdown_counter = 0;
       if(NC_THERM_TRIP()==0)
       {
-      	send_lcd_string("Computer overheat detected  \r\n",30);
+      	//send_lcd_string("Computer overheat detected  \r\n",30);
         REG_ROBOT_RESET_CODE = RST_SHUTDOWN_OVERHEAT;
       }
       else
       {
-      	send_lcd_string("No computer overheat detected  \r\n",33);
+      	//send_lcd_string("No computer overheat detected  \r\n",33);
         REG_ROBOT_RESET_CODE = RST_SHUTDOWN;
       }
       //blink four times so we know that the COM Express has shut down
@@ -804,8 +824,8 @@ static void init_pwm(void) {
 	//setup LED PWM channels
 	T2CONbits.TCKPS = 0;	
 
-	WHITE_LED_OR = 18;	//OC1
-	IR_LED_OR	= 19;	//OC2
+	WHITE_LED_OR = 18;	// OC1
+	IR_LED_OR	= 19;	    // OC2
 
 	//AP8803: dimming frequency must be below 500Hz
 	//Choose 400Hz (2.5ms period)
@@ -842,7 +862,7 @@ static void set_led_brightness(unsigned char led_type, unsigned char duty_cycle)
 	}
 }
 
-
+/*
 static int DeviceCarrierBoot(void) {
 	unsigned int i = 0;
 
@@ -851,7 +871,7 @@ static int DeviceCarrierBoot(void) {
 	//while(!V3V3_PGOOD());
 
 	//weird -- long interval between turning on V3V3 and V5 doesn't allow COM Express to boot
-	block_ms(100);
+	Delay(100);
 
 	V5_ON(1);
 
@@ -859,11 +879,11 @@ static int DeviceCarrierBoot(void) {
 		i++;
 		if (5 < i) return 0;
 		handle_watchdogs();
-		block_ms(100);
+		Delay(100);
 	}
 	i = 0;
 	handle_watchdogs();
-	block_ms(100);
+	Delay(100);
 
 	send_lcd_string("Boot 1  \r\n",10);
 
@@ -871,7 +891,7 @@ static int DeviceCarrierBoot(void) {
 		i++;
 		if (20 < i) return 0;
 		handle_watchdogs();
-		block_ms(100);
+		Delay(100);
 	}
 
 	send_lcd_string("Boot 2  \r\n",10);
@@ -883,10 +903,25 @@ static int DeviceCarrierBoot(void) {
 		i++;
 		if (20 < i) return 0;
 		handle_watchdogs();
-		block_ms(100);
+		Delay(100);
 	}
 
 	blink_led(6,500);
 
 	return 1;
+}
+*/
+
+
+static void WriteBuildTime(void) {
+	const unsigned char build_date[12] = __DATE__; 
+	const unsigned char build_time[12] = __TIME__;
+  int i = 0;
+	for (i = 0; i < 12; i++) {
+		if ((build_date[i] == 0)) REG_ROBOT_FIRMWARE_BUILD.data[i] = ' ';
+		else REG_ROBOT_FIRMWARE_BUILD.data[i] = build_date[i];
+		
+		if (build_time[i] == 0) REG_ROBOT_FIRMWARE_BUILD.data[i+12] = ' ';
+		else REG_ROBOT_FIRMWARE_BUILD.data[i+12] = build_time[i];
+	}
 }

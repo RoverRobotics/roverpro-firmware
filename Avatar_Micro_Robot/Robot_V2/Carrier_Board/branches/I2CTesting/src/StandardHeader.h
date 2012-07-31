@@ -12,8 +12,18 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 #define STANDARD_HEADER_H
 /*---------------------------Dependencies-------------------------------------*/
 #include <p24FJ256GB106.h>
+// TODO: thin out dependencies
+#include <stdint.h>
+#include <libpic30.h>
+#include "./GenericTypeDefs.h"
+#include "./Compiler.h"
+#include "./USB/usb.h"
+#include "./PwrMgnt.h"
+#include "../HardwareProfile.h"
 
 /*---------------------------Macros-------------------------------------------*/
+#define F_CY                  16000000UL  // 16MHz instruction clock
+
 #define OFF                   0
 #define ON                    1
 

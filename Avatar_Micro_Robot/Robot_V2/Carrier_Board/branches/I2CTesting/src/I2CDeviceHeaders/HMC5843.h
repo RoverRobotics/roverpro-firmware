@@ -17,8 +17,8 @@ TODO: finish and organize in a useful way
 #define HMC5843_MODE              2
 
 // read-only
-#define HMC5843_X_A               3
-#define HMC5843_X_B               4
+#define HMC5843_X_A               3   // MSB of data
+#define HMC5843_X_B               4   // LSB of data
 #define HMC5843_Y_A               5
 #define HMC5843_Y_B               6
 #define HMC5843_Z_A               7
