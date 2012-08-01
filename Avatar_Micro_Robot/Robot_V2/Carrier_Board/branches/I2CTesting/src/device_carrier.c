@@ -10,6 +10,7 @@ File: device_carrier.c
 #include "./I2CDeviceHeaders/HMC5843.h"
 #include "device_carrier.h"
 #include "./StandardHeader.h"
+#include "./TestCode.h"
 
 /*---------------------------Macros-------------------------------------------*/
 #define V3V3_ON(a)              (_LATC14 = (a))
@@ -112,16 +113,16 @@ static void set_led_brightness(unsigned char ledType, unsigned char dutyCycle);
 static void robot_gps_isr(void);
 static void robot_gps_init(void);
 
-static void InitPins(void);
-static void DeInitPins(void);
 static void blink_led(unsigned int n, unsigned int ms);
 static void init_pwm(void);
 static void update_audio_power_state(void);
 static void hard_reset_robot(void);
 static void handle_reset(void);
 
-static void read_EEPROM_string(void);
+static void InitPins(void);
+static void DeInitPins(void);
 
+static void ReadEEPROM(void);
 static void WriteBuildTime(void);
 static void InitI2CDevices(void);
 static void InitTemperatureSensor(void);
@@ -133,7 +134,6 @@ static void UpdateI2CSensors(void);
 static inline float DecodeAccelerometerData(I2CDevice *device);
 static inline float DecodeTemperatureData(I2CDevice *device);
 static inline float DecodeMagnetometerData(I2CDevice *device);
-static void TestI2C(void); // TODO: delete when done
 
 /*---------------------------Module Variables---------------------------------*/
 static unsigned int number_of_resets = 0;
@@ -240,7 +240,7 @@ void DeviceCarrierInit(void) {
 
 	WDT_PIN_EN(1);
   WriteBuildTime();
-	//init_lcd_uart();
+	InitTestCode(); // TODO: test that this test code works
 	init_pwm();
 	
 	//turn on 12V regulator, and MOSFET for 12V regulator input
@@ -257,7 +257,7 @@ void DeviceCarrierInit(void) {
 		//keep trying to boot COM Express until successful
 	while (1) {
 	  if (DeviceCarrierBoot() == 0) {
-		  send_lcd_string("Computer boot failed  ",22);
+		  send_lcd_string("Computer boot failed  ", 22);
 			blink_led(3,2000);
 			{__asm__ volatile ("reset");};
 		} else {
@@ -266,30 +266,28 @@ void DeviceCarrierInit(void) {
 	}
 	#endif
 	
-	//send_lcd_string("Computer booted  \r\n",19); Delay(100); handle_watchdogs();
+	SendLCDString("Computer booted  \r\n",19); Delay(100); handle_watchdogs();
 	
 	CODEC_PWR_ON(1);
 	
-	//U2RXInterruptUserFunction = robot_gps_isr;
-
 	robot_gps_init();
 	_U2RXIE = 1;
-	read_EEPROM_string();  
-  //display_board_number();
+	ReadEEPROM();
+  DisplayBoardNumber();
 	REG_CARRIER_SPEAKER_ON = 1;
 	REG_CARRIER_MIC_ON = 1;
-
+  
   //---I2C testing
   InitTimers();
   ADC_Init((1 << HUMIDITY_SENSOR_CH));
   I2C_Init(kI2CBaudRate100kHz);
   InitI2CDevices();
-
+  
   // begin the sensor updating process
   StartTimer(I2C_TIMEOUT_TIMER, I2C_TIMEOUT_TIME);
   StartTimer(I2C_UPDATE_TIMER, I2C_UPDATE_TIME);
   
-  //send_lcd_string("Init finished  \r\n", 17);
+  SendLCDString("Init finished  \r\n", 17);
 }
 
 
@@ -309,13 +307,13 @@ void DeviceCarrierProcessIO(void) {
 	if (REAR_PL_PRESENT() == 0) REAR_PL_PWR_ON(1);
 	else REAR_PL_PWR_ON(0);
 
-  TestI2C();
+  UpdateSensors();
   
-//	print_loop_number();
+  PrintLoopNumber();
 }
 
 
-static void TestI2C(void) {
+static void UpdateSensors(void) {
   StartTimer(I2C_TIMEOUT_TIMER, I2C_TIMEOUT_TIME);
     
   // if an error has occurred, restart the I2C module
@@ -324,31 +322,6 @@ static void TestI2C(void) {
     I2C_RequestData(&temperatureSensor); // prime the sensor update loop
   }
   
-  UpdateSensors();
-	
-	
-	/*
-	if (I2C_IsBusIdle() && IsTimerExpired(FAN_TIMER)) {
-  	StartTimer(FAN_TIMER, FAN_TIME);
-    // toggle the temperature at which the fan will start
-	  static unsigned char alternator = 0;
-	  if ((++alternator % 2)) {
-  	  // set fan to turn on at temperature lower than ambient
-      dater1[0] = 15;
-      fan.subaddress = 0x10;
-      I2C_WriteData(&fan, dater1);
-  	} else {
-      // set fan to turn on at a temperature higher than ambient
-      dater1[0] = 40;
-      fan.subaddress = 0x10;
-      I2C_WriteData(&fan, dater1);
-  	}
-  }
-  */
-}
-
-
-static void UpdateSensors(void) {
   if (I2C_IsBusIdle() && IsTimerExpired(I2C_UPDATE_TIMER)) {
     StartTimer(I2C_UPDATE_TIMER, I2C_UPDATE_TIME);
 	  UpdateI2CSensors();
@@ -430,13 +403,14 @@ void handle_watchdogs(void) {
 	ClrWdt(); // clear the software WDT
 }
 
-/*---------------------------Interrupt Service Routines-----------------------*/
+
+/*---------------------------Private Function Definitions---------------------*/
 static void robot_gps_isr(void) {
 	static unsigned char gps_message_state = 0;
 	static unsigned char gps_message_temp[100];
 
 	//filter for messages starting with $GPGGA
-	unsigned char message_filter[6] = {'$','G','P','G','G','A'};
+	unsigned char message_filter[6] = {'$', 'G', 'P', 'G', 'G', 'A'};
 	unsigned char i;
 	unsigned char new_byte;
 	U2STAbits.OERR = 0;
@@ -470,7 +444,7 @@ static void robot_gps_isr(void) {
 	}
 }
 
-/*---------------------------Private Function Definitions---------------------*/
+
 static inline float DecodeAccelerometerData(I2CDevice *device) {
   //const float kScalingDivisor = 256;  // = G-range / numResolutionBits
                                       // = 16 / 2^12 => 1 / 256
@@ -498,24 +472,33 @@ static inline float DecodeTemperatureData(I2CDevice *device) {
 
 static inline float DecodeMagnetometerData(I2CDevice *device) {
   // for HMC5843
-	return (device->data[1] | (device->data[0] << 8));
-	
-	//REG_MAGNETIC_X, _Y, _Z
+	return ((device->data[0] << 8) | device->data[1]);
 }
 
 
-//reads PCB information from the EEPROM.  This is pretty inefficient, 
-// but it should only run once, while the COM Express is booting.
-static void read_EEPROM_string(void) {
+/*
+Description: Reads the PCB information from the EEPROM.  It should
+  only run once while the OCM Express is booting.
+  TODO: test this with an actual EEPROM
+*/
+static void ReadEEPROM(void) {
   // TODO: what is 78?
-  /*
+  #define NUM_EEPROM_BYTES    78
+  unsigned char buffer[1] = {0};
+  
+  I2CDevice eeprom;
+  eeprom.address = EEPROM_ADDRESS;
+  eeprom.numDataBytes = 1;
+  eeprom.data = buffer;
 	unsigned int i;
-	for (i = 0; i < 78; i++) {
-		handle_watchdogs();
-		REG_ROBOT_BOARD_DATA.data[i] = readI2C_Reg(EEPROM_ADDRESS,i);
-		Delay(5);
+	for (i = 0; i < NUM_EEPROM_BYTES; i++) {
+		handle_watchdogs(); Delay(10);
+		eeprom.subaddress = i;
+		I2C_RequestData(&eeprom); handle_watchdogs(); Delay(10);
+		// assume that 10ms is long enough and that no errors occurr
+		I2C_GetData(&eeprom);
+		REG_ROBOT_BOARD_DATA.data[i] = eeprom.data[0]; 
 	}
-	*/
 }
 
 

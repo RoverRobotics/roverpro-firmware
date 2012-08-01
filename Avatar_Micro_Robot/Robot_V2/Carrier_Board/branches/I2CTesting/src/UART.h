@@ -16,8 +16,8 @@ Notes:
 
 // UART baud rate options, used during initialization
 typedef enum {
-  kUARTBaudRate5760,  // TODO: validate this!
 	kUARTBaudRate9600,
+	kUARTBaudRate57600,
 	kUARTBaudRate115200
 } UARTBaudRate;
 

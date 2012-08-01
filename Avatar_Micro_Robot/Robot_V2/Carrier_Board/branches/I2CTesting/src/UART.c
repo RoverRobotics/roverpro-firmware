@@ -36,8 +36,6 @@ static void ConfigureBaudRate(UARTBaudRate baudRate);
 
 #define TX_PACKET_LENGTH      9
 
-static unsigned char rx_packet[15] = {0};
-
 int main(void) {
   // enable any external IC's
   RS485_OUTEN_EN(1);
@@ -58,8 +56,7 @@ int main(void) {
       Pause(1000);
     }
     */
-    
-    // inspect rx_packet in debugger window
+
     // see if anything gets send to python script
     unsigned char dummyBreakPoint = 0;
  	
@@ -90,11 +87,11 @@ void U1RX_ISR(void) {
 Notes:
 	- by default, configures to 1 stop bit, 8-bit transmission, no parity
 */
-void InitUART(unsigned char Tx_pin, unsigned char Rx_pin, 
-              UARTBaudRate baudRate) {
-	MapPeripheral(Tx_pin, OUTPUT, FN_U1TX);
-	MapPeripheral(Rx_pin, INPUT, FN_U1RX);
-	ConfigureBaudRate(baud_rate);
+void UART_Init(unsigned char Tx_pin, unsigned char Rx_pin, 
+               UARTBaudRate baudRate) {
+	PPS_MapPeripheral(Tx_pin, OUTPUT, FN_U1TX);
+	PPS_MapPeripheral(Rx_pin, INPUT, FN_U1RX);
+	ConfigureBaudRate(baudRate);
 	
 	_U1RXIP = 6;            // configure interrupt priority
 	_U1TXIP = 5;            // Note: 7 is highest priority interrupt
@@ -110,12 +107,12 @@ void InitUART(unsigned char Tx_pin, unsigned char Rx_pin,
 }
 
 
-void inline TransmitByte(unsigned char message) {
-  U1TXREG = message;
+void inline UART_TransmitByte(unsigned char byte) {
+  U1TXREG = byte;
 }
 
 
-char inline GetRxByte(void) {
+char inline UART_GetRxByte(void) {
   return (char)U1RXREG;
 }
 
@@ -145,9 +142,8 @@ Notes:
 static void ConfigureBaudRate(UARTBaudRate baudRate) {
   U1MODEbits.BRGH = 1;		// configure for high precision baud rate
   switch (baudRate) {
-    case kUARTBaudRate5760:   U1BRG = 68; break;
-    case kUARTBaudRate9600:   U1BRG = 416; break;  // 0.07% error
-    case kUARTBaudRate115200: U1BRG = 34; break; // 0.62% error
+    case kUARTBaudRate9600:   U1BRG = 416; break;
+    case kUARTBaudRate57600:  U1BRG = 68; break;
+    case kUARTBaudRate115200: U1BRG = 34; break;
   }
-  
 }
