@@ -426,7 +426,7 @@ void print_battery_registers(void) {
   int ocu_batt_current_index = GetRegisterIndex(&telemetry::REG_OCU_BATT_CURRENT);
   int rel_soc_left = 0;
   int rel_soc_right = 0;
-  int batt_current = 0;
+  int16_t batt_current = 0;
 
   unsigned int checksum;
 
