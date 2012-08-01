@@ -1101,34 +1101,48 @@ void init_fan_controller(void)
 //	unsigned char temp1 = 0;
 //	unsigned char temp2 = 0;	
 
+  unsigned int i;
+
 	IEC3bits.MI2C2IE = 1;
 
-  //wait to make sure the +3.3V supply stabilizes
-  block_ms(500);
+  //keep initializing fan controller for 3 seconds
+  for(i=0;i<6;i++)
+  {
 
-	//set fan configuration
-	start_ocu_batt_i2c_write(I2C_ADD_FAN_CONTROLLER,0x02,0b00011010);
-	block_ms(5);
+    //Allow power button to turn off controller in this loop
+    handle_power_button();
 
-	//make thermistor 1 control fan 2, and vice versa
-	start_ocu_batt_i2c_write(I2C_ADD_FAN_CONTROLLER,0x11,0b00011000);
-	block_ms(5);
+    //wait to make sure the +3.3V supply stabilizes
+    block_ms(500);
 
-	//set fan start duty cycle -> 120/240 = 50%
-	start_ocu_batt_i2c_write(I2C_ADD_FAN_CONTROLLER,0x07,120);
-	block_ms(5);
+  	//set fan configuration
+  	start_ocu_batt_i2c_write(I2C_ADD_FAN_CONTROLLER,0x02,0b00011010);
+  	block_ms(5);
+  
+  	//make thermistor 1 control fan 2, and vice versa
+  	start_ocu_batt_i2c_write(I2C_ADD_FAN_CONTROLLER,0x11,0b00011000);
+  	block_ms(5);
+  
+  	//set fan start duty cycle -> 120/240 = 50%
+  	start_ocu_batt_i2c_write(I2C_ADD_FAN_CONTROLLER,0x07,120);
+  	block_ms(5);
+  
+  
+  	//fan turns on at 0C
+  	start_ocu_batt_i2c_write(I2C_ADD_FAN_CONTROLLER,0x10,0);	
+    block_ms(200);
+  	//fan turns on at 35C
+  	start_ocu_batt_i2c_write(I2C_ADD_FAN_CONTROLLER,0x10,35);
+  
+  	
+  	block_ms(5);
+    
+    ClrWdt();
 
 
-	//fan turns on at 0C
-	start_ocu_batt_i2c_write(I2C_ADD_FAN_CONTROLLER,0x10,0);	
-  block_ms(200);
-	//fan turns on at 35C
-	start_ocu_batt_i2c_write(I2C_ADD_FAN_CONTROLLER,0x10,35);
+  }
 
-	
-	block_ms(5);
-
-	IEC3bits.MI2C2IE = 0;
+  	IEC3bits.MI2C2IE = 0;
 
 }
 
