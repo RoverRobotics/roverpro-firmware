@@ -32,6 +32,7 @@ static inline void SelectAnalogPin(unsigned char analogPinIndex);
 static void ADC_ExecuteISR(void);
 
 /*---------------------------Module Variables---------------------------------*/
+static unsigned int consumedPins = 0;		// bit mask of consumed pins
 static unsigned int buffer[MAX_NUM_AD_INPUTS] = {0};
 
 /*---------------------------Test Harness-------------------------------------*/
@@ -46,21 +47,36 @@ int main(void) {
     if (500 <= ADC_Get(0)) _RE5 = 1;
 		else _RE5 = 0;
 	}
-
+	
+	ADC_Deinit();
+	
 	return 0;
 }
 
 #endif
 /*---------------------------Public Function Definitions----------------------*/
 void ADC_Init(unsigned int bitMask) {
+	consumedPins = bitMask;
 	ConfigurePins(bitMask);
 	ConfigureInterrupt();
 	AD1CON1bits.ASAM = 1; 			// begin auto-sampling
 }
 
+
 unsigned int ADC_GetConversion(unsigned char analogInputIndex) {
   return buffer[analogInputIndex];
 }
+
+
+void ADC_Deinit(void) {
+	// turn OFF the A/D module
+	AD1CON1bits.ADON = 0;
+	
+	// restore any pins
+	TRISB &= ~(consumedPins);	// return any inputs to their default as outputs
+	AD1PCFGL |= consumedPins;	// 1 = pin in digital mode
+}
+
 
 void __attribute__((__interrupt__, auto_psv)) _ADC1Interrupt(void) {
 	ADC_ExecuteISR();
@@ -69,7 +85,7 @@ void __attribute__((__interrupt__, auto_psv)) _ADC1Interrupt(void) {
 /*---------------------------Private Function Definitions---------------------*/
 /*
 Function: ADC_ExecuteISR
-Description: Cycles through each result as it it produced, updating a 
+Description: Cycles through each result as it is produced, updating a 
   software buffer (module-level array)
 Notes:
 	- results are placed into address ADCBUF0 and each sequential buffer 
@@ -84,10 +100,7 @@ static void ADC_ExecuteISR(void) {
 	IFS0bits.AD1IF = 0;     		// clear the source of the interrupt
 }
 
-/*
-Function: ConfigurePins
-Description: Configures and initializes an pins associated with this module.
-*/
+
 static void ConfigurePins(unsigned int bitMask) {
 	// configure port pin(s) as analog input(s)
 	TRISB |= bitMask;
@@ -113,11 +126,7 @@ static void ConfigurePins(unsigned int bitMask) {
 	AD1CON3bits.SAMC = 0b11111;	// configure how often to auto-sample (SAMC * TAD)	
 }
 
-/*
-Function: ConfigureInterrupt
-Notes:
-  - interrupts to fire at the completion of every 32nd A/D conversion
-*/
+
 static void ConfigureInterrupt(void) {
 	AD1CON2bits.SMPI = 0b01111;	// configure the interrupt rate
 	AD1CON1bits.ADON = 1; 			// turn on A/D module
@@ -125,6 +134,7 @@ static void ConfigureInterrupt(void) {
 	_AD1IP = 3;                 // configure the A/D interrupt priority
 	IEC0bits.AD1IE = 1; 				// enable the AD1 interrupt
 }
+
 
 static inline void SelectAnalogPin(unsigned char analogPinIndex) {
 	AD1CHSbits.CH0SA = analogPinIndex;	  // configure the positive reference

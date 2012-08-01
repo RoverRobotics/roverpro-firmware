@@ -52,6 +52,14 @@ char inline UART_GetRxByte(void);
 
 
 /*******************************************************************************
+Function: UART_Deinit
+Description: Deinitializes this module, restoring any resources and/or pins 
+  that were allocated during initialization.
+*******************************************************************************/
+void UART_Deinit(void);
+
+
+/*******************************************************************************
 Usage: U1Tx_UserISR = MyU1TxISRFunctionName;
 Usage: U1Rx_UserISR = MyU1RxISRFunctionName;
 *******************************************************************************/

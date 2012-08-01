@@ -200,6 +200,12 @@ unsigned char I2C_ErrorHasOccurred(void) {
          errorHasOccurred);
 }
 
+
+void I2C_Deinit(void) {
+  I2C1CONbits.I2CEN = 0;  // turn off I2C and restore consumed pins
+  I2C_RefreshModule();
+}
+  
 /*---------------------------Interrupt Service Routines-----------------------*/
 /*
 Description: This ISR contains a state machine that constitues the core of this

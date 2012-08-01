@@ -23,7 +23,7 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
       
 /*---------------------------Public Functions---------------------------------*/
 /*******************************************************************************
-Function: InitTimers()
+Function: InitTimers
 Description: Initializes the hardware timer
 Notes:
 	1) this function must be called before using any of the library functions
@@ -32,7 +32,7 @@ void InitTimers(void);
 
 
 /*******************************************************************************
-Function: StartTimer()
+Function: StartTimer
 Paramters:
 	unsigned char timerIndex,	  the index of the timer
 	unsigned int milliseconds,  the duration in units of milliseconds after
@@ -42,7 +42,7 @@ void StartTimer(unsigned char timerIndex, unsigned int milliseconds);
 
 
 /*******************************************************************************
-Function: InitBase()
+Function: InitBase
 Parameters:
 	unsigned char timerIndex,	  the index of the timer 
 Description: Returns whether the given timer has expired
@@ -51,7 +51,7 @@ unsigned char IsTimerExpired(unsigned char timerIndex);
 
 
 /*******************************************************************************
-Function: GetTime()
+Function: GetTime
 Returns:
 	unsigned long int, the number of milliseconds passed since initialization
 *******************************************************************************/
@@ -59,14 +59,19 @@ unsigned long int GetTime(void);
 
 
 /*******************************************************************************
-Function: Pause()
+Function: DeinitTimers
+Description: Deinitializes this module, restoring any resources and/or pins 
+  that were allocated during initialization.
+*******************************************************************************/
+void DeinitTimers(void);
 
+
+/*******************************************************************************
+Function: Pause
 Parameters:
 	unsigned int milliseconds, the number of milliseconds for which to pause
-
 Description: Pauses for the given number of milliseconds by iterating until 
 	the approximate amount of time has passed.
-
 Notes:
 	- blocking code!
 *******************************************************************************/

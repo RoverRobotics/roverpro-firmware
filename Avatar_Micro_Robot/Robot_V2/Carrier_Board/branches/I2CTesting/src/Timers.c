@@ -107,6 +107,12 @@ unsigned long int GetTime(void) {
 }
 
 
+void DeinitTimers(void) {
+	T1CONbits.TON = 0;  // turn off timer1
+	_T1IE = 0;          // disable the interrupt
+}
+
+
 void Pause(unsigned int milliseconds) {
   unsigned int startTicks = GetTime();
   while ((GetTime() - startTicks) < milliseconds) {}

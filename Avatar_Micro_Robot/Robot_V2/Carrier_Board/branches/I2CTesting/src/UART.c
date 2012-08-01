@@ -14,12 +14,15 @@ F_CY = F_OSC / 2 = 16MHz
 #include "./StandardHeader.h"
 
 // make ISR's an empty function by default
-void DummyISR(void);
-void (*U1TX_UserISR)(void) = DummyISR;
-void (*U1RX_UserISR)(void) = DummyISR;
+void UART_DummyISR(void);
+void (*U1TX_UserISR)(void) = UART_DummyISR;
+void (*U1RX_UserISR)(void) = UART_DummyISR;
 
 /*---------------------------Helper Function Prototypes-----------------------*/
 static void ConfigureBaudRate(UARTBaudRate baudRate);
+
+/*---------------------------Module Variables---------------------------------*/ 
+static unsigned char U1TX_RPn, U1RX_RPn = 0; // remappable pin number
 
 /*---------------------------Test Harness-------------------------------------*/
 #ifdef TEST_UART
@@ -89,8 +92,10 @@ Notes:
 */
 void UART_Init(unsigned char Tx_pin, unsigned char Rx_pin, 
                UARTBaudRate baudRate) {
-	PPS_MapPeripheral(Tx_pin, OUTPUT, FN_U1TX);
-	PPS_MapPeripheral(Rx_pin, INPUT, FN_U1RX);
+	U1TX_RPn = Tx_pin;
+	U1RX_RPn = Rx_pin;
+	PPS_MapPeripheral(U1TX_RPn, OUTPUT, FN_U1TX);
+	PPS_MapPeripheral(U1RX_RPn, INPUT, FN_U1RX);
 	ConfigureBaudRate(baudRate);
 	
 	_U1RXIP = 6;            // configure interrupt priority
@@ -117,10 +122,26 @@ char inline UART_GetRxByte(void) {
 }
 
 
-void DummyISR(void) {
+void UART_Deinit(void) {
+  // turn the UART module off
+  U1MODEbits.UARTEN = 0;  // disable UART1 	
+  IEC0bits.U1TXIE = 0;    // disable UART1 Tx interrupt
+	IEC0bits.U1RXIE = 0;    // disable UART1 Rx interrupt
+	U1STAbits.UTXEN = 0;    // disable transmission
+  
+  // restore any pins
+  PPS_MapPeripheral(U1TX_RPn, OUTPUT, FN_NULL);
+	PPS_MapPeripheral(U1RX_RPn, OUTPUT, FN_NULL);
+	
+	// point any user ISR's to the dummy function
+	U1TX_UserISR = UART_DummyISR;
+	U1RX_UserISR = UART_DummyISR;
 }
 
   
+void UART_DummyISR(void) {}
+
+
 void  __attribute__((__interrupt__, auto_psv)) _U1TXInterrupt(void) {
  	U1TX_UserISR();
 }
@@ -129,7 +150,6 @@ void  __attribute__((__interrupt__, auto_psv)) _U1TXInterrupt(void) {
 void  __attribute__((__interrupt__, auto_psv)) _U1RXInterrupt(void) {
  	U1RX_UserISR();
 }
-
 
 /*---------------------------Private Function Definitions---------------------*/
 /*

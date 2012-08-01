@@ -96,4 +96,12 @@ Function: I2C_RefreshModule
 *******************************************************************************/
 void I2C_RefreshModule(void);
 
+
+/*******************************************************************************
+Function: I2C_Deinit
+Description: Deinitializes this module, restoring any resources and/or pins 
+  that were allocated during initialization.
+*******************************************************************************/
+void I2C_Deinit(void);
+
 #endif

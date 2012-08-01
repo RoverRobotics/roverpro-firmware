@@ -34,4 +34,12 @@ Description: Returns the last updated value in the buffer for the given pin in
 *******************************************************************************/
 unsigned int ADC_GetConversion(unsigned char analogInputIndex);
 
+
+/*******************************************************************************
+Function: ADC_Deinit
+Description: Deinitializes this module, restoring any resources and/or pins 
+  that were allocated during initialization.
+*******************************************************************************/
+void ADC_Deinit(void);
+
 #endif

@@ -5,6 +5,7 @@ File: device_carrier.c
 /*---------------------------Dependencies-------------------------------------*/
 #include "./Timers.h"
 #include "./ADC.h"          // for the humidity sensor
+#include "./PWM.h"          // for blinking the LED
 #include "./I2C.h"
 #include "./I2CDeviceHeaders/ADXL345.h"
 #include "./I2CDeviceHeaders/HMC5843.h"
@@ -52,8 +53,8 @@ File: device_carrier.c
 #define ENABLE_DRDY(a)          (_TRISB2 = (a)) 
 #define DRDY()                  _RB2
 
-#define WHITE_LED_OR			      _RP25R
-#define IR_LED_OR				        _RP22R
+#define WHITE_LED_RPN			      25    // white LED remappable pin number
+#define IR_LED_RPN				      22    // IR LED remappable pin number
 
 #define POWER_BUTTON()			    !_RB4
 #define ENABLE_POWER_BUTTON(a)   (_TRISB4 = (a))
@@ -107,20 +108,21 @@ typedef enum {
 } CARRIER_STATE_ENUM;
 
 /*---------------------------Helper Function Prototypes-----------------------*/
-static void set_led_brightness(unsigned char ledType, unsigned char dutyCycle);
 //static int DeviceCarrierBoot(void);
 
 static void robot_gps_isr(void);
-static void robot_gps_init(void);
+
+
 
 static void blink_led(unsigned int n, unsigned int ms);
-static void init_pwm(void);
 static void update_audio_power_state(void);
 static void hard_reset_robot(void);
 static void handle_reset(void);
 
+static void InitRobotGPS(void);
+
 static void InitPins(void);
-static void DeInitPins(void);
+static void DeinitPins(void);
 
 static void ReadEEPROM(void);
 static void WriteBuildTime(void);
@@ -210,7 +212,7 @@ void  __attribute__((__interrupt__, auto_psv)) _U2RXInterrupt(void) {
 void DeviceCarrierInit(void) {
   if (number_of_resets == 0) REG_ROBOT_RESET_CODE = RST_POWER_ON;
 
-	DeInitPins();
+	DeinitPins();
   
 	//enable software watchdog if power button is not held down.  Otherwise, sleep forever.
   if (POWER_BUTTON()) {
@@ -241,7 +243,7 @@ void DeviceCarrierInit(void) {
 	WDT_PIN_EN(1);
   WriteBuildTime();
 	InitTestCode(); // TODO: test that this test code works
-	init_pwm();
+	PWM_Init(WHITE_LED_RPN, IR_LED_RPN, 2);
 	
 	//turn on 12V regulator, and MOSFET for 12V regulator input
 	//This is so that the side fan will turn on, indicating that the power board has turned on
@@ -258,7 +260,7 @@ void DeviceCarrierInit(void) {
 	while (1) {
 	  if (DeviceCarrierBoot() == 0) {
 		  send_lcd_string("Computer boot failed  ", 22);
-			blink_led(3,2000);
+			blink_led(3, 2000);
 			{__asm__ volatile ("reset");};
 		} else {
 		  break;
@@ -270,7 +272,7 @@ void DeviceCarrierInit(void) {
 	
 	CODEC_PWR_ON(1);
 	
-	robot_gps_init();
+	InitRobotGPS();
 	_U2RXIE = 1;
 	ReadEEPROM();
   DisplayBoardNumber();
@@ -299,8 +301,8 @@ void DeviceCarrierProcessIO(void) {
 
 	if (10 < i) {
 		i = 0;
-		set_led_brightness(WHITE_LED, REG_WHITE_LED);
-		set_led_brightness(IR_LED, REG_IR_LED);
+		PWM_UpdateDutyCycle(WHITE_LED_RPN, REG_WHITE_LED);
+    PWM_UpdateDutyCycle(IR_LED_RPN, REG_IR_LED);
 		update_audio_power_state();
 	}
 
@@ -599,12 +601,12 @@ static void blink_led(unsigned int n, unsigned int ms) {
 	max_j = ms/20;
 
 	for (i = 0; i<n; i++) {
-		set_led_brightness(WHITE_LED,50);
+		PWM_UpdateDutyCycle(WHITE_LED_RPN, 50);
 		for (j = 0;j < max_j; j++) {
 			Delay(10);
 			handle_watchdogs();
 		}
-		set_led_brightness(WHITE_LED,0);
+		PWM_UpdateDutyCycle(WHITE_LED_RPN, 0);
 		for (j = 0; j < max_j; j++) {
 			Delay(10);
 			handle_watchdogs();
@@ -650,7 +652,7 @@ static void InitPins(void) {
 }
 
 
-static void DeInitPins(void) {
+static void DeinitPins(void) {
   AD1CON1 = 0x0000;
   AD1CON2 = 0x0000;
   AD1CON3 = 0x0000;
@@ -665,7 +667,7 @@ static void DeInitPins(void) {
 }
 
 
-static void robot_gps_init(void) {
+static void InitRobotGPS(void) {
 	//set GPS tx to U2TX
 	GPS_TX_OR = 5;
 	//set U2RX to GPS rx pin
@@ -691,8 +693,8 @@ static void hard_reset_robot(void) {
   first_usb_message_received = 0;
 
   //turn on white LED so we know the this was a planned reset
-  set_led_brightness(WHITE_LED, 50);
-  set_led_brightness(IR_LED, 0);
+  PWM_UpdateDutyCycle(WHITE_LED_RPN, 50);
+  PWM_UpdateDutyCycle(WHITE_LED_RPN, 0);
 
 	_U2RXIE = 0;
   _ADON = 0;
@@ -721,7 +723,7 @@ static void hard_reset_robot(void) {
   }
 
   //set all pins to default state (inputs)
-  DeInitPins();
+  DeinitPins();
 
   //wait some more time
   for (i = 0; i < 5; i++) {
@@ -802,48 +804,6 @@ static void handle_reset(void) {
  }   
 }
 
-
-static void init_pwm(void) {
-	//setup LED PWM channels
-	T2CONbits.TCKPS = 0;	
-
-	WHITE_LED_OR = 18;	// OC1
-	IR_LED_OR	= 19;	    // OC2
-
-	//AP8803: dimming frequency must be below 500Hz
-	//Choose 400Hz (2.5ms period)
-	//2.5ms = [PR2 + 1]*62.5ns*1
-	PR2 = 40000;	
-	OC1RS = 39999;
-	OC2RS = 39999;
-
-	OC1CON2bits.SYNCSEL = 0x1f;	
-	OC2CON2bits.SYNCSEL = 0x1f;	
-	
-	//use timer 2
-	OC1CON1bits.OCTSEL2 = 0;
-	OC2CON1bits.OCTSEL2 = 0;
-	
-	//edge-aligned pwm mode
-	OC1CON1bits.OCM = 6;
-	OC2CON1bits.OCM = 6;
-	
-	T2CONbits.TON = 1;
-}
-
-
-static void set_led_brightness(unsigned char led_type, unsigned char duty_cycle) {
-	if (100 < duty_cycle) duty_cycle = 100;
-
-	switch (led_type) {
-		case WHITE_LED:
-			OC1R = 39990 - duty_cycle*399;
-		  break;
-		case IR_LED:
-			OC2R = 39990 - duty_cycle*399;
-		  break;
-	}
-}
 
 /*
 static int DeviceCarrierBoot(void) {
