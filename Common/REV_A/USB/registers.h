@@ -223,6 +223,8 @@ REGISTER( REG_ROBOT_RESET_REQUEST,   DEVICE_WRITE,  DEVICE_CARRIER,   SYNC,    u
 //firmware, and the rest come from REG_ROBOT_RESET_REQUEST
 REGISTER( REG_ROBOT_RESET_CODE,   DEVICE_READ,  DEVICE_CARRIER,   SYNC,    uint16_t)
 
+//register that is nonzero whenever the AC Adapter is plugged in
+REGISTER( REG_OCU_AC_POWER,   DEVICE_READ,  DEVICE_OCU,   SYNC,    uint8_t)
 
 REGISTER_END()
 
