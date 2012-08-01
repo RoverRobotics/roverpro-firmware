@@ -23,6 +23,7 @@ echo "\r\n\r\n\r\n"
 echo "[f]irmware version"
 echo "[c]amera test"
 echo "[u]sb device check"
+echo "[b]attery charging info"
 echo "[q]uit"
 echo "[s]hutdown"
 read user_input
@@ -31,15 +32,12 @@ read user_input
 current_folder=`dirname $shell_script`
 cd $current_folder/source
 
-if [ "$user_input" = "m" ]; then
-sh shell_scripts/handle_arm_test.sh m
 
-
-elif [ "$user_input" = "c" ]; then
+if [ "$user_input" = "c" ]; then
 sh shell_scripts/camera_test.sh
 
-elif [ "$user_input" = "d" ]; then
-sh shell_scripts/handle_arm_test.sh d
+elif [ "$user_input" = "b" ]; then
+sudo ./ControllerTest b
 	
 
 elif [ "$user_input" = "f" ]; then
