@@ -1469,6 +1469,9 @@ void handle_charging(void)
 	if(CHARGER_ACOK())
 	{
 
+    //tell the software that the AC Adapter is plugged in
+    REG_OCU_AC_POWER = 1;
+
 		V3V3_ON(1);
 
     last_charging = 1;
@@ -1502,6 +1505,10 @@ void handle_charging(void)
 	}
 	else if(CHARGER_ACOK() == 0)
 	{
+
+    //tell the software that the AC Adapter is not plugged in
+    REG_OCU_AC_POWER = 0;
+
 		last_charging = 0;
 		CHARGER_ON(0);
 		charge_counter = 0;
@@ -1512,7 +1519,14 @@ void handle_charging(void)
 	if(REG_OCU_BATT_CURRENT > 0)
 	{
 		if(computer_on_flag == 0)
-			RED_LED_ON(1);
+    {
+
+      //don't turn on the red LED if both batteries report full charge
+      if( (REG_OCU_REL_SOC_L == 100) && (REG_OCU_REL_SOC_R == 100) )
+        RED_LED_ON(0);
+      else
+			  RED_LED_ON(1);
+    }
     else
       RED_LED_ON(0);
 		
