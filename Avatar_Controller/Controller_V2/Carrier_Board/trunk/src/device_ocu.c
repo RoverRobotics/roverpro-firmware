@@ -13,17 +13,6 @@
 
 #define BATTERY_SOC_CUTOFF  10
 
-/*
-
-Logic: 
-
-if(BUS_PWR_STATE()) turn on everything
-
-if(CHARGER_ACOK()) handle charging
-
-*/
-
-
 //button inputs
 #define VOLUME_UP()		(_RG7)
 #define VOLUME_DOWN()	(_RG6)
@@ -117,39 +106,12 @@ if(CHARGER_ACOK()) handle charging
 #define PWR_BUTTON()		(!_RD0)
 
 
-
-/*#define LCD_BACK_ON(a)	TRISDbits.TRISD4 = !a
-#define LCD_BACK_ON(a)	LATDbits.LATD4 = a*/
-
-
-
-
-
-
-
-
-
-
-
-//void ocu_batt_smbus_isr(void);
-
-
-
-
-
-
 unsigned int test_flag = 0;
 unsigned char testb[10] = {0,0,0,0,0,0,0,0,0,0};
 unsigned char testa[10] = {0,0,0,0,0,0,0,0,0,0};
 unsigned int adc_int_flag = 0;
 
-
-
-
-
 void handle_gas_gauge(void);
-
-
 
 void init_io(void);
 void disable_io(void);
@@ -164,9 +126,6 @@ unsigned char sus_s5_state = 0;
 //unsigned char is_3v3_up = 0;
 unsigned char computer_on_flag = 0;
 
-//void update_touchscreen_registers(void);
-
-
 void handle_power_button(void);
 
 void initialize_i2c_devices(void);
@@ -179,11 +138,6 @@ void ocu_gps_isr(void);
 void ocu_gps_init(void);
 
 void init_fan_controller(void);
-
-
-
-
-
 
 //Debugging register - remove eventually
 unsigned int gps_interrupt_counter = 0;
@@ -225,16 +179,9 @@ unsigned int bq2060a_registers[128];
 
 void read_all_bq2060a_registers(void);
 
-void bringup_board(void);
-
 int DeviceControllerBoot(void);
 
 void set_backlight_brightness(unsigned char percentage);
-
-//temp sensors work,as does accelerometer and compass
-//humidity sensor changes voltage, haven't tested adc yet
-//touchscreen works
-//need to still test  battery gas gauges and battery charger
 
 #pragma code
 
@@ -491,134 +438,6 @@ void bringup_i2c1(void)
 
 }
 
-void bringup_board(void)
-{
-
-//	static unsigned int power_down_counter = 0;
-
-/*
-	init_io();
-
-	PWR_KILL_EN(1);
-	PWR_KILL_ON(0);
-	MIC_PWR_EN(1);
-	AMP_PWR_EN(1);
-	//MIC_PWR_ON(1);
-	//AMP_PWR_ON(1);
-	CAMERA_PWR_EN(1);
-	CAMERA_PWR_ON(1);
-
-	while(1)
-	{
-		ClrWdt();
-		if(PWR_BUTTON())
-		{	
-			GREEN_LED_ON(1);
-			//V3V3_ON(1);
-			//V5V_ON(1);
-			//V12V_ON(1);
-			//bringup_i2c1();
-			//read_battery_rsoc();
-			//test_fan_controller();
-
-
-			if(computer_on_flag == 0)
-			{
-					//set to OC1
-				LCD_PWM_OR = 18;	
-				
-				T2CONbits.TCKPS = 0;	
-			
-			
-				
-				//TPS61161: between 5kHz and 100 kHz PWM dimming frequency
-				//Choose 20kHz (50us period)
-				//50us = [PR2 + 1]*62.5ns*1
-				PR2 = 801;	
-				OC1RS = 800;
-				set_backlight_brightness(50);
-				
-				//Sleep();
-			
-				OC1CON2bits.SYNCSEL = 0x1f;	
-				
-				//use timer 2
-				OC1CON1bits.OCTSEL2 = 0;
-				
-				//edge-aligned pwm mode
-				OC1CON1bits.OCM = 6;
-				
-				//turn on timer 2
-				T2CONbits.TON = 1;
-				if(DeviceControllerBoot() )
-				{
-					GREEN_LED_ON(1);
-					computer_on_flag = 1;
-				}
-				V12V_ON(1);
-			}
-		
-		
-		}
-		else
-		{
-			GREEN_LED_ON(0);
-		}
-		if(CHARGER_ACOK())
-		{
-			RED_LED_ON(1);
-		}
-		else
-		{
-			RED_LED_ON(0);
-		}
-
-		if(PWR_DWN_REQ())
-		{
-			while(PWR_DWN_REQ())
-			{
-				power_down_counter++;
-				block_ms(10);
-				if(power_down_counter > 50)
-				{
-					computer_on_flag = 0;
-					PWR_KILL_ON(1);
-					while(PWR_BUTTON())
-					{
-						ClrWdt();
-					}
-					block_ms(20);
-				}
-			}
-			power_down_counter = 0;
-
-		}
-		
-
-	}
-
-	if(PWR_BUTTON())
-	{
-		if(computer_on_flag == 0)
-		{
-			if(DeviceControllerBoot() )
-			{
-				GREEN_LED_ON(1);
-				computer_on_flag = 1;
-			}
-		}
-
-	}
-	else
-	{
-		computer_on_flag = 0;
-
-	}
-
-*/
-
-}
-
 void DeviceOcuInit()
 {
 
@@ -728,27 +547,11 @@ void DeviceOcuProcessIO()
 			RED_LED_ON(1);
 			block_ms(200);
 			RED_LED_ON(0);
-/*			if(POWER_BUTTON())
-			{
-				computer_on_flag = 0;
-				GREEN_LED_ON(0);
-				V3V3_ON(0);
-				V5V_ON(0);
-				V12V_ON(0);
-				COMPUTER_PWR_OK(0);
-				while(POWER_BUTTON());
-				block_ms(100);
-				break;
-			}*/
-			
-
-
 		}
 	}
 
 	//computer has shut down.  turn off power supplies
 	if( (SUS_S3()==0) && (SUS_S5() == 0) && (computer_on_flag == 1))
-//  if( (SUS_S3()==0) && (SUS_S5() == 0) )
 	{
           block_ms(50);
           if(PWR_BUTTON() == 0)
@@ -763,10 +566,6 @@ void DeviceOcuProcessIO()
   					block_ms(100);
           }
 	}
-
-//	while(!POWER_BUTTON());
-//	GREEN_LED_ON(1);
-
 
   //implement a timeout on the black screen
   //if software doesn't start, or BIOS needs to be changed
@@ -1146,27 +945,6 @@ void init_fan_controller(void)
 
 }
 
-/*void usb_dummy(void)
-{
-	V3V3_EN(1);
-	V5V_EN(1);
-	V3V3_ON(1);
-	V5V_ON(1);
-	GREEN_LED_EN(1);
-	block_ms(1000);
-			COMPUTER_PWR_OK(1);
-			//set_backlight_brightness(50);
-	TRISDbits.TRISD4 = 0;
-	LATDbits.LATD4 = 1;
-	
-	while(!POWER_BUTTON());
-	GREEN_LED_ON(1);
-
-
-}*/
-
-
-
 void init_io(void)
 {
 	AD1PCFGL = 0xffff;
@@ -1294,58 +1072,16 @@ void disable_io(void)
 void joystick_interrupt(void)
 {
 
-//	_ASAM = 0;
-	/*static int adc_state = 0;
-	unsigned char ch = 0;
-	testa[0] = _DONE;
-	IFS0bits.AD1IF = 0;
-	testa[1] = _DONE;*/
 	_ASAM = 0;
 	_AD1IF = 0;
-/*	switch(adc_state)
-	{
-		case 0x00:
-			REG_JOYSTICK2_Y = ADC1BUF0;
-			ch = JOY1_X_CH;
-		break;
-		case 0x01:
-			REG_JOYSTICK1_X = ADC1BUF0;
-			ch = JOY1_Y_CH;
-		break;
-		case 0x02:
-			REG_JOYSTICK1_Y = ADC1BUF0;
-			ch = JOY2_X_CH;
-		break;
-		case 0x03:
-			REG_JOYSTICK2_X = ADC1BUF0;
-			ch = JOY2_Y_CH;
-			adc_state = -1;
-		break;
-		default:
-			ch = JOY2_Y_CH;
-			adc_state = -1;
-		break;
-	}
 
-	
-	adc_state++;
-	testa[2] = adc_state;
-
-
-	AD1CON1bits.ADON = 0;
-	AD1CHS0bits.CH0SA = ch;
-	AD1CON1bits.ADON = 1;
-	AD1CON1bits.SAMP = 1;*/
 
 	REG_JOYSTICK1_X = ADC1BUF1;
 	REG_JOYSTICK1_Y = ADC1BUF2;
 	REG_JOYSTICK2_X = ADC1BUF0;
 	REG_JOYSTICK2_Y = ADC1BUF3;
-
 	
 	adc_int_flag++;
-
-
 
 }
 
@@ -1356,8 +1092,6 @@ int DeviceControllerBoot(void)
 	unsigned int i = 0;
 
 	V3V3_ON(1);
-
-	//while(!V3V3_PGOOD());
 
 	//weird -- long interval between turning on V3V3 and V5 doesn't allow COM Express to boot
 	block_ms(100);
@@ -1375,16 +1109,6 @@ int DeviceControllerBoot(void)
 	ClrWdt();
 	block_ms(100);
 
-//	send_lcd_string("Boot 1  \r\n",10);
-
-/*	for(i=0;i<400;i++)
-	{
-		block_ms(10);
-		ClrWdt();
-	}*/
-
-	//while(!V5_PGOOD());
-
 	while(!SUS_S5())
 	{
 		i++;
@@ -1394,7 +1118,6 @@ int DeviceControllerBoot(void)
 
 	}
 
-//	send_lcd_string("Boot 2  \r\n",10);
 	i=0;
 
 	COMPUTER_PWR_OK(1);
@@ -1406,8 +1129,6 @@ int DeviceControllerBoot(void)
 		ClrWdt();
 		block_ms(100);
 	}
-
-//	blink_led(6,500);
 
 	return 1;
 
@@ -1476,31 +1197,6 @@ void handle_charging(void)
 
     last_charging = 1;
     CHARGER_ON(1);
-/*
-		//this kind of messes with the i2c stuff, so I don't want to do it every time
-		if(charge_counter == 0)
-			{
-	
-				last_charging = 1;
-				//block_ms(500);
-        
-				block_ms(50);
-	//			RED_LED_ON(1);
-				block_ms(5);
-				start_ocu_batt_i2c_write(SMBUS_ADD_BQ24745,0x15,0x41a0);
-				block_ms(20);
-				//start_ocu_i2c1_write(SMBUS_ADD_BQ24745,0x14,0x0800);
-				start_ocu_batt_i2c_write(SMBUS_ADD_BQ24745,0x14,0x0bb8);
-				block_ms(20);
-				start_ocu_batt_i2c_write(SMBUS_ADD_BQ24745,0x3f,0x0bb8);
-				block_ms(20);
-	
-				CHARGER_ON(1);
-				//block_ms(500);
-	
-			}
-		charge_counter++;*/
-		
 		
 	}
 	else if(CHARGER_ACOK() == 0)
