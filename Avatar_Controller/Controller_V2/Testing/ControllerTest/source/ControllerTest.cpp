@@ -94,6 +94,7 @@ void PressEnterToContinue(void);
 
 //static void UpdateControllerValues(XboxController *pController);
 static void PrintFirmwareFeedback(void);
+unsigned int return_checksum(unsigned char* data, unsigned char length);
 
 // our-USB-protocol-related
 static void InitRoboteXDevice(void);
@@ -112,6 +113,7 @@ void incoming_callback(struct libusb_transfer *transfer);
 void outgoing_callback(struct libusb_transfer *transfer);
 
 void TurnOnCameraPower(void);
+void print_battery_registers(void);
 
 int main(int argn, char *argc[]) {
   //XboxController myController;
@@ -122,9 +124,11 @@ int main(int argn, char *argc[]) {
 
   if(input_argument[0] == 'p')
   {
-  
-
     TurnOnCameraPower();
+  }
+  else if(input_argument[0] == 'b')
+  {
+    print_battery_registers();
   }
  
   return EXIT_SUCCESS;
@@ -415,10 +419,59 @@ void PressEnterToContinue(void) {
   cin.ignore();
 }
 
+void print_battery_registers(void) {
+
+  int rel_soc_left_index = GetRegisterIndex(&telemetry::REG_OCU_REL_SOC_L);
+  int rel_soc_right_index = GetRegisterIndex(&telemetry::REG_OCU_REL_SOC_R);
+  int ocu_batt_current_index = GetRegisterIndex(&telemetry::REG_OCU_BATT_CURRENT);
+  int rel_soc_left = 0;
+  int rel_soc_right = 0;
+  int batt_current = 0;
+
+  unsigned int checksum;
+
+  InitRoboteXDevice();
+
+  while(1)
+  {
+
+    out_packet[0] = rel_soc_left_index;
+    out_packet[1] = 0x80;
+    out_packet[2] = rel_soc_right_index;
+    out_packet[3] = 0x80;
+    out_packet[4] = ocu_batt_current_index;
+    out_packet[5] = 0x80;
+    out_packet[6] = 0xff;
+    out_packet[7] = 0xff;
+
+    checksum = return_checksum(out_packet,8);
+
+    out_packet[8] = checksum&0xff;
+    out_packet[9] = checksum>>8;
+
+    if (!HandleUSBCommunication())
+      return;
+
+    rel_soc_left = in_packet[2]+in_packet[3]*256;
+    rel_soc_right = in_packet[6]+in_packet[7]*256;
+    batt_current = in_packet[10]+in_packet[11]*256;
+
+    printf("REG_OCU_REL_SOC_L:  %i\r\n",rel_soc_left);
+    printf("REG_OCU_REL_SOC_R:  %i\r\n",rel_soc_right);
+    printf("REG_OCU_BATT_CURRENT:  %i\r\n",batt_current);
+    printf("\r\n\r\n\r\n");
+
+    usleep(100000);
+
+  }
+
+}
+
 void TurnOnCameraPower(void)  {
   
   int i;
 	int camera_power_index = GetRegisterIndex(&telemetry::REG_OCU_CAMERA_POWER_ON);
+  unsigned int checksum;
 	
 	        InitRoboteXDevice();
 
@@ -433,8 +486,12 @@ void TurnOnCameraPower(void)  {
 		out_packet[4] = 0xff;
 		
 		//hard code checksum -- 107+1+255+255 = 618 = 0x026a
-		out_packet[5] = 0x6a;
-		out_packet[6] = 0x02;
+		//out_packet[5] = 0x6a;
+		//out_packet[6] = 0x02;
+
+         checksum = return_checksum(out_packet,5);
+    out_packet[5] = checksum&0xff;
+    out_packet[6] = checksum>>8;
 
 		if (!HandleUSBCommunication())
 			return;
@@ -458,6 +515,18 @@ int Map(int value, int fromLow, int fromHigh, int toLow, int toHigh) {
   else if (result < toLow) result = toLow;
 
   return result;
+}
+
+unsigned int return_checksum(unsigned char* data, unsigned char length)
+{
+  unsigned char i;
+  unsigned int checksum = 0;
+  for(i=0;i<length;i++)
+  {
+    checksum+=data[i];
+  }
+
+  return checksum;
 }
 
 
