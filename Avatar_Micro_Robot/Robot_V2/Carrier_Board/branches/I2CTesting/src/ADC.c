@@ -69,12 +69,18 @@ unsigned int ADC_GetConversion(unsigned char analogInputIndex) {
 
 
 void ADC_Deinit(void) {
-	// turn OFF the A/D module
-	AD1CON1bits.ADON = 0;
+	// turn OFF the A/D module and restore any registers to startup defaults
+	// (EXCEPT AD1PCFGL -- don't make analog by default, just undo)
+	AD1CON1 = 0x0000; AD1CON2 = 0x0000; AD1CON3 = 0x0000; AD1CHS = 0x0000;
 	
 	// restore any pins
 	TRISB &= ~(consumedPins);	// return any inputs to their default as outputs
 	AD1PCFGL |= consumedPins;	// 1 = pin in digital mode
+	
+	// clear any module-level variables
+	consumedPins = 0;
+	unsigned char i;
+	for (i = 0; i < MAX_NUM_AD_INPUTS; i++) buffer[i] = 0;	
 }
 
 

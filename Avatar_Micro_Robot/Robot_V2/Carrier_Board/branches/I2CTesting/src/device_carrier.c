@@ -108,11 +108,9 @@ typedef enum {
 } CARRIER_STATE_ENUM;
 
 /*---------------------------Helper Function Prototypes-----------------------*/
-//static int DeviceCarrierBoot(void);
+static int DeviceCarrierBoot(void);
 
 static void robot_gps_isr(void);
-
-
 
 static void blink_led(unsigned int n, unsigned int ms);
 static void update_audio_power_state(void);
@@ -595,14 +593,14 @@ static void InitFan(void) {
 
 
 static void blink_led(unsigned int n, unsigned int ms) {
-	unsigned int i,j, max_j;
+	unsigned int i, j, max_j;
 	
 	handle_watchdogs();
-	max_j = ms/20;
+	max_j = ms / 20;
 
-	for (i = 0; i<n; i++) {
+	for (i = 0; i < n; i++) {
 		PWM_UpdateDutyCycle(WHITE_LED_RPN, 50);
-		for (j = 0;j < max_j; j++) {
+		for (j = 0; j < max_j; j++) {
 			Delay(10);
 			handle_watchdogs();
 		}
@@ -664,6 +662,11 @@ static void DeinitPins(void) {
 	TRISE = 0xffff;
 	TRISF = 0xffff;
 	TRISG = 0xffff;
+	
+	DeinitTimers();
+	ADC_Deinit();
+	I2C_Deinit();
+	PWM_Deinit();
 }
 
 
@@ -805,7 +808,6 @@ static void handle_reset(void) {
 }
 
 
-/*
 static int DeviceCarrierBoot(void) {
 	unsigned int i = 0;
 
@@ -828,7 +830,7 @@ static int DeviceCarrierBoot(void) {
 	handle_watchdogs();
 	Delay(100);
 
-	send_lcd_string("Boot 1  \r\n",10);
+	SendLCDString("Boot 1  \r\n",10);
 
 	while (!SUS_S5()) {
 		i++;
@@ -837,7 +839,7 @@ static int DeviceCarrierBoot(void) {
 		Delay(100);
 	}
 
-	send_lcd_string("Boot 2  \r\n",10);
+	SendLCDString("Boot 2  \r\n",10);
 	i = 0;
 
 	COM_EXPRESS_PGOOD_ON(1);
@@ -853,7 +855,6 @@ static int DeviceCarrierBoot(void) {
 
 	return 1;
 }
-*/
 
 
 static void WriteBuildTime(void) {

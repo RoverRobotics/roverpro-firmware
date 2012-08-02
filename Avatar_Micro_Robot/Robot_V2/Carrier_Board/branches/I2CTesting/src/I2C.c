@@ -185,9 +185,7 @@ void I2C_RefreshModule(void) {
   state = kWaiting;
   
   // clear any hardware errors, status flags and buffers
-  I2C1STATbits.BCL = 0;		// clear 'bus-collision-error-while-master' flag
-  I2C1STATbits.IWCOL = 0;	// clear 'write-collision-error' flag
-  I2C1STATbits.I2COV = 0; // clear 'receive-overflow-error' flag
+  I2C1STAT = 0x0000;
   I2C1CONbits.RCEN = 0;		// clear 'currently-receiving' flag
   char temp;
   temp = I2C1RCV;		      // read to ensure the Rx buffer begins cleared
@@ -204,6 +202,12 @@ unsigned char I2C_ErrorHasOccurred(void) {
 void I2C_Deinit(void) {
   I2C1CONbits.I2CEN = 0;  // turn off I2C and restore consumed pins
   I2C_RefreshModule();
+  
+  // restore any registers to their startup defaults
+  I2C1CON = 0x0000; // Note: default actually leaves I2C on, but keeping off
+  I2C1TRN = 0x00ff;
+  I2C1BRG = 0x0000;
+  I2C1STAT = 0x0000;
 }
   
 /*---------------------------Interrupt Service Routines-----------------------*/
