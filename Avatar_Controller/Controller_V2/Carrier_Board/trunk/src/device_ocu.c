@@ -1217,8 +1217,8 @@ void handle_charging(void)
 		if(computer_on_flag == 0)
     {
 
-      //don't turn on the red LED if both batteries report full charge
-      if( (REG_OCU_REL_SOC_L == 100) && (REG_OCU_REL_SOC_R == 100) )
+      //don't turn on the red LED if charging current is low
+      if(REG_OCU_BATT_CURRENT < 250)
         RED_LED_ON(0);
       else
 			  RED_LED_ON(1);
