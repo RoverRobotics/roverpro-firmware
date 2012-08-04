@@ -450,8 +450,8 @@ void print_battery_registers(void) {
 
     checksum = return_checksum(out_packet,10);
 
-    out_packet[8] = checksum&0xff;
-    out_packet[9] = checksum>>8;
+    out_packet[10] = checksum&0xff;
+    out_packet[11] = checksum>>8;
 
     if (!HandleUSBCommunication())
       return;
