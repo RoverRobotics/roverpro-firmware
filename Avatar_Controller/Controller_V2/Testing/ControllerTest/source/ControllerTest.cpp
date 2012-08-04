@@ -424,9 +424,11 @@ void print_battery_registers(void) {
   int rel_soc_left_index = GetRegisterIndex(&telemetry::REG_OCU_REL_SOC_L);
   int rel_soc_right_index = GetRegisterIndex(&telemetry::REG_OCU_REL_SOC_R);
   int ocu_batt_current_index = GetRegisterIndex(&telemetry::REG_OCU_BATT_CURRENT);
+  int abs_soc_right_index = GetRegisterIndex(&telemetry::REG_OCU_BATT_ABS_SOC);
   int rel_soc_left = 0;
   int rel_soc_right = 0;
   int16_t batt_current = 0;
+  int abs_soc_right = 0;
 
   unsigned int checksum;
 
@@ -441,10 +443,12 @@ void print_battery_registers(void) {
     out_packet[3] = 0x80;
     out_packet[4] = ocu_batt_current_index;
     out_packet[5] = 0x80;
-    out_packet[6] = 0xff;
-    out_packet[7] = 0xff;
+    out_packet[6] = abs_soc_right_index;
+    out_packet[7] = 0x80;
+    out_packet[8] = 0xff;
+    out_packet[9] = 0xff;
 
-    checksum = return_checksum(out_packet,8);
+    checksum = return_checksum(out_packet,10);
 
     out_packet[8] = checksum&0xff;
     out_packet[9] = checksum>>8;
@@ -455,11 +459,16 @@ void print_battery_registers(void) {
     rel_soc_left = in_packet[2]+in_packet[3]*256;
     rel_soc_right = in_packet[6]+in_packet[7]*256;
     batt_current = in_packet[10]+in_packet[11]*256;
+    abs_soc_right = in_packet[14]+in_packet[15]*256;
 
     printf("REG_OCU_REL_SOC_L:  %i\r\n",rel_soc_left);
     printf("REG_OCU_REL_SOC_R:  %i\r\n",rel_soc_right);
     printf("REG_OCU_BATT_CURRENT:  %i\r\n",batt_current);
+    printf("abs_soc_right:  %i\r\n",abs_soc_right);  
     printf("\r\n\r\n\r\n");
+
+    if(rel_soc_left <= 11 || rel_soc_right <=11 )
+      system("sudo shutdown -h now");
 
     usleep(100000);
 
