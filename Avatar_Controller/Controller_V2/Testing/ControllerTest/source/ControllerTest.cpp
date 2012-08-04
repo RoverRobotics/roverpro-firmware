@@ -467,7 +467,7 @@ void print_battery_registers(void) {
     printf("abs_soc_right:  %i\r\n",abs_soc_right);  
     printf("\r\n\r\n\r\n");
 
-    if(rel_soc_left <= 11 || rel_soc_right <=11 )
+    if( (rel_soc_left <= 11 && rel_soc_left > 0) || (rel_soc_right <=11 && rel_soc_right > 0) )
       system("sudo shutdown -h now");
 
     usleep(100000);
