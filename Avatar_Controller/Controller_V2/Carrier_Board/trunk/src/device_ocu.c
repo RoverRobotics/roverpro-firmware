@@ -1218,10 +1218,14 @@ void handle_charging(void)
     {
 
       //don't turn on the red LED if charging current is low
-      if(REG_OCU_BATT_CURRENT < 250)
+      if(REG_OCU_BATT_CURRENT < 100)
+      {
         RED_LED_ON(0);
-      else
-			  RED_LED_ON(1);
+      }
+      else if(REG_OCU_BATT_CURRENT > 120)
+      {
+			    RED_LED_ON(1);
+      }
     }
     else
       RED_LED_ON(0);
