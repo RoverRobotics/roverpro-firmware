@@ -15,11 +15,11 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 // TODO: thin out dependencies
 #include <stdint.h>
 #include <libpic30.h>
-#include "./GenericTypeDefs.h"
-#include "./Compiler.h"
-#include "./USB/usb.h"
-#include "./PwrMgnt.h"
-#include "../HardwareProfile.h"
+//#include "./GenericTypeDefs.h"
+//#include "./Compiler.h"
+//#include "./USB/usb.h"
+//#include "./PwrMgnt.h"  // PRETTY SURE DON"T NEED THIS
+//#include "../HardwareProfile.h"
 
 /*---------------------------Macros-------------------------------------------*/
 #define F_CY                  16000000UL  // 16MHz instruction clock

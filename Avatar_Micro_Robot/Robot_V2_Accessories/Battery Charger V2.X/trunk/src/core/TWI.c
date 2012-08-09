@@ -7,9 +7,8 @@ Notes:
 		especially important if the slave is a microcontroller but is NOT
 		ALLOWED in this version.
 		
-See Also: 
-  - Section 24 PIC24F Family Reference Manual 
-  - I2C_Protocol.png describing a typical read sequence in single-master mode
+See Also:
+  - Section 24 PIC24F Family Reference Manual
 
 Responsible Engineer(s): Stellios Leventis (sleventis@robotex.com)
 ==============================================================================*/
@@ -46,7 +45,7 @@ typedef enum {
 #define NACK						          1	// NOT-acknowledged, error
 
 /*---------------------------Helper Function Prototypes-----------------------*/
-static void ConfigureBaudRate(I2CBaudRate baudRate);
+static void ConfigureBaudRate(BaudRate baudRate);
 
 /*---------------------------Module Variables---------------------------------*/
 static volatile unsigned char isNewDataAvailable = NO;
@@ -58,7 +57,7 @@ static volatile unsigned char remainingRxBytes = 0;    // the number of bytes to
                                               // receive from slave
 static volatile unsigned char remainingTxBytes = 0;
 static volatile unsigned char logicalLength = 0;       // Rx buffer logical length
-static volatile unsigned char buffer[I2C_MAX_DATA_LENGTH] = {0};
+static volatile unsigned char buffer[TWI_MAX_DATA_LENGTH] = {0};
 static volatile MasterState state = kWaiting;
 
 /*---------------------------Test Harness-------------------------------------*/
@@ -102,7 +101,7 @@ void TWI_Init(const BaudRate baudRate, const unsigned char isSMBus) {
 	I2C1CONbits.I2CEN = 0;	// disable the I2C module while we configure it
 	
 	// Note: the state of the port I/O pins are overridden when I2C is enabled
-  I2C_RefreshModule();
+  TWI_RefreshModule();
 	ConfigureBaudRate(baudRate);
 	
 	I2C1CONbits.SMEN = isSMBus;		// configure I2C/SMBus thresholds
@@ -123,7 +122,7 @@ inline unsigned char TWI_IsBusIdle(void) {
 }
 
 
-void TWI_RequestData(const I2CDevice *device) {
+void TWI_RequestData(const TWIDevice *device) {
   slaveAddress = device->address;
   slaveSubaddress = device->subaddress;
   indication = kIndicationRead;
@@ -144,17 +143,17 @@ unsigned char TWI_IsNewDataAvailable(void) {
 }
 
 
-void TWI_GetData(I2CDevice *device) {
+void TWI_GetData(TWIDevice *device) {
   // copy in as much of the buffer as is relevant
   unsigned char i;
   for (i = 0; i < logicalLength; i++) device->data[i] = buffer[i];
   
   // clear out irrelevant data?
-  //for (i = logicalLength: i < I2C_MAX_DATA_LENGTH; i++) buffer[i] = 0;
+  //for (i = logicalLength: i < TWI_MAX_DATA_LENGTH; i++) buffer[i] = 0;
 }
 
 
-void TWI_WriteData(const I2CDevice *device, const unsigned char data[]) {
+void TWI_WriteData(const TWIDevice *device, const unsigned char data[]) {
   slaveAddress = device->address;
   slaveSubaddress = device->subaddress;
   indication = kIndicationWrite;
@@ -181,7 +180,7 @@ void TWI_RefreshModule(void) {
   remainingTxBytes = 0;
   logicalLength = 0;
   unsigned char i;
-  for (i = 0; i < I2C_MAX_DATA_LENGTH; i++) buffer[i] = 0;
+  for (i = 0; i < TWI_MAX_DATA_LENGTH; i++) buffer[i] = 0;
   state = kWaiting;
   
   // clear any hardware errors, status flags and buffers
@@ -201,7 +200,7 @@ unsigned char TWI_ErrorHasOccurred(void) {
 
 void TWI_Deinit(void) {
   I2C1CONbits.I2CEN = 0;  // turn off I2C and restore consumed pins
-  I2C_RefreshModule();
+  TWI_RefreshModule();
   
   // restore any registers to their startup defaults
   I2C1CON = 0x0000; // Note: default actually leaves I2C on, but keeping off

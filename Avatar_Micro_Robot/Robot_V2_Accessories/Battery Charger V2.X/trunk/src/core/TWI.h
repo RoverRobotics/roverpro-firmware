@@ -27,7 +27,7 @@ typedef struct {
                               // acceleration directions)
   unsigned char numDataBytes; // number of data bytes the sensor returns
   unsigned char *data;
-} I2CDevice;
+} TWIDevice;
 
 // baud rate options
 typedef enum {
