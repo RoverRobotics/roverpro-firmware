@@ -45,10 +45,19 @@ REM set /P svn_revision="Enter SVN revision number: "
 	set minute_string=!time_string:~3,2!
 	set am_pm=!time_string:~6,2!
 
+	REM Get rid of leading 0, so batch file doesn't think the number is octal
+	
+	if "!hour_string:~0,1!" == "0" (
+	set hour_string="!!hour_string:~1,1!!"
+	)
+	
+
+	
 	REM Convert to 24 hour time
 	if "!am_pm!" == "PM" (
 	  set /a hour_string=!hour_string!+12
 	)	
+	echo b!hour_string!b
 	
 	REM set backup_folder=backup_!year_string!_!month_string!_!day_string!_file_time_!hour_string!_!minute_string!_!am_pm!_backed_up_%file_name%
 	REM echo %backup_folder%
@@ -58,6 +67,7 @@ REM set /P svn_revision="Enter SVN revision number: "
 
 
 	copy firmware.hex releases\"%date_name%_%time_name%"\Controller_compiled_!year_string!_!month_string!_!day_string!_time_!hour_string!_!minute_string!_(%date_name_short%.%time_name_short%).hex
+
 
 
 )
