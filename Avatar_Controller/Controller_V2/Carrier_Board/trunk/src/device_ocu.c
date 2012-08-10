@@ -1261,8 +1261,11 @@ void handle_charging(void)
 	//	charge_counter = 1000;
 
   //TODO:  Remove this when software starts using REG_OCU_AC_POWER
-  if(phantom_red_led == 0)
-    REG_OCU_BATT_CURRENT = 0;
+  if(computer_on_flag)
+  {
+    if(phantom_red_led == 0)
+      REG_OCU_BATT_CURRENT = 0;
+  }
 
 
 }
