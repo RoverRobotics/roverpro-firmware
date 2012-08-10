@@ -1186,6 +1186,9 @@ void handle_charging(void)
 //	static unsigned int charge_counter = 0;
 	static unsigned char last_charging = 0;
 	static unsigned char charge_counter = 0;
+
+  //keep track of red LED state when the controller is turned on
+  static unsigned char phantom_red_led = 0;
 	
 	if(CHARGER_ACOK())
 	{
@@ -1228,16 +1231,38 @@ void handle_charging(void)
       }
     }
     else
+    {
       RED_LED_ON(0);
+      //TODO:  remove this once software starts using REG_OCU_AC_POWER
+      //set current to zero in the conditions where the red LED would be off,
+      //if the controller were turned off
+       //don't turn on the red LED if charging current is low
+        if(REG_OCU_BATT_CURRENT < 100)
+        {
+          phantom_red_led = 0;
+        }
+        else if(REG_OCU_BATT_CURRENT > 120)
+        {
+  			    phantom_red_led = 1;
+        }
+
+
+
+    }
 		
 	}
 	else
 	{
 		RED_LED_ON(0);
+    phantom_red_led = 0;
 	}
 
 	//if(charge_counter > 1000)
 	//	charge_counter = 1000;
+
+  //TODO:  Remove this when software starts using REG_OCU_AC_POWER
+  if(phantom_red_led == 0)
+    REG_OCU_BATT_CURRENT = 0;
 
 
 }
