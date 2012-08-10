@@ -515,8 +515,9 @@ void DeviceOcuProcessIO()
 		ocu_batt_i2c_fsm();
 		ocu_i2c1_fsm();
 
-	handle_charging();
+
 	handle_gas_gauge();
+	handle_charging();
 
   //I need to check if the computer is on, since these buttons are "pressed" when the power supply
   //if soff
