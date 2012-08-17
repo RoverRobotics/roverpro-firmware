@@ -1,7 +1,8 @@
 /*==============================================================================
-
 File: UART.c
+
 Description: Provides an interface to the UART hardware modules.
+
 Notes:
 F_OSC = 32MHz (given our 20MHz crystal, dividy-by-5 from PLL, and 
                multiply-by-8 from somewhere)
