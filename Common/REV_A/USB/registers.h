@@ -226,9 +226,9 @@ REGISTER( REG_ROBOT_RESET_CODE,   DEVICE_READ,  DEVICE_CARRIER,   SYNC,    uint1
 //register that is nonzero whenever the AC Adapter is plugged in
 REGISTER( REG_OCU_AC_POWER,   DEVICE_READ,  DEVICE_OCU,   SYNC,    uint8_t)
 
-//register that is zero when radio should be powered down or in reset, and nonzero
+//register that is nonzero when radio should be powered down or in reset, and zero
 //during normal operation
-REGISTER( REG_CARRIER_RADIO_POWER,   DEVICE_WRITE,  DEVICE_CARRIER,   SYNC,    uint8_t)
+REGISTER( REG_ROBOT_RADIO_RESET,   DEVICE_WRITE,  DEVICE_CARRIER,   SYNC,    uint8_t)
 
 REGISTER_END()
 
