@@ -141,11 +141,14 @@ static unsigned int number_of_resets = 0;
 unsigned int usb_timeout_counter = 0;
 unsigned char first_usb_message_received = 0;
 
+unsigned char robot_radio_reset_triggered = 0;
+
 #define RST_POWER_ON                  0x0000
 #define RST_SHUTDOWN                  0x0001
 #define RST_SHUTDOWN_OVERHEAT         0x0002
 #define RST_SHUTDOWN_USB_TIMEOUT      0x0003
 #define RST_SOFTWARE_FAIL             0x0004
+#define RST_RADIO_RESET_FAIL          0x0005
 
 
 //unsigned int reg_robot_gps_message[100];
@@ -365,6 +368,10 @@ void DeviceCarrierInit()
 	send_lcd_string("Init finished  \r\n",17);
 
 	//T1InterruptUserFunction = DeviceCarrierGetTelemetry;
+
+  //Radio should be powered up
+  REG_ROBOT_RADIO_RESET = 0;
+
 }
 
 void init_fan(void)
@@ -963,6 +970,16 @@ void DeviceCarrierProcessIO()
 		REAR_PL_PWR_ON(0);
 	}
 
+  if(REG_ROBOT_RADIO_RESET)
+  {
+    V3V3_ON(0);
+    robot_radio_reset_triggered = 1;
+  }
+  else
+  {
+    V3V3_ON(1);
+  }
+
 	block_ms(10);
 	print_loop_number();
 
@@ -1124,6 +1141,17 @@ static void handle_reset(void)
   {
     REG_ROBOT_RESET_CODE = RST_SOFTWARE_FAIL;
     blink_led(4,300);
+    hard_reset_robot();
+    return;
+  }
+
+
+  //In case there is a USB failure or COM Express failure after the 
+  //radio module is reinitialized, reset robot
+  if( (usb_timeout_counter > 2000) && robot_radio_reset_triggered )
+  {
+    REG_ROBOT_RESET_CODE = RST_RADIO_RESET_FAIL;
+    blink_led(5,300);
     hard_reset_robot();
     return;
   }
