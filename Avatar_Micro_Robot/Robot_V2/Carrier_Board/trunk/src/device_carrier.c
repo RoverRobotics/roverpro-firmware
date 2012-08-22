@@ -367,6 +367,11 @@ void DeviceCarrierInit()
 
 	send_lcd_string("Init finished  \r\n",17);
 
+  block_ms(10);
+  display_int("RST_CODE:         \r\n", REG_ROBOT_RESET_CODE);
+	handle_watchdogs();
+  block_ms(10);
+
 	//T1InterruptUserFunction = DeviceCarrierGetTelemetry;
 
   //Radio should be powered up
