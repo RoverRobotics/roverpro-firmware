@@ -46,6 +46,7 @@ typedef int16_t DEVICE_NUMBER;
 #define DEVICE_HITCH        0x0f
 #define OCU_FRONT_CAM		0x10
 #define OCU_REAR_CAM		0x11
+#define DEVICE_BOOM_CAM		0x12
 
 
 // -------- PROGRAM DEFINES --------
