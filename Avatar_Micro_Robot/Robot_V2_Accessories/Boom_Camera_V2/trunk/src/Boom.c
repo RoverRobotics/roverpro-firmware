@@ -9,6 +9,7 @@ Description: Overarching file encompassing the application-level logic of the
 #include "./core/StandardHeader.h"
 #include "./core/Timers.h"
 #include "./core/UART.h"
+#include "./USB/MyUSB.h" // for USB
 
 /*---------------------------Macros-------------------------------------------*/
 //---power management
@@ -121,10 +122,15 @@ void InitBoom(void) {
   TMRS_StartTimer(TX_TIMER, _100ms);
   
   TMRS_StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME);
+  
+  // for USB
+  uint16_t productID = 0x0012;
+  USBDevice_Init(productID);
 }
 
 
 void ProcessBoomIO(void) {
+  /*
   static int modeAttemptCounter = 0;
   
   // toggle a pin to indicate normal operation
@@ -164,7 +170,10 @@ void ProcessBoomIO(void) {
       ENABLE_HEARTBEAT(0);  // indicate an error
       break;
   }
-
+  */
+  
+  // for USB
+  USBDevice_ProcessMessage();
 }
 
 /*---------------------------Helper Function Definitions----------------------*/
@@ -182,10 +191,10 @@ static void DeinitPins(void) {
 	TMRS_Deinit();
 	
 	// configure all I/O pins as digital outputs and ground them
-  AD1CON1 = 0x0000; Nop(); 
-	AD1CON2 = 0x0000; Nop(); 
-	AD1CON3 = 0x0000; Nop(); 
-  AD1PCFGL = 0xffff; Nop(); 
+  AD1CON1 = 0x0000; Nop();
+	AD1CON2 = 0x0000; Nop();
+	AD1CON3 = 0x0000; Nop();
+  AD1PCFGL = 0xffff; Nop();
 	TRISB = 0x0000; Nop(); PORTB = 0x0000;
 	TRISC = 0x0000; Nop(); PORTC = 0x0000;
 	TRISD = 0x0000; Nop(); PORTD = 0x0000;
