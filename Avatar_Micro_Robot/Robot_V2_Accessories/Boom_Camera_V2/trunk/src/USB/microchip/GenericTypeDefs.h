@@ -43,6 +43,7 @@
   1.5   08/14/08     Simplify file header
   2.0   07/13/09     Updated for new release of coding standards
 *******************************************************************/
+
 #ifndef __GENERIC_TYPE_DEFS_H_
 #define __GENERIC_TYPE_DEFS_H_
 
@@ -58,13 +59,9 @@
 #endif
 
 /* get compiler defined type definitions (NULL, size_t, etc) */
-#include <stddef.h>
+#include <stddef.h> 
 
-typedef enum _BOOL { 
-FALSE = 0, 
-TRUE 
-} BOOL;    /* Undefined size */
-
+typedef enum _BOOL { FALSE = 0, TRUE } BOOL;    /* Undefined size */
 typedef enum _BIT { CLEAR = 0, SET } BIT;
 
 #define PUBLIC                                  /* Function attributes */

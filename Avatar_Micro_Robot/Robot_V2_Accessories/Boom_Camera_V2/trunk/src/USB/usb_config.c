@@ -7,7 +7,7 @@
  *
  */
 
-#include "./usb_config.h"
+#include "usb_config.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -15,7 +15,7 @@ extern "C" {
       namespace telemetry {
 #endif
 
-// -------- INSTANTIATE TELEMETRY VARIABLES --------
+//--------INSTANTIATE TELEMETRY VARIABLES
 #define REGISTER_START()
 #define REGISTER( a, b, c, d, e )    e a;
 #define REGISTER_END()
@@ -30,7 +30,7 @@ extern "C" {
 #undef  MEMBER
 #undef  MESSAGE_END
 
-// -------- LIST OF INSTANTIATED VARIABLE LOCATION FOR SERIALIZATION --------
+//-------- LIST OF INSTANTIATED VARIABLE LOCATION FOR SERIALIZATION
 #define REGISTER_START()            struct REGISTER registers[] = { 
 #define REGISTER( a, b, c, d, e )                                   {sizeof(e),d,c,b,&a},
 #define REGISTER_END()                                              {0} };

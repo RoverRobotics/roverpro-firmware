@@ -8,16 +8,16 @@ Description: This is where the global hardware registers are defined between
   backwards compatibility.
 
 Notes:
-  - adapted from a file originally written by J. Brinton
+  - adapted from a file originally assembled by J. Brinton
   - all naming is from the perspective of software (ie whether software
     reads-from or write-to the register
   - REGISTER(MY_REGISTER_NAME, SOFTWARE_R/W_DIRECTION, 
              SYNC_OR_NO_SYNC, my_data_type)
-  
-Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 =============================================================================*/
 #ifndef REGISTERS_H
 #define REGISTERS_H
+
+// BUG ALERT: THIS IS INCLUDED WITHIN usb_config.c
 
 /*---------------------------Macros------------------------------------------*/
 #define BUTTON_DEPRESSED 1

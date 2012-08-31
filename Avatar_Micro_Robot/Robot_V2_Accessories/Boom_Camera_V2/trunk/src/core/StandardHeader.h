@@ -15,11 +15,8 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 #include <stdint.h>       // for more concise and explicit integer data types
 #include <stdbool.h>      // for 'bool' boolean data type
 #include <libpic30.h>     // TODO: what is this for?
-#include "./USB/HardwareProfile.h"  // for ???usb?
 
 /*---------------------------Macros-------------------------------------------*/
-//#define F_CY                  16000000UL  // 16MHz instruction clock
-
 #define OFF                   0
 #define ON                    1
 
@@ -29,9 +26,6 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 #define CW                    0
 #define CCW                   1
 #define NO_DIRECTION					2
-
-//#define FALSE     						0
-//#define TRUE      						(!FALSE)
 
 #define NO                    0
 #define YES                   (!NO)

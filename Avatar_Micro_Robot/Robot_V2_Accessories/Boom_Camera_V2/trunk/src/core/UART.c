@@ -130,16 +130,16 @@ void UART_Deinit(void) {
 	IEC0bits.U1RXIE = 0;    // disable UART1 Rx interrupt
 	U1STAbits.UTXEN = 0;    // disable transmission
   
-  // restore any pins
-  PPS_MapPeripheral(U1TX_RPn, OUTPUT, FN_NULL);
-	PPS_MapPeripheral(U1RX_RPn, OUTPUT, FN_NULL);
+  // restore any pins if they were used
+  if (U1TX_RPn != 0) PPS_MapPeripheral(U1TX_RPn, OUTPUT, FN_NULL);
+	if (U1RX_RPn != 0) PPS_MapPeripheral(U1RX_RPn, OUTPUT, FN_NULL);
 	
-	// point any user ISR's to the dummy function
+	// point any user ISR's back to the dummy function
 	U1TX_UserISR = UART_DummyISR;
 	U1RX_UserISR = UART_DummyISR;
 }
 
-  
+
 void UART_DummyISR(void) {}
 
 

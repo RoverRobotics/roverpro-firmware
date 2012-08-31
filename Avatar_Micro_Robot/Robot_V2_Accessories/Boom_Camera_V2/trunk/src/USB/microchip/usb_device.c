@@ -111,10 +111,10 @@
 ********************************************************************/
 
 /** INCLUDES *******************************************************/
-#include "microchip/GenericTypeDefs.h"
-#include "microchip/Compiler.h"
-#include "microchip/USB/USB.h"
-#include "HardwareProfile.h"
+#include "GenericTypeDefs.h"
+#include "Compiler.h"
+#include "USB/USB.h"
+#include "../HardwareProfile.h"
 
 
 #if defined(USB_USE_MSD)

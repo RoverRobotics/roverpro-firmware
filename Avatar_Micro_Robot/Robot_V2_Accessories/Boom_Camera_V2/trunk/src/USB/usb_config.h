@@ -1,17 +1,14 @@
-/**
- * @file usb_config.h
- * @author J. Brinton
- * @author Robotex, Inc.
- *
- * USB packet definitions for firmware and software
- *
- */
+/*==============================================================================
+File: usb_config.h
 
+Description: This module defines USB packet definitions used by microchip's
+  usb stack.
+==============================================================================*/
 #ifndef USB_CONFIG_H
 #define USB_CONFIG_H
 
-#include <stdint.h>       // for more concise and explicit integer data types
-
+/*---------------------------Dependencies-------------------------------------*/
+#include <stdint.h>                 // for uintN_t data type definitions, etc
 #ifdef __cplusplus
 extern "C" {
    namespace rbx {
@@ -24,9 +21,19 @@ extern "C" {
 	#define VAR_ATTRIBS
 #endif
 
-// -------- MICROCONTROLLER PRODUCT IDS --------
+/*---------------------------Public Functions---------------------------------*/
+/*******************************************************************************
+Function: USBDevice_Init
+Description: Initializes the microcontroller as a USB, full-speed device.
+Parameters:
+  uint16_t productID, the product identification number (e.g. 0x0012)
+*******************************************************************************/
+void USBDevice_Init(uint16_t productID);
+
+//----------microcontroller product IDs
 typedef int16_t DEVICE_NUMBER;
-#define DEVICE_NONE        	~0
+
+#define DEVICE_NONE         ~0
 #define DEVICE_GENERIC      0x00
 #define DEVICE_OCU          0x01
 #define DEVICE_CARRIER      0x02
@@ -43,31 +50,31 @@ typedef int16_t DEVICE_NUMBER;
 #define DEVICE_ARM_LINK2	  0x0d
 #define DEVICE_DETECTOR     0x0e
 #define DEVICE_HITCH        0x0f
-#define OCU_FRONT_CAM				0x10
-#define OCU_REAR_CAM				0x11
-#define DEVICE_BOOM_CAM			0x12
-#define BOOM_CAM_EMPIA			0x13
+#define OCU_FRONT_CAM		    0x10
+#define OCU_REAR_CAM		    0x11
+#define DEVICE_BOOM_CAM		  0x12
+#define BOOM_CAM_EMPIA		  0x13
 
-// -------- PROGRAM DEFINES --------
-#define DEVICE_READ  0x8000
-#define DEVICE_WRITE 0x0000
 
-#define SYNC    1
-#define NO_SYNC 0
+//----------program definitions
+#define DEVICE_READ         0x8000
+#define DEVICE_WRITE        0x0000
+#define SYNC                1
+#define NO_SYNC             0
 
-#define OUT_PACKET_LENGTH 255
-#define IN_PACKET_LENGTH  255
+#define OUT_PACKET_LENGTH   255
+#define IN_PACKET_LENGTH    255
 
-#define PACKET_TERMINATOR 0xFFFF
+#define PACKET_TERMINATOR   0xFFFF
 
-// -------- TELEMETRY VARIABLE DEFINITIONS --------
+//----------telemetry? variable definitions
 #define REGISTER_START()
-#define REGISTER( a, b, c, d, e)       extern e a __attribute__((VAR_ATTRIBS));
+#define REGISTER(a, b, c, d, e)       extern e a __attribute__((VAR_ATTRIBS));
 #define REGISTER_END()
-#define MESSAGE_START( a )
-#define MEMBER( a )
+#define MESSAGE_START(a)
+#define MEMBER(a)
 #define MESSAGE_END()
-#include "./registers.h"
+#include "registers.h"
 #undef  REGISTER_START
 #undef  REGISTER
 #undef  REGISTER_END
@@ -76,7 +83,7 @@ typedef int16_t DEVICE_NUMBER;
 #undef  MESSAGE_END
 
 
-// -------- TELEMETRY SERIALIZATION DATA DEFINITIONS --------
+//----------telemetry? serialization data definitions
 typedef uint16_t DEVICE;
 typedef uint16_t SIZE;
 typedef uint16_t SYNC_BIT;
@@ -88,17 +95,16 @@ typedef uint16_t INDEX;
 typedef void*    DATA_PTR;
 
 struct REGISTER {
-   SIZE     size;
-   SYNC_BIT sync;
-   DEVICE   device;
-   RW       rw;
-   DATA_PTR ptr;
+ SIZE     size;
+ SYNC_BIT sync;
+ DEVICE   device;
+ RW       rw;
+ DATA_PTR ptr;
 };
 
 extern struct REGISTER registers[];
 
-
-// -------- THINGS WE NEED FOR MICROCHIP FIRMWARE INTERFACE --------
+//----------THINGS WE NEED FOR MICROCHIP FIRMWARE INTERFACE
 #define USB_SUPPORT_DEVICE
 #define USB_ENABLE_ALL_HANDLERS
 //#define USB_POLL
@@ -116,7 +122,8 @@ extern struct REGISTER registers[];
 #define USB_TRANSCEIVER_OPTION               USB_INTERNAL_TRANSCEIVER
 #define USB_SPEED_OPTION                     USB_FULL_SPEED
 #define USB_USER_DEVICE_DESCRIPTOR           &device_dsc
-#define USB_USER_DEVICE_DESCRIPTOR_INCLUDE   extern USB_DEVICE_DESCRIPTOR device_dsc
+#define USB_USER_DEVICE_DESCRIPTOR_INCLUDE \
+           extern USB_DEVICE_DESCRIPTOR device_dsc
 
 
 #ifdef __cplusplus
@@ -125,5 +132,5 @@ extern struct REGISTER registers[];
 } // extern "C"
 #endif
 
-#endif // USB_CONFIG_H
+#endif
 

@@ -1,16 +1,28 @@
-#include "./MyUSB.h"
-#include "./usb_config.h"           // must be BEFORE usb.h to configure through #define's
-#include "./microchip/USB/usb.h"    // interface to microchip's USB stack
+/*==============================================================================
+File: RXUSBDevice.c
+==============================================================================*/
+//#define TEST_RXUSBDEVICE
+/*---------------------------Dependencies-------------------------------------*/
+#include "./RXUSBDevice.h"
+#include "./core/StandardHeader.h"
+#include "./USB/HardwareProfile.h"      // used by USB somehow?
+#include "./microchip/USB/usb.h"        // interface to microchip's USB stack
+                                        // BUG ALERT: usb_config.h MUST be 
+                                        // defined before this
 #include "./microchip/USB/usb_device.h" // for USBDeviceAttach(), etc
 
-#define USB_NEXT_PING_PONG  0x0004  // ? 
+/*---------------------------Macros-------------------------------------------*/
+#define USB_NEXT_PING_PONG  0x0004      // ?
 
+/*---------------------------Helper Function Prototypes-----------------------*/
+
+/*---------------------------Module Variables---------------------------------*/
 extern volatile BDT_ENTRY *pBDTEntryOut[USB_MAX_EP_NUMBER + 1];
 extern USB_DEVICE_DESCRIPTOR device_dsc;	// warning must be this name, defined in usb_descriptors.c
 
 unsigned int i, j, n = 0;
-unsigned int  cur_word, reg_index, checksum;
-unsigned int  reg_size;
+unsigned int cur_word, reg_index, checksum;
+unsigned int reg_size;
 int gNewData;
 int numRegisters = 0;
 uint8_t OutPacket[OUT_PACKET_LENGTH];
@@ -18,18 +30,36 @@ uint8_t InPacket[IN_PACKET_LENGTH];
 USB_HANDLE USBGenericOutHandle = 0;
 USB_HANDLE USBGenericInHandle = 0;
 
-void USBDevice_Init(uint16_t productID) {
-  // determine the number of registers
+/*---------------------------Test Harness-------------------------------------*/
+#ifdef TEST_RXUSBDEVICE
+#include "./core/ConfigurationBits.h"
+
+int main(void) {
+  uint16_t productID = 0x0012;
+  RXUSBDevice_Init(productID);
+  
+  while (1) {
+    RXUSBDevice_ProcessMessage();
+  }
+  
+  return 0;
+}
+#endif
+
+/*---------------------------Public Function Definitions----------------------*/
+void RXUSBDevice_Init(uint16_t productID) {
+  // assign any pins?
+  
+  // determine the number of registers ?
   while (registers[numRegisters].ptr != 0) numRegisters++;
   
   device_dsc.idProduct = productID;
-  
   USBDeviceInit();
 	USBDeviceAttach();
 }
 
 
-void USBDevice_ProcessMessage(void) {
+void RXUSBDevice_ProcessMessage(void) {
 	static unsigned char usb_rx_failed = 0;
 	if ((USBDeviceState < CONFIGURED_STATE)||(USBSuspendControl==1)) return;
 
@@ -40,7 +70,7 @@ void USBDevice_ProcessMessage(void) {
 	}
     
   if (!USBHandleBusy(USBGenericOutHandle)) {
-    // CHECK FOR VALID PACKET ---------------------------------------------
+    // CHECK FOR VALID PACKET
     i = 0;                // reset IN packet pointer
   	n = 0;                // reset OUT packet pointer
   	checksum = 0;         // reset OUT packet checksum
@@ -73,7 +103,7 @@ void USBDevice_ProcessMessage(void) {
   		}
   	}
   
-  	// PARSE INCOMING PACKET ----------------------------------------------
+  	// PARSE INCOMING PACKET
   	i = 0;                // reset IN packet pointer
   	n = 0;                // reset OUT packet pointer
     while (1) {
@@ -163,3 +193,5 @@ bool USER_USB_CALLBACK_EVENT_HANDLER(USB_EVENT event, void *pdata, WORD size) {
     
   return TRUE; 
 }
+
+/*---------------------------Private Function Definitions---------------------*/
