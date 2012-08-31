@@ -74,7 +74,7 @@ int main(void) {
 void InitBoom(void) {
 	InitPins();
 	
-  //RXUSBDevice_Init(BOOM_PRODUCT_ID);
+  RXUSBDevice_Init(BOOM_PRODUCT_ID);
   
   //NM33_Init(MY_TX_PIN, MY_RX_PIN);
   
