@@ -9,6 +9,7 @@ File: Hitch.c
 #include "./PWM.h"
 #include "./stdhdr.h"         // to get access to our custom registers
 #include "./StandardHeader.h" // for pic header file, Map() function, etc
+#include <stdbool.h>          // for bool data type definition
 
 /*---------------------------Wiring Macros-----------------------------------*/
 // PWM Pin
@@ -36,13 +37,15 @@ File: Hitch.c
 
 // Power Bus Current Sensing
 #define CURRENT_ANALOG_PIN    15
-#define UNSAFE_CURRENT_LEVEL  230     // 0.01S*(1.5A*0.05Ohm)*1k ~= 0.75V, (0.75 / 3.30) * 1023=
+#define UNSAFE_CURRENT_LEVEL  310     // 0.01S*(2A*0.05Ohm)*1k ~= 0.75V, (0.75 / 3.30) * 1023=
+//230     // 0.01S*(1.5A*0.05Ohm)*1k ~= 0.75V, (0.75 / 3.30) * 1023=
 
 // Heartbeat Indicator
 #define CONFIGURE_HEARTBEAT_PIN(a)   (_TRISE5 = (a))
 #define HEARTBEAT_PIN         (_RE5)
 
 // Times and Timers
+#define _10ms                 10
 #define _100ms                100
 #define HEARTBEAT_TIMER       0
 #define HEARTBEAT_TIME        (10*_100ms)
@@ -52,6 +55,8 @@ File: Hitch.c
 #define TRANSITION_TIME       (10*_100ms)
 #define JAM_TIMER             3
 #define JAM_CHECK_PERIOD      (5*_100ms)
+#define UNSAFE_CURRENT_TIMER  4
+#define UNSAFE_CURRENT_TIME   (5*_10ms)
 
 /*---------------------------Type Definitions--------------------------------*/
 typedef enum {
@@ -63,10 +68,11 @@ typedef enum {
 /*---------------------------Helper Function Prototypes----------------------*/
 static void CalibrateHobbyMotorController(void);
 static void Latch(unsigned char direction);
-static unsigned char IsLatched(void);
-static unsigned char IsUnlatched(void);
-static unsigned char IsLatching(void);
-static unsigned char IsJammed(void);
+static bool IsLatched(void);
+static bool IsUnlatched(void);
+static bool IsLatching(void);
+static bool IsJammed(void);
+static bool IsCurrentLevelUnsafe(void);
 
 /*---------------------------Module Variables--------------------------------*/
 static state_t state = WAITING;
@@ -117,8 +123,9 @@ void ProcessHitchIO(void) {
 		StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME);
 	}
 	
+	/*
 	// turn off the power bus if we are drawing too much current (over-current protection)
-	if (UNSAFE_CURRENT_LEVEL < GetADC(CURRENT_ANALOG_PIN)) {
+  if (IsCurrentLevelUnsafe()) {
   	// ensure that if this problem persists, the duty cycle is very low
   	// BUG ALERT: ensure the power bus is turned off long enough 
   	// to be able to reset the OTS controller
@@ -126,7 +133,9 @@ void ProcessHitchIO(void) {
   	Delay(_100ms);
   	Reset();
   }
+  */
   
+  /*
   // only update feedback to software as often as needed
   if (IsTimerExpired(UPDATE_TIMER)) {
     REG_HITCH_POSITION = Map(GetADC(ACTUATOR_ANALOG_PIN), 
@@ -175,9 +184,11 @@ void ProcessHitchIO(void) {
   	  StartTimer(HEARTBEAT_TIMER, 65000); // indicate an error
   		break;
   }
-  
-  /*
+  */
+
+
   // basic test
+  unsigned int dummy = GetADC(ACTUATOR_ANALOG_PIN);
   if (IsTimerExpired(TRANSITION_TIMER)) {
 		HEARTBEAT_PIN ^= 1;
 		
@@ -199,7 +210,7 @@ void ProcessHitchIO(void) {
 		
 		StartTimer(TRANSITION_TIMER, 2000);
 	}
-	*/
+
 }
 
 /*---------------------------Helper Function Definitions---------------------*/
@@ -235,7 +246,7 @@ static void Latch(unsigned char direction) {
 }
 
 
-static unsigned char IsJammed(void) {
+static bool IsJammed(void) {
   // check whether the potentiometer is NOT changing as quickly as it should
   if (IsTimerExpired(JAM_TIMER)) {
     StartTimer(JAM_TIMER, JAM_CHECK_PERIOD);
@@ -256,17 +267,31 @@ Description: Determines the state of the latch from linear potentiometer
   feedback.  This function additionally adds hysteresis to the pre-defined
   limits to take into tolerance in the locking mechanism sliding back.
 */
-static unsigned char IsLatched(void) {
+static bool IsLatched(void) {
   return (GetADC(ACTUATOR_ANALOG_PIN) <= V_LATCHED);
 }
 
-static unsigned char IsUnlatched(void) {
+static bool IsUnlatched(void) {
   return (V_UNLATCHED <= GetADC(ACTUATOR_ANALOG_PIN));
 }
 
-static unsigned char IsLatching(void) {
+static bool IsLatching(void) {
   unsigned int position = GetADC(ACTUATOR_ANALOG_PIN);
   return ((V_LATCHED < position) && (position < V_UNLATCHED));
+}
+
+/*
+Description: Returns whether the current is at an unsafe level, rejecting any
+  spurious spikes by ensuring we see a consistent unsafe current level
+  for a nominal duration of time.  This implementation is similar to 
+  the concept of a watchdog timer.
+*/
+static bool IsCurrentLevelUnsafe(void) {
+  if (UNSAFE_CURRENT_LEVEL < GetADC(CURRENT_ANALOG_PIN)) {
+    StartTimer(UNSAFE_CURRENT_TIMER, UNSAFE_CURRENT_TIME);
+  }
+  
+  return (IsTimerExpired(UNSAFE_CURRENT_TIMER));
 }
   
 

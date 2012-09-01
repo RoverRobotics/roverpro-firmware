@@ -14,14 +14,13 @@
 #define FCY 16000000UL        // instruction clock
 #define I2C_RATE_SETTING 0Xff // 200 KHz for 32 MHz clock frequency
 
-#define STDINT_INCLUDE            "../../../../../Common/REV_A/USB/microchip/stdint.h"
 #define GENERIC_TYPEDEFS_INCLUDE  "../../../../../Common/REV_A/USB/microchip/GenericTypeDefs.h"
 #define USB_INCLUDE               "../../../../../Common/REV_A/USB/microchip/USB/usb.h"
 #define COMPILER_INCLUDE          "../../../../../Common/REV_A/USB/microchip/Compiler.h"
 #define USB_COMMUNICATION_INCLUDE "../../../../../Common/REV_A/USB/usb_communication.h"
 
 
-#include STDINT_INCLUDE
+#include <stdint.h>
 #include <libpic30.h>
 
 #include GENERIC_TYPEDEFS_INCLUDE
