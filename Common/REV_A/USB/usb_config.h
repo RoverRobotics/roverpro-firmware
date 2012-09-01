@@ -10,7 +10,8 @@
 #ifndef USB_CONFIG_H
 #define USB_CONFIG_H
 
-#include "microchip/stdint.h"
+//#include "microchip/stdint.h"
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
