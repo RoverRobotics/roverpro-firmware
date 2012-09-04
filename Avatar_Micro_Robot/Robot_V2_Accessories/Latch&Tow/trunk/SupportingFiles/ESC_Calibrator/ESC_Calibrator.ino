@@ -33,24 +33,15 @@ void setup() {
   pinMode(HEARTBEAT_LED, OUTPUT); digitalWrite(HEARTBEAT_LED, LOW);
   
   InitPWM(1250);                  // T = 1250 * 8us => 10ms => f = 100Hz
-
-  StartTimer(HEARTBEAT_TIMER, HEARTBEAT_HALFPERIOD);
-  StartTimer(TEST_TIMER, CALIBRATION_TIME);
+  StartTimer(TEST_TIMER, _100ms);
 }
 
 void loop() {
-  // toggle the onboard LED to indicate normal operation
-  if (IsTimerExpired(HEARTBEAT_TIMER)) {
-    StartTimer(HEARTBEAT_TIMER, HEARTBEAT_HALFPERIOD);
-    static unsigned char alternator = 0;
-    digitalWrite(HEARTBEAT_LED, (++alternator % 2) ? LOW : HIGH);
-  }
-  
   if (IsTimerExpired(TEST_TIMER)) {
     StartTimer(TEST_TIMER, CALIBRATION_TIME);
     static unsigned char procedure_step = 0;
     switch (procedure_step++) {
-      case 0:  // pull to high
+      case 0:
         UpdateDutyCycle(PWM_PIN, NEUTRAL_DC);
         break;
       case 1:
