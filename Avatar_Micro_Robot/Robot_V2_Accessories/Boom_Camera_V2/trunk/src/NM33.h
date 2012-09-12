@@ -31,6 +31,9 @@ Parameters:
   uint8_t txPin,  transmission re-programmable pin number (n of RPn)
   uint8_t rxPin,  reception re-programmable pin number (n of RPn)
 Description: Initializes the communication interface and camera.
+Notes:
+  - BLOCKING! - it delays to guarantee the camera has had sufficient time to
+    boot (about 1.5s)
 *******************************************************************************/
 void NM33_Init(uint8_t txPin, uint8_t rxPin);
 

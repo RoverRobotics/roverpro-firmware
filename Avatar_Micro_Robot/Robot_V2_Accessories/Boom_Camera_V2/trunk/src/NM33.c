@@ -59,7 +59,7 @@ void NM33_Init(uint8_t txPin, uint8_t rxPin) {
   UART_Init(UART1TX_PIN, UART1RX_PIN, kUARTBaudRate115200);
   
   // wait for the camera to boot up
-  Delay(1000);
+  Delay(1500);
   BuildModeMessage(txMessage, &txMessageLength);
   UART_TransmitByte(txMessage[0]);
 }

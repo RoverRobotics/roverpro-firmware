@@ -38,7 +38,7 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 #define LATCH_PWM_PIN         2       // RP2
 #define T_PWM                 10      // [ms], period of the PWM signal
 #define MAX_DC                0.20    // t_HI = 2ms
-#define MAX_ALLOWABLE_DC      0.17
+#define MAX_ALLOWABLE_DC      0.165
 #define NEUTRAL_DC            0.15    // t_HI = 1.5ms
 #define MIN_ALLOWABLE_DC      0.12    //0.142
 #define MIN_DC                0.10    // t_HI = 1ms

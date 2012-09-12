@@ -8,7 +8,7 @@ Description: Overarching file encompassing the application-level logic of the
 /*---------------------------Dependencies-------------------------------------*/
 #include "./core/StandardHeader.h"
 #include "./core/Timers.h"
-//#include "./USB/RXUSBDevice.h"      // for USB firmware/software-shared 
+#include "./USB/RXUSBDevice.h"      // for USB firmware/software-shared 
                                     // registers
 #include "./NM33.h"                 // for interface to wide-angle camera
 
@@ -34,7 +34,7 @@ Description: Overarching file encompassing the application-level logic of the
 #define USB_INIT_TIMER            2
 #define USB_INIT_TIME             (_100ms)
 
-//---NM33 communication pin assignments
+//---NM33 pin assignments
 #define MY_TX_PIN                 8
 #define MY_RX_PIN                 9
 
@@ -76,7 +76,7 @@ void InitBoom(void) {
 	
   RXUSBDevice_Init(BOOM_PRODUCT_ID);
   
-  //NM33_Init(MY_TX_PIN, MY_RX_PIN);
+  NM33_Init(MY_TX_PIN, MY_RX_PIN);
   
   TMRS_Init();
   TMRS_StartTimer(CAM_TX_TIMER, CAM_TX_TIME);
@@ -121,9 +121,10 @@ void ProcessBoomIO(void) {
       ENABLE_HEARTBEAT(0);  // indicate an error
       break;
   }
+  */
   
   RXUSBDevice_ProcessMessage();
-  */
+
 }
 
 /*---------------------------Helper Function Definitions----------------------*/
