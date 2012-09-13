@@ -409,7 +409,9 @@ void DeviceRobotMotorInit()
 {
 //local variables
 
-	unsigned int i;
+  unsigned int i;
+  unsigned int j;
+  unsigned int k = 1000;
 	//wait for 10s.  This is so that we can differentiate between
 	//the battery resetting (and restarting this code), and the 
 	//current protection kicking in.
@@ -439,19 +441,26 @@ void DeviceRobotMotorInit()
 	//******************************//
 
 
-	for(i=0;i<20;i++)
+	for(i=0;i<300;i++)
 	{
 		Cell_Ctrl(Cell_A,Cell_ON);
-		Cell_Ctrl(Cell_B,Cell_ON);
-		block_ms(10);
+    for(j=0;j<k;j++) Nop();
 		Cell_Ctrl(Cell_A,Cell_OFF);
-		Cell_Ctrl(Cell_B,Cell_OFF);	
-		block_ms(40);
+
+    block_ms(20);
     ClrWdt();
 
+    Cell_Ctrl(Cell_B,Cell_ON);
+    for(j=0;j<k;j++) Nop();
+    Cell_Ctrl(Cell_B,Cell_OFF);
+
+		block_ms(20);
+    ClrWdt();
+    k+=10;
 	}
- //	Cell_Ctrl(Cell_A,Cell_ON);
- //	Cell_Ctrl(Cell_B,Cell_ON);
+
+ 	Cell_Ctrl(Cell_A,Cell_ON);
+ 	Cell_Ctrl(Cell_B,Cell_ON);
 
 //	bringup_board();
 	test_function();
