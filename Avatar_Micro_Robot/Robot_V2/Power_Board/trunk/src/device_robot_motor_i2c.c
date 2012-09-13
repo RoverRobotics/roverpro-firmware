@@ -7,6 +7,9 @@
 int CheckI2C2Idle();
 int CheckI2C3Idle();
 
+void re_init_i2c2(void);
+void re_init_i2c3(void);
+
 int I2C2XmitReset = 0;
 int I2C3XmitReset = 0;
 
@@ -29,6 +32,9 @@ void I2C2Update(void)
  		REG_MOTOR_TEMP_STATUS.left=1;
  		REG_MOTOR_TEMP_STATUS.right=1;
  		REG_MOTOR_TEMP_STATUS.board=1;
+
+    re_init_i2c2();
+
  	}
  	switch(StepNumber)
  	{
@@ -435,11 +441,7 @@ void I2C3Update(void)
  		StepNumber=1;//go to step 1, start from the beginning
  		//assume all the data is good
 
-		I2C3CONbits.SEN = 0;
-		I2C3CONbits.PEN = 0;
-		I2C3CONbits.RCEN = 0;
-		I2C3CONbits.ACKEN = 0;
-		I2C3STATbits.TRSTAT = 0;
+    re_init_i2c3();
 
  	}
  	switch(StepNumber)
@@ -592,4 +594,50 @@ int CheckI2C3Idle()
  	{
  		return True;
  	}
+}
+
+void re_init_i2c2(void)
+{
+
+
+  I2C2CON = 0;
+  I2C2STAT = 0;
+
+// New Bren-Tronics battery (or existing device interacting with the new
+// battery ties up the SMBus line (usually
+// seen after the robot is driven for a short time.  The only
+// way I've been able to recover from this is by either removing
+// the SMBus cable between the battery board and the power board,
+// or by changing the i2c pins to outputs when the i2c module is
+// disabled.
+  _TRISF4 = 0;
+  _TRISF5 = 0;
+  _LATF4 = 0;
+  _LATF5 = 0;
+
+	//FCY should be 16M
+	//I2C2BRG = FCY/100000-FCY/10000000-1;	//should be 157.4 (between 9D and 9E)
+	I2C2BRG = 0xff;
+  I2C2CONbits.I2CEN = 1;
+
+
+}
+
+void re_init_i2c3(void)
+{
+
+
+  I2C3CON = 0;
+  I2C3STAT = 0;
+ 
+  _TRISE6 = 0;
+  _TRISE7 = 0;
+  _LATE6 = 0;
+  _LATE7 = 0;
+
+	//FCY should be 16M
+	//I2C2BRG = FCY/100000-FCY/10000000-1;	//should be 157.4 (between 9D and 9E)
+	I2C3BRG = 0xff;
+  I2C3CONbits.I2CEN = 1;
+ 
 }
