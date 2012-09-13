@@ -318,71 +318,9 @@ static unsigned int return_calibrated_pot_angle(unsigned int pot_1_value, unsign
 void bringup_board(void)
 {
 
-/*	unsigned int battery1_voltage = 0;
-	unsigned int battery2_voltage = 0;
-	//unsigned char BATTERY_ADDRESS = 0x16;
-	unsigned char BATTERY_ADDRESS = 0x0b;
-	battery1_voltage = 77;
-	unsigned int battery1_rel_SOC = 0;
-	unsigned int battery2_rel_SOC = 0;
-	
 
-	OpenI2C2(I2C_ON & I2C_IDLE_CON & I2C_CLK_HLD & I2C_IPMI_DIS & I2C_7BIT_ADD  
-                & I2C_SLW_DIS & I2C_SM_DIS & I2C_GCALL_DIS & I2C_STR_DIS 
-				& I2C_NACK, 0xff);
-
-	IdleI2C2();
-
-	OpenI2C3(I2C_ON & I2C_IDLE_CON & I2C_CLK_HLD & I2C_IPMI_DIS & I2C_7BIT_ADD  
-                & I2C_SLW_DIS & I2C_SM_DIS & I2C_GCALL_DIS & I2C_STR_DIS 
-				& I2C_NACK, 0xff);
-
-	IdleI2C3();
-
-	block_ms(1000);
-	//set fan configuration
-	writeI2C2Reg( FAN_CONTROLLER_ADDRESS,0x02,0b00011010);
-	block_ms(50);
-
-	//make thermistor 1 control fan 2, and vice versa
-	writeI2C2Reg( FAN_CONTROLLER_ADDRESS,0x11,0b00011000);
-	block_ms(50);
-
-	//set fan start duty cycle -> 120/240 = 50%
-	writeI2C2Reg( FAN_CONTROLLER_ADDRESS,0x07,120);
-	block_ms(50);
-
-	//fan turns on at 40C
-	writeI2C2Reg( FAN_CONTROLLER_ADDRESS,0x10,40);
-	block_ms(50);
-	block_ms(200);
-
-	battery1_voltage = readI2C2_Word(BATTERY_ADDRESS, 0x09);
-	battery2_voltage = readI2C3_Word(BATTERY_ADDRESS, 0x09);
-
-	battery1_rel_SOC = readI2C2_Word(BATTERY_ADDRESS, 0x0d);
-	battery2_rel_SOC = readI2C3_Word(BATTERY_ADDRESS, 0x0d);
-
-
-	while(1);*/
-
-	Cell_Ctrl(Cell_A,Cell_ON);
-	Cell_Ctrl(Cell_B,Cell_ON);
-
-	M1_COAST=Clear_ActiveLO;
-	M1_DIR=HI;
-	M1_BRAKE=Clear_ActiveLO;
-
-
-
-	while(1)
-		ClrWdt();
 
 }
-
-
-
-
 
 
 
@@ -412,11 +350,6 @@ void DeviceRobotMotorInit()
   unsigned int i;
   unsigned int j;
   unsigned int k = 1000;
-	//wait for 10s.  This is so that we can differentiate between
-	//the battery resetting (and restarting this code), and the 
-	//current protection kicking in.
-	//block_ms(10000);
-
 
 	//initialize all modules
 	MC_Ini();
@@ -429,17 +362,6 @@ void DeviceRobotMotorInit()
 	ProtectHB(LMotor);
 	ProtectHB(RMotor);
 	ProtectHB(Flipper);
-	//Start SwitchDirectionTimer
-	//******************************//
-	//test code part
-	//printf("ABCDEFG");
-	//TestIO();
-	//TestPWM();
-	//TestIC1();
-	//while(1);
-	//end test
-	//******************************//
-
 
 	for(i=0;i<300;i++)
 	{
@@ -462,7 +384,6 @@ void DeviceRobotMotorInit()
  	Cell_Ctrl(Cell_A,Cell_ON);
  	Cell_Ctrl(Cell_B,Cell_ON);
 
-//	bringup_board();
 	test_function();
 
 	initialize_i2c2_registers();
@@ -1740,10 +1661,6 @@ void USBInput()
 	static int USB_New_Data_Received;
 	static unsigned int control_loop_counter = 0;
 	static unsigned int flipper_control_loop_counter = 0;
-	//update local usb message variable
- 	/*Robot_Motor_TargetSpeedUSB[0]=REG_MOTOR_VELOCITY.left; 
- 	Robot_Motor_TargetSpeedUSB[1]=REG_MOTOR_VELOCITY.right;
-	Robot_Motor_TargetSpeedUSB[2]=REG_MOTOR_VELOCITY.flipper;*/
 
 	control_loop_counter++;
 	flipper_control_loop_counter++;
@@ -1760,14 +1677,6 @@ void USBInput()
 		flipper_control_loop_counter  = 0;
 		Robot_Motor_TargetSpeedUSB[2]=speed_control_loop(2,REG_MOTOR_VELOCITY.flipper);
 	}
-
-	/*i=-500;
-	//i=20;
- 	Robot_Motor_TargetSpeedUSB[0]=i; 
- 	Robot_Motor_TargetSpeedUSB[1]=i;
- 	Robot_Motor_TargetSpeedUSB[2]=i;*/
-	//USBTimeOutTimerCount=0;
-	
 
 
 	//long time no data, clear everything
@@ -1918,13 +1827,9 @@ void Cell_Ctrl(int Channel, int state)
  			switch(state)
  			{
  				case Cell_ON:
- 					//TRISFbits.TRISF1=0;//ground the pin, turn on the mosfet
- 					//PORTFbits.RF1=0;
  					Cell_A_MOS=1;
  					break;
  				case Cell_OFF:
- 					//TRISFbits.TRISF1=0;//pin high, turn off the mosfet
- 					//PORTFbits.RF1=1;
  					Cell_A_MOS=0;
  					break;
  			}
@@ -1933,13 +1838,9 @@ void Cell_Ctrl(int Channel, int state)
  			switch(state)
  			{
  				case Cell_ON:
- 					//TRISFbits.TRISF0=0;//ground the pin, turn on the mosfet
- 					//PORTFbits.RF0=0;
  					Cell_B_MOS=1;
  					break;
  				case Cell_OFF:
- 					//TRISFbits.TRISF0=0;//pin high, turn off the mosfet
- 					//PORTFbits.RF0=1;
  					Cell_B_MOS=0;
  					break;
  			}
@@ -2216,72 +2117,7 @@ void I2C3Ini()
 
 }
 
-/***************************Test***********************************/
-void test()
-{
-/*
- 	int i;
- 	for(i=0;i<3;i++)
- 	{
- 		GetControlRPM(i);
- 		GetControlCurrent(i);
- 	}
-*/ 	
- 	//printf("LMotor:%ld,%ld,%ld,%d--RMotor:%ld,%ld,%ld,%d\n",ControlRPM[LMotor],ControlCurrent[LMotor],EnCount[LMotor],MotorDuty[LMotor],ControlRPM[RMotor],ControlCurrent[RMotor],EnCount[RMotor],MotorDuty[RMotor]);
-// 	printf("LMotor:%ld,%ld,%ld,%ld,%ld,%ld\n",ControlRPM[LMotor],ControlCurrent[LMotor],EnCount[LMotor],EncoderFBInterval[LMotor][0],EncoderFBInterval[LMotor][1],EncoderFBInterval[LMotor][2]);
-// 	printf("LMotor EncoderFB Timer Interval: %ld,%ld,%ld,%ld\n",EncoderFBInterval[LMotor][0],EncoderFBInterval[LMotor][1],EncoderFBInterval[LMotor][2],EncoderFBInterval[LMotor][3]);
-// 	printf("Direction: %d,%d,%d,%d\n",DIR[LMotor][0],DIR[LMotor][1],DIR[LMotor][2],DIR[LMotor][3]);
-/*
- 	printf("%ld,%ld,%ld\n",CurrentRPM[LMotor],BackEMFCOEF[LMotor],EnCount[LMotor]);
-*/
 
-// 	printf("%ld\n",MotorCurrent[LMotor]);
-/*
- 	for(i=0;i<SampleLength;i++)
- 	{
- 	 	printf("%d,%ld\n",i,MotorCurrentAD[LMotor][i]);
- 	 	
- 	}
-*/
-/*
-  	long temp1,temp2;
-
- 	IEC2bits.IC6IE=CLEAR;
- 	IEC2bits.IC5IE=CLEAR;
- 	IEC2bits.IC4IE=CLEAR;
- 	IEC2bits.IC3IE=CLEAR;
- 	IEC0bits.IC2IE=CLEAR;
- 	IEC0bits.IC1IE=CLEAR;
-
- 	//timing testing
- 	PWM2Duty(600); 
- 	PWM4Duty(200);
- 	//while(1);
-*/
-/* 	
- 	for(i=0;i<SampleLength;i++)
- 	{
- 	 	temp1=EncoderFBInterval[LMotor][i];
- 	 	temp2=CurrentRPM[LMotor];
- 	 	printf("%u,%lu,%d,%lu\n",i,temp1,DIR[LMotor][i],temp2);
- 	 	//UART1Tranmit(temp);
- 	 	//printf("%u,%u\n",LEncoderCurrentValue,LEncoderLastValue)
- 	}
-*/ 	
-
-/*
- 	printf("L A %ld\n",BackEMF[LMotor][ChannelA]);
-// 	printf("L B %ld\n",BackEMF[LMotor][ChannelB]);
-// 	printf("L C %ld\n",MotorCurrent[LMotor]);
-// 	printf("R A %ld\n",BackEMF[RMotor][ChannelA]);
-// 	printf("R B %ld\n",BackEMF[RMotor][ChannelB]);
-// 	printf("R C %ld\n",MotorCurrent[RMotor]);
-// 	printf("F A %ld\n",BackEMF[Flipper][ChannelA]);
-// 	printf("F B %ld\n",BackEMF[Flipper][ChannelB]);
-// 	printf("F C %ld\n",MotorCurrent[Flipper]);
-// 	printf("T C %ld\n",TotalCurrent);
-*/
-}
 /*****************************************************************************/
 //*-----------------------------------Sub system-----------------------------*/
 
@@ -3145,22 +2981,6 @@ static unsigned int return_combined_pot_angle(unsigned int pot_1_value, unsigned
   
   //correct for pot 2 turning the opposite direction
   pot_2_value = 1023-pot_2_value;
-
-
- /* test_wrist_pot1_value = pot_1_value;
-  test_wrist_pot2_value = pot_2_value;
-
- // test_wrist_pot1_angle = pot_1_value*.326+341.7;
-  test_wrist_pot1_angle = pot_1_value*.326+58.35;
-  if(test_wrist_pot1_angle >= 360)
-  {
-    test_wrist_pot1_angle = test_wrist_pot1_angle -360;
-  }
-  test_wrist_pot2_angle = pot_2_value*.326+13.35;*/
-
-  //!!!!!!need to get full angle range out of this
-  //right now we only have 333 degrees
-  //maybe multiply by 360/333.3 somewhere?
 
   //if both pot values are invalid
   if( ((pot_1_value < LOW_POT_THRESHOLD) || (pot_1_value > HIGH_POT_THRESHOLD)) && 
