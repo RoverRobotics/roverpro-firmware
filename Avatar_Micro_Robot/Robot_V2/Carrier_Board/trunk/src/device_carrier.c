@@ -249,17 +249,6 @@ void DeviceCarrierInit()
 
 	init_io();
 
-	//turn on rear payload power (if necessary) now,
-	//in case we need power to a keyboard to control the BIOS
-	if(REAR_PL_PRESENT() == 0)
-	{
-		REAR_PL_PWR_ON(1);
-	}
-	else
-	{
-		REAR_PL_PWR_ON(0);
-	}
-
 	WDT_PIN_EN(1);
 
 	const unsigned char build_date[12] = __DATE__; 
@@ -816,14 +805,11 @@ int DeviceCarrierBoot()
 {
 	unsigned int i = 0;
 
-	V3V3_ON(1);
-
-	//while(!V3V3_PGOOD());
-
 	//weird -- long interval between turning on V3V3 and V5 doesn't allow COM Express to boot
 	block_ms(100);
 
 	V5_ON(1);
+	V3V3_ON(1);
 
 	while(SUS_S5() | SUS_S3())
 	{
@@ -867,6 +853,20 @@ int DeviceCarrierBoot()
 		handle_watchdogs();
 		block_ms(100);
 	}
+
+	//turn on rear payload power (if necessary) now,
+	//in case we need power to a keyboard to control the BIOS
+  //we waited this long so that power interruptions won't affect
+  //the flash drive
+	if(REAR_PL_PRESENT() == 0)
+	{
+		REAR_PL_PWR_ON(1);
+	}
+	else
+	{
+		REAR_PL_PWR_ON(0);
+	}
+
 
 	blink_led(6,500);
 
@@ -975,7 +975,7 @@ void DeviceCarrierProcessIO()
 		REAR_PL_PWR_ON(0);
 	}
 
-  if(REG_ROBOT_RADIO_RESET)
+  /*if(REG_ROBOT_RADIO_RESET)
   {
     V3V3_ON(0);
     robot_radio_reset_triggered = 1;
@@ -983,7 +983,7 @@ void DeviceCarrierProcessIO()
   else
   {
     V3V3_ON(1);
-  }
+  }*/
 
 	block_ms(10);
 	print_loop_number();
