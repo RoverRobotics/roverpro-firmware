@@ -351,17 +351,10 @@ void DeviceRobotMotorInit()
   unsigned int j;
   unsigned int k = 1000;
 
-	//initialize all modules
-	MC_Ini();
-
-	#ifndef XbeeTest
-		init_debug_uart();
-	#endif
-
- 	//Call ProtectHB
-	ProtectHB(LMotor);
-	ProtectHB(RMotor);
-	ProtectHB(Flipper);
+  //enable outputs for power bus
+  CELL_A_MOS_EN(1);
+  CELL_B_MOS_EN(1);
+  
 
 	for(i=0;i<300;i++)
 	{
@@ -383,6 +376,21 @@ void DeviceRobotMotorInit()
 
  	Cell_Ctrl(Cell_A,Cell_ON);
  	Cell_Ctrl(Cell_B,Cell_ON);
+
+
+	//initialize all modules
+	MC_Ini();
+
+	#ifndef XbeeTest
+		init_debug_uart();
+	#endif
+
+ 	//Call ProtectHB
+	ProtectHB(LMotor);
+	ProtectHB(RMotor);
+	ProtectHB(Flipper);
+
+
 
 	test_function();
 
