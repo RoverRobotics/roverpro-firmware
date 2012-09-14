@@ -350,28 +350,29 @@ void DeviceRobotMotorInit()
   unsigned int i;
   unsigned int j;
   unsigned int k = 1000;
+  unsigned int k0 = 3000;
 
   //enable outputs for power bus
   CELL_A_MOS_EN(1);
   CELL_B_MOS_EN(1);
   
 
-	for(i=0;i<300;i++)
+	for(i=0;i<70;i++)
 	{
 		Cell_Ctrl(Cell_A,Cell_ON);
     for(j=0;j<k;j++) Nop();
 		Cell_Ctrl(Cell_A,Cell_OFF);
 
-    block_ms(20);
+    block_ms(15);
     ClrWdt();
 
     Cell_Ctrl(Cell_B,Cell_ON);
     for(j=0;j<k;j++) Nop();
     Cell_Ctrl(Cell_B,Cell_OFF);
 
-		block_ms(20);
+		block_ms(15);
     ClrWdt();
-    k+=10;
+    k = k0+(i*i);
 	}
 
  	Cell_Ctrl(Cell_A,Cell_ON);
