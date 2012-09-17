@@ -357,20 +357,20 @@ void DeviceRobotMotorInit()
   CELL_B_MOS_EN(1);
   
 
-	for(i=0;i<70;i++)
+	for(i=0;i<80;i++)
 	{
 		Cell_Ctrl(Cell_A,Cell_ON);
     for(j=0;j<k;j++) Nop();
 		Cell_Ctrl(Cell_A,Cell_OFF);
 
-    block_ms(15);
+    block_ms(20);
     ClrWdt();
 
     Cell_Ctrl(Cell_B,Cell_ON);
     for(j=0;j<k;j++) Nop();
     Cell_Ctrl(Cell_B,Cell_OFF);
 
-		block_ms(15);
+		block_ms(20);
     ClrWdt();
     k = k0+(i*i);
 	}
