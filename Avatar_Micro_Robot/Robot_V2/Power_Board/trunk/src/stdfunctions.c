@@ -422,7 +422,6 @@ unsigned int readI2C3_Word(unsigned char add, unsigned char reg)  // read an int
 
 void readI2C2_Block(unsigned char add, unsigned char reg, unsigned char block_length, unsigned char *output)  // read an integer from address add
 {
-	unsigned char a,b;
   unsigned int i;
 
   for(i=0;i<20;i++)
@@ -465,7 +464,11 @@ void readI2C2_Block(unsigned char add, unsigned char reg, unsigned char block_le
   for(i=0;i<block_length;i++)
   {
 
-	output[i] = (unsigned char)(MasterReadI2C2());	
+  //first byte is length, don't include this in returned string
+  if(i == 0)
+	  output[0] = (unsigned char)(MasterReadI2C2());	
+  else
+	  output[i-1] = (unsigned char)(MasterReadI2C2());	
 
   if(i == (block_length-1))
   {
@@ -536,7 +539,11 @@ void readI2C3_Block(unsigned char add, unsigned char reg, unsigned char block_le
   for(i=0;i<block_length;i++)
   {
 
-	output[i] = (unsigned char)(MasterReadI2C3());	
+  //first byte is length, don't include this in returned string
+  if(i == 0)
+    output[0] = (unsigned char)(MasterReadI2C3());
+  else
+	  output[i-1] = (unsigned char)(MasterReadI2C3());	
 
   if(i == (block_length-1))
   {

@@ -401,12 +401,6 @@ void DeviceRobotMotorInit()
   //read flipper position from flash, and put it into a module variable
   read_stored_angle_offset();
 
-  while(1)
-  {
-    ClrWdt();
-  }
-	
-
 }
 
 void GetCurrent(int Channel)
@@ -3227,10 +3221,9 @@ void handle_power_bus(void)
 {
 
   unsigned char battery_data1[20], battery_data2[20];
-  unsigned char old_battery[8] = {7,'B','B','-','2','5','9','0'};
-  unsigned char new_battery[10] = {10,'B','T','-','7','0','7','9','1','B'};
-  unsigned int i, j, k;
-  unsigned int string_match = 1;
+  unsigned char old_battery[7] = {'B','B','-','2','5','9','0'};
+  unsigned char new_battery[9] = {'B','T','-','7','0','7','9','1','B'};
+  unsigned int j;
 
   //enable outputs for power bus
   CELL_A_MOS_EN(1);
@@ -3244,11 +3237,11 @@ void handle_power_bus(void)
   {
 
     //Read "Device Name" from battery
-    readI2C2_Block(0x0b, 0x21, 10, &battery_data1); 
-    readI2C3_Block(0x0b, 0x21, 10, &battery_data2); 
+    readI2C2_Block(0x0b, 0x21, 10, battery_data1); 
+    readI2C3_Block(0x0b, 0x21, 10, battery_data2); 
   
     //If we're using the old battery (BB-2590)
-    if( check_string_match(old_battery,battery_data1,8) || check_string_match(old_battery,battery_data2,8))
+    if( check_string_match(old_battery,battery_data1,7) || check_string_match(old_battery,battery_data2,7))
     {
       send_debug_uart_string("BB-2590\r\n",9);
       block_ms(10);
@@ -3258,7 +3251,7 @@ void handle_power_bus(void)
   
   
     //If we're using the new battery (BT-70791B)
-    if(check_string_match(new_battery,battery_data1,10) || check_string_match(new_battery,battery_data2,10))
+    if(check_string_match(new_battery,battery_data1,9) || check_string_match(new_battery,battery_data2,9))
     {
       send_debug_uart_string("BT-70791B\r\n",11);
       block_ms(10);
