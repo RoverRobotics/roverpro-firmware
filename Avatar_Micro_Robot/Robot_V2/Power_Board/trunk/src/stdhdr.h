@@ -35,6 +35,9 @@ void writeI2C1Reg( unsigned char add, unsigned char v, unsigned char w);
 void writeI2C2Reg( unsigned char add, unsigned char v, unsigned char w);
 void writeI2C3Reg( unsigned char add, unsigned char v, unsigned char w);
 
+void readI2C2_Block(unsigned char add, unsigned char reg, unsigned char block_length, unsigned char *output);  
+void readI2C3_Block(unsigned char add, unsigned char reg, unsigned char block_length, unsigned char *output);  
+
 #include "../HardwareProfile.h"
 
 #endif
