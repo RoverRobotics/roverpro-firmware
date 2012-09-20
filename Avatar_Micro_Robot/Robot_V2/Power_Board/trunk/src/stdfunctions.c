@@ -419,3 +419,145 @@ unsigned int readI2C3_Word(unsigned char add, unsigned char reg)  // read an int
 
 	return a+(b<<8);
 } //readI2C
+
+void readI2C2_Block(unsigned char add, unsigned char reg, unsigned char block_length, unsigned char *output)  // read an integer from address add
+{
+	unsigned char a,b;
+  unsigned int i;
+
+  for(i=0;i<20;i++)
+  {
+    output[i] = 'e';
+  }
+
+
+
+	IdleI2C2();
+	StartI2C2();
+	IdleI2C2();
+
+	MasterWriteI2C2(add<<1);
+
+	IdleI2C2();
+
+	MasterWriteI2C2(reg);
+
+	IdleI2C2();
+/*	StopI2C2();
+	IdleI2C2();
+	StartI2C2();*/
+	RestartI2C2();
+	IdleI2C2();
+
+	MasterWriteI2C2((add << 1) | 0x01);
+	IdleI2C2();
+
+	__delay_us(100);
+
+	_MI2C2IF = 0;
+
+	//r = (unsigned char)(MasterReadI2C1());
+
+	//AckI2C1();
+
+	//IdleI2C1();
+
+  for(i=0;i<block_length;i++)
+  {
+
+	output[i] = (unsigned char)(MasterReadI2C2());	
+
+  if(i == (block_length-1))
+  {
+	  NotAckI2C2();
+    break;
+  }
+  
+
+  	AckI2C2(); 
+  	IdleI2C2(); 
+
+  }
+
+	//IdleI2C1();
+
+
+	// terminate read sequence (do not send ACK, send  STOP)
+	IdleI2C2();
+	StopI2C2(); 
+	IdleI2C2();
+
+  output[18] = 'x';
+
+} //readI2C
+
+
+void readI2C3_Block(unsigned char add, unsigned char reg, unsigned char block_length, unsigned char *output) 
+{
+  unsigned int i;
+
+  for(i=0;i<20;i++)
+  {
+    output[i] = 'e';
+  }
+
+
+
+	IdleI2C3();
+	StartI2C3();
+	IdleI2C3();
+
+	MasterWriteI2C3(add<<1);
+
+	IdleI2C3();
+
+	MasterWriteI2C3(reg);
+
+	IdleI2C3();
+/*	StopI2C2();
+	IdleI2C2();
+	StartI2C2();*/
+	RestartI2C3();
+	IdleI2C3();
+
+	MasterWriteI2C3((add << 1) | 0x01);
+	IdleI2C3();
+
+	__delay_us(100);
+
+	_MI2C3IF = 0;
+
+	//r = (unsigned char)(MasterReadI2C1());
+
+	//AckI2C1();
+
+	//IdleI2C1();
+
+  for(i=0;i<block_length;i++)
+  {
+
+	output[i] = (unsigned char)(MasterReadI2C3());	
+
+  if(i == (block_length-1))
+  {
+	  NotAckI2C3();
+    break;
+  }
+  
+
+  	AckI2C3(); 
+  	IdleI2C3(); 
+
+  }
+
+	//IdleI2C1();
+
+
+	// terminate read sequence (do not send ACK, send  STOP)
+	IdleI2C3();
+	StopI2C3(); 
+	IdleI2C3();
+
+  output[18] = 'x';
+
+} //readI2C

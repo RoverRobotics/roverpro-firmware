@@ -271,6 +271,11 @@ unsigned int flipper_angle_offset = 0;
 void calibrate_flipper_angle_sensor(void);
 static void read_stored_angle_offset(void);
 
+void turn_on_power_bus_new_method(void);
+void turn_on_power_bus_old_method(void);
+void turn_on_power_bus_hybrid_method(void);
+int check_string_match(unsigned char *string1, unsigned char* string2, unsigned char length);
+
 
 unsigned int adc_test_reg = 0;
 
@@ -307,6 +312,10 @@ void initialize_i2c3_registers(void);
 
 static unsigned int return_combined_pot_angle(unsigned int pot_1_value, unsigned int pot_2_value);
 static unsigned int return_calibrated_pot_angle(unsigned int pot_1_value, unsigned int pot_2_value);
+
+
+void handle_power_bus(void);
+
 //invalid flipper pot thresholds.  These are very wide because the flipper pots are on a different 3.3V supply
 //than the PIC
 //If the flipper pot is below this threshold, it is invalid
@@ -347,44 +356,35 @@ void DeviceRobotMotorInit()
 {
 //local variables
 
-  unsigned int i;
-  unsigned int j;
-  unsigned int k = 1000;
-  unsigned int k0 = 3000;
 
-  //enable outputs for power bus
-  CELL_A_MOS_EN(1);
-  CELL_B_MOS_EN(1);
   
+  block_ms(100);
+  ClrWdt();
 
-	for(i=0;i<80;i++)
-	{
-		Cell_Ctrl(Cell_A,Cell_ON);
-    for(j=0;j<k;j++) Nop();
-		Cell_Ctrl(Cell_A,Cell_OFF);
+  //turn_on_power_bus_old_method();
+//  turn_on_power_bus_new_method();
 
-    block_ms(20);
-    ClrWdt();
-
-    Cell_Ctrl(Cell_B,Cell_ON);
-    for(j=0;j<k;j++) Nop();
-    Cell_Ctrl(Cell_B,Cell_OFF);
-
-		block_ms(20);
-    ClrWdt();
-    k = k0+(i*i);
-	}
-
- 	Cell_Ctrl(Cell_A,Cell_ON);
- 	Cell_Ctrl(Cell_B,Cell_ON);
-
-
-	//initialize all modules
 	MC_Ini();
 
 	#ifndef XbeeTest
 		init_debug_uart();
 	#endif
+
+  handle_power_bus();
+
+  //turn_on_power_bus_hybrid_method();
+
+
+	//initialize all modules
+
+
+  	TMPSensorICIni();
+ 	FANCtrlIni();
+
+
+	read_EEPROM_string();
+
+
 
  	//Call ProtectHB
 	ProtectHB(LMotor);
@@ -400,6 +400,11 @@ void DeviceRobotMotorInit()
 
   //read flipper position from flash, and put it into a module variable
   read_stored_angle_offset();
+
+  while(1)
+  {
+    ClrWdt();
+  }
 	
 
 }
@@ -1985,11 +1990,7 @@ void MC_Ini(void)//initialzation for the whole program
  	#ifdef XbeeTest
  	UART1Ini();
  	#endif
-  	TMPSensorICIni();
- 	FANCtrlIni();
 
-
-	read_EEPROM_string();
 	set_firmware_build_time();
 
 
@@ -3114,5 +3115,185 @@ void calibrate_flipper_angle_sensor(void)
     ClrWdt();
 
   }
+
+}
+
+void turn_on_power_bus_new_method(void)
+{
+  unsigned int i = 0;
+  unsigned int j = 0;
+  unsigned int k = 2000;
+  unsigned int k0 = 2000;
+
+  for(i=0;i<300;i++)
+  {
+
+  		Cell_Ctrl(Cell_A,Cell_ON);
+      Cell_Ctrl(Cell_B,Cell_ON);
+      for(j=0;j<k;j++) Nop();
+  		Cell_Ctrl(Cell_A,Cell_OFF);
+      Cell_Ctrl(Cell_B,Cell_OFF);
+
+      block_ms(10);
+
+      k=k0+i*i/4;
+      //k+=10;
+
+      ClrWdt();
+  
+  }
+
+  		Cell_Ctrl(Cell_A,Cell_ON);
+      Cell_Ctrl(Cell_B,Cell_ON);
+
+
+}
+
+void turn_on_power_bus_old_method(void)
+{
+
+  unsigned int i;
+
+	for(i=0;i<20;i++)
+	{
+		Cell_Ctrl(Cell_A,Cell_ON);
+		Cell_Ctrl(Cell_B,Cell_ON);
+		block_ms(10);
+		Cell_Ctrl(Cell_A,Cell_OFF);
+		Cell_Ctrl(Cell_B,Cell_OFF);	
+		block_ms(40);
+    ClrWdt();
+
+	}
+
+		Cell_Ctrl(Cell_A,Cell_ON);
+		Cell_Ctrl(Cell_B,Cell_ON);
+
+}
+
+void turn_on_power_bus_hybrid_method(void)
+{
+
+  unsigned int i;
+  unsigned int j;
+  //k=20,000 is about 15ms
+  unsigned int k = 2000;
+  unsigned int k0 = 2000;
+  unsigned int l = 0;
+
+	for(i=0;i<200;i++)
+	{
+
+    for(l=0;l<3;l++)
+    {
+  		Cell_Ctrl(Cell_A,Cell_ON);
+      Cell_Ctrl(Cell_B,Cell_ON);
+      for(j=0;j<k;j++) Nop();
+  		Cell_Ctrl(Cell_A,Cell_OFF);
+      Cell_Ctrl(Cell_B,Cell_OFF);
+      break;
+      if(i>20) break;
+  
+      ClrWdt();
+      block_ms(10);
+    }
+
+
+
+    ClrWdt();
+    block_ms(40);
+    ClrWdt();
+    //k+=10;
+    k = k0+i*i/4;
+    /*if(i<10000)
+    {
+      k = k0+(i*i)/4;
+    }
+    else
+    {
+      k+=50;
+    } */
+    //k = 3000;
+    //k+=50;
+    if(k > 20000) k = 20000;
+	}
+
+ 	Cell_Ctrl(Cell_A,Cell_ON);
+ 	Cell_Ctrl(Cell_B,Cell_ON);
+
+}
+
+void handle_power_bus(void)
+{
+
+  unsigned char battery_data1[20], battery_data2[20];
+  unsigned char old_battery[8] = {7,'B','B','-','2','5','9','0'};
+  unsigned char new_battery[10] = {10,'B','T','-','7','0','7','9','1','B'};
+  unsigned int i, j, k;
+  unsigned int string_match = 1;
+
+  //enable outputs for power bus
+  CELL_A_MOS_EN(1);
+  CELL_B_MOS_EN(1);
+
+  //initialize i2c buses
+  I2C2Ini();
+  I2C3Ini();
+
+  for(j=0;j<3;j++)
+  {
+
+    //Read "Device Name" from battery
+    readI2C2_Block(0x0b, 0x21, 10, &battery_data1); 
+    readI2C3_Block(0x0b, 0x21, 10, &battery_data2); 
+  
+    //If we're using the old battery (BB-2590)
+    if( check_string_match(old_battery,battery_data1,8) || check_string_match(old_battery,battery_data2,8))
+    {
+      send_debug_uart_string("BB-2590\r\n",9);
+      block_ms(10);
+      turn_on_power_bus_old_method();
+      return;
+    }
+  
+  
+    //If we're using the new battery (BT-70791B)
+    if(check_string_match(new_battery,battery_data1,10) || check_string_match(new_battery,battery_data2,10))
+    {
+      send_debug_uart_string("BT-70791B\r\n",11);
+      block_ms(10);
+      turn_on_power_bus_new_method();
+      return;
+    }
+    ClrWdt();
+    block_ms(20);
+    ClrWdt();
+  }
+
+    //if we're using an unknown battery
+    send_debug_uart_string("UNKNOWN BATTERY\r\n",17);
+    block_ms(10);
+    send_debug_uart_string((char *)battery_data1,20);
+    block_ms(10);
+
+    turn_on_power_bus_hybrid_method();
+
+
+  Nop();
+  Nop();
+
+}
+
+int check_string_match(unsigned char *string1, unsigned char* string2, unsigned char length)
+{
+  unsigned int i;
+  int string_match = 1;
+  for(i=0;i<length;i++)
+  {
+    if(string1[i] != string2[i]) string_match = 0;
+  }
+
+  return string_match;
+
 
 }
