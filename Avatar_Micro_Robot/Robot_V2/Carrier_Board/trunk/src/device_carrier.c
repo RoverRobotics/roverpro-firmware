@@ -143,12 +143,18 @@ unsigned char first_usb_message_received = 0;
 
 unsigned char robot_radio_reset_triggered = 0;
 
+//this is set if the COM Express shuts down within a few seconds of booting
+//(probably due to noise from switching the power bus).  When this happens,
+//the next boot will take longer, to allow time for power bus transients.
+unsigned char extended_boot_counter = 0;
+
 #define RST_POWER_ON                  0x0000
 #define RST_SHUTDOWN                  0x0001
 #define RST_SHUTDOWN_OVERHEAT         0x0002
 #define RST_SHUTDOWN_USB_TIMEOUT      0x0003
 #define RST_SOFTWARE_FAIL             0x0004
 #define RST_RADIO_RESET_FAIL          0x0005
+#define RST_BOOT_FAILED               0x0006
 
 
 //unsigned int reg_robot_gps_message[100];
@@ -301,8 +307,16 @@ void DeviceCarrierInit()
 				if(DeviceCarrierBoot() == 0)
 				{
 					send_lcd_string("Computer boot failed  ",22);
+          REG_ROBOT_RESET_CODE = RST_BOOT_FAILED;
+          extended_boot_counter++;
 					blink_led(3,2000);
-					{__asm__ volatile ("reset");};
+          //wait five seconds
+          for(i=0;i<50;i++)
+          {
+            block_ms(100);
+            handle_watchdogs();
+          }
+					hard_reset_robot();
 				}
 				else
 					break;
@@ -811,16 +825,37 @@ int DeviceCarrierBoot()
 	V5_ON(1);
 	V3V3_ON(1);
 
-	while(SUS_S5() | SUS_S3())
-	{
-		i++;
-		if(i > 5) return 0;
-		handle_watchdogs();
-		block_ms(100);
-	}
-	i=0;
-	handle_watchdogs();
-	block_ms(100);
+
+  if(extended_boot_counter == 0)
+  {
+  	while(SUS_S5() | SUS_S3())
+  	{
+  		i++;
+  		if(i > 5) return 0;
+  		handle_watchdogs();
+  		block_ms(100);
+  	}
+
+  	handle_watchdogs();
+  	block_ms(100);
+  }
+  //if extended boot is required, wait a multiple of 5 seconds before proceding.
+  else
+  {
+    for(i=0;i<(30*extended_boot_counter);i++)
+    {
+      handle_watchdogs();
+      block_ms(100);
+    }
+
+  if(extended_boot_counter > 4)
+    extended_boot_counter = 0;
+
+  }
+  i=0;
+  handle_watchdogs();
+
+
 
 	send_lcd_string("Boot 1  \r\n",10);
 
@@ -1054,8 +1089,8 @@ void hard_reset_robot(void)
   usb_timeout_counter = 0;
   first_usb_message_received = 0;
 
-  //turn on white LED so we know the this was a planned reset
-  set_led_brightness(WHITE_LED, 50);
+  //turn off both LEDs
+  set_led_brightness(WHITE_LED, 0);
   set_led_brightness(IR_LED, 0);
 
 
@@ -1135,7 +1170,7 @@ static void handle_reset(void)
     return;
   }
 
-
+  
   //if the software hasn't started in a reasonable amount of time
   //(evidenced by the lack of new USB messages), restart robot.
   //This is only done after the robot has restarted, so that we are
@@ -1174,6 +1209,11 @@ static void handle_reset(void)
     if(computer_shutdown_counter > 10)
     {
       computer_shutdown_counter = 0;
+      
+      //if the computer shut down within 5 seconds of booting up, next boot should take longer
+      if(usb_timeout_counter < 500)
+        extended_boot_counter++;
+
       if(NC_THERM_TRIP()==0)
       {
       	send_lcd_string("Computer overheat detected  \r\n",30);
