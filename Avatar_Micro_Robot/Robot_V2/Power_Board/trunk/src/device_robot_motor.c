@@ -787,13 +787,9 @@ void Device_MotorController_Process()
 		//the value doesn't just stay the same
 		if(I2C2TimerExpired==True)
 		{
-			I2C2CON = 0x0000;
-			I2C2STAT = 0x0000;
-			I2C2CONbits.I2CEN = 1;
-		
-			initialize_i2c2_registers();
+      re_init_i2c2();
 		}
-  		I2C2TimerExpired=True;
+  	I2C2TimerExpired=True;
  		I2C2TimerCount=0;
  		I2C2XmitReset=True;
  	}
@@ -801,11 +797,7 @@ void Device_MotorController_Process()
  	{
 		if(I2C3TimerExpired==True)
 		{
-			I2C3CON = 0x0000;
-			I2C3STAT = 0x0000;
-			I2C3CONbits.I2CEN = 1;
-		
-			initialize_i2c3_registers();
+      re_init_i2c3();
 		}
  		I2C3TimerExpired=True;
  		I2C3TimerCount=0;

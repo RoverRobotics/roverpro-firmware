@@ -7,9 +7,6 @@
 int CheckI2C2Idle();
 int CheckI2C3Idle();
 
-void re_init_i2c2(void);
-void re_init_i2c3(void);
-
 int I2C2XmitReset = 0;
 int I2C3XmitReset = 0;
 
@@ -32,8 +29,6 @@ void I2C2Update(void)
  		REG_MOTOR_TEMP_STATUS.left=1;
  		REG_MOTOR_TEMP_STATUS.right=1;
  		REG_MOTOR_TEMP_STATUS.board=1;
-
-    re_init_i2c2();
 
  	}
  	switch(StepNumber)
@@ -440,8 +435,6 @@ void I2C3Update(void)
  		I2C3XmitReset=False;//clear the flag
  		StepNumber=1;//go to step 1, start from the beginning
  		//assume all the data is good
-
-    re_init_i2c3();
 
  	}
  	switch(StepNumber)
