@@ -2021,8 +2021,16 @@ void I2C3ResigsterWrite(int8_t ICAddW, int8_t RegAdd, int8_t Data)
 
 void FANCtrlIni()
 {
+
+  unsigned int i;
+
+  block_ms(20);
+  ClrWdt();
+
  	//reset the IC
  	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x02,0b01011000);
+  block_ms(20);
+  ClrWdt();
 
  	//auto fan speed control mode
  	//writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x11,0b00111100);
@@ -2043,11 +2051,14 @@ void FANCtrlIni()
 	REG_MOTOR_SIDE_FAN_SPEED = 48;
 
 	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x0B,240);
-	ClrWdt();
-  block_ms(250);
-  ClrWdt();
-	block_ms(250);
-	ClrWdt();
+  for(i=0;i<10;i++)
+  {
+  	ClrWdt();
+    block_ms(250);
+    ClrWdt();
+  	block_ms(250);
+  	ClrWdt();
+  }
 	//writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x0B,0);
 
 	block_ms(20);
