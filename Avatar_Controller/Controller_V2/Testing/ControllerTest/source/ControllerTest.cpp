@@ -574,11 +574,11 @@ int stop_printing = 0;
 		rel_soc_diff_final = abs(rel_soc_left-rel_soc_right)*100/ ( (rel_soc_left+rel_soc_right)/2);
 		rel_soc_diff_left = rel_soc_left - rel_soc_left_initial;
 		rel_soc_diff_right = rel_soc_right - rel_soc_right_initial;
-		printf("TEST COMPLETE\r\n\R\N");
+		printf("TEST COMPLETE\r\n\r\n");
 		if( (rel_soc_left == 100) || (rel_soc_left == 0) || (rel_soc_left == 0xffff) )
 			printf("LEFT BATTERY LIKELY BAD\r\n");
 		if( (rel_soc_right == 100) || (rel_soc_right == 0) || (rel_soc_right == 0xffff) )
-			printf("RIGHT BATTERY LIKELY BAD\r\n\R\N");		
+			printf("RIGHT BATTERY LIKELY BAD\r\n\r\n");		
 		printf("Left battery start: %i%%     End: %i%%   Diff: %i%%\r\n",rel_soc_left_initial,rel_soc_left,rel_soc_diff_left);
 		printf("Right battery start: %i%%     End: %i%%   Diff: %i%%\r\n",rel_soc_right_initial,rel_soc_right,rel_soc_diff_right);
 		printf("Battery start difference: %i%%\r\n",rel_soc_diff_initial);
