@@ -21,6 +21,7 @@ Taylor Penn taylor@robotex.com | Stellios Leventis sleventis@robotex.com
 #include <unistd.h>
 #include <cstdlib>
 #include <stdio.h>
+#include <time.h>
 #include "./firmware/usb_config.h" // for our register definitions
 //#include "./SDL/SDL.h"	// for Xbox controller inteface
 #include <time.h> 	    // for timing USB polling
@@ -114,6 +115,7 @@ void outgoing_callback(struct libusb_transfer *transfer);
 
 void TurnOnCameraPower(void);
 void print_battery_registers(void);
+void test_battery_registers(void);
 
 int main(int argn, char *argc[]) {
   //XboxController myController;
@@ -129,6 +131,10 @@ int main(int argn, char *argc[]) {
   else if(input_argument[0] == 'b')
   {
     print_battery_registers();
+  }
+  else if(input_argument[0] == 't')
+  {
+    test_battery_registers();
   }
  
   return EXIT_SUCCESS;
@@ -469,6 +475,117 @@ void print_battery_registers(void) {
 
     if( (rel_soc_left <= 11 && rel_soc_left > 0) || (rel_soc_right <=11 && rel_soc_right > 0) )
       system("sudo shutdown -h now");
+
+    usleep(100000);
+
+  }
+
+}
+
+void test_battery_registers(void) {
+
+  int rel_soc_left_index = GetRegisterIndex(&telemetry::REG_OCU_REL_SOC_L);
+  int rel_soc_right_index = GetRegisterIndex(&telemetry::REG_OCU_REL_SOC_R);
+  int ocu_batt_current_index = GetRegisterIndex(&telemetry::REG_OCU_BATT_CURRENT);
+  int abs_soc_right_index = GetRegisterIndex(&telemetry::REG_OCU_BATT_ABS_SOC);
+  int rel_soc_left = 0;
+  int rel_soc_right = 0;
+  int16_t batt_current = 0;
+  int abs_soc_right = 0;
+  int first_run_flag = 1;
+  int rel_soc_left_initial = 0;
+  int rel_soc_right_initial = 0;
+  int batt_current_initial = 0;
+  int rel_soc_diff_initial, rel_soc_diff_final,rel_soc_diff_left,rel_soc_diff_right;
+
+  unsigned int checksum;
+  
+  /*struct tm *current;
+  time_t now;
+  time(&now);
+  current = localtime(&now);*/
+  
+  timeval thetime;
+  gettimeofday(&thetime,NULL);
+  int last_s = thetime.tv_sec;
+  int this_s = 0;
+  int elapsed_s;
+
+int stop_printing = 0;
+
+  InitRoboteXDevice();
+
+  while(1)
+  {
+
+    out_packet[0] = rel_soc_left_index;
+    out_packet[1] = 0x80;
+    out_packet[2] = rel_soc_right_index;
+    out_packet[3] = 0x80;
+    out_packet[4] = ocu_batt_current_index;
+    out_packet[5] = 0x80;
+    out_packet[6] = abs_soc_right_index;
+    out_packet[7] = 0x80;
+    out_packet[8] = 0xff;
+    out_packet[9] = 0xff;
+
+    checksum = return_checksum(out_packet,10);
+
+    out_packet[10] = checksum&0xff;
+    out_packet[11] = checksum>>8;
+
+    if (!HandleUSBCommunication())
+      return;
+
+    rel_soc_left = in_packet[2]+in_packet[3]*256;
+    rel_soc_right = in_packet[6]+in_packet[7]*256;
+    batt_current = in_packet[10]+in_packet[11]*256;
+    abs_soc_right = in_packet[14]+in_packet[15]*256;
+	
+	if(first_run_flag)
+	{
+		rel_soc_left_initial = rel_soc_left;
+		rel_soc_right_initial = rel_soc_right;
+		batt_current_initial = batt_current;
+		first_run_flag = 0;
+	}
+    if(stop_printing == 0)
+    {
+    printf("REG_OCU_REL_SOC_L:  %i\r\n",rel_soc_left);
+    printf("REG_OCU_REL_SOC_R:  %i\r\n",rel_soc_right);
+    printf("REG_OCU_BATT_CURRENT:  %i\r\n",batt_current);
+    printf("abs_soc_right:  %i\r\n",abs_soc_right);  
+    printf("\r\n\r\n\r\n");
+    }
+
+    if( (rel_soc_left <= 11 && rel_soc_left > 0) || (rel_soc_right <=11 && rel_soc_right > 0) )
+      system("sudo shutdown -h now");
+	  
+	gettimeofday(&thetime,NULL);
+	this_s = thetime.tv_sec;
+
+	elapsed_s = this_s - last_s;
+	
+	//if 10 minutes has elapsed
+	if( (elapsed_s > 60) && (stop_printing == 0))
+	{
+	
+		rel_soc_diff_initial = abs(rel_soc_left_initial-rel_soc_right_initial)*100/ ( (rel_soc_left_initial+rel_soc_right_initial)/2);
+		rel_soc_diff_final = abs(rel_soc_left-rel_soc_right)*100/ ( (rel_soc_left+rel_soc_right)/2);
+		rel_soc_diff_left = rel_soc_left - rel_soc_left_initial;
+		rel_soc_diff_right = rel_soc_right - rel_soc_right_initial;
+		printf("TEST COMPLETE\r\n\R\N");
+		if( (rel_soc_left == 100) || (rel_soc_left == 0) || (rel_soc_left == 0xffff) )
+			printf("LEFT BATTERY LIKELY BAD\r\n");
+		if( (rel_soc_right == 100) || (rel_soc_right == 0) || (rel_soc_right == 0xffff) )
+			printf("RIGHT BATTERY LIKELY BAD\r\n\R\N");		
+		printf("Left battery start: %i%%     End: %i%%   Diff: %i%%\r\n",rel_soc_left_initial,rel_soc_left,rel_soc_diff_left);
+		printf("Right battery start: %i%%     End: %i%%   Diff: %i%%\r\n",rel_soc_right_initial,rel_soc_right,rel_soc_diff_right);
+		printf("Battery start difference: %i%%\r\n",rel_soc_diff_initial);
+		printf("Battery end difference: %i%%\r\n",rel_soc_diff_final);
+		
+	stop_printing = 1;
+	}
 
     usleep(100000);
 
