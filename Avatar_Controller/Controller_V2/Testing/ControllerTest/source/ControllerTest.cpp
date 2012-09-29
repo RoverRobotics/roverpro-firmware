@@ -567,7 +567,7 @@ int stop_printing = 0;
 	elapsed_s = this_s - last_s;
 	
 	//if 10 minutes has elapsed
-	if( (elapsed_s > 60) && (stop_printing == 0))
+	if( (elapsed_s > 600) && (stop_printing == 0))
 	{
 	
 		rel_soc_diff_initial = abs(rel_soc_left_initial-rel_soc_right_initial)*100/ ( (rel_soc_left_initial+rel_soc_right_initial)/2);
