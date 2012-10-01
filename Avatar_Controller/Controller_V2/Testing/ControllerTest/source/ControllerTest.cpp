@@ -535,56 +535,61 @@ int stop_printing = 0;
     out_packet[11] = checksum>>8;
 
     if (!HandleUSBCommunication())
-      return;
-
-    rel_soc_left = in_packet[2]+in_packet[3]*256;
-    rel_soc_right = in_packet[6]+in_packet[7]*256;
-    batt_current = in_packet[10]+in_packet[11]*256;
-    abs_soc_right = in_packet[14]+in_packet[15]*256;
-	
-	if(first_run_flag)
 	{
-		rel_soc_left_initial = rel_soc_left;
-		rel_soc_right_initial = rel_soc_right;
-		batt_current_initial = batt_current;
-		first_run_flag = 0;
+	  printf("USB Communication Error\r\n");
 	}
-    if(stop_printing == 0)
-    {
-    printf("REG_OCU_REL_SOC_L:  %i\r\n",rel_soc_left);
-    printf("REG_OCU_REL_SOC_R:  %i\r\n",rel_soc_right);
-    printf("REG_OCU_BATT_CURRENT:  %i\r\n",batt_current);
-    printf("abs_soc_right:  %i\r\n",abs_soc_right);  
-    printf("\r\n\r\n\r\n");
-    }
-
-    if( (rel_soc_left <= 11 && rel_soc_left > 0) || (rel_soc_right <=11 && rel_soc_right > 0) )
-      system("sudo shutdown -h now");
-	  
-	gettimeofday(&thetime,NULL);
-	this_s = thetime.tv_sec;
-
-	elapsed_s = this_s - last_s;
-	
-	//if 10 minutes has elapsed
-	if( (elapsed_s > 600) && (stop_printing == 0))
+	else
 	{
-	
-		rel_soc_diff_initial = abs(rel_soc_left_initial-rel_soc_right_initial)*100/ ( (rel_soc_left_initial+rel_soc_right_initial)/2);
-		rel_soc_diff_final = abs(rel_soc_left-rel_soc_right)*100/ ( (rel_soc_left+rel_soc_right)/2);
-		rel_soc_diff_left = rel_soc_left - rel_soc_left_initial;
-		rel_soc_diff_right = rel_soc_right - rel_soc_right_initial;
-		printf("TEST COMPLETE\r\n\r\n");
-		if( (rel_soc_left == 100) || (rel_soc_left == 0) || (rel_soc_left == 0xffff) )
-			printf("LEFT BATTERY LIKELY BAD\r\n");
-		if( (rel_soc_right == 100) || (rel_soc_right == 0) || (rel_soc_right == 0xffff) )
-			printf("RIGHT BATTERY LIKELY BAD\r\n\r\n");		
-		printf("Left battery start: %i%%     End: %i%%   Diff: %i%%\r\n",rel_soc_left_initial,rel_soc_left,rel_soc_diff_left);
-		printf("Right battery start: %i%%     End: %i%%   Diff: %i%%\r\n",rel_soc_right_initial,rel_soc_right,rel_soc_diff_right);
-		printf("Battery start difference: %i%%\r\n",rel_soc_diff_initial);
-		printf("Battery end difference: %i%%\r\n",rel_soc_diff_final);
+
+		rel_soc_left = in_packet[2]+in_packet[3]*256;
+		rel_soc_right = in_packet[6]+in_packet[7]*256;
+		batt_current = in_packet[10]+in_packet[11]*256;
+		abs_soc_right = in_packet[14]+in_packet[15]*256;
 		
-	stop_printing = 1;
+		if(first_run_flag)
+		{
+			rel_soc_left_initial = rel_soc_left;
+			rel_soc_right_initial = rel_soc_right;
+			batt_current_initial = batt_current;
+			first_run_flag = 0;
+		}
+		if(stop_printing == 0)
+		{
+		printf("REG_OCU_REL_SOC_L:  %i\r\n",rel_soc_left);
+		printf("REG_OCU_REL_SOC_R:  %i\r\n",rel_soc_right);
+		printf("REG_OCU_BATT_CURRENT:  %i\r\n",batt_current);
+		printf("abs_soc_right:  %i\r\n",abs_soc_right);  
+		printf("\r\n\r\n\r\n");
+		}
+
+		if( (rel_soc_left <= 11 && rel_soc_left > 0) || (rel_soc_right <=11 && rel_soc_right > 0) )
+		  system("sudo shutdown -h now");
+		  
+		gettimeofday(&thetime,NULL);
+		this_s = thetime.tv_sec;
+
+		elapsed_s = this_s - last_s;
+		
+		//if 10 minutes has elapsed
+		if( (elapsed_s > 600) && (stop_printing == 0))
+		{
+		
+			rel_soc_diff_initial = abs(rel_soc_left_initial-rel_soc_right_initial)*100/ ( (rel_soc_left_initial+rel_soc_right_initial)/2);
+			rel_soc_diff_final = abs(rel_soc_left-rel_soc_right)*100/ ( (rel_soc_left+rel_soc_right)/2);
+			rel_soc_diff_left = rel_soc_left - rel_soc_left_initial;
+			rel_soc_diff_right = rel_soc_right - rel_soc_right_initial;
+			printf("TEST COMPLETE\r\n\r\n");
+			if( (rel_soc_left == 100) || (rel_soc_left == 0) || (rel_soc_left == 0xffff) )
+				printf("LEFT BATTERY LIKELY BAD\r\n");
+			if( (rel_soc_right == 100) || (rel_soc_right == 0) || (rel_soc_right == 0xffff) )
+				printf("RIGHT BATTERY LIKELY BAD\r\n\r\n");		
+			printf("Left battery start: %i%%     End: %i%%   Diff: %i%%\r\n",rel_soc_left_initial,rel_soc_left,rel_soc_diff_left);
+			printf("Right battery start: %i%%     End: %i%%   Diff: %i%%\r\n",rel_soc_right_initial,rel_soc_right,rel_soc_diff_right);
+			printf("Battery start difference: %i%%\r\n",rel_soc_diff_initial);
+			printf("Battery end difference: %i%%\r\n",rel_soc_diff_final);
+			
+		stop_printing = 1;
+		}
 	}
 
     usleep(100000);
