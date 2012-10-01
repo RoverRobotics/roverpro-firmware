@@ -16,3 +16,5 @@ sudo find . -exec touch {} \;
 sudo make
 
 sudo ./ControllerTest t
+
+read -p "Program quit running unexpectedly.  Press enter and restart program"
