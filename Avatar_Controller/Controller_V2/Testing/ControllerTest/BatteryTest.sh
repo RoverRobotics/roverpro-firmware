@@ -17,4 +17,6 @@ sudo make
 
 sudo ./ControllerTest t
 
-read -p "Program quit running unexpectedly.  Press enter and restart program"
+user_input=""
+echo "Program quit running unexpectedly.  Press enter and restart program"
+read user_input
