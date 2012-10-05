@@ -12,7 +12,7 @@ Description: A timer is comprised of a duration and a start time.
 */
 typedef struct {
 	uint32_t duration;        // the duration of the timer
-	uint32_t startTime;       // time at which the timer was started
+	uint32_t start_time;      // time at which the timer was started
 } timer_t;
 
 #define INTERRUPTS_PER_TICK 	8
@@ -23,7 +23,7 @@ static void TMRS_ISR(void);
 
 /*---------------------------Module Variables---------------------------------*/
 static timer_t timers[MAX_NUM_TIMERS];
-static uint32_t currentTime;
+static uint32_t time;       // the current time in units of ticks
 
 /*---------------------------Test Harness-------------------------------------*/
 #ifdef TEST_TIMERS
@@ -43,7 +43,7 @@ int main(void) {
   
 	while (1) {
   	// toggle a pin on timer expirations
-		if (TMRS_TimerIsExpired(HEARTBEAT_TIMER)) {
+		if (TMRS_IsTimerExpired(HEARTBEAT_TIMER)) {
 			TMRS_StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME);
 			_RE5 ^= 1;
 		}
@@ -82,27 +82,27 @@ void TMRS_Init(void) {
 }
 
 
-void TMRS_StartTimer(uint8_t timerNumber, uint32_t newTime) {
+void TMRS_StartTimer(uint8_t timer_number, uint32_t new_time) {
 	// schedule when the timer expires
-	timers[timerNumber].duration = newTime;
-	timers[timerNumber].startTime = TMRS_GetTime();
+	timers[timer_number].duration = new_time;
+	timers[timer_number].start_time = TMRS_time();
 }
 
 
-bool TMRS_TimerIsExpired(uint8_t timerNumber) {
+bool TMRS_IsTimerExpired(uint8_t timer_number) {
   // BUG ALERT: stop interrupts!  This line takes several clock cylces to execute
   bool result;
   //asm volatile ("disi #0x3FFF"); // disable interrupts
-  result = (timers[timerNumber].duration < 
-	         (TMRS_GetTime() - timers[timerNumber].startTime));
+  result = (timers[timer_number].duration < 
+	         (TMRS_time() - timers[timer_number].start_time));
   //asm volatile ("disi #0");      // enable interrupts
   
   return result;
 }
 
 
-uint32_t TMRS_GetTime(void) {
-	return currentTime;
+uint32_t TMRS_time(void) {
+	return time;
 }
 
 
@@ -112,19 +112,19 @@ void TMRS_Deinit(void) {
 }
 
 
-void TMRS_Pause(unsigned long int milliseconds) {
-  uint32_t startTicks = TMRS_GetTime();
-  while ((TMRS_GetTime() - startTicks) < milliseconds) {}
+void TMRS_Pause(uint32_t milliseconds) {
+  uint32_t start_time = TMRS_time();
+  while ((TMRS_time() - start_time) < milliseconds) {}
 }
 
 /*---------------------------Private Function Definitions---------------------*/
 static void TMRS_ISR(void) {
-  static uint8_t numTimesCalled = 0;
+  static uint8_t num_times_called = 0;
   
   IFS0bits.T1IF = 0;  // clear the source of the interrupt
   
-  if (INTERRUPTS_PER_TICK <= ++numTimesCalled) {
-    numTimesCalled = 0;
-	  currentTime++;
+  if (INTERRUPTS_PER_TICK <= ++num_times_called) {
+    num_times_called = 0;
+	  time++;
 	}
 }

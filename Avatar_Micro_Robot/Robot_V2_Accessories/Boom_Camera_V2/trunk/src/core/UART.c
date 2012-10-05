@@ -31,10 +31,10 @@ static unsigned char U1TX_RPn, U1RX_RPn = 0; // remappable pin number
 #include "./Protocol.h"
 #include "./ConfigurationBits.h"
 
-#define RS485_OUTEN_EN(a) (_TRISD6 = !(a))
-#define RS485_MODE(a)     (_LATD6 = (a))
-#define TX_MODE           1
-#define RX_MODE           0
+#define RS485_OUTEN_EN(a)     (_TRISD6 = !(a))
+#define RS485_MODE(a)         (_LATD6 = (a))
+#define TX_MODE               1
+#define RX_MODE               0
 #define MY_TX_PIN             20
 #define MY_RX_PIN             25
 
@@ -101,6 +101,9 @@ void UART_Init(unsigned char Tx_pin, unsigned char Rx_pin,
 	
 	//_U1RXIP = 6;            // configure interrupt priority
 	//_U1TXIP = 5;            // Note: 7 is highest priority interrupt
+	
+	//U1STAbits.UTXISEL1 = 0; // configure Tx interrupt to fire when last
+	//U1STAbits.UTXISEL0 = 0; // transmission is over (see p.5 Section 21 UART)
 	
 	_U1TXIF = 0;            // begin with any interrupt flags cleared
 	_U1RXIF = 0;

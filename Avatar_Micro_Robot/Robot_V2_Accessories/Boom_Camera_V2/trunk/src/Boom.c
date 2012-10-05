@@ -30,7 +30,7 @@ Description: Overarching file encompassing the application-level logic of the
 #define HEARTBEAT_TIMER           0
 #define HEARTBEAT_TIME            500
 #define CAM_TX_TIMER              1
-#define CAM_TX_TIME               (10*_100ms)
+#define CAM_TX_TIME               (_100ms)
 #define USB_INIT_TIMER            2
 #define USB_INIT_TIME             (_100ms)
 
@@ -86,45 +86,54 @@ void InitBoom(void) {
 
 
 void ProcessBoomIO(void) {
-  /*
   switch (state) {
     case kInitializing:
       // allow USB communication to be established before checking registers
       // to see if it should power down
-      if (TMRS_TimerIsExpired(USB_INIT_TIMER)) state = kViewing;
+      if (TMRS_IsTimerExpired(USB_INIT_TIMER)) state = kViewing;
       break;
     case kViewing:
+      /*
       // power down if we lose connection or if software desires it
       if (REG_BOOM_POWER_DOWN) {
         TURN_FAN(OFF);
         TURN_VBAT(OFF);
         while (1) {};
       }
+      */
       
       // toggle a pin to indicate normal operation
-      if (TMRS_TimerIsExpired(HEARTBEAT_TIMER)) {
+      if (TMRS_IsTimerExpired(HEARTBEAT_TIMER)) {
         TMRS_StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME);
         HEARTBEAT_PIN ^= 1;
       }
-  
+      
       // transmit the latest desired position to the camera
-      if (TMRS_TimerIsExpired(CAM_TX_TIMER)) {
+      if (TMRS_IsTimerExpired(CAM_TX_TIMER)) {
         TMRS_StartTimer(CAM_TX_TIMER, CAM_TX_TIME);
-        // put dummy values until we get Netbook set up
-        //REG_BOOM_VEL_PAN = 50;
-        //REG_BOOM_VEL_TILT = 0;
-        //REG_BOOM_VEL_ZOOM = 10;
-        //NM33_SetLocation(REG_BOOM_VEL_PAN, REG_BOOM_VEL_TILT, REG_BOOM_VEL_ZOOM);
+        static uint16_t pan = 0;
+        static uint8_t tilt = 90;
+        static uint8_t zoom = 50;
+        
+        pan += 1;
+        if (kNM33LimitMaxPan < pan) pan = kNM33LimitMinPan;
+        
+        //tilt += 10;
+        //if (kNM33LimitMaxTilt < tilt) tilt = kNM33LimitMinTilt;
+        
+        //zoom += 10;
+        //if (kNM33LimitMaxZoom < zoom) zoom = kNM33LimitMinZoom;
+        
+        NM33_set_location(pan, tilt, zoom);
       }
+  
       break;
     default:
       ENABLE_HEARTBEAT(0);  // indicate an error
       break;
   }
-  */
   
   RXUSBDevice_ProcessMessage();
-
 }
 
 /*---------------------------Helper Function Definitions----------------------*/

@@ -37,28 +37,28 @@ void TMRS_Init(void);
 /*******************************************************************************
 Function: TMRS_StartTimer
 Paramters:
-	uint8_t timerIndex,	    the index of the timer
+	uint8_t timer_index,	  the index of the timer
 	uint32_t milliseconds,  the duration in units of milliseconds after
  												  which this timer will expire
 *******************************************************************************/
-void TMRS_StartTimer(uint8_t timerIndex, uint32_t milliseconds);
+void TMRS_StartTimer(uint8_t timer_index, uint32_t milliseconds);
 
 
 /*******************************************************************************
-Function: TMRS_TimerIsExpired
+Function: TMRS_IsTimerExpired
 Parameters:
-	bool timerIndex,	  the index of the timer 
+	bool timer_index,	 the index of the timer 
 Description: Returns whether the given timer has expired
 *******************************************************************************/
-bool TMRS_TimerIsExpired(uint8_t timerIndex);
+bool TMRS_IsTimerExpired(uint8_t timer_index);
 
 
 /*******************************************************************************
-Function: TMRS_GetTime
+Function: TMRS_time
 Returns:
 	uint32_t, the number of milliseconds passed since initialization
 *******************************************************************************/
-uint32_t TMRS_GetTime(void);
+uint32_t TMRS_time(void);
 
 
 /*******************************************************************************

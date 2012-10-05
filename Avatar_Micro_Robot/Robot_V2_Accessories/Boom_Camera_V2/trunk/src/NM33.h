@@ -6,7 +6,7 @@ Description: Provides an interface to the NM33 fish-eye Lens Camera,
 
 Notes:
   - consumes UART1 hardware module
-  - it is the responsibility of the user to not exceed the pan/tilt/zoom limits
+  - do NOT exceed the pan/tilt/zoom limits
 *******************************************************************************/
 #ifndef NM33_H
 #define NM33_H
@@ -16,13 +16,14 @@ Notes:
 
 /*---------------------------Type Definitions---------------------------------*/
 typedef enum {
-	kNM33LimitsMinPan = 0,
-	kNM33LimitsMaxPan = 200,//359, // TODO: how can we tranmist 359 with a uchar?
-	kNM33LimitsMinTilt = 0,
-	kNM33LimitsMaxTilt = 90,
-	kNM33LimitsMinZoom = 10,
-	kNM33LimitsMaxZoom = 130
-} kNM33Limits;
+	kNM33LimitMinPan = 0,
+	kNM33LimitMaxPan = 359,
+	kNM33LimitMinTilt = 0,
+	kNM33LimitMaxTilt = 90,
+	kNM33LimitMinZoom = 10,
+	kNM33LimitMaxZoom = 130
+} kNM33Limit;
+
 
 /*---------------------------Public Functions---------------------------------*/
 /*******************************************************************************
@@ -39,13 +40,13 @@ void NM33_Init(uint8_t txPin, uint8_t rxPin);
 
 
 /*******************************************************************************
-Function: NM33_SetLocation
+Function: NM33_set_location
 Parameters:
-  uint8_t pan,
+  uint16_t pan,   NOTE: THE PAN IS OF TYPE UINT16!
   uint8_t tilt,
-  uint8_t zoom,
+  uint8_t zoom
 *******************************************************************************/
-void NM33_SetLocation(uint8_t pan, uint8_t tilt, uint8_t zoom);
+void NM33_set_location(uint16_t pan, uint8_t tilt, uint8_t zoom);
 
 
 /*******************************************************************************
