@@ -489,7 +489,7 @@ void DeviceOcuInit()
 
 	init_i2c();
 	
-	U1RXInterruptUserFunction = ocu_gps_isr;
+	U2RXInterruptUserFunction = ocu_gps_isr;
 
 	ocu_gps_init();	
 
@@ -509,7 +509,7 @@ void DeviceOcuProcessIO()
 	update_button_states();
 		
 
-		IEC0bits.U1RXIE = 1;
+		_U2RXIE = 1;
 		IEC3bits.MI2C2IE = 1;
 		_MI2C1IE = 1;
 		ocu_batt_i2c_fsm();
@@ -701,11 +701,11 @@ void ocu_gps_isr(void)
 
 	unsigned char new_byte;
 
-	U1STAbits.OERR = 0;
+	U2STAbits.OERR = 0;
 
-	IFS0bits.U1RXIF = 0;
+  _U2RXIF = 0;
 
-	new_byte = U1RXREG;
+	new_byte = U2RXREG;
 	gps_interrupt_counter++;
 	
 
@@ -880,17 +880,17 @@ void set_backlight_brightness(unsigned char percentage)
 
 void ocu_gps_init(void)
 {
-	//set GPS tx to U1TX
-	GPS_TX_OR = 3;
+	//set GPS tx to U2TX
+	GPS_TX_OR = 5;
 	
-	//set U1RX to GPS rx pin
-	RPINR18bits.U1RXR = GPS_RX_PIN;	
+	//set U2RX to GPS rx pin
+	_U2RXR = GPS_RX_PIN;	
 	
-	U1BRG = 103;
+	U2BRG = 103;
 	
-	IEC0bits.U1RXIE = 0;
+	_U2RXIE = 0;
 	
-	U1MODEbits.UARTEN = 1;
+	U2MODEbits.UARTEN = 1;
 
 
 }

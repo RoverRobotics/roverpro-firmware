@@ -25,4 +25,5 @@ extern void (*ADC1InterruptUserFunction)(void);
 extern void (*I2C1InterruptUserFunction)(void);
 extern void (*U1TXInterruptUserFunction)(void);
 extern void (*U1RXInterruptUserFunction)(void);
+extern void (*U2RXInterruptUserFunction)(void);
 extern void (*I2C2InterruptUserFunction)(void);
