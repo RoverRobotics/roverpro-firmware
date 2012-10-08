@@ -10,6 +10,7 @@
 #include "stdhdr.h"
 #include "device_ocu.h"
 #include "device_ocu_i2c.h"
+#include "debug_uart.h"
 
 #define BATTERY_SOC_CUTOFF  10
 
@@ -493,6 +494,8 @@ void DeviceOcuInit()
 
 	ocu_gps_init();	
 
+  init_debug_uart();
+
 	REG_OCU_BACKLIGHT_BRIGHTNESS = 0;
 //	set_backlight_brightness(50);
 
@@ -670,6 +673,13 @@ void handle_gas_gauge(void)
 			V5V_ON(0);
 			V12V_ON(0);
 			COMPUTER_PWR_OK(0);
+
+      send_debug_uart_string("Low battery shutoff\r\n",21);
+      block_ms(10);
+      display_int_in_dec("LEFT:             \r\n",REG_OCU_REL_SOC_L);
+      block_ms(10);
+      display_int_in_dec("RIGHT:            \r\n",REG_OCU_REL_SOC_R);
+
       for(i=0;i<4;i++)
       {
         RED_LED_ON(1);

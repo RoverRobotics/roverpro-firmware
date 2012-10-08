@@ -11,3 +11,5 @@ void DeviceOcuInit();
 
 void DeviceOcuProcessIO();
 void test_sleep_current(void);
+
+#define U1TX_RPn  	_RP7R
