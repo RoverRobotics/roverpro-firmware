@@ -618,6 +618,7 @@ void handle_gas_gauge(void)
 //	static unsigned int low_voltage_counter = 0;
   static unsigned int low_capacity_counter = 0;
   static unsigned int initial_low_capacity_counter = 0;
+  static unsigned int max_low_capacity_counts = 10;
   unsigned char i;
 
   if( (left_battery_current == 0xffff) || (right_battery_current == 0xffff))
@@ -659,8 +660,19 @@ void handle_gas_gauge(void)
 
   }
 
+  //if both battery readings are high enough, allow more leniency in determining whether the battery is low
+  if( (REG_OCU_REL_SOC_L > 100) && (REG_OCU_REL_SOC_R > 100) );
+  else if( (REG_OCU_REL_SOC_L >= 30) && (REG_OCU_REL_SOC_R >= 30) )
+    max_low_capacity_counts = 1000;
+  else if( (REG_OCU_REL_SOC_L >= 20) && (REG_OCU_REL_SOC_R >= 20) )
+    max_low_capacity_counts = 100;
+  else
+    max_low_capacity_counts = 10;
+
+
+
 	//if counter gets to 10 different readings, shut off
-	if(low_capacity_counter >= 10)
+	if(low_capacity_counter >= max_low_capacity_counts)
 	{
 	//only shut off everything if the adapter isn't plugged in
 		if(!CHARGER_ACOK())
