@@ -1287,7 +1287,8 @@ void handle_charging(void)
   if(computer_on_flag)
   {
     if(phantom_red_led == 0)
-      REG_OCU_BATT_CURRENT = 0;
+      if(REG_OCU_BATT_CURRENT >= 0)
+        REG_OCU_BATT_CURRENT = 0;
   }
 
 
