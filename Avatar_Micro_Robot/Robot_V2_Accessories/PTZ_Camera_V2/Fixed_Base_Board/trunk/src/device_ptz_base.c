@@ -360,9 +360,9 @@ static void PinRemap(void)
 
 	
 	// UART for debugging
- 	RPINR18bits.U1RXR = U1RX_RPn;
+// 	RPINR18bits.U1RXR = U1RX_RPn;
  
-	U1TX_RPn = 3; //3 represents U1TX
+//	U1TX_RPn = 3; //3 represents U1TX
 
 	// UART for camera
 	RPINR19bits.U2RXR = U2RX_RPn;
@@ -493,7 +493,7 @@ void DevicePTZBaseInit()
 	T1InterruptUserFunction = T1Interrupt;
 	ADC1InterruptUserFunction = ADC1Interrupt;
 
- 	UART1Ini();
+// 	UART1Ini();
 	UART2Ini();
 	ADC1Ini();
 	IniTimer1();
