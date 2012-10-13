@@ -13,6 +13,7 @@
 #include "debug_uart.h"
 
 #define BATTERY_SOC_CUTOFF  10
+#define DEBUG_BATTERY_ISSUES
 
 //button inputs
 #define VOLUME_UP()		(_RG7)
@@ -619,6 +620,8 @@ void handle_gas_gauge(void)
   static unsigned int low_capacity_counter = 0;
   static unsigned int initial_low_capacity_counter = 0;
   static unsigned int max_low_capacity_counts = 10;
+  static unsigned int last_good_SOC_left = 0;
+  static unsigned int last_good_SOC_right = 0;
   unsigned char i;
 
   if( (left_battery_current == 0xffff) || (right_battery_current == 0xffff))
@@ -661,7 +664,7 @@ void handle_gas_gauge(void)
   }
 
   //if both battery readings are high enough, allow more leniency in determining whether the battery is low
-  if( (REG_OCU_REL_SOC_L > 100) && (REG_OCU_REL_SOC_R > 100) );
+  if( (REG_OCU_REL_SOC_L == 0xffff) && (REG_OCU_REL_SOC_R == 0xffff) );
   else if( (REG_OCU_REL_SOC_L >= 15) && (REG_OCU_REL_SOC_R >= 15) )
     max_low_capacity_counts = 1000;
   else if( (REG_OCU_REL_SOC_L >= 12) && (REG_OCU_REL_SOC_R >= 12) )
@@ -669,7 +672,14 @@ void handle_gas_gauge(void)
   else
     max_low_capacity_counts = 10;
 
-
+  if( (REG_OCU_REL_SOC_L != 0xffff) && (REG_OCU_REL_SOC_L != 0))
+  {
+    last_good_SOC_left = REG_OCU_REL_SOC_L;
+  }
+  if( (REG_OCU_REL_SOC_R != 0xffff) && (REG_OCU_REL_SOC_R != 0))
+  {
+    last_good_SOC_right = REG_OCU_REL_SOC_R;
+  }
 
 	//if counter gets to 10 different readings, shut off
 	if(low_capacity_counter >= max_low_capacity_counts)
@@ -691,6 +701,13 @@ void handle_gas_gauge(void)
       display_int_in_dec("LEFT:             \r\n",REG_OCU_REL_SOC_L);
       block_ms(10);
       display_int_in_dec("RIGHT:            \r\n",REG_OCU_REL_SOC_R);
+
+      #ifdef DEBUG_BATTERY_ISSUES
+      block_ms(10);
+      display_int_in_dec("LAST L:           \r\n",last_good_SOC_left);
+      block_ms(10);
+      display_int_in_dec("LAST R:           \r\n",last_good_SOC_right);    
+      #endif
 
       for(i=0;i<4;i++)
       {
