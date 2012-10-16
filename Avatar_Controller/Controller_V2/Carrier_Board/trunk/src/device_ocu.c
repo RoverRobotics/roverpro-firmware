@@ -664,7 +664,10 @@ void handle_gas_gauge(void)
   }
 
   //if both battery readings are high enough, allow more leniency in determining whether the battery is low
+  //TODO: think about what would happen if one was valid and one was invalid
   if( (REG_OCU_REL_SOC_L == 0xffff) && (REG_OCU_REL_SOC_R == 0xffff) );
+  else if( (REG_OCU_REL_SOC_L >= 20) && (REG_OCU_REL_SOC_R >= 20) )
+    max_low_capacity_counts = 5000;
   else if( (REG_OCU_REL_SOC_L >= 15) && (REG_OCU_REL_SOC_R >= 15) )
     max_low_capacity_counts = 1000;
   else if( (REG_OCU_REL_SOC_L >= 12) && (REG_OCU_REL_SOC_R >= 12) )
@@ -681,7 +684,13 @@ void handle_gas_gauge(void)
     last_good_SOC_right = REG_OCU_REL_SOC_R;
   }
 
-	//if counter gets to 10 different readings, shut off
+	//Total loop time takes about 3ms.  A bad i2c reading can cause and additional
+  //delay of 2ms per i2c bus (4ms total)  Every 200 cycles, there can be one 
+  //100ms wait for each i2c bus (200ms total, or 1ms per cycle),
+  //so every 1000 counts will take between
+  //3000ms and 8000ms.
+  //Experimentally, however, 5000 counts ended up being about 6 seconds, so maybe the 3ms
+  //loop time includes the 2ms SMBus wait.
 	if(low_capacity_counter >= max_low_capacity_counts)
 	{
 	//only shut off everything if the adapter isn't plugged in
@@ -707,6 +716,8 @@ void handle_gas_gauge(void)
       display_int_in_dec("LAST L:           \r\n",last_good_SOC_left);
       block_ms(10);
       display_int_in_dec("LAST R:           \r\n",last_good_SOC_right);    
+      block_ms(10);
+      display_int_in_dec("low cap cnt:      \r\n",low_capacity_counter);        
       #endif
 
       for(i=0;i<4;i++)
