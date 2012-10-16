@@ -116,6 +116,8 @@ static uint32_t panHoldPosition = 530;
 static float panPidSum = 0;
 static int panPidLastProp = 0;
 
+static void de_init_io(void);
+
 // -------------------------------------------------------------------------
 /*
 // receive data from the camera (ACK packets)
@@ -406,6 +408,22 @@ static void UARTSendRegister(char *message, int len)
 
 void DevicePTZBaseInit()
 {
+  static unsigned int first_time_init = 1;
+  unsigned int i;
+
+  //the first time the PTZ powers up, wait 10 seconds before doing anything.
+  //This is so that the power bus has time to stabilize.
+  if(first_time_init)
+  {
+    first_time_init = 0;
+    for(i=0;i<4;i++)
+    {      
+      block_ms(2500);
+      ClrWdt();
+    }
+  }
+
+
 	//peripheral pin selection
 	PinRemap();
 	//peripheral pin selection end
@@ -596,10 +614,26 @@ void DevicePTZBaseProcessIO()
   if(REG_CAMERA_BASE_POWER_DOWN)
   {
     _LATB3 = 0;
-    block_ms(200);
+    de_init_io();
+    block_ms(2000);
+    ClrWdt();
+    DevicePTZBaseInit();
+    _LATB3 = 1;
     REG_CAMERA_BASE_POWER_DOWN = 0;
   }
-  else
-    _LATB3 = 1;
+
+    
 
 }
+
+static void de_init_io(void)
+{
+	AD1PCFGL = 0xFFFF;
+	AD1PCFGH = 0xFFFF;
+  TRISB = 0xffff;
+  TRISC = 0xffff;
+  TRISD = 0xffff;
+  TRISE = 0xffff;
+  TRISF = 0xffff;
+}
+
