@@ -150,10 +150,10 @@ static int messageSent = 0;
 static uint8_t zoomQueried = 0;
 static uint8_t focusQueried = 0;
 static int lastZoomSpeed = 0;
-static uint16_t analogZoomLevel = 0;
-static uint16_t digitalZoomLevel = 0;
-static uint16_t focusLevel = 0;
-static LAST_MESSAGE_TYPE cameraLastMessageType;
+//static uint16_t analogZoomLevel = 0;
+//static uint16_t digitalZoomLevel = 0;
+//static uint16_t focusLevel = 0;
+//static LAST_MESSAGE_TYPE cameraLastMessageType;
 static UART_MESSAGE_STATE cameraMessageState;
 static ZOOM_STATE cameraZoomState;
 static uint8_t lensRecover = 0;
@@ -502,30 +502,30 @@ static void PTZIni()
 
 
 // Blocking UART transmit - for debugging only
-static void UART1Transmit( int data)
+/*static void UART1Transmit( int data)
 {
  	while(U1STAbits.UTXBF==1);
  	IFS0bits.U1TXIF=0; 	
  	U1TXREG=data;
-}
+}*/
 
 // Blocking UART2 transmit - for debugging only
-static void UART2Transmit( int data)
+/*static void UART2Transmit( int data)
 {
  	while(U2STAbits.UTXBF==1);
  	IFS1bits.U2TXIF=0; 	
  	U2TXREG=data;
-}
+}*/
 
 // Send a register to the computer
-static void UARTSendRegister(char *message, int len)
+/*static void UARTSendRegister(char *message, int len)
 {
 	IEC0bits.U1TXIE=0;
 	memcpy(uartTxData, message, len);
 	uartTxDataLength = len;
     IFS0bits.U1TXIF = 1;
 	IEC0bits.U1TXIE = 1;
-}
+}*/
 
 // checksum required by the camera
 static unsigned char CameraChecksum(char *data, int len)
@@ -569,17 +569,17 @@ static void CameraQueryFocus()
 	CameraSendCommand(message);
 }
 
-static void CameraDayMode()
+/*static void CameraDayMode()
 {
     char message[7] = {0xA3, 0x27, 0x01, 0x32, 0x80, 0x00, 0xAF};
 	CameraSendCommand(message);
-}
+}*/
 
-static void CameraNightMode()
+/*static void CameraNightMode()
 {
 	char message[7] = {0xA3, 0x27, 0x41, 0x32, 0x80, 0x00, 0xAF};
 	CameraSendCommand(message);
-}
+}*/
 
 static void CameraInvert()
 {
@@ -623,23 +623,23 @@ static void CameraZoomStop()
 	CameraSendCommand(message);
 }
 
-static void CameraFocus(ZOOM_DIRECTION direction)
+/*static void CameraFocus(ZOOM_DIRECTION direction)
 {
 	char message[7] = {0xA3, 0x1A, direction, 0x06, 0x00, 0x00, 0xAF};
 	CameraSendCommand(message);
-}
+}*/
 
-static void CameraFocusStop()
+/*static void CameraFocusStop()
 {
 	char message[7] = {0xA3, 0x19, 0x00, 0x00, 0x00, 0x00, 0xAF};
 	CameraSendCommand(message);
-}
+}*/
 
-static void CameraReset()
+/*static void CameraReset()
 {
 	char message[7] = {0xA3, 0x02, 0x00, 0x00, 0x00, 0x00, 0xAF};
 	CameraSendCommand(message);
-}
+}*/
 
 static void CameraSave()
 {

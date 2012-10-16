@@ -219,7 +219,7 @@ static void ADC1Interrupt()
 	IFS0bits.AD1IF = 0; 
 }
 
-static void UART1Ini()
+/*static void UART1Ini()
 {
  	// Write appropriate baud rate value to the UxBRG register.
  	U1BRG=BaudRate_38400_LOW;
@@ -238,7 +238,7 @@ static void UART1Ini()
 	IFS0bits.U1RXIF=0;
  	IEC0bits.U1TXIE=0;//disable UART1 transmit interrupt
  	IEC0bits.U1RXIE=1;//enable UART1 receive interrupt
-}
+}*/
 
 static void UART2Ini()
 {
@@ -381,30 +381,30 @@ static void PinRemap(void)
 }
 
 // Blocking UART transmit - for debugging only
-static void UART1Transmit( int data)
+/*static void UART1Transmit( int data)
 {
  	while(U1STAbits.UTXBF==1);
  	IFS0bits.U1TXIF=0; 	
  	U1TXREG=data;
-}
+}*/
 
 // Blocking UART2 transmit - for debugging only
-static void UART2Transmit( int data)
+/*static void UART2Transmit( int data)
 {
  	while(U2STAbits.UTXBF==1);
  	IFS1bits.U2TXIF=0; 	
  	U2TXREG=data;
-}
+}*/
 
 // Send a register to the computer
-static void UARTSendRegister(char *message, int len)
+/*static void UARTSendRegister(char *message, int len)
 {
 	IEC0bits.U1TXIE=0;
 	memcpy(uartTxData, message, len);
 	uartTxDataLength = len;
     IFS0bits.U1TXIF = 1;
 	IEC0bits.U1TXIE = 1;
-}
+}*/
 
 void DevicePTZBaseInit()
 {
@@ -542,8 +542,8 @@ int panDisplacement(int angle1, int angle2)
 void PanControl()
 {
 	static int lastPotentiometer = 0;
-	static int lastPotentiometer2 = 0;
-	static int potentiometerAvg = 0;
+//	static int lastPotentiometer2 = 0;
+// 	static int potentiometerAvg = 0;
 	int absPanVelocity = 0;
 	int panDir = 1;
 	int potDiff=0;
