@@ -646,6 +646,12 @@ void handle_gas_gauge(void)
   static unsigned int last_good_SOC_right = 0;
   unsigned char i;
 
+
+  //counter to determine how long controller has been turned on (caps out at 10 seconds
+  initial_low_capacity_counter++;
+  if(initial_low_capacity_counter > 1000)
+    initial_low_capacity_counter = 1001;
+
   if( (left_battery_current == 0xffff) || (right_battery_current == 0xffff))
   {
     REG_OCU_BATT_CURRENT = 0xffff;
@@ -657,9 +663,7 @@ void handle_gas_gauge(void)
 
 	if( (REG_OCU_REL_SOC_L < BATTERY_SOC_CUTOFF) || (REG_OCU_REL_SOC_R < BATTERY_SOC_CUTOFF) )
 	{
-    initial_low_capacity_counter++;
-    if(initial_low_capacity_counter > 1000)
-      initial_low_capacity_counter = 2000;
+
 
     if( ((REG_OCU_REL_SOC_L == 0 ) || (REG_OCU_REL_SOC_R == 0 )) && (initial_low_capacity_counter < 100) )   
     {
