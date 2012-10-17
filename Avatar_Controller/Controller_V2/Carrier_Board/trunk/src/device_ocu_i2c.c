@@ -1,7 +1,10 @@
 #include "stdhdr.h"
 #include "device_ocu_i2c.h"
 
-void re_init_i2c1(void);
+static void re_init_i2c1(void);
+static void de_init_i2c1(void);
+static void de_init_i2c2(void);
+static void re_init_i2c2(void);
 
 unsigned char ocu_i2c1_i2c_read = 0;
 unsigned char ocu_i2c1_interrupt_state = 0;
@@ -78,11 +81,13 @@ void init_i2c(void)
 	//I2C2BRG = FCY/100000-FCY/10000000-1;	//should be 157.4 (between 9D and 9E)
 	I2C1BRG = 0xff;
 
+  _MI2C1IE = 1;
+  _MI2C2IE = 1;
+
 }
 
 void ocu_batt_smbus_isr(void)
 {
-
 	IFS3bits.MI2C2IF = 0;
 	//I2C2STATbits.BCL = 0;
 
@@ -355,6 +360,26 @@ void ocu_batt_i2c_fsm(void)
 	static unsigned char ocu_batt_i2c_busy = 0;
 	static unsigned int timeout_counter = 0;
   unsigned char dummy = 0;
+  static unsigned int resetting_i2c = 0;
+  static unsigned int reset_i2c_counter = 0;
+
+
+  //implement a timeout (10ms per count) between the deinitialization of i2c module
+  //and reinitializing it again (to avoid blocking wait)
+  if(resetting_i2c)
+  {
+    reset_i2c_counter++;
+    if(reset_i2c_counter >= 10)
+    {
+      re_init_i2c2();
+      reset_i2c_counter = 0;
+      resetting_i2c = 0;
+    }
+    else
+      return;
+
+  }
+
 
 	last_i2c_interrupt_state = i2c_interrupt_state;
 
@@ -582,17 +607,13 @@ void ocu_batt_i2c_fsm(void)
 	if(i2c_interrupt_state == last_i2c_interrupt_state)
 	{
 		timeout_counter++;
-		block_ms(1);
 	}
 	else
 		timeout_counter = 0;
 
-	if(timeout_counter > 10 )
-	{
-		block_ms(1);
-	}
 
-  if(timeout_counter > 200)
+  //100 times is 1s
+  if(timeout_counter > 100)
 	{
 
 
@@ -602,42 +623,16 @@ void ocu_batt_i2c_fsm(void)
 		ocu_batt_i2c_rx_byte2 = 0xff;
 		ocu_batt_i2c_rx_byte3 = 0xff;
 		ocu_batt_i2c_rx_byte4 = 0xff;
-		OCU_Batt_I2C2_state = 0x00;
-		
-    _MI2C2IF = 0;
-    I2C2CONbits.RCEN = 0;
-    I2C2CONbits.ACKEN = 0;
-    I2C2CONbits.PEN = 0;
-    I2C2CONbits.RSEN = 0;
-    I2C2CONbits.SEN = 0;
-		I2C2STAT = 0;
-    //read I2C2RCV to clear RBF
-    dummy = I2C2RCV;
-		I2C2STAT = 0;
-
-
-  //bring down i2c interface and turn off interrupt
-  //reenable after 100ms
-  //This is the only way I could get i2c communication to come back after
-  //the interrupts stopped firing on Hermes
-  I2C2CON = 0;
-  I2C2STAT = 0;
-  IEC3bits.MI2C2IE = 0;
-  
-
-    
-		block_ms(100);
-
-
-  I2C2CONbits.I2CEN = 1;
-
-  
+		OCU_Batt_I2C2_state = 0x00;  
 
 
 		ocu_batt_receive_word_completed = 0;
 		ocu_batt_i2c_busy = 0;
 		timeout_counter = 0;
 		
+    resetting_i2c = 1;
+
+    de_init_i2c2();
 
 	}
 
@@ -987,6 +982,28 @@ void ocu_i2c1_fsm(void)
 	static unsigned int timeout_counter = 0;
   static unsigned char i2c_message_failures[NUM_I2C1_MESSAGES] = {0,0,0,0,0,0,0,0,0,0};
   unsigned char i;
+  static unsigned int resetting_i2c = 0;
+  static unsigned int reset_i2c_counter = 0;
+
+
+  //implement a timeout (10ms per count) between the deinitialization of i2c module
+  //and reinitializing it again (to avoid blocking wait)
+  if(resetting_i2c)
+  {
+    reset_i2c_counter++;
+    if(reset_i2c_counter >= 10)
+    {
+      re_init_i2c1();
+      reset_i2c_counter = 0;
+      resetting_i2c = 0;
+    }
+    else
+      return;
+
+  }
+
+
+
 
 	last_i2c1_device_state = i2c1_device_state;
 
@@ -1147,48 +1164,121 @@ void ocu_i2c1_fsm(void)
 	if(i2c1_device_state == last_i2c1_device_state)
 	{
 		timeout_counter++;
-		block_ms(1);
 	}
 	else
 		timeout_counter = 0;
 
-	if(timeout_counter > 10 )
-	{
-		block_ms(1);
-	}
 
-	if(timeout_counter > 200)
+  //each count is 10ms
+	if(timeout_counter > 10)
 	{
 //		testb[9] = i2c1_device_state;
 //		testb[4]++;
 		//i2c1_device_state++;
 
+
+
 		ocu_i2c1_rx_byte1 = 0xff;
 		ocu_i2c1_rx_byte2 = 0xff;
 		ocu_i2c1_rx_byte3 = 0xff;
 		ocu_i2c1_rx_byte4= 0xff;
+
+    //invalidate device
+     switch(i2c1_device_state)
+      {
+  			case 0x00:
+   				REG_OCU_BATT_VOLTAGE = 0xffff;  
+  			break;  			
+  			case 0x01: 				
+  				REG_OCU_REL_SOC_R = 0xffff;  				
+  			break;  
+  			case 0x02: 				
+  				REG_OCU_BATT_ABS_SOC = 0xffff;			
+  			break;
+  			case 0x03:  				
+  				REG_OCU_BATT_REM_CAP = 0xffff; 				
+  			break;
+  			case 0x04:
+          battery_status = 0xffff;
+        break;  
+  			case 0x05:
+  				right_battery_current = 0xffff;
+  			break;  
+  			case 0x06:
+  				battery_temperature = 0xffff;
+  			break;  
+  			case 0x07:
+  				battery_temperature = 0xffff;
+  			break;  
+  			case 0x08:
+  				REG_OCU_REL_SOC_L = 0xffff;
+  			break;  
+  			case 0x09:
+  				left_battery_current = 0xffff;
+  			break;  
+  			default:
+  			break;  	
+  		}
+
+
+    //if we're reading the first battery, switch to the second battery and invalidate first battery registers
+    if(i2c1_device_state < 7)
+    {
+			I2C_MUX_CH(1);
+      i2c1_device_state = 7;
+  		REG_OCU_BATT_VOLTAGE = 0xffff;  			
+  		REG_OCU_REL_SOC_R = 0xffff;
+  		REG_OCU_BATT_ABS_SOC = 0xffff;
+  		REG_OCU_BATT_REM_CAP = 0xffff; 
+      battery_status = 0xffff;
+  		right_battery_current = 0xffff;
+  		battery_temperature = 0xffff;
+    }
+    //otherwise, completely reset
+    else
+    {
+			I2C_MUX_CH(0);
+      i2c1_device_state = 0;
+  		REG_OCU_BATT_VOLTAGE = 0xffff;  			
+  		REG_OCU_REL_SOC_R = 0xffff;
+  		REG_OCU_BATT_ABS_SOC = 0xffff;
+  		REG_OCU_BATT_REM_CAP = 0xffff; 
+      battery_status = 0xffff;
+  		right_battery_current = 0xffff;
+  		battery_temperature = 0xffff;
+      REG_OCU_REL_SOC_L = 0xffff;
+			left_battery_current = 0xffff;
+    }
+
+
+
+
 		ocu_i2c1_interrupt_state = 0x00;
 
     //make sure multiplexer starts out in the correct place
-    I2C_MUX_CH(0);
+    //I2C_MUX_CH(0);
 
-    //hard reset i2c module (will block for 100ms)
-    re_init_i2c1();
+    //hard reset i2c module
+    de_init_i2c1();
+    resetting_i2c = 1;
 
-    i2c_message_failures[i2c1_device_state]++;
+    //i2c_message_failures[i2c1_device_state]++;
 
 		ocu_i2c1_receive_word_completed = 0;
 		ocu_i2c1_busy = 0;
 		timeout_counter = 0;
-    i2c1_device_state++;
+
+    /*i2c1_device_state++;
     if(i2c1_device_state > NUM_I2C1_MESSAGES)
-       i2c1_device_state = 0;
+       i2c1_device_state = 0;*/
 		
 
-	}
+	//}
+
+ }
 
 
-  for(i=0;i<NUM_I2C1_MESSAGES;i++)
+  /*for(i=0;i<NUM_I2C1_MESSAGES;i++)
   {
     if(i2c_message_failures[i] > 5)
     {
@@ -1233,7 +1323,7 @@ void ocu_i2c1_fsm(void)
 
       }
       
-    }
+    }*/
 
   //if the battery SOC is over 100, it is invalide
   //set to 0xffff (the invalid state)
@@ -1245,8 +1335,20 @@ void ocu_i2c1_fsm(void)
 }
 
 
-//bring down i2c module and initialize it again
-void re_init_i2c1(void)
+//initialized i2c1 after it was brought down
+static void re_init_i2c1(void)
+{
+	I2C1CON = 0x1000;
+	//FCY should be 16M
+	//I2C2BRG = FCY/100000-FCY/10000000-1;	//should be 157.4 (between 9D and 9E)
+	I2C1BRG = 0xff;
+  I2C1CONbits.I2CEN = 1;
+  _MI2C1IE = 1;
+
+}
+
+//bring down i2c1
+static void de_init_i2c1(void)
 {
   _MI2C1IE = 0;
 
@@ -1254,12 +1356,43 @@ void re_init_i2c1(void)
   I2C1STAT = 0;
   I2C1CON = 0;
 
-  block_ms(100);
-	I2C1CON = 0x1000;
-	//FCY should be 16M
-	//I2C2BRG = FCY/100000-FCY/10000000-1;	//should be 157.4 (between 9D and 9E)
-	I2C1BRG = 0xff;
-  I2C1CONbits.I2CEN = 1;
-  _MI2C1IE = 1;
+}
+
+static void de_init_i2c2(void)
+{
+    unsigned char dummy;
+    _MI2C2IF = 0;
+    I2C2CONbits.RCEN = 0;
+    I2C2CONbits.ACKEN = 0;
+    I2C2CONbits.PEN = 0;
+    I2C2CONbits.RSEN = 0;
+    I2C2CONbits.SEN = 0;
+		I2C2STAT = 0;
+    //read I2C2RCV to clear RBF
+    dummy = I2C2RCV;
+		I2C2STAT = 0;
+
+
+  //bring down i2c interface and turn off interrupt
+  //reenable after 100ms
+  //This is the only way I could get i2c communication to come back after
+  //the interrupts stopped firing on Hermes
+  I2C2CON = 0;
+  I2C2STAT = 0;
+  IEC3bits.MI2C2IE = 0;
+  
+
+    
+		block_ms(100);
+
+
+
+
+}
+
+static void re_init_i2c2(void)
+{
+  I2C2CONbits.I2CEN = 1;
+  _MI2C2IE = 1;
 
 }

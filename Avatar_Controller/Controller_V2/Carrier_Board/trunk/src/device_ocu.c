@@ -185,6 +185,13 @@ int DeviceControllerBoot(void);
 
 void set_backlight_brightness(unsigned char percentage);
 
+//For interrupt-driven timing:
+static void Timer2_ISR(void);
+static unsigned int millisecond_counter = 0;
+static unsigned int ten_millisecond_counter = 0;
+static unsigned int hundred_millisecond_counter = 0;
+static unsigned int second_counter = 0;
+
 #pragma code
 
 void read_touchscreen(void)
@@ -468,11 +475,18 @@ void DeviceOcuInit()
 	T2CONbits.TCKPS = 0;	
 
 
+  T2InterruptUserFunction = Timer2_ISR;
+  //T2 frequency is Fosc/2 = 16 MHz
+  //Max timer interrupt at 2^16/16MHz = 4.096ms
+  //Let's set PR2 to 16000, to get interrupts every 1ms:
+  PR2 = 16000;
+  _T2IE = 1;
+
 	
 	//TPS61161: between 5kHz and 100 kHz PWM dimming frequency
 	//Choose 20kHz (50us period)
 	//50us = [PR2 + 1]*62.5ns*1
-	PR2 = 801;	
+	//PR2 = 801;	
 	OC1RS = 800;
 	set_backlight_brightness(0);
 	
@@ -508,19 +522,23 @@ void DeviceOcuProcessIO()
 {
   static unsigned int initial_backlight_counter = 0;
 	main_loop_counter++;
+  static unsigned int test_toggle = 0;
 
 	handle_power_button();
 	update_button_states();
 		
 
 		_U2RXIE = 1;
-		IEC3bits.MI2C2IE = 1;
-		_MI2C1IE = 1;
+
+
+  if(ten_millisecond_counter)
+  {
+    ten_millisecond_counter = 0;
 		ocu_batt_i2c_fsm();
 		ocu_i2c1_fsm();
+	  handle_gas_gauge();
+  }
 
-
-	handle_gas_gauge();
 	handle_charging();
 
   //I need to check if the computer is on, since these buttons are "pressed" when the power supply
@@ -639,7 +657,7 @@ void handle_gas_gauge(void)
     if(initial_low_capacity_counter > 1000)
       initial_low_capacity_counter = 2000;
 
-    if( ((REG_OCU_REL_SOC_L == 0 ) || (REG_OCU_REL_SOC_R == 0 )) && (initial_low_capacity_counter < 1000) )   
+    if( ((REG_OCU_REL_SOC_L == 0 ) || (REG_OCU_REL_SOC_R == 0 )) && (initial_low_capacity_counter < 500) )   
     {
       //initally, relative SOC registers will be 0.  Let's not turn off due to low capacity until we get a
       //valid capacity reading, or the counter goes too high.
@@ -667,13 +685,13 @@ void handle_gas_gauge(void)
   //TODO: think about what would happen if one was valid and one was invalid
   if( (REG_OCU_REL_SOC_L == 0xffff) && (REG_OCU_REL_SOC_R == 0xffff) );
   else if( (REG_OCU_REL_SOC_L >= 20) && (REG_OCU_REL_SOC_R >= 20) )
-    max_low_capacity_counts = 5000;
+    max_low_capacity_counts = 500;
   else if( (REG_OCU_REL_SOC_L >= 15) && (REG_OCU_REL_SOC_R >= 15) )
-    max_low_capacity_counts = 1000;
+    max_low_capacity_counts = 200;
   else if( (REG_OCU_REL_SOC_L >= 12) && (REG_OCU_REL_SOC_R >= 12) )
     max_low_capacity_counts = 100;
   else
-    max_low_capacity_counts = 10;
+    max_low_capacity_counts = 20;
 
   if( (REG_OCU_REL_SOC_L != 0xffff) && (REG_OCU_REL_SOC_L != 0))
   {
@@ -1344,7 +1362,30 @@ void read_all_bq2060a_registers(void)
 
 }
 
+static void Timer2_ISR(void)
+{
+  _T2IF = 0;
+  millisecond_counter++;
+  
+  //Make sure rollover is at a multiple of 10
+  if(millisecond_counter == 10000)
+    millisecond_counter = 0;
 
+
+  if(millisecond_counter%10 == 0)
+  {
+    ten_millisecond_counter++;
+    if(millisecond_counter%100 == 0)
+    {
+      hundred_millisecond_counter++;
+      if(millisecond_counter%1000 == 0)
+      {
+        second_counter++;
+      }
+     
+    }
+  }
+}
 
 
 
