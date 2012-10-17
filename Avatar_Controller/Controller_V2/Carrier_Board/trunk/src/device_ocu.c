@@ -661,7 +661,7 @@ void handle_gas_gauge(void)
     if(initial_low_capacity_counter > 1000)
       initial_low_capacity_counter = 2000;
 
-    if( ((REG_OCU_REL_SOC_L == 0 ) || (REG_OCU_REL_SOC_R == 0 )) && (initial_low_capacity_counter < 500) )   
+    if( ((REG_OCU_REL_SOC_L == 0 ) || (REG_OCU_REL_SOC_R == 0 )) && (initial_low_capacity_counter < 100) )   
     {
       //initally, relative SOC registers will be 0.  Let's not turn off due to low capacity until we get a
       //valid capacity reading, or the counter goes too high.
@@ -674,7 +674,7 @@ void handle_gas_gauge(void)
 
   //if we're getting bad SOC data on both the batteries -- if we have a valid measurement on just one, then we'll assume
   //that the other battery approximates the SOC of the one we have an invalid measurement for.
-  else if( (REG_OCU_REL_SOC_L == 0xffff) && (REG_OCU_REL_SOC_R == 0xffff) )
+  else if( ((REG_OCU_REL_SOC_L == 0xffff) && (REG_OCU_REL_SOC_R == 0xffff)) &&  (initial_low_capacity_counter > 100))
   {
       low_capacity_counter++;
   }
