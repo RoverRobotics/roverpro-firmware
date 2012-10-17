@@ -52,6 +52,16 @@ unsigned char fan_speed = 0;
 unsigned int battery_status = 0;
 unsigned int battery_temperature = 0;
 
+static unsigned int resetting_i2c1 = 0;
+static unsigned int resetting_i2c2 = 0;
+
+static unsigned char i2c1_device_state = 0x00;
+static unsigned int i2c1_fsm_complete = 0;
+static unsigned int i2c2_fsm_complete = 0;
+
+
+
+
 #define NUM_I2C1_MESSAGES   10
 
 void init_i2c(void)
@@ -83,6 +93,193 @@ void init_i2c(void)
 
   _MI2C1IE = 1;
   _MI2C2IE = 1;
+
+}
+
+void i2c1_detect_failure(void)
+{
+  static unsigned int timeout_counter = 0;
+  static unsigned int reset_i2c_counter = 0;
+
+  
+
+
+  if(resetting_i2c1)
+  {
+    reset_i2c_counter++;
+    if(reset_i2c_counter >= 10)
+    {
+      re_init_i2c1();
+      reset_i2c_counter = 0;
+      resetting_i2c1 = 0;
+    }
+    else
+      return;
+  }
+
+	if(i2c1_fsm_complete == 0)
+	{
+		timeout_counter++;
+	}
+	else
+  {
+    i2c1_fsm_complete  = 0;
+		timeout_counter = 0;
+  }
+
+
+  //each count is 10ms
+	if(timeout_counter > 50)
+	{
+//		testb[9] = i2c1_device_state;
+//		testb[4]++;
+		//i2c1_device_state++;
+
+
+
+		ocu_i2c1_rx_byte1 = 0xff;
+		ocu_i2c1_rx_byte2 = 0xff;
+		ocu_i2c1_rx_byte3 = 0xff;
+		ocu_i2c1_rx_byte4= 0xff;
+
+    //invalidate device
+     /*switch(i2c1_device_state)
+      {
+  			case 0x00:
+   				REG_OCU_BATT_VOLTAGE = 0xffff;  
+  			break;  			
+  			case 0x01: 				
+  				REG_OCU_REL_SOC_R = 0xffff;  				
+  			break;  
+  			case 0x02: 				
+  				REG_OCU_BATT_ABS_SOC = 0xffff;			
+  			break;
+  			case 0x03:  				
+  				REG_OCU_BATT_REM_CAP = 0xffff; 				
+  			break;
+  			case 0x04:
+          battery_status = 0xffff;
+        break;  
+  			case 0x05:
+  				right_battery_current = 0xffff;
+  			break;  
+  			case 0x06:
+  				battery_temperature = 0xffff;
+  			break;  
+  			case 0x07:
+  				battery_temperature = 0xffff;
+  			break;  
+  			case 0x08:
+  				REG_OCU_REL_SOC_L = 0xffff;
+  			break;  
+  			case 0x09:
+  				left_battery_current = 0xffff;
+  			break;  
+  			default:
+  			break;  	
+  		}*/
+
+
+    //if we're reading the first battery, switch to the second battery and invalidate first battery registers
+    if(i2c1_device_state < 7)
+    {
+			I2C_MUX_CH(1);
+      i2c1_device_state = 7;
+  		REG_OCU_BATT_VOLTAGE = 0xffff;  			
+  		REG_OCU_REL_SOC_R = 0xffff;
+  		REG_OCU_BATT_ABS_SOC = 0xffff;
+  		REG_OCU_BATT_REM_CAP = 0xffff; 
+      battery_status = 0xffff;
+  		right_battery_current = 0xffff;
+  		battery_temperature = 0xffff;
+    }
+    //otherwise, completely reset
+    else
+    {
+			I2C_MUX_CH(0);
+      i2c1_device_state = 0;
+  		REG_OCU_BATT_VOLTAGE = 0xffff;  			
+  		REG_OCU_REL_SOC_R = 0xffff;
+  		REG_OCU_BATT_ABS_SOC = 0xffff;
+  		REG_OCU_BATT_REM_CAP = 0xffff; 
+      battery_status = 0xffff;
+  		right_battery_current = 0xffff;
+  		battery_temperature = 0xffff;
+      REG_OCU_REL_SOC_L = 0xffff;
+			left_battery_current = 0xffff;
+    }
+
+
+
+
+
+
+    //make sure multiplexer starts out in the correct place
+    //I2C_MUX_CH(0);
+
+    timeout_counter = 0;
+
+    //hard reset i2c module
+    de_init_i2c1();
+
+    resetting_i2c1 = 1;
+
+  }
+
+}
+
+void i2c2_detect_failure(void)
+{
+
+  static unsigned int timeout_counter = 0;
+  static unsigned int reset_i2c_counter = 0;
+
+  //implement a timeout (10ms per count) between the deinitialization of i2c module
+  //and reinitializing it again (to avoid blocking wait)
+  if(resetting_i2c2)
+  {
+    reset_i2c_counter++;
+    if(reset_i2c_counter >= 10)
+    {
+      re_init_i2c2();
+      reset_i2c_counter = 0;
+      resetting_i2c2 = 0;
+    }
+    else
+      return;
+
+  }
+
+	if(i2c2_fsm_complete==0)
+	{
+		timeout_counter++;
+	}
+	else
+  {
+		timeout_counter = 0;
+    i2c2_fsm_complete = 0;
+  }
+
+
+  //100 times is 1s
+  if(timeout_counter > 100)
+	{
+
+
+		//i2c_interrupt_state++;
+//		i2c_interrupt_state++;
+		ocu_batt_i2c_rx_byte1 = 0xff;
+		ocu_batt_i2c_rx_byte2 = 0xff;
+		ocu_batt_i2c_rx_byte3 = 0xff;
+		ocu_batt_i2c_rx_byte4 = 0xff;
+
+		timeout_counter = 0;
+		
+    resetting_i2c2 = 1;
+
+    de_init_i2c2();
+
+	}
 
 }
 
@@ -350,7 +547,6 @@ void ocu_batt_smbus_isr(void)
 }
 
 
-
 void ocu_batt_i2c_fsm(void)
 {
 
@@ -358,26 +554,14 @@ void ocu_batt_i2c_fsm(void)
 	static unsigned char i2c_interrupt_state = 0x00;
 	static unsigned char last_i2c_interrupt_state = 0;
 	static unsigned char ocu_batt_i2c_busy = 0;
-	static unsigned int timeout_counter = 0;
-  unsigned char dummy = 0;
-  static unsigned int resetting_i2c = 0;
-  static unsigned int reset_i2c_counter = 0;
 
-
-  //implement a timeout (10ms per count) between the deinitialization of i2c module
-  //and reinitializing it again (to avoid blocking wait)
-  if(resetting_i2c)
+  if(resetting_i2c2)
   {
-    reset_i2c_counter++;
-    if(reset_i2c_counter >= 10)
-    {
-      re_init_i2c2();
-      reset_i2c_counter = 0;
-      resetting_i2c = 0;
-    }
-    else
-      return;
-
+		OCU_Batt_I2C2_state = 0x00;  
+		ocu_batt_receive_word_completed = 0;
+		ocu_batt_i2c_busy = 0;
+    i2c_interrupt_state = 0;
+    return;
   }
 
 
@@ -481,6 +665,7 @@ void ocu_batt_i2c_fsm(void)
 			break;
 			case 0x0f:
         //input current write
+        i2c2_fsm_complete = 1;
 				i2c_interrupt_state = 0;
 			break;
 			default:
@@ -604,37 +789,7 @@ void ocu_batt_i2c_fsm(void)
 		}
 	}	
 
-	if(i2c_interrupt_state == last_i2c_interrupt_state)
-	{
-		timeout_counter++;
-	}
-	else
-		timeout_counter = 0;
 
-
-  //100 times is 1s
-  if(timeout_counter > 100)
-	{
-
-
-		//i2c_interrupt_state++;
-		i2c_interrupt_state++;
-		ocu_batt_i2c_rx_byte1 = 0xff;
-		ocu_batt_i2c_rx_byte2 = 0xff;
-		ocu_batt_i2c_rx_byte3 = 0xff;
-		ocu_batt_i2c_rx_byte4 = 0xff;
-		OCU_Batt_I2C2_state = 0x00;  
-
-
-		ocu_batt_receive_word_completed = 0;
-		ocu_batt_i2c_busy = 0;
-		timeout_counter = 0;
-		
-    resetting_i2c = 1;
-
-    de_init_i2c2();
-
-	}
 
 
 
@@ -976,31 +1131,25 @@ void ocu_i2c1_fsm(void)
 {
 
 
-	static unsigned char i2c1_device_state = 0x00;
+
 	static unsigned char last_i2c1_device_state = 0;
 	static unsigned char ocu_i2c1_busy = 0;
 	static unsigned int timeout_counter = 0;
   static unsigned char i2c_message_failures[NUM_I2C1_MESSAGES] = {0,0,0,0,0,0,0,0,0,0};
-  unsigned char i;
-  static unsigned int resetting_i2c = 0;
-  static unsigned int reset_i2c_counter = 0;
 
 
-  //implement a timeout (10ms per count) between the deinitialization of i2c module
-  //and reinitializing it again (to avoid blocking wait)
-  if(resetting_i2c)
+  if(resetting_i2c1)
   {
-    reset_i2c_counter++;
-    if(reset_i2c_counter >= 10)
-    {
-      re_init_i2c1();
-      reset_i2c_counter = 0;
-      resetting_i2c = 0;
-    }
-    else
-      return;
+		ocu_i2c1_receive_word_completed = 0;
+		ocu_i2c1_busy = 0;
+		timeout_counter = 0;
+		ocu_i2c1_interrupt_state = 0x00;
 
+    return;
   }
+
+
+
 
 
 
@@ -1077,6 +1226,7 @@ void ocu_i2c1_fsm(void)
 
 			case 0x09:
 				left_battery_current = ocu_i2c1_rx_byte1 + (ocu_i2c1_rx_byte2<<8);
+        i2c1_fsm_complete = 1;
 				i2c1_device_state=0;
 			break;
 
@@ -1161,121 +1311,7 @@ void ocu_i2c1_fsm(void)
 		}
 	}	
 
-	if(i2c1_device_state == last_i2c1_device_state)
-	{
-		timeout_counter++;
-	}
-	else
-		timeout_counter = 0;
 
-
-  //each count is 10ms
-	if(timeout_counter > 10)
-	{
-//		testb[9] = i2c1_device_state;
-//		testb[4]++;
-		//i2c1_device_state++;
-
-
-
-		ocu_i2c1_rx_byte1 = 0xff;
-		ocu_i2c1_rx_byte2 = 0xff;
-		ocu_i2c1_rx_byte3 = 0xff;
-		ocu_i2c1_rx_byte4= 0xff;
-
-    //invalidate device
-     switch(i2c1_device_state)
-      {
-  			case 0x00:
-   				REG_OCU_BATT_VOLTAGE = 0xffff;  
-  			break;  			
-  			case 0x01: 				
-  				REG_OCU_REL_SOC_R = 0xffff;  				
-  			break;  
-  			case 0x02: 				
-  				REG_OCU_BATT_ABS_SOC = 0xffff;			
-  			break;
-  			case 0x03:  				
-  				REG_OCU_BATT_REM_CAP = 0xffff; 				
-  			break;
-  			case 0x04:
-          battery_status = 0xffff;
-        break;  
-  			case 0x05:
-  				right_battery_current = 0xffff;
-  			break;  
-  			case 0x06:
-  				battery_temperature = 0xffff;
-  			break;  
-  			case 0x07:
-  				battery_temperature = 0xffff;
-  			break;  
-  			case 0x08:
-  				REG_OCU_REL_SOC_L = 0xffff;
-  			break;  
-  			case 0x09:
-  				left_battery_current = 0xffff;
-  			break;  
-  			default:
-  			break;  	
-  		}
-
-
-    //if we're reading the first battery, switch to the second battery and invalidate first battery registers
-    if(i2c1_device_state < 7)
-    {
-			I2C_MUX_CH(1);
-      i2c1_device_state = 7;
-  		REG_OCU_BATT_VOLTAGE = 0xffff;  			
-  		REG_OCU_REL_SOC_R = 0xffff;
-  		REG_OCU_BATT_ABS_SOC = 0xffff;
-  		REG_OCU_BATT_REM_CAP = 0xffff; 
-      battery_status = 0xffff;
-  		right_battery_current = 0xffff;
-  		battery_temperature = 0xffff;
-    }
-    //otherwise, completely reset
-    else
-    {
-			I2C_MUX_CH(0);
-      i2c1_device_state = 0;
-  		REG_OCU_BATT_VOLTAGE = 0xffff;  			
-  		REG_OCU_REL_SOC_R = 0xffff;
-  		REG_OCU_BATT_ABS_SOC = 0xffff;
-  		REG_OCU_BATT_REM_CAP = 0xffff; 
-      battery_status = 0xffff;
-  		right_battery_current = 0xffff;
-  		battery_temperature = 0xffff;
-      REG_OCU_REL_SOC_L = 0xffff;
-			left_battery_current = 0xffff;
-    }
-
-
-
-
-		ocu_i2c1_interrupt_state = 0x00;
-
-    //make sure multiplexer starts out in the correct place
-    //I2C_MUX_CH(0);
-
-    //hard reset i2c module
-    de_init_i2c1();
-    resetting_i2c = 1;
-
-    //i2c_message_failures[i2c1_device_state]++;
-
-		ocu_i2c1_receive_word_completed = 0;
-		ocu_i2c1_busy = 0;
-		timeout_counter = 0;
-
-    /*i2c1_device_state++;
-    if(i2c1_device_state > NUM_I2C1_MESSAGES)
-       i2c1_device_state = 0;*/
-		
-
-	//}
-
- }
 
 
   /*for(i=0;i<NUM_I2C1_MESSAGES;i++)

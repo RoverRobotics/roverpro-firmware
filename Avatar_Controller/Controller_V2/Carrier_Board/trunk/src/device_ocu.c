@@ -534,10 +534,14 @@ void DeviceOcuProcessIO()
   if(ten_millisecond_counter)
   {
     ten_millisecond_counter = 0;
-		ocu_batt_i2c_fsm();
-		ocu_i2c1_fsm();
+    i2c1_detect_failure();
+    i2c2_detect_failure();
 	  handle_gas_gauge();
   }
+  
+  //we run the i2c FSMs at max speed
+  ocu_batt_i2c_fsm();
+  ocu_i2c1_fsm();
 
 	handle_charging();
 
