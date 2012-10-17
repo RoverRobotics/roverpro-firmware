@@ -1,9 +1,9 @@
 /*******************************************************************************
 File: I2C.h
 
-Description: This module provides an interface to the I2C2 hardware module on
-  the PIC24FJ256GB106 as a master in single-master mode.  It can be initialized
-	to conform to I2C or SMBus standards.
+Description: This module provides an interface to the I2C hardware modules on
+  the PIC24FJ256GB106 as a master in single-master mode.  Each module can be 
+  initialized to conform to I2C or SMBus standards.
   
   As currently configured, this module supports:
     - single-master operation
@@ -24,7 +24,6 @@ Responsible Engineer(s): Stellios Leventis (sleventis@robotex.com)
                                   // memory internally).  DO NOT make larger
                                   // than 127
 #define SMBUS                 1
-#define I2C                   0
 
 /*---------------------------Type Definitions---------------------------------*/
 typedef struct {
@@ -35,8 +34,8 @@ typedef struct {
                         // other outputs the sensor is capable of
                         // producing  are stored (e.g. multiple
                         // acceleration directions)
-  uint8_t numDataBytes; // number of data bytes the sensor returns
-  uint8_t* data;
+  uint8_t n_data_bytes; // number of data bytes the sensor returns
+  uint8_t *data;
 } TWIDevice;
 
 // baud rate options
@@ -97,7 +96,7 @@ Parameters:
   kTWIModule module,     which of the available hardware modules
 	TWIDevice* device,     the device on the bus on which to operate
 *******************************************************************************/
-void TWI_GetData(const kTWIModule module, TWIDevice* device);
+void TWI_GetData(const kTWIModule module, const TWIDevice* device);
 
 
 /*******************************************************************************

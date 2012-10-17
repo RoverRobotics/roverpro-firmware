@@ -18,6 +18,9 @@ See Also:
 #define ACK							          0 // acknowledged
 #define NACK						          1	// NOT-acknowledged, error
 
+#define N_I2C_MODULES             3 // the maximum number of I2C modules
+                                    // available on this PIC
+
 /*---------------------------Type Definitions---------------------------------*/
 // states in which the master can be
 typedef enum {
@@ -42,20 +45,26 @@ typedef enum {
 } Indication;
 
 /*---------------------------Helper Function Prototypes-----------------------*/
-static void ConfigureBaudRate(kTWIBaudRate baud_rate);
+static void ConfigureBaudRate(const kTWIModule module, kTWIBaudRate baud_rate);
 
 /*---------------------------Module Variables---------------------------------*/
-static volatile uint8_t isNewDataAvailable = NO;
-static volatile uint8_t errorHasOccurred = NO;
-static volatile uint8_t slaveAddress = 0;
-static volatile uint8_t slaveSubaddress = 0;
-static volatile uint8_t indication = kIndicationRead;
-static volatile uint8_t remainingRxBytes = 0;    // the number of bytes to 
-                                              // receive from slave
-static volatile uint8_t remainingTxBytes = 0;
-static volatile uint8_t logicalLength = 0;       // Rx buffer logical length
-static volatile uint8_t buffer[TWI_MAX_DATA_LENGTH] = {0};
-static volatile MasterState state = kWaiting;
+static volatile uint8_t new_data_flags[N_I2C_MODULES] = {0};
+static volatile uint8_t error_flags[N_I2C_MODULES] = {0};
+static volatile uint8_t slave_addresses[N_I2C_MODULES] = {0};
+static volatile uint8_t slave_subaddresses[N_I2C_MODULES] = {0};
+static volatile uint8_t indications[N_I2C_MODULES] = {kIndicationRead};
+
+// the number of bytes to receive from slave
+static volatile uint8_t remaining_rx_bytes[N_I2C_MODULES] = {0};
+
+static volatile uint8_t remaining_tx_bytes[N_I2C_MODULES] = {0};
+
+// Rx buffer logical length
+static volatile uint8_t logical_lengths[N_I2C_MODULES] = {0};
+
+static volatile uint8_t buffers[N_I2C_MODULES][TWI_MAX_DATA_LENGTH] = {{0}};
+
+static volatile MasterState states[N_I2C_MODULES] = {kWaiting};
 
 /*---------------------------Test Harness-------------------------------------*/
 #ifdef TEST_TWI
@@ -96,235 +105,547 @@ int main(void) {
 #endif
 /*---------------------------Public Function Definitions----------------------*/
 void TWI_Init(const kTWIModule module,
-              const kTWIBaudRate baudRate, 
-              const bool isSMBus) {
+              const kTWIBaudRate baud_rate, 
+              const bool is_SMBus) {
   switch (module) {
-    case kTWI01: break;
-    case kTWI02: break;
-    case kTWI03: break;
+    case kTWI01:
+      I2C1CONbits.I2CEN = 0;	// disable the I2C module while we configure it
+  	
+    	// Note: the state of the port I/O pins are overridden when I2C is enabled
+      TWI_RefreshModule(kTWI01);
+    	ConfigureBaudRate(kTWI01, baud_rate);
+    	
+    	I2C1CONbits.SMEN = is_SMBus; // configure I2C/SMBus thresholds
+    	I2C1CONbits.STREN = 0;	// DISABLE receive clock stretching
+    	I2C1CONbits.GCEN = 0;	  // DISABLE an interrupt to fire when a general call
+    													// address is received
+    	
+    	_MI2C1IF = 0;						// begin with the interrupt cleared
+    	_MI2C1IE = 1;						// enable I2C interrupts for master-related events
+    	I2C1CONbits.I2CEN = 1;	// enable the I2C module
+	    break;
+    case kTWI02:
+      I2C2CONbits.I2CEN = 0;
+      TWI_RefreshModule(kTWI02);
+	    ConfigureBaudRate(kTWI02, baud_rate);
+	    
+	    I2C2CONbits.SMEN = is_SMBus;
+	    I2C2CONbits.STREN = 0;
+	    I2C2CONbits.GCEN = 0;
+	
+	    _MI2C2IF = 0;
+	    _MI2C2IE = 1;
+	    I2C2CONbits.I2CEN = 1;
+      break;
+    case kTWI03:
+      I2C3CONbits.I2CEN = 0;
+      TWI_RefreshModule(kTWI03);
+	    ConfigureBaudRate(kTWI03, baud_rate);
+	    
+	    I2C3CONbits.SMEN = is_SMBus;
+	    I2C3CONbits.STREN = 0;
+	    I2C3CONbits.GCEN = 0;
+	
+	    _MI2C3IF = 0;
+	    _MI2C3IE = 1;
+	    I2C3CONbits.I2CEN = 1;
+	    break;
   }
-  
-	I2C2CONbits.I2CEN = 0;	// disable the I2C module while we configure it
-	
-	// Note: the state of the port I/O pins are overridden when I2C is enabled
-  TWI_RefreshModule(module);
-	ConfigureBaudRate(baudRate);
-	
-	I2C2CONbits.SMEN = isSMBus;		// configure I2C/SMBus thresholds
-	I2C2CONbits.STREN = 0;	// DISABLE receive clock stretching
-	I2C2CONbits.GCEN = 0;	  // DISABLE an interrupt to fire when a general call
-													// address is received
-	
-	_MI2C2IF = 0;						// begin with the interrupt cleared
-	_MI2C2IE = 1;						// enable I2C interrupts for master-related events
-	I2C2CONbits.I2CEN = 1;	// enable the I2C module
 }
 
 
 void TWI_RequestData(const kTWIModule module, const TWIDevice* device) {
-  slaveAddress = device->address;
-  slaveSubaddress = device->subaddress;
-  indication = kIndicationRead;
-  remainingRxBytes = device->numDataBytes;
-  logicalLength = device->numDataBytes;
-  I2C2CONbits.SEN = 1;	  // start the start event
-  state = kStarting;
+  switch (module) {
+    case kTWI01:
+      // populate the device from which to request data
+      slave_addresses[kTWI01] = device->address;
+      slave_subaddresses[kTWI01] = device->subaddress;
+      
+      // prepare to communicate
+      indications[kTWI01] = kIndicationRead;
+      remaining_rx_bytes[kTWI01] = device->n_data_bytes;
+      logical_lengths[kTWI01] = device->n_data_bytes;
+      states[kTWI01] = kStarting;
+            
+      // start the start event to initiate the conversation
+      I2C1CONbits.SEN = 1;
+      break;
+    case kTWI02:
+      slave_addresses[kTWI02] = device->address;
+      slave_subaddresses[kTWI02] = device->subaddress;
+      indications[kTWI02] = kIndicationRead;
+      remaining_rx_bytes[kTWI02] = device->n_data_bytes;
+      logical_lengths[kTWI02] = device->n_data_bytes;
+      states[kTWI02] = kStarting;
+      I2C2CONbits.SEN = 1;
+      break;
+    case kTWI03:
+      slave_addresses[kTWI03] = device->address;
+      slave_subaddresses[kTWI03] = device->subaddress;
+      indications[kTWI03] = kIndicationRead;
+      remaining_rx_bytes[kTWI03] = device->n_data_bytes;
+      logical_lengths[kTWI03] = device->n_data_bytes;
+      states[kTWI03] = kStarting;
+      I2C3CONbits.SEN = 1;
+      break;
+  }
 }
 
 
 inline bool TWI_IsBusIdle(const kTWIModule module) {
   // see p.53 of Section 24 of PIC24F Family Reference Manual
-  return (!I2C2CONbits.SEN && !I2C2CONbits.RSEN && !I2C2CONbits.PEN && 
-          !I2C2CONbits.RCEN && !I2C2CONbits.ACKEN && !I2C2STATbits.TRSTAT);  
+  switch (module) {
+    case kTWI01:
+      return (!I2C1CONbits.SEN && !I2C1CONbits.RSEN && !I2C1CONbits.PEN && 
+              !I2C1CONbits.RCEN && !I2C1CONbits.ACKEN && !I2C1STATbits.TRSTAT);
+    case kTWI02:
+      return (!I2C2CONbits.SEN && !I2C2CONbits.RSEN && !I2C2CONbits.PEN && 
+              !I2C2CONbits.RCEN && !I2C2CONbits.ACKEN && !I2C2STATbits.TRSTAT);  
+    case kTWI03:
+      return (!I2C3CONbits.SEN && !I2C3CONbits.RSEN && !I2C3CONbits.PEN && 
+              !I2C3CONbits.RCEN && !I2C3CONbits.ACKEN && !I2C3STATbits.TRSTAT);
+    default:
+      return NO;
+  }
 }
 
 
 inline bool TWI_IsNewDataAvailable(const kTWIModule module) {
-  if (isNewDataAvailable) {
-    isNewDataAvailable = NO;
-    return YES;
-  }
-  
-  return NO;
+  return new_data_flags[module];
 }
 
 
-void TWI_GetData(const kTWIModule module, TWIDevice* device) {
+void TWI_GetData(const kTWIModule module, const TWIDevice* device) {
   // copy in as much of the buffer as is relevant
   uint8_t i;
-  for (i = 0; i < logicalLength; i++) device->data[i] = buffer[i];
+  for (i = 0; i < logical_lengths[module]; i++) {
+    device->data[i] = buffers[module][i];
+  }
+  
+  new_data_flags[module] = 0;
   
   // clear out irrelevant data?
   //for (i = logicalLength: i < TWI_MAX_DATA_LENGTH; i++) buffer[i] = 0;
 }
 
 
-void TWI_WriteData(const kTWIModule module, 
-                   const TWIDevice* device, 
+void TWI_WriteData(const kTWIModule module,
+                   const TWIDevice* device,
                    const uint8_t data[]) {
-  slaveAddress = device->address;
-  slaveSubaddress = device->subaddress;
-  indication = kIndicationWrite;
-  // BUG ALERT: subtract off the null-terminator
-  remainingTxBytes = sizeof(data) / sizeof(unsigned char) - 1;
-  logicalLength = remainingTxBytes;
+  // populate the firmware variables
+  slave_addresses[module] = device->address;
+  slave_subaddresses[module] = device->subaddress;
+  indications[module] = kIndicationWrite;
+  // NB: 1-based indexing
+  remaining_tx_bytes[module] = sizeof(data) / sizeof(uint8_t);
+  logical_lengths[module] = remaining_tx_bytes[module];
   
-  // copy in the data to write
+  //---copy in the data to write
   uint8_t i;
-  for (i = 0; i < remainingTxBytes; i++) buffer[i] = data[i];
+  for (i = 0; i < remaining_tx_bytes[module]; i++) {
+    buffers[module][i] = data[i];
+  }
   
-  I2C2CONbits.SEN = 1;	  // start the start event
-  state = kStarting;
+  states[module] = kStarting;
+  
+  // start the start event  
+  switch (module) {
+    case kTWI01: I2C1CONbits.SEN = 1; break;
+    case kTWI02: I2C2CONbits.SEN = 1; break;
+    case kTWI03: I2C3CONbits.SEN = 1; break;
+  }
 }
 
 
 bool TWI_ErrorHasOccurred(const kTWIModule module) {
   // check whether there has been a collision or receive overflow
-  return (I2C2STATbits.BCL || I2C2STATbits.I2COV || I2C2STATbits.IWCOL || 
-         errorHasOccurred);
+  switch (module) {
+    case kTWI01:
+      return (I2C1STATbits.BCL || I2C1STATbits.I2COV || 
+              I2C1STATbits.IWCOL || error_flags[kTWI01]);
+    case kTWI02:
+      return (I2C3STATbits.BCL || I2C3STATbits.I2COV ||
+              I2C3STATbits.IWCOL || error_flags[kTWI03]);
+    case kTWI03:
+      return (I2C3STATbits.BCL || I2C3STATbits.I2COV || 
+              I2C3STATbits.IWCOL || error_flags[kTWI03]);
+    default:
+      return YES;
+  }
 }
 
 
 void TWI_RefreshModule(const kTWIModule module) {
-  // clear any software variables
-  isNewDataAvailable = NO;
-  slaveAddress = 0;
-  slaveSubaddress = 0;
-  indication = 0;
-  remainingRxBytes = 0;
-  remainingTxBytes = 0;
-  logicalLength = 0;
+  // clear any firmware variables
+  new_data_flags[module] = 0;
+  error_flags[module] = 0;
+  slave_addresses[module] = 0;
+  slave_subaddresses[module] = 0;
+  indications[module] = 0;
+  remaining_rx_bytes[module] = 0;
+  remaining_tx_bytes[module] = 0;
+  logical_lengths[module] = 0;
   uint8_t i;
-  for (i = 0; i < TWI_MAX_DATA_LENGTH; i++) buffer[i] = 0;
-  state = kWaiting;
+  for (i = 0; i < TWI_MAX_DATA_LENGTH; i++) buffers[module][i] = 0;
+  states[module] = kWaiting;
   
   // clear any hardware errors, status flags and buffers
-  I2C2STAT = 0x0000;
-  I2C2CONbits.RCEN = 0;		// clear 'currently-receiving' flag
   int8_t temp;
-  temp = I2C2RCV;		      // read to ensure the Rx buffer begins cleared
+  switch (module) {
+    case kTWI01:
+      I2C1STAT = 0x0000;
+      I2C1CONbits.RCEN = 0;		// clear 'currently-receiving' flag
+      temp = I2C1RCV;		      // read to ensure the Rx buffer begins cleared
+      break;
+    case kTWI02:
+      I2C2STAT = 0x0000;
+      I2C2CONbits.RCEN = 0;
+      temp = I2C2RCV;
+      break;
+    case kTWI03:
+      I2C3STAT = 0x0000;
+      I2C3CONbits.RCEN = 0;
+      temp = I2C3RCV;
+      break;
+  }
 }
 
 
 void TWI_Deinit(const kTWIModule module) {
-  I2C2CONbits.I2CEN = 0;  // turn off I2C and restore consumed pins
-  TWI_RefreshModule(module);
+  switch (module) {
+    case kTWI01:
+      I2C1CONbits.I2CEN = 0;  // turn off I2C and restore consumed pins
+      TWI_RefreshModule(kTWI01);
   
-  // restore any registers to their startup defaults
-  I2C2CON = 0x0000; // Note: default actually leaves I2C on, but keeping off
-  I2C2TRN = 0x00ff;
-  I2C2BRG = 0x0000;
-  I2C2STAT = 0x0000;
+      // restore any registers to their startup defaults
+      I2C1CON = 0x0000; // Note: default actually leaves I2C on, but keeping off
+      I2C1TRN = 0x00ff;
+      I2C1BRG = 0x0000;
+      I2C1STAT = 0x0000;
+    case kTWI02:
+      I2C2CONbits.I2CEN = 0;
+      TWI_RefreshModule(kTWI02);
+      
+      I2C2CON = 0x0000;
+      I2C2TRN = 0x00ff;
+      I2C2BRG = 0x0000;
+      I2C2STAT = 0x0000;
+    case kTWI03:
+      I2C3CONbits.I2CEN = 0;
+      TWI_RefreshModule(kTWI03);
+      
+      I2C3CON = 0x0000;
+      I2C3TRN = 0x00ff;
+      I2C3BRG = 0x0000;
+      I2C3STAT = 0x0000;
+  }
 }
   
 /*---------------------------Interrupt Service Routines-----------------------*/
 /*
 Description: This ISR contains a state machine that constitues the core of this
   module.  It is written to be event-driven so that it can be ported to the
-  main thread if needed.
+  main thread if needed.  It is also unfortunately long but meant to be kept
+  lean.
 */
-void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
-  IFS3bits.MI2C2IF = 0;
+void __attribute__((__interrupt__, auto_psv)) _MI2C1Interrupt(void) {
+  IFS1bits.MI2C1IF = 0;
   
-  switch (state) {
+  switch (states[kTWI01]) {
     case kWaiting:
-      errorHasOccurred = YES;     // should never get here in interrupt
+      error_flags[kTWI01] = 1;    // should never get here in interrupt
       break;
     case kStarting:
  	    // wait for confirmation of the hardware clearing the start bit
- 	    if (!I2C2CONbits.SEN) {
+ 	    if (!I2C1CONbits.SEN) {
    	    // transmit the slave address along with the indication
-   	    I2C2TRN = ((slaveAddress << 1) | kIndicationWrite);
-   	    state = kSelectingDevice;
+   	    I2C1TRN = ((slave_addresses[kTWI01] << 1) | kIndicationWrite);
+   	    states[kTWI01] = kSelectingDevice;
  	    }
  	    break;
  	  case kSelectingDevice:
  	    // wait for confirmation of the slave acknowledging
- 	    if (I2C2STATbits.ACKSTAT == ACK) {
+ 	    if (I2C1STATbits.ACKSTAT == ACK) {
    	    // transmit the slave sub-address
-   	    I2C2TRN = slaveSubaddress;
-     	  state = kSelectingRegister;
+   	    I2C1TRN = slave_subaddresses[kTWI01];
+     	  states[kTWI01] = kSelectingRegister;
  	    }
  	    break;
  	  case kSelectingRegister:
  	    // wait for confirmation of the slave acknowledging
- 	    if (I2C2STATbits.ACKSTAT == ACK) {
-        if (indication == kIndicationRead) {
-          I2C2CONbits.PEN = 1;    // start a restart event. PEN, then SEN
-          state = kShortstopping;
-   	    } else if (indication == kIndicationWrite) {
-   	      I2C2TRN = buffer[(logicalLength - remainingTxBytes)];
-   	      state = kWriting;
+ 	    if (I2C1STATbits.ACKSTAT == ACK) {
+        if (indications[kTWI01] == kIndicationRead) {
+          I2C1CONbits.PEN = 1;    // start a restart event. PEN, then SEN
+          states[kTWI01] = kShortstopping;
+   	    } else if (indications[kTWI01] == kIndicationWrite) {
+   	      I2C1TRN = buffers[kTWI01][(logical_lengths[kTWI01] - 
+   	                                 remaining_tx_bytes[kTWI01])];
+   	      states[kTWI01] = kWriting;
  	      }
  	    }
  	    break;
  	  case kWriting:
  	    // wait for confirmation of the slave acknowledging
-   	  if (I2C2STATbits.ACKSTAT == ACK) {  
-     	  if (!remainingTxBytes) {
-     	    I2C2CONbits.PEN = 1;    // start the stop event
-     	    state = kStopping;
+   	  if (I2C1STATbits.ACKSTAT == ACK) {  
+     	  if (!remaining_tx_bytes[kTWI01]) {
+     	    I2C1CONbits.PEN = 1;    // start the stop event
+     	    states[kTWI01] = kStopping;
      	    return;
      	  }
-   	    I2C2TRN = buffer[(logicalLength - remainingTxBytes)];
-   	    remainingTxBytes--;
+   	    I2C1TRN = buffers[kTWI01][(logical_lengths[kTWI01] - 
+   	                              remaining_tx_bytes[kTWI01])];
+   	    remaining_tx_bytes[kTWI01]--;
    	  }
  	    break;
  	  case kShortstopping:
- 	    if (!I2C2CONbits.PEN) {
-   	    I2C2CONbits.SEN = 1;
-   	    state = kRestarting;
+ 	    if (!I2C1CONbits.PEN) {
+   	    I2C1CONbits.SEN = 1;
+   	    states[kTWI01] = kRestarting;
    	  }
  	    break;
  	  case kRestarting:
- 	    if (!I2C2CONbits.SEN) {
-   	    I2C2TRN = (slaveAddress << 1) | kIndicationRead;
-   	    state = kReselectingDevice;
+ 	    if (!I2C1CONbits.SEN) {
+   	    I2C1TRN = (slave_addresses[kTWI01] << 1) | kIndicationRead;
+   	    states[kTWI01] = kReselectingDevice;
    	  }
  	    break;
  	  case kReselectingDevice:
- 	    if (I2C2STATbits.ACKSTAT == ACK) {
-   	    I2C2CONbits.RCEN = 1;     // enable reception
- 	      state = kReading;
+ 	    if (I2C1STATbits.ACKSTAT == ACK) {
+   	    I2C1CONbits.RCEN = 1;     // enable reception
+ 	      states[kTWI01] = kReading;
  	    }
  	    break;
  	  case kReading:
       // if the receive buffer is full
-      if (I2C2STATbits.RBF) {
+      if (I2C1STATbits.RBF) {
         // store the buffer contents first-in-last (first byte arrives last)
-        buffer[--remainingRxBytes] = I2C2RCV;
+        buffers[kTWI01][--(remaining_rx_bytes[kTWI01])] = I2C1RCV;
         
         // acknowledge the slave
-        if (remainingRxBytes) I2C2CONbits.ACKDT = ACK;
-        else I2C2CONbits.ACKDT = NACK;
+        if (remaining_rx_bytes[kTWI01]) I2C1CONbits.ACKDT = ACK;
+        else I2C1CONbits.ACKDT = NACK;
         
-        I2C2CONbits.ACKEN = 1;    // send the contents of ACKDT
-        state = kFinishingAck;
+        I2C1CONbits.ACKEN = 1;    // send the contents of ACKDT
+        states[kTWI01] = kFinishingAck;
       }
  	    break;
  	  case kFinishingAck:
- 	    if (!I2C2CONbits.ACKEN) {   // wait to finish acknowledging the slave
-   	    if (remainingRxBytes) {
-     	    I2C2CONbits.RCEN = 1;   // re-enable reception
-     	    state = kReading;
+ 	    if (!I2C1CONbits.ACKEN) {   // wait to finish acknowledging the slave
+   	    if (remaining_rx_bytes[kTWI01]) {
+     	    I2C1CONbits.RCEN = 1;   // re-enable reception
+     	    states[kTWI01] = kReading;
      	  } else {
-   	      I2C2CONbits.PEN = 1;    // start the stop event
-   	      state = kStopping;
+   	      I2C1CONbits.PEN = 1;    // start the stop event
+   	      states[kTWI01] = kStopping;
    	    }
    	  }
  	    break;
  	  case kStopping:
  	    // wait for the confirmation of hardware clearing the stop bit
- 	    if (!I2C2CONbits.PEN) {
-   	    if (indication == kIndicationRead) isNewDataAvailable = YES;
-   	    state = kWaiting;
+ 	    if (!I2C1CONbits.PEN) {
+   	    if (indications[kTWI01] == kIndicationRead) new_data_flags[kTWI01] = 1;
+   	    states[kTWI01] = kWaiting;
  	    }
  	    break;
  	  default:
- 	    errorHasOccurred = YES;     // indicate an error
+ 	    error_flags[kTWI01] = 1;  // indicate an error
  	    break;
   }
 }
+
+
+void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
+  IFS3bits.MI2C2IF = 0;
+  
+  switch (states[kTWI02]) {
+    case kWaiting:
+      error_flags[kTWI02] = 1;
+      break;
+    case kStarting:
+ 	    if (!I2C2CONbits.SEN) {
+   	    I2C2TRN = ((slave_addresses[kTWI02] << 1) | kIndicationWrite);
+   	    states[kTWI02] = kSelectingDevice;
+ 	    }
+ 	    break;
+ 	  case kSelectingDevice:
+ 	    if (I2C2STATbits.ACKSTAT == ACK) {
+   	    I2C2TRN = slave_subaddresses[kTWI02];
+     	  states[kTWI02] = kSelectingRegister;
+ 	    }
+ 	    break;
+ 	  case kSelectingRegister:
+ 	    if (I2C2STATbits.ACKSTAT == ACK) {
+        if (indications[kTWI02] == kIndicationRead) {
+          I2C2CONbits.PEN = 1;
+          states[kTWI02] = kShortstopping;
+   	    } else if (indications[kTWI02] == kIndicationWrite) {
+   	      I2C2TRN = buffers[kTWI02][(logical_lengths[kTWI02] - 
+   	                                 remaining_tx_bytes[kTWI02])];
+   	      states[kTWI02] = kWriting;
+ 	      }
+ 	    }
+ 	    break;
+ 	  case kWriting:
+   	  if (I2C2STATbits.ACKSTAT == ACK) {
+     	  if (!(remaining_tx_bytes[kTWI02])) {
+     	    I2C2CONbits.PEN = 1;
+     	    states[kTWI02] = kStopping;
+     	    return;
+     	  }
+   	    I2C2TRN = buffers[kTWI02][logical_lengths[kTWI02] - 
+   	                              remaining_tx_bytes[kTWI02]];
+   	    remaining_tx_bytes[kTWI02]--;
+   	  }
+ 	    break;
+ 	  case kShortstopping:
+ 	    if (!I2C2CONbits.PEN) {
+   	    I2C2CONbits.SEN = 1;
+   	    states[kTWI02] = kRestarting;
+   	  }
+ 	    break;
+ 	  case kRestarting:
+ 	    if (!I2C2CONbits.SEN) {
+   	    I2C2TRN = (slave_addresses[kTWI02] << 1) | kIndicationRead;
+   	    states[kTWI02] = kReselectingDevice;
+   	  }
+ 	    break;
+ 	  case kReselectingDevice:
+ 	    if (I2C2STATbits.ACKSTAT == ACK) {
+   	    I2C2CONbits.RCEN = 1;
+ 	      states[kTWI02] = kReading;
+ 	    }
+ 	    break;
+ 	  case kReading:
+      if (I2C2STATbits.RBF) {
+        buffers[kTWI02][--(remaining_rx_bytes[kTWI02])] = I2C2RCV;
+
+        if (remaining_rx_bytes[kTWI02]) I2C2CONbits.ACKDT = ACK;
+        else I2C2CONbits.ACKDT = NACK;
+        
+        I2C2CONbits.ACKEN = 1;
+        states[kTWI02] = kFinishingAck;
+      }
+ 	    break;
+ 	  case kFinishingAck:
+ 	    if (!I2C2CONbits.ACKEN) {
+   	    if (remaining_rx_bytes[kTWI02]) {
+     	    I2C2CONbits.RCEN = 1;
+     	    states[kTWI02] = kReading;
+     	  } else {
+   	      I2C2CONbits.PEN = 1;
+   	      states[kTWI02] = kStopping;
+   	    }
+   	  }
+ 	    break;
+ 	  case kStopping:
+ 	    if (!I2C2CONbits.PEN) {
+   	    if (indications[kTWI02] == kIndicationRead) new_data_flags[kTWI02] = 1;
+   	    states[kTWI02] = kWaiting;
+ 	    }
+ 	    break;
+ 	  default:
+ 	    error_flags[kTWI02] = 1;
+ 	    break;
+  }
+}
+
+
+
+void __attribute__((__interrupt__, auto_psv)) _MI2C3Interrupt(void) {
+  IFS5bits.MI2C3IF = 0;
+  
+  switch (states[kTWI03]) {
+    case kWaiting:
+      error_flags[kTWI03] = 1;
+      break;
+    case kStarting:
+ 	    if (!I2C3CONbits.SEN) {
+   	    I2C3TRN = ((slave_addresses[kTWI03] << 1) | kIndicationWrite);
+   	    states[kTWI03] = kSelectingDevice;
+ 	    }
+ 	    break;
+ 	  case kSelectingDevice:
+ 	    if (I2C3STATbits.ACKSTAT == ACK) {
+   	    I2C3TRN = slave_subaddresses[kTWI03];
+     	  states[kTWI03] = kSelectingRegister;
+ 	    }
+ 	    break;
+ 	  case kSelectingRegister:
+ 	    if (I2C3STATbits.ACKSTAT == ACK) {
+        if (indications[kTWI03] == kIndicationRead) {
+          I2C3CONbits.PEN = 1;
+          states[kTWI03] = kShortstopping;
+   	    } else if (indications[kTWI03] == kIndicationWrite) {
+   	      I2C3TRN = buffers[kTWI03][(logical_lengths[kTWI03] - 
+   	                                 remaining_tx_bytes[kTWI03])];
+   	      states[kTWI03] = kWriting;
+ 	      }
+ 	    }
+ 	    break;
+ 	  case kWriting:
+   	  if (I2C3STATbits.ACKSTAT == ACK) {  
+     	  if (!remaining_tx_bytes[kTWI03]) {
+     	    I2C3CONbits.PEN = 1;
+     	    states[kTWI03] = kStopping;
+     	    return;
+     	  }
+   	    I2C3TRN = buffers[kTWI03][(logical_lengths[kTWI03] - 
+   	                              remaining_tx_bytes[kTWI03])];
+   	    remaining_tx_bytes[kTWI03]--;
+   	  }
+ 	    break;
+ 	  case kShortstopping:
+ 	    if (!I2C3CONbits.PEN) {
+   	    I2C3CONbits.SEN = 1;
+   	    states[kTWI03] = kRestarting;
+   	  }
+ 	    break;
+ 	  case kRestarting:
+ 	    if (!I2C3CONbits.SEN) {
+   	    I2C3TRN = (slave_addresses[kTWI03] << 1) | kIndicationRead;
+   	    states[kTWI03] = kReselectingDevice;
+   	  }
+ 	    break;
+ 	  case kReselectingDevice:
+ 	    if (I2C3STATbits.ACKSTAT == ACK) {
+   	    I2C3CONbits.RCEN = 1;
+ 	      states[kTWI03] = kReading;
+ 	    }
+ 	    break;
+ 	  case kReading:
+      if (I2C3STATbits.RBF) {
+        buffers[kTWI03][--(remaining_rx_bytes[kTWI03])] = I2C3RCV;
+
+        if (remaining_rx_bytes[kTWI03]) I2C3CONbits.ACKDT = ACK;
+        else I2C3CONbits.ACKDT = NACK;
+        
+        I2C3CONbits.ACKEN = 1;
+        states[kTWI03] = kFinishingAck;
+      }
+ 	    break;
+ 	  case kFinishingAck:
+ 	    if (!I2C3CONbits.ACKEN) {
+   	    if (remaining_rx_bytes[kTWI03]) {
+     	    I2C3CONbits.RCEN = 1;
+     	    states[kTWI03] = kReading;
+     	  } else {
+   	      I2C3CONbits.PEN = 1;
+   	      states[kTWI03] = kStopping;
+   	    }
+   	  }
+ 	    break;
+ 	  case kStopping:
+ 	    if (!I2C3CONbits.PEN) {
+   	    if (indications[kTWI03] == kIndicationRead) new_data_flags[kTWI03] = 1;
+   	    states[kTWI03] = kWaiting;
+ 	    }
+ 	    break;
+ 	  default:
+ 	    error_flags[kTWI03] = 1;
+ 	    break;
+  }
+}
+
 
 /*
 void __attribute__((__interrupt__, auto_psv)) _SI2C2Interrupt(void) {
@@ -332,11 +653,29 @@ void __attribute__((__interrupt__, auto_psv)) _SI2C2Interrupt(void) {
 }
 */
 /*---------------------------Helper Function Definitions----------------------*/
-static void ConfigureBaudRate(kTWIBaudRate baudRate) {
+static void ConfigureBaudRate(const kTWIModule module, kTWIBaudRate baud_rate) {
   // see Table 16-1 of datasheet
-	switch (baudRate) {
-    case kTWIBaudRate100kHz: I2C2BRG = 157; break;
-    case kTWIBaudRate400kHz: I2C2BRG = 37;  break;
-    case kTWIBaudRate1MHz:   I2C2BRG = 13;  break;
+  switch (module) {
+    case kTWI01:
+      switch (baud_rate) {
+        case kTWIBaudRate100kHz: I2C1BRG = 157; break;
+        case kTWIBaudRate400kHz: I2C1BRG = 37;  break;
+        case kTWIBaudRate1MHz:   I2C1BRG = 13;  break;
+      }
+      break;
+    case kTWI02:
+      switch (baud_rate) {
+        case kTWIBaudRate100kHz: I2C2BRG = 157; break;
+        case kTWIBaudRate400kHz: I2C2BRG = 37;  break;
+        case kTWIBaudRate1MHz:   I2C2BRG = 13;  break;
+      }
+      break;
+    case kTWI03:
+      switch (baud_rate) {
+        case kTWIBaudRate100kHz: I2C3BRG = 157; break;
+        case kTWIBaudRate400kHz: I2C3BRG = 37;  break;
+        case kTWIBaudRate1MHz:   I2C3BRG = 13;  break;
+      }
+      break;
   }
 }

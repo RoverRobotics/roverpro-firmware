@@ -22,13 +22,13 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 
 /*---------------------------Macros-------------------------------------------*/
 // power management threshold(s)
-#define MAX_CELL_CURRENT    465   // maximum allowable current to an individual cell
+#define MAX_CELL_CURRENT      465 // maximum allowable current to an individual cell
                                   // [au], 0.01S*(3A*0.05Ohm)*1k ~= 1.5V, (1.5 / 3.30) * 1023=
-#define MIN_CELL_CURRENT    8     // [au], minimum current to an individual cell
+#define MIN_CELL_CURRENT      8   // [au], minimum current to an individual cell
                                   // after which charging should terminate
                                   // 0.01S*(100mA*0.05Ohm)*1k ~= 1.5V, (1.5 / 3.30) * 1023=
                                   
-#define MIN_TOPPING_V       705   // topping charge voltage threshold (when to charge a little more)
+#define MIN_TOPPING_V         705 // topping charge voltage threshold (when to charge a little more)
                                   // (1.6 / (10 + 1.6) * 16.5) / 3.3 * 1023=
 
 // charging IC interface pins
@@ -46,19 +46,19 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 #define BQ24745_EN            _LATB14
 
 // indicator(s)
-#define HEARTBEAT_EN(a)     (_TRISE5 = !(a))
-#define HEARTBEAT_PIN       _RE5
-#define RED_LED_EN(a)       (_TRISD2 = !(a))
-#define RED_LED             _RD2
-#define GREEN_LED_EN(a)     (_TRISD3 = !(a))
-#define GREEN_LED           _RD3
+#define HEARTBEAT_EN(a)       (_TRISE5 = !(a))
+#define HEARTBEAT_PIN         _RE5
+#define RED_LED_EN(a)         (_TRISD2 = !(a))
+#define RED_LED               _RD2
+#define GREEN_LED_EN(a)       (_TRISD3 = !(a))
+#define GREEN_LED             _RD3
 
 // analog sensing pins (ANx)
 // TODO: FIX THIS!!! #define V_WALLWART          
-#define VCELLA_CURR_PIN     4     // cell A current sensing
-#define VCELLB_CURR_PIN     6     // cell B current sensing
-#define VCELLA_PIN          5     // cell A voltage sensing
-#define VCELLB_PIN          7     // cell B voltage sensing
+#define VCELLA_CURR_PIN       4     // cell A current sensing
+#define VCELLB_CURR_PIN       6     // cell B current sensing
+#define VCELLA_PIN            5     // cell A voltage sensing
+#define VCELLB_PIN            7     // cell B voltage sensing
 
 // timer(s)
 #define _10ms                 10
@@ -92,11 +92,11 @@ static void RunChargerStateMachine(void);
 /*---------------------------Module Variables---------------------------------*/
 //static kInternalChargerState state = kWaiting;
 
-static unsigned char bqdata[2] = {0};
+static uint8_t bqdata[2] = {0};
 static TWIDevice bq24745 = {
   .address = BQ24745_SLAVE_ADDRESS,
   .subaddress = 0x00,
-  .numDataBytes = 2,  // number of data bytes the device will send us
+  .n_data_bytes = 2,  // number of data bytes the device will send us
   .data = bqdata
 };
 
@@ -125,8 +125,9 @@ static void InitCharger(void) {
                          (1 << VCELLA_PIN)      |
                          (1 << VCELLB_CURR_PIN) |
                          (1 << VCELLB_PIN));
-  ADC_Init(ad_bitmask);
+  //ADC_Init(ad_bitmask);
   TMRS_Init();
+  
   TWI_Init(kTWI02, kTWIBaudRate100kHz, SMBUS);
   
   // initialize any peripheral devices
@@ -171,9 +172,9 @@ static void ProcessChargerIO(void) {
   }
   
   // run the state machine as long as something unexpected did NOT happen
-  if (TMRS_IsTimerExpired(COOLDOWN_TIMER)) {
+  //if (TMRS_IsTimerExpired(COOLDOWN_TIMER)) {
     RunChargerStateMachine();
-  }
+  //}
 }
 
 /*
@@ -218,6 +219,7 @@ static void RunChargerStateMachine(void) {
   static kChargerState state = kSleeping;
   
   switch (state) {
+    /*
     case kSleeping:
       // if we sense that the battery voltage is too low
       if (ADC_GetConversion(VCELLA_PIN) < MIN_TOPPING_V ||
@@ -229,13 +231,15 @@ static void RunChargerStateMachine(void) {
         state = kCharging;
       }
       break;
+    */
     case kCharging:
       // do NOT let the charger time out
       if (TMRS_IsTimerExpired(CHARGER_REFRESH_TIMER)) {
         TMRS_StartTimer(CHARGER_REFRESH_TIMER, CHARGER_REFRESH_TIME);
         ConfigureChargingIC();
       }
-      
+    
+    /*  
       // disconnect each cell individually 
       if (ADC_GetConversion(VCELLA_CURR_PIN) < MIN_CELL_CURRENT) {
         CELL_A_CONNECT = 0;
@@ -257,6 +261,7 @@ static void RunChargerStateMachine(void) {
         CELL_B_CONNECT = 1;
         state = kSleeping;
       }
+     */
       break;
   }
 }
