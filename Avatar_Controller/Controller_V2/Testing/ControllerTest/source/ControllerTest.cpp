@@ -116,6 +116,7 @@ void outgoing_callback(struct libusb_transfer *transfer);
 void TurnOnCameraPower(void);
 void print_battery_registers(void);
 void test_battery_registers(void);
+void print_gps_data(void);
 
 int main(int argn, char *argc[]) {
   //XboxController myController;
@@ -135,6 +136,10 @@ int main(int argn, char *argc[]) {
   else if(input_argument[0] == 't')
   {
     test_battery_registers();
+  }
+  else if(input_argument[0] == 'g')
+  {
+    print_gps_data();
   }
  
   return EXIT_SUCCESS;
@@ -633,6 +638,35 @@ void TurnOnCameraPower(void)  {
 	  printf("Cameras powered.\r\n");
   
   
+  }
+  
+  void print_gps_data(void)
+  {
+	int gps_data_index = GetRegisterIndex(&telemetry::REG_OCU_GPS_MESSAGE);
+	unsigned int checksum;
+	unsigned int i;
+	InitRoboteXDevice();
+
+	out_packet[0] = gps_data_index;
+    out_packet[1] = 0x80;
+	out_packet[2] = 0xff;
+	out_packet[3] = 0xff; 
+	checksum = return_checksum(out_packet,4);
+	out_packet[4] = checksum&0xff;
+    out_packet[5] = checksum>>8;
+	
+	while(1)
+	{
+			if (!HandleUSBCommunication())
+			return;
+			for(i=0;i<50;i++)
+			{
+				printf("%c",in_packet[i]);
+			}
+	
+	}
+	
+	
   }
 
 

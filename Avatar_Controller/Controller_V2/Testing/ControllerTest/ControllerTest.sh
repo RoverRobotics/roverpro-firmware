@@ -38,6 +38,9 @@ sh shell_scripts/camera_test.sh
 
 elif [ "$user_input" = "b" ]; then
 sudo ./ControllerTest b
+
+elif [ "$user_input" = "g" ]; then
+sudo ./ControllerTest g
 	
 
 elif [ "$user_input" = "f" ]; then
