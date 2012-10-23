@@ -627,7 +627,7 @@ void I2C3Update(void)
  				I2C3TRN=(BATTERY_CHARGER_ADDRESS<<1)+1;//transmit data
  			}
  			break;
-/* 		case 25:
+ 		case 25:
  			if(CheckI2C3Idle()==True)
  			{
  				StepNumber++;//run second step
@@ -643,34 +643,34 @@ void I2C3Update(void)
 				I2C3CONbits.ACKDT = 0; //ACK
 				I2C3CONbits.ACKEN = 1;
  			}
- 			break;*/
-		case 25:
+ 			break;
+		case 27:
 		 	if(CheckI2C3Idle()==True)
  			{
  				StepNumber++;//run second step
  				I2C3CONbits.RCEN=1;//enable receive model
  			}
 		break;
-		case 26:
+		case 28:
 		 	if(I2C3CONbits.RCEN==0)
  			{
  				StepNumber++;
  				I2C3STATbits.I2COV = 0;
  				b=I2C3RCV;
-				//REG_MOTOR_CHARGER_STATE = a  + (b<<8);
-        REG_MOTOR_CHARGER_STATE = b;
+				REG_MOTOR_CHARGER_STATE = a  + (b<<8);
+        		//REG_MOTOR_CHARGER_STATE = b;
 				I2C3CONbits.ACKDT = 1; //NACK
 				I2C3CONbits.ACKEN = 1;
  			}
 		break;		
- 		case 27://stop the module
+ 		case 29://stop the module
 		 	if(CheckI2C3Idle()==True)
  			{
 	 			I2C3CONbits.PEN=1;	// initiate Stop on SDA and SCL pins
 	 			StepNumber++;
 			}
  			break;
-		case 28:
+		case 30:
  			if(CheckI2C3Idle()==True)
  			{
  				StepNumber++;//run second step
