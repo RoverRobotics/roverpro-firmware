@@ -10,7 +10,8 @@
 #ifndef USB_CONFIG_H
 #define USB_CONFIG_H
 
-#include "microchip/stdint.h"
+//#include "microchip/stdint.h"
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,6 +45,10 @@ typedef int16_t DEVICE_NUMBER;
 #define DEVICE_ARM_LINK2	  0x0d
 #define DEVICE_DETECTOR     0x0e
 #define DEVICE_HITCH        0x0f
+#define OCU_FRONT_CAM		0x10
+#define OCU_REAR_CAM		0x11
+#define DEVICE_BOOM_CAM		0x12
+#define BOOM_CAM_EMPIA		0x13
 
 
 // -------- PROGRAM DEFINES --------
@@ -54,8 +59,8 @@ typedef int16_t DEVICE_NUMBER;
 #define SYNC    1
 #define NO_SYNC 0
 
-#define OUT_PACKET_LENGTH 0xA0
-#define IN_PACKET_LENGTH  0xA0
+#define OUT_PACKET_LENGTH 255
+#define IN_PACKET_LENGTH  255
 
 #define PACKET_TERMINATOR 0xFFFF
 

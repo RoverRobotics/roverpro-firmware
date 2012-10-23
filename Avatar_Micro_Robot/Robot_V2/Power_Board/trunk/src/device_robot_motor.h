@@ -277,6 +277,7 @@
 #define FAN_CONTROLLER_ADDRESS		0x18
 #define	BATTERY_ADDRESS				0x0b
 #define EEPROM_ADDRESS            0x50
+#define BATTERY_CHARGER_ADDRESS 0x0c
 
 #define Fan1LowTemp 45// 45C fan1 start temperature
 #define Fan2LowTemp 45// 45C fan2 start temperature
