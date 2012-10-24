@@ -236,7 +236,6 @@ void TWI_WriteData(const kTWIModule module,
   slave_addresses[module] = device->address;
   slave_subaddresses[module] = device->subaddress;
   indications[module] = kIndicationWrite;
-  // NB: 1-based indexing
   remaining_tx_bytes[module] = sizeof(data) / sizeof(uint8_t);
   logical_lengths[module] = remaining_tx_bytes[module];
   
@@ -264,8 +263,8 @@ bool TWI_ErrorHasOccurred(const kTWIModule module) {
       return (I2C1STATbits.BCL || I2C1STATbits.I2COV || 
               I2C1STATbits.IWCOL || error_flags[kTWI01]);
     case kTWI02:
-      return (I2C3STATbits.BCL || I2C3STATbits.I2COV ||
-              I2C3STATbits.IWCOL || error_flags[kTWI03]);
+      return (I2C2STATbits.BCL || I2C2STATbits.I2COV ||
+              I2C2STATbits.IWCOL || error_flags[kTWI02]);
     case kTWI03:
       return (I2C3STATbits.BCL || I2C3STATbits.I2COV || 
               I2C3STATbits.IWCOL || error_flags[kTWI03]);
@@ -308,6 +307,30 @@ void TWI_RefreshModule(const kTWIModule module) {
       temp = I2C3RCV;
       break;
   }
+  
+  /*
+  // reset any pins?
+  switch (module) {
+    case kTWI01:
+      I2C1CONbits.I2CEN = 0;
+      _TRISD9 = 0; _LATD9 = 0;
+      _TRISD10 = 0; _LATD10 = 0;
+      I2C1CONbits.I2CEN = 1;
+      break;
+    case kTWI02:
+      I2C2CONbits.I2CEN = 0;
+      _TRISF4 = 0; _LATF4 = 0;
+      _TRISF5 = 0; _LATF5 = 0;
+      I2C2CONbits.I2CEN = 1;
+      break;
+    case kTWI03:
+      I2C3CONbits.I2CEN = 0;
+      _TRISE6 = 0; _LATE6 = 0;
+      _TRISE7 = 0; _LATE7 = 0;
+      I2C3CONbits.I2CEN = 1;    
+      break;
+  }
+  */
 }
 
 
@@ -380,6 +403,7 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C1Interrupt(void) {
    	    } else if (indications[kTWI01] == kIndicationWrite) {
    	      I2C1TRN = buffers[kTWI01][(logical_lengths[kTWI01] - 
    	                                 remaining_tx_bytes[kTWI01])];
+   	      remaining_tx_bytes[kTWI01]--;
    	      states[kTWI01] = kWriting;
  	      }
  	    }
@@ -481,6 +505,7 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
    	    } else if (indications[kTWI02] == kIndicationWrite) {
    	      I2C2TRN = buffers[kTWI02][(logical_lengths[kTWI02] - 
    	                                 remaining_tx_bytes[kTWI02])];
+   	      remaining_tx_bytes[kTWI02]--;
    	      states[kTWI02] = kWriting;
  	      }
  	    }
@@ -578,6 +603,7 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C3Interrupt(void) {
    	    } else if (indications[kTWI03] == kIndicationWrite) {
    	      I2C3TRN = buffers[kTWI03][(logical_lengths[kTWI03] - 
    	                                 remaining_tx_bytes[kTWI03])];
+   	      remaining_tx_bytes[kTWI03]--;
    	      states[kTWI03] = kWriting;
  	      }
  	    }
