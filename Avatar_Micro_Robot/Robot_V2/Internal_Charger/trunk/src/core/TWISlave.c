@@ -32,7 +32,8 @@ typedef enum {
 /*---------------------------Module Variables---------------------------------*/
 static uint8_t rx_buffer[2] = {0};
 static volatile uint8_t n_remaining_bytes = 0;
-
+static volatile kSlaveState slave_state = kWaiting;
+  
 /*---------------------------Test Harness-------------------------------------*/
 #ifdef TEST_TWI_SLAVE
 // TODO: RE_WRITE UNIT TEST NOW THAT PUBLIC INTERFACE HAS CHANGED!!!!
@@ -117,6 +118,8 @@ void TWISlave_Reset(const kTWISlaveModule module) {
       I2C3CONbits.I2CEN = 1;
       break;
   }
+  
+  slave_state = kWaiting;
 }
 
 /*---------------------------Interrupt Service Routines-----------------------*/
@@ -136,16 +139,16 @@ void __attribute__((__interrupt__, auto_psv)) _SI2C1Interrupt(void) {
     I2C1CONbits.SCLREL = 1;   // release control of the clock
   }
   */
-  static volatile kSlaveState slave_state = kWaiting;
   switch (slave_state) {
     case kWaiting:
       // if reception is complete AND what we have received is the device address
       if (I2C1STATbits.RBF && !I2C1STATbits.D_A) {
         rx_buffer[0] = I2C1RCV;
         slave_state = kReceiving;
+      } else {      
+        // otherwise this is unexpected, so reset
+        TWISlave_Reset(kTWISlave01);
       }
-      // otherwise this is unexpected, so reset
-      TWISlave_Reset(kTWISlave01);
       break;
     case kReceiving:
       // if reception is complete AND what we've received is data (the command)
@@ -157,8 +160,9 @@ void __attribute__((__interrupt__, auto_psv)) _SI2C1Interrupt(void) {
         I2C1TRN = I2C1_UserProtocol(rx_buffer[1], 0);
         n_remaining_bytes--;
         slave_state = kTransmitting;
+      } else {
+        TWISlave_Reset(kTWISlave01);
       }
-      TWISlave_Reset(kTWISlave01);
       break;
     case kTransmitting:
       // if transmition is complete
@@ -171,8 +175,9 @@ void __attribute__((__interrupt__, auto_psv)) _SI2C1Interrupt(void) {
         I2C1CONbits.SCLREL = 1;   // release control of the clock
         I2C1TRN = I2C1_UserProtocol(rx_buffer[1], 1);
         n_remaining_bytes--;
+      } else {
+        TWISlave_Reset(kTWISlave01);
       }
-      TWISlave_Reset(kTWISlave01);
       break;
   }
 }

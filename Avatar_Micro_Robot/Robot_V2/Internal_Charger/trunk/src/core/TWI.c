@@ -112,7 +112,7 @@ void TWI_Init(const kTWIModule module,
       I2C1CONbits.I2CEN = 0;	// disable the I2C module while we configure it
   	
     	// Note: the state of the port I/O pins are overridden when I2C is enabled
-      TWI_RefreshModule(kTWI01);
+      TWI_Refresh(kTWI01);
     	ConfigureBaudRate(kTWI01, baud_rate);
     	
     	I2C1CONbits.SMEN = is_SMBus; // configure I2C/SMBus thresholds
@@ -126,7 +126,7 @@ void TWI_Init(const kTWIModule module,
 	    break;
     case kTWI02:
       I2C2CONbits.I2CEN = 0;
-      TWI_RefreshModule(kTWI02);
+      TWI_Refresh(kTWI02);
 	    ConfigureBaudRate(kTWI02, baud_rate);
 	    
 	    I2C2CONbits.SMEN = is_SMBus;
@@ -139,7 +139,7 @@ void TWI_Init(const kTWIModule module,
       break;
     case kTWI03:
       I2C3CONbits.I2CEN = 0;
-      TWI_RefreshModule(kTWI03);
+      TWI_Refresh(kTWI03);
 	    ConfigureBaudRate(kTWI03, baud_rate);
 	    
 	    I2C3CONbits.SMEN = is_SMBus;
@@ -274,7 +274,7 @@ bool TWI_ErrorHasOccurred(const kTWIModule module) {
 }
 
 
-void TWI_RefreshModule(const kTWIModule module) {
+void TWI_Refresh(const kTWIModule module) {
   // clear any firmware variables
   new_data_flags[module] = 0;
   error_flags[module] = 0;
@@ -338,7 +338,7 @@ void TWI_Deinit(const kTWIModule module) {
   switch (module) {
     case kTWI01:
       I2C1CONbits.I2CEN = 0;  // turn off I2C and restore consumed pins
-      TWI_RefreshModule(kTWI01);
+      TWI_Refresh(kTWI01);
   
       // restore any registers to their startup defaults
       I2C1CON = 0x0000; // Note: default actually leaves I2C on, but keeping off
@@ -347,7 +347,7 @@ void TWI_Deinit(const kTWIModule module) {
       I2C1STAT = 0x0000;
     case kTWI02:
       I2C2CONbits.I2CEN = 0;
-      TWI_RefreshModule(kTWI02);
+      TWI_Refresh(kTWI02);
       
       I2C2CON = 0x0000;
       I2C2TRN = 0x00ff;
@@ -355,7 +355,7 @@ void TWI_Deinit(const kTWIModule module) {
       I2C2STAT = 0x0000;
     case kTWI03:
       I2C3CONbits.I2CEN = 0;
-      TWI_RefreshModule(kTWI03);
+      TWI_Refresh(kTWI03);
       
       I2C3CON = 0x0000;
       I2C3TRN = 0x00ff;
@@ -384,6 +384,8 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C1Interrupt(void) {
    	    // transmit the slave address along with the indication
    	    I2C1TRN = ((slave_addresses[kTWI01] << 1) | kIndicationWrite);
    	    states[kTWI01] = kSelectingDevice;
+ 	    } else {
+ 	      TWI_Refresh(kTWI01);
  	    }
  	    break;
  	  case kSelectingDevice:
@@ -392,6 +394,8 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C1Interrupt(void) {
    	    // transmit the slave sub-address
    	    I2C1TRN = slave_subaddresses[kTWI01];
      	  states[kTWI01] = kSelectingRegister;
+ 	    } else {
+ 	      TWI_Refresh(kTWI01);
  	    }
  	    break;
  	  case kSelectingRegister:
@@ -403,9 +407,11 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C1Interrupt(void) {
    	    } else if (indications[kTWI01] == kIndicationWrite) {
    	      I2C1TRN = buffers[kTWI01][(logical_lengths[kTWI01] - 
    	                                 remaining_tx_bytes[kTWI01])];
-   	      remaining_tx_bytes[kTWI01]--;
+   	      //remaining_tx_bytes[kTWI01]--;
    	      states[kTWI01] = kWriting;
  	      }
+ 	    } else {
+ 	      TWI_Refresh(kTWI01);
  	    }
  	    break;
  	  case kWriting:
@@ -419,7 +425,9 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C1Interrupt(void) {
    	    I2C1TRN = buffers[kTWI01][(logical_lengths[kTWI01] - 
    	                              remaining_tx_bytes[kTWI01])];
    	    remaining_tx_bytes[kTWI01]--;
-   	  }
+   	  } else {
+ 	      TWI_Refresh(kTWI01);
+ 	    }
  	    break;
  	  case kShortstopping:
  	    if (!I2C1CONbits.PEN) {
@@ -431,12 +439,16 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C1Interrupt(void) {
  	    if (!I2C1CONbits.SEN) {
    	    I2C1TRN = (slave_addresses[kTWI01] << 1) | kIndicationRead;
    	    states[kTWI01] = kReselectingDevice;
-   	  }
+   	  } else {
+ 	      TWI_Refresh(kTWI01);
+ 	    }
  	    break;
  	  case kReselectingDevice:
  	    if (I2C1STATbits.ACKSTAT == ACK) {
    	    I2C1CONbits.RCEN = 1;     // enable reception
  	      states[kTWI01] = kReading;
+ 	    } else {
+ 	      TWI_Refresh(kTWI01);
  	    }
  	    break;
  	  case kReading:
@@ -451,7 +463,9 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C1Interrupt(void) {
         
         I2C1CONbits.ACKEN = 1;    // send the contents of ACKDT
         states[kTWI01] = kFinishingAck;
-      }
+      } else {
+ 	      TWI_Refresh(kTWI01);
+ 	    }
  	    break;
  	  case kFinishingAck:
  	    if (!I2C1CONbits.ACKEN) {   // wait to finish acknowledging the slave
@@ -462,13 +476,17 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C1Interrupt(void) {
    	      I2C1CONbits.PEN = 1;    // start the stop event
    	      states[kTWI01] = kStopping;
    	    }
-   	  }
+   	  } else {
+ 	      TWI_Refresh(kTWI01);
+ 	    }
  	    break;
  	  case kStopping:
  	    // wait for the confirmation of hardware clearing the stop bit
  	    if (!I2C1CONbits.PEN) {
    	    if (indications[kTWI01] == kIndicationRead) new_data_flags[kTWI01] = 1;
    	    states[kTWI01] = kWaiting;
+ 	    } else {
+ 	      TWI_Refresh(kTWI01);
  	    }
  	    break;
  	  default:
@@ -489,12 +507,16 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
  	    if (!I2C2CONbits.SEN) {
    	    I2C2TRN = ((slave_addresses[kTWI02] << 1) | kIndicationWrite);
    	    states[kTWI02] = kSelectingDevice;
+ 	    } else {
+ 	      TWI_Refresh(kTWI02);
  	    }
  	    break;
  	  case kSelectingDevice:
  	    if (I2C2STATbits.ACKSTAT == ACK) {
    	    I2C2TRN = slave_subaddresses[kTWI02];
      	  states[kTWI02] = kSelectingRegister;
+ 	    } else {
+ 	      TWI_Refresh(kTWI02);
  	    }
  	    break;
  	  case kSelectingRegister:
@@ -505,9 +527,11 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
    	    } else if (indications[kTWI02] == kIndicationWrite) {
    	      I2C2TRN = buffers[kTWI02][(logical_lengths[kTWI02] - 
    	                                 remaining_tx_bytes[kTWI02])];
-   	      remaining_tx_bytes[kTWI02]--;
+   	      //remaining_tx_bytes[kTWI02]--;
    	      states[kTWI02] = kWriting;
  	      }
+ 	    } else {
+ 	      TWI_Refresh(kTWI02);
  	    }
  	    break;
  	  case kWriting:
@@ -520,24 +544,32 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
    	    I2C2TRN = buffers[kTWI02][logical_lengths[kTWI02] - 
    	                              remaining_tx_bytes[kTWI02]];
    	    remaining_tx_bytes[kTWI02]--;
-   	  }
+   	  } else {
+ 	      TWI_Refresh(kTWI02);
+ 	    }
  	    break;
  	  case kShortstopping:
  	    if (!I2C2CONbits.PEN) {
    	    I2C2CONbits.SEN = 1;
    	    states[kTWI02] = kRestarting;
-   	  }
+   	  } else {
+ 	      TWI_Refresh(kTWI02);
+ 	    }
  	    break;
  	  case kRestarting:
  	    if (!I2C2CONbits.SEN) {
    	    I2C2TRN = (slave_addresses[kTWI02] << 1) | kIndicationRead;
    	    states[kTWI02] = kReselectingDevice;
-   	  }
+   	  } else {
+ 	      TWI_Refresh(kTWI02);
+ 	    }
  	    break;
  	  case kReselectingDevice:
  	    if (I2C2STATbits.ACKSTAT == ACK) {
    	    I2C2CONbits.RCEN = 1;
  	      states[kTWI02] = kReading;
+ 	    } else {
+ 	      TWI_Refresh(kTWI02);
  	    }
  	    break;
  	  case kReading:
@@ -549,7 +581,9 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
         
         I2C2CONbits.ACKEN = 1;
         states[kTWI02] = kFinishingAck;
-      }
+      } else {
+ 	      TWI_Refresh(kTWI02);
+ 	    }
  	    break;
  	  case kFinishingAck:
  	    if (!I2C2CONbits.ACKEN) {
@@ -560,12 +594,16 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
    	      I2C2CONbits.PEN = 1;
    	      states[kTWI02] = kStopping;
    	    }
-   	  }
+   	  } else {
+ 	      TWI_Refresh(kTWI02);
+ 	    }
  	    break;
  	  case kStopping:
  	    if (!I2C2CONbits.PEN) {
    	    if (indications[kTWI02] == kIndicationRead) new_data_flags[kTWI02] = 1;
    	    states[kTWI02] = kWaiting;
+ 	    } else {
+ 	      TWI_Refresh(kTWI02);
  	    }
  	    break;
  	  default:
@@ -587,12 +625,16 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C3Interrupt(void) {
  	    if (!I2C3CONbits.SEN) {
    	    I2C3TRN = ((slave_addresses[kTWI03] << 1) | kIndicationWrite);
    	    states[kTWI03] = kSelectingDevice;
+ 	    } else {
+ 	      TWI_Refresh(kTWI01);
  	    }
  	    break;
  	  case kSelectingDevice:
  	    if (I2C3STATbits.ACKSTAT == ACK) {
    	    I2C3TRN = slave_subaddresses[kTWI03];
      	  states[kTWI03] = kSelectingRegister;
+ 	    } else {
+ 	      TWI_Refresh(kTWI01);
  	    }
  	    break;
  	  case kSelectingRegister:
@@ -603,9 +645,11 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C3Interrupt(void) {
    	    } else if (indications[kTWI03] == kIndicationWrite) {
    	      I2C3TRN = buffers[kTWI03][(logical_lengths[kTWI03] - 
    	                                 remaining_tx_bytes[kTWI03])];
-   	      remaining_tx_bytes[kTWI03]--;
+   	      //remaining_tx_bytes[kTWI03]--;
    	      states[kTWI03] = kWriting;
  	      }
+ 	    } else {
+ 	      TWI_Refresh(kTWI01);
  	    }
  	    break;
  	  case kWriting:
@@ -618,24 +662,32 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C3Interrupt(void) {
    	    I2C3TRN = buffers[kTWI03][(logical_lengths[kTWI03] - 
    	                              remaining_tx_bytes[kTWI03])];
    	    remaining_tx_bytes[kTWI03]--;
-   	  }
+   	  } else {
+ 	      TWI_Refresh(kTWI01);
+ 	    }
  	    break;
  	  case kShortstopping:
  	    if (!I2C3CONbits.PEN) {
    	    I2C3CONbits.SEN = 1;
    	    states[kTWI03] = kRestarting;
-   	  }
+   	  } else {
+ 	      TWI_Refresh(kTWI01);
+ 	    }
  	    break;
  	  case kRestarting:
  	    if (!I2C3CONbits.SEN) {
    	    I2C3TRN = (slave_addresses[kTWI03] << 1) | kIndicationRead;
    	    states[kTWI03] = kReselectingDevice;
-   	  }
+   	  } else {
+ 	      TWI_Refresh(kTWI01);
+ 	    }
  	    break;
  	  case kReselectingDevice:
  	    if (I2C3STATbits.ACKSTAT == ACK) {
    	    I2C3CONbits.RCEN = 1;
  	      states[kTWI03] = kReading;
+ 	    } else {
+ 	      TWI_Refresh(kTWI01);
  	    }
  	    break;
  	  case kReading:
@@ -647,7 +699,9 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C3Interrupt(void) {
         
         I2C3CONbits.ACKEN = 1;
         states[kTWI03] = kFinishingAck;
-      }
+      } else {
+ 	      TWI_Refresh(kTWI01);
+ 	    }
  	    break;
  	  case kFinishingAck:
  	    if (!I2C3CONbits.ACKEN) {
@@ -658,12 +712,16 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C3Interrupt(void) {
    	      I2C3CONbits.PEN = 1;
    	      states[kTWI03] = kStopping;
    	    }
-   	  }
+   	  } else {
+ 	      TWI_Refresh(kTWI01);
+ 	    }
  	    break;
  	  case kStopping:
  	    if (!I2C3CONbits.PEN) {
    	    if (indications[kTWI03] == kIndicationRead) new_data_flags[kTWI03] = 1;
    	    states[kTWI03] = kWaiting;
+ 	    } else {
+ 	      TWI_Refresh(kTWI01);
  	    }
  	    break;
  	  default:

@@ -24,6 +24,7 @@ Responsible Engineer(s): Stellios Leventis (sleventis@robotex.com)
                                   // memory internally).  DO NOT make larger
                                   // than 127
 #define SMBUS                 1
+#define I2C                   0
 
 /*---------------------------Type Definitions---------------------------------*/
 typedef struct {
@@ -47,9 +48,9 @@ typedef enum {
 
 // I2C hardware module options
 typedef enum {
-	kTWI01 = 1,
-	kTWI02,
-	kTWI03,
+	kTWI01 = 0,
+	kTWI02 = 1,
+	kTWI03 = 2,
 } kTWIModule;
 
 /*---------------------------Public Functions---------------------------------*/
@@ -121,11 +122,11 @@ bool TWI_ErrorHasOccurred(const kTWIModule module);
 
 
 /*******************************************************************************
-Function: TWI_RefreshModule
+Function: TWI_Refresh
 Parameters:
   kTWIModule module,     which of the available hardware modules
 *******************************************************************************/
-void TWI_RefreshModule(const kTWIModule module);
+void TWI_Refresh(const kTWIModule module);
 
 
 /*******************************************************************************

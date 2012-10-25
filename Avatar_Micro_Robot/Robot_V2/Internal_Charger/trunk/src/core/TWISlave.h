@@ -19,8 +19,8 @@ Responsible Engineer(s): Stellios Leventis (sleventis@robotex.com)
 #include "./StandardHeader.h"
 
 /*---------------------------Macros-------------------------------------------*/
-#define SMBUS                 1
-#define I2C                   0
+//#define SMBUS                 1
+//#define I2C                   0
 
 /*---------------------------Type Definitions---------------------------------*/
 // I2C hardware module options
