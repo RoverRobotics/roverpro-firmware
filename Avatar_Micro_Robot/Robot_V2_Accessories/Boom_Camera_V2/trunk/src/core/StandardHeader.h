@@ -35,14 +35,14 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 Function: Map()
 
 Returns:
-  unsigned int, the given value mapped to the new range
+  int16_t,            the given value mapped to the new range
 
 Parameters:
-  int value,      the number to map
-  int from_low,   the lower bound of the value's current range
-  int from_high,  the upper bound of the value's current range
-  int to_low,     the lower bound of the value's target range
-  int to_high,    the upper bound of the value's target range
+  int16_t value,      the number to map
+  int16_t from_low,   the lower bound of the value's current range
+  int16_t from_high,  the upper bound of the value's current range
+  int16_t to_low,     the lower bound of the value's target range
+  int16_t to_high,    the upper bound of the value's target range
 
 Description: Re-maps a number from one range to another.
 
@@ -53,8 +53,9 @@ Notes:
     to help mitigate unexpected overflow issues
 TODO: put this function in StandardHeader.h/.c
 */
-unsigned int Map(const int value, const int from_low, const int from_high, 
-                 const int to_low, const int to_high);
+int16_t Map(const int16_t value,
+            const int16_t from_low, const int16_t from_high,
+            const int16_t to_low, const int16_t to_high);
 
 
 /*
@@ -62,16 +63,16 @@ Description: Performs a BLOCKING pause to aid in debugging.  You weren't
   thinking about actually leaving this in your code were you?
 
 Parameters:
-  unsigned int milliseconds, the approximate number of milliseconds for
-                             which to pause.  The influence of the overhead 
-                             of entering and exiting the loop reduces the 
-                             longer you pause for.
+  uint16_t milliseconds, the approximate number of milliseconds for
+                         which to pause.  The influence of the overhead 
+                         of entering and exiting the loop reduces the 
+                         longer you pause for.
 Notes:
   - assumes a 20MHz external oscillator
   - entirely blocking code
   - note the limit of the data type capping the maximum number of millieconds
     you can pause for (~65535ms)
 */
-void Delay(const unsigned int milliseconds);
+void Delay(const uint16_t milliseconds);
 
 #endif

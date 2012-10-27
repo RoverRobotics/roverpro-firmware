@@ -40,11 +40,12 @@ void Delay(const unsigned int milliseconds) {
 }
 
 
-unsigned int Map(const int value, const int from_low, const int from_high, 
-                 const int to_low, const int to_high) {
+int16_t Map(const int16_t value,
+            const int16_t from_low, const int16_t from_high,
+            const int16_t to_low, const int16_t to_high) {
   // compute the linear interpolation
-  unsigned int result = ((double)(value - from_low) / (double)(from_high - from_low))
-                        * (double)(to_high - to_low) + to_low;
+  int16_t result = ((double)(value - from_low) / (double)(from_high - from_low))
+                    * (double)(to_high - to_low) + to_low;
   
   // constrain the result to within a valid output range
   if (to_high < result) result = to_high;
