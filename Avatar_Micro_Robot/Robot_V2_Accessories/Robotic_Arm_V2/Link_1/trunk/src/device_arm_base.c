@@ -89,6 +89,8 @@ static unsigned int return_adc_value(unsigned char ch);
 static unsigned int turret_angle = 0;
 static unsigned int shoulder_angle = 0;
 
+static void test_turret_angle_sensor(void);
+
 void Arm_Base_Init(void)
 {
 
@@ -198,6 +200,8 @@ void Arm_Base_Init(void)
   }
   POWER_BUS_ON(1);
 
+  //test_turret_angle_sensor();
+
 }
 
 void Base_Process_IO(void)
@@ -268,7 +272,7 @@ void Base_Process_IO(void)
   }
 
   turret_angle = return_calibrated_angle(TURRET_POT_1_CH, TURRET_POT_2_CH, 0);
-  shoulder_angle = return_calibrated_angle(SHOULDER_POT_1_CH, SHOULDER_POT_2_CH, 0);
+  //shoulder_angle = return_calibrated_angle(SHOULDER_POT_1_CH, SHOULDER_POT_2_CH, 0);
     
   //pretty dumb control loop
   if(messaging_timeout_counter > 100)
@@ -677,4 +681,50 @@ static unsigned int return_adc_value(unsigned char ch)
 	while(!AD1CON1bits.DONE);
 	return_value = ADC1BUF0;
 	return return_value;
+}
+
+static void test_turret_angle_sensor(void)
+{
+
+  unsigned int turret_pot_1, turret_pot_2; 
+  unsigned int test_counter = 0;
+
+  turret_motor_velocity = -20;
+
+  while(1)
+  {
+
+    ClrWdt();
+
+    turret_angle = return_calibrated_angle(TURRET_POT_1_CH, TURRET_POT_2_CH, 0);
+    shoulder_angle = return_calibrated_angle(SHOULDER_POT_1_CH, SHOULDER_POT_2_CH, 0);
+
+   turret_pot_1 = return_adc_value(TURRET_POT_1_CH);
+   turret_pot_2 = return_adc_value(TURRET_POT_2_CH); 
+
+    if(turret_angle == 0xffff)
+    {
+      turret_motor_velocity = 0;
+    }
+      
+    //pretty dumb control loop
+    if(messaging_timeout_counter > 100)
+    {
+      motor_accel_loop(0);
+      messaging_timeout_counter = 101;
+    }
+    else
+      motor_accel_loop(turret_motor_velocity);
+    
+    block_ms(10);
+
+    Nop();
+    Nop();
+    test_counter++;
+
+    if(test_counter > 500)
+      turret_motor_velocity = 0;
+  }
+
+
 }
