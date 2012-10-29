@@ -1237,6 +1237,16 @@ void ocu_i2c1_fsm(void)
 		}
 	}
 
+
+
+  //if there was an error in the previous i2c read/write, reset error
+  //flags, and start the round again.
+  if(I2C1STATbits.BCL || I2C1STATbits.I2COV || I2C1STATbits.IWCOL)
+  {
+    I2C1STAT = 0;
+    ocu_i2c1_busy = 0;
+  }
+
 	//If the interrupt FSM is not running and we've already read the i2c data from the last message, start it for the next message
 	if((ocu_i2c1_busy == 0) && (ocu_i2c1_receive_word_completed == 0))
 	{
