@@ -82,8 +82,11 @@ static TWIDevice bq24745 = {
 #include "./core/ConfigurationBits.h"
 int main(void) {
   InitCharger();
-  
-  while (1) RunChargerSM();
+  _SWDTEN = 1;
+  while (1) {
+    ClrWdt();
+    RunChargerSM();
+  }
   
   return 0;
 }
@@ -98,18 +101,10 @@ static void RunChargerSM(void) {
     TMRS_StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME);
     HEARTBEAT_PIN ^= 1;
   }
-  
-  /*
-  if (TMRS_IsTimerExpired(CHARGER_REFRESH_TIMER)) {
-    TMRS_StartTimer(CHARGER_REFRESH_TIMER, CHARGER_REFRESH_TIME);  
-    ConfigureChargingIC();
-  }
-  */
 
   switch (state) {
     case kAwakening:
       if (TMRS_IsTimerExpired(AWAKENING_TIMER)) {
-        // TODO: update our status to 'on dock and alive'
         BQ24745_EN = 1;
         CHARGER_CONNECT = 1;
         CELL_A_CONNECT = 1;
@@ -120,6 +115,20 @@ static void RunChargerSM(void) {
       }
       break;
     case kCharging:
+      // BUG ALERT: the internal charger stays 
+      // powered after driving off the dock
+      // if we drove off the dock
+      if (!BQ24745_ACOK) {
+        // disconnect what is keeping us powered
+        CELL_A_CONNECT = 0;
+        CELL_B_CONNECT = 0;
+        while (1) {
+          // let the watch dog timer expire,
+          // allowing a reset to indicate an immediately 
+          // visible failure of this working
+        }  
+      }  
+      
       if (TMRS_IsTimerExpired(CHARGER_REFRESH_TIMER)) {
         TMRS_StartTimer(CHARGER_REFRESH_TIMER, CHARGER_REFRESH_TIME);
         
@@ -128,6 +137,7 @@ static void RunChargerSM(void) {
           TWI_Refresh(kTWI02);
         }  
       }
+      
       break;
   }
 }
