@@ -14,7 +14,7 @@ Notes:
   - REGISTER(MY_REGISTER_NAME, SOFTWARE_R/W_DIRECTION, 
              SYNC_OR_NO_SYNC, my_data_type)
   
-Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
+Responsible Engineer(s):
 =============================================================================*/
 #ifndef REGISTERS_H
 #define REGISTERS_H
