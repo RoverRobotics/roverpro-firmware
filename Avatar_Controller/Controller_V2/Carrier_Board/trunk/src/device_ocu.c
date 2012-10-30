@@ -692,6 +692,7 @@ void handle_gas_gauge(void)
   //if both battery readings are high enough, allow more leniency in determining whether the battery is low
   //TODO: think about what would happen if one was valid and one was invalid
   if( (REG_OCU_REL_SOC_L == 0xffff) && (REG_OCU_REL_SOC_R == 0xffff) );
+  else if( (REG_OCU_REL_SOC_L == 0) || (REG_OCU_REL_SOC_R == 0) );
   else if( (REG_OCU_REL_SOC_L >= 20) && (REG_OCU_REL_SOC_R >= 20) )
     max_low_capacity_counts = 500;
   else if( (REG_OCU_REL_SOC_L >= 15) && (REG_OCU_REL_SOC_R >= 15) )
