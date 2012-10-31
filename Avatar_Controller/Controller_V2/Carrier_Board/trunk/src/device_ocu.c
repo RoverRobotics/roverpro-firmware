@@ -537,6 +537,7 @@ void DeviceOcuProcessIO()
     i2c1_detect_failure();
     i2c2_detect_failure();
 	  handle_gas_gauge();
+    initial_backlight_counter++;
   }
   
   //we run the i2c FSMs at max speed
@@ -601,15 +602,10 @@ void DeviceOcuProcessIO()
   {
     if(REG_OCU_BACKLIGHT_BRIGHTNESS == 0)
     {
-      if(initial_backlight_counter > 300)
+      if(initial_backlight_counter > 2000)
       {
-        initial_backlight_counter = 301;
+        initial_backlight_counter = 6000;
         REG_OCU_BACKLIGHT_BRIGHTNESS = 50;
-      }
-      else
-      {
-        initial_backlight_counter++;
-        block_ms(100);
       }
     }
   }
