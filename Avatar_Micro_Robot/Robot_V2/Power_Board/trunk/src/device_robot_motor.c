@@ -276,6 +276,8 @@ void turn_on_power_bus_old_method(void);
 void turn_on_power_bus_hybrid_method(void);
 int check_string_match(unsigned char *string1, unsigned char* string2, unsigned char length);
 
+static void alternate_power_bus(void);
+
 
 unsigned int adc_test_reg = 0;
 
@@ -728,6 +730,11 @@ void Device_MotorController_Process()
  		{
  			BATRecoveryTimerCount++;
  		}
+
+    //this should run every 1ms
+
+    alternate_power_bus();
+
 	}
 
 
@@ -3301,6 +3308,63 @@ int check_string_match(unsigned char *string1, unsigned char* string2, unsigned 
   }
 
   return string_match;
+
+
+}
+
+//When robot is on the charger, only leave one side of the power bus on at a time.
+//This is so that one side of a battery doesn't charge the other side through the power bus.
+static void alternate_power_bus(void)
+{
+  static unsigned int alternate_counter = 0;
+  static unsigned int toggle_state = 0;
+
+
+  if(REG_MOTOR_CHARGER_STATE == 0xdada)
+  {
+
+    //if we're on the dock, immediately turn off one side of the power bus
+    if(toggle_state == 0)
+    {
+      toggle_state = 1;
+   	  Cell_Ctrl(Cell_B,Cell_ON);
+      Cell_Ctrl(Cell_A,Cell_OFF);
+    }
+
+    alternate_counter++;
+    
+    if(alternate_counter > 10000)
+    {
+        alternate_counter = 0;
+  
+        //turn off side B, turn on side A
+        if(toggle_state == 1)
+        {
+          toggle_state = 2;
+       	  Cell_Ctrl(Cell_A,Cell_ON);
+   			  Cell_Ctrl(Cell_B,Cell_OFF);
+        }
+        //turn on side B, turn off side A
+        else if(toggle_state == 2)
+        {
+          toggle_state = 1;
+   			  Cell_Ctrl(Cell_B,Cell_ON);
+          Cell_Ctrl(Cell_A,Cell_OFF);
+        }
+        else
+        {
+          toggle_state = 0;
+        }
+    }
+  }
+  //robot has left the charger -- turn both cells on
+  else
+  {
+    Cell_Ctrl(Cell_A,Cell_ON);
+    Cell_Ctrl(Cell_B,Cell_ON);
+    toggle_state = 0;
+
+  }
 
 
 }
