@@ -235,11 +235,6 @@ void TWI_WriteData(const kTWIModule module,
   // populate the firmware variables
   slave_addresses[module] = (*device).address;
   slave_subaddresses[module] = (*device).subaddress;
-  if (slave_addresses[module] != 0x09) {
-    Nop();
-    Nop();
-  }
-    
   indications[module] = kIndicationWrite;
   remaining_tx_bytes[module] = sizeof(data) / sizeof(uint8_t);
   logical_lengths[module] = remaining_tx_bytes[module];
@@ -756,11 +751,6 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C3Interrupt(void) {
 }
 
 
-/*
-void __attribute__((__interrupt__, auto_psv)) _SI2C2Interrupt(void) {
-  // do something
-}
-*/
 /*---------------------------Helper Function Definitions----------------------*/
 static void ConfigureBaudRate(const kTWIModule module, kTWIBaudRate baud_rate) {
   // see Table 16-1 of datasheet
@@ -774,7 +764,7 @@ static void ConfigureBaudRate(const kTWIModule module, kTWIBaudRate baud_rate) {
       break;
     case kTWI02:
       switch (baud_rate) {
-        case kTWIBaudRate100kHz: I2C2BRG = 255; break;//I2C2BRG = 157; break;
+        case kTWIBaudRate100kHz: I2C2BRG = 157; break;
         case kTWIBaudRate400kHz: I2C2BRG = 37;  break;
         case kTWIBaudRate1MHz:   I2C2BRG = 13;  break;
       }
