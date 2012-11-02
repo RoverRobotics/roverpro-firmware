@@ -233,8 +233,13 @@ void TWI_WriteData(const kTWIModule module,
                    const TWIDevice* device,
                    const uint8_t data[]) {
   // populate the firmware variables
-  slave_addresses[module] = device->address;
-  slave_subaddresses[module] = device->subaddress;
+  slave_addresses[module] = (*device).address;
+  slave_subaddresses[module] = (*device).subaddress;
+  if (slave_addresses[module] != 0x09) {
+    Nop();
+    Nop();
+  }
+    
   indications[module] = kIndicationWrite;
   remaining_tx_bytes[module] = sizeof(data) / sizeof(uint8_t);
   logical_lengths[module] = remaining_tx_bytes[module];
@@ -244,7 +249,7 @@ void TWI_WriteData(const kTWIModule module,
   for (i = 0; i < remaining_tx_bytes[module]; i++) {
     buffers[module][i] = data[i];
   }
-  
+    
   states[module] = kStarting;
   
   // start the start event  
@@ -509,6 +514,8 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
    	    states[kTWI02] = kSelectingDevice;
  	    } else {
  	      TWI_Refresh(kTWI02);
+ 	      Nop();
+ 	      Nop();
  	    }
  	    break;
  	  case kSelectingDevice:
@@ -517,6 +524,8 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
      	  states[kTWI02] = kSelectingRegister;
  	    } else {
  	      TWI_Refresh(kTWI02);
+ 	      Nop();
+ 	      Nop();
  	    }
  	    break;
  	  case kSelectingRegister:
@@ -532,6 +541,8 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
  	      }
  	    } else {
  	      TWI_Refresh(kTWI02);
+ 	      Nop();
+ 	      Nop();
  	    }
  	    break;
  	  case kWriting:
@@ -546,6 +557,8 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
    	    remaining_tx_bytes[kTWI02]--;
    	  } else {
  	      TWI_Refresh(kTWI02);
+ 	      Nop();
+ 	      Nop();
  	    }
  	    break;
  	  case kShortstopping:
@@ -554,6 +567,8 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
    	    states[kTWI02] = kRestarting;
    	  } else {
  	      TWI_Refresh(kTWI02);
+ 	      Nop();
+ 	      Nop();
  	    }
  	    break;
  	  case kRestarting:
@@ -562,6 +577,8 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
    	    states[kTWI02] = kReselectingDevice;
    	  } else {
  	      TWI_Refresh(kTWI02);
+ 	      Nop();
+ 	      Nop();
  	    }
  	    break;
  	  case kReselectingDevice:
@@ -570,6 +587,8 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
  	      states[kTWI02] = kReading;
  	    } else {
  	      TWI_Refresh(kTWI02);
+ 	      Nop();
+ 	      Nop();
  	    }
  	    break;
  	  case kReading:
@@ -583,6 +602,8 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
         states[kTWI02] = kFinishingAck;
       } else {
  	      TWI_Refresh(kTWI02);
+ 	      Nop();
+ 	      Nop();
  	    }
  	    break;
  	  case kFinishingAck:
@@ -596,6 +617,8 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
    	    }
    	  } else {
  	      TWI_Refresh(kTWI02);
+ 	      Nop();
+ 	      Nop();
  	    }
  	    break;
  	  case kStopping:
@@ -604,6 +627,8 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
    	    states[kTWI02] = kWaiting;
  	    } else {
  	      TWI_Refresh(kTWI02);
+ 	      Nop();
+ 	      Nop();
  	    }
  	    break;
  	  default:
@@ -749,7 +774,7 @@ static void ConfigureBaudRate(const kTWIModule module, kTWIBaudRate baud_rate) {
       break;
     case kTWI02:
       switch (baud_rate) {
-        case kTWIBaudRate100kHz: I2C2BRG = 157; break;
+        case kTWIBaudRate100kHz: I2C2BRG = 255; break;//I2C2BRG = 157; break;
         case kTWIBaudRate400kHz: I2C2BRG = 37;  break;
         case kTWIBaudRate1MHz:   I2C2BRG = 13;  break;
       }

@@ -19,10 +19,9 @@ where T_AD = A/D conversion clock period
 //#define TEST_ADC
 /*---------------------------Dependencies-------------------------------------*/
 #include "./ADC.h"
-#include "./StandardHeader.h"
 
 /*---------------------------Macros and Definitions---------------------------*/
-#define MAX_NUM_AD_INPUTS     16 // maximum number of analog-to-digital inputs
+#define MAX_N_AD_INPUTS       16 // maximum number of analog-to-digital inputs
                                  // this module can handle
                                 
 /*---------------------------Helper-Function Prototypes-----------------------*/
@@ -32,8 +31,8 @@ static inline void SelectAnalogPin(unsigned char analogPinIndex);
 static void ADC_ExecuteISR(void);
 
 /*---------------------------Module Variables---------------------------------*/
-static unsigned int consumedPins = 0;		// bit mask of consumed pins
-static unsigned int buffer[MAX_NUM_AD_INPUTS] = {0};
+static uint16_t consumedPins = 0;		// bit mask of consumed pins
+extern uint16_t buffer[MAX_N_AD_INPUTS] = {0};
 
 /*---------------------------Test Harness-------------------------------------*/
 #ifdef TEST_ADC
@@ -57,13 +56,15 @@ int main(void) {
 /*---------------------------Public Function Definitions----------------------*/
 void ADC_Init(unsigned int bitMask) {
 	consumedPins = bitMask;
-	ConfigurePins(bitMask);
+	uint8_t i;
+	for (i = 0; i < MAX_N_AD_INPUTS; i++) buffer[i] = 0;
+	ConfigurePins(consumedPins);
 	ConfigureInterrupt();
 	AD1CON1bits.ASAM = 1; 			// begin auto-sampling
 }
 
 
-unsigned int ADC_GetConversion(unsigned char analogInputIndex) {
+unsigned int ADC_value(unsigned char analogInputIndex) {
   return buffer[analogInputIndex];
 }
 
@@ -80,7 +81,7 @@ void ADC_Deinit(void) {
 	// clear any module-level variables
 	consumedPins = 0;
 	unsigned char i;
-	for (i = 0; i < MAX_NUM_AD_INPUTS; i++) buffer[i] = 0;	
+	for (i = 0; i < MAX_N_AD_INPUTS; i++) buffer[i] = 0;	
 }
 
 
@@ -101,7 +102,7 @@ static void ADC_ExecuteISR(void) {
 	static unsigned char index = 0;
 
 	buffer[index] = ADC1BUF0;
-	if ((MAX_NUM_AD_INPUTS - 1) < ++index) index = 0;
+	if ((MAX_N_AD_INPUTS - 1) < ++index) index = 0;
 	SelectAnalogPin(index);
 	IFS0bits.AD1IF = 0;     		// clear the source of the interrupt
 }
