@@ -91,12 +91,9 @@ void NM33_set_location(uint16_t pan, uint8_t tilt, uint8_t zoom) {
 }
 
 
-/*
 void NM33_Deinit(void) {
-  UART_Deinit(void);
+  UART_Deinit();
 }
-*/
-
 
 /*---------------------------Private Function Definitions---------------------*/
 /*

@@ -54,6 +54,6 @@ Function: NM33_Deinit
 Description: Deinitializes this module, restoring any resources and/or pins 
   that were allocated during initialization.
 *******************************************************************************/
-//void NM33_Deinit(void);
+void NM33_Deinit(void);
 
 #endif

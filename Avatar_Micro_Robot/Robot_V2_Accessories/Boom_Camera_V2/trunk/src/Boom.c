@@ -89,10 +89,10 @@ float IIRFilter(const uint8_t i, const float x, const float alpha);
 int main(void) {
   InitBoom();
   
-  //SWDTEN = 1;
+  _SWDTEN = 1;
   while (1) {
+    ClrWdt(); // clear the firmware WDT
     ProcessBoomIO();
-  	//ClrWdt(); // clear the software WDT
   }
   
   return 0;
@@ -124,15 +124,15 @@ void ProcessBoomIO(void) {
       if (TMRS_IsTimerExpired(USB_INIT_TIMER)) state = kViewing;
       break;
     case kViewing:
-      /*
       // power down if we lose connection or if software desires it
       if (REG_BOOM_POWER_DOWN) {
-        TURN_FAN(OFF);
-        TURN_VBAT(OFF);
-        while (1) {}; // TODO: remove after testing
-        
+        // disable UART
+        // make everything an input (also turns everything off)
+        TRISB = 0xffff; TRISC = 0xffff; TRISD = 0xffff;
+        TRISE = 0xffff; TRISF = 0xffff; TRISG = 0xffff;
+        NM33_Deinit();
+        while (1) {}; // wait until the watchdog timer resets us
       }
-      */
 
       // toggle a pin to indicate normal operation
       if (TMRS_IsTimerExpired(HEARTBEAT_TIMER)) {
@@ -156,19 +156,16 @@ void ProcessBoomIO(void) {
         NM33_set_location(pan, tilt, zoom);
         */
         
-        // filter and map the incoming data
-        int16_t desired_pan_speed = IIRFilter(PAN_FILTER, REG_BOOM_VEL_PAN, ALPHA);
-        int16_t desired_tilt_speed = IIRFilter(TILT_FILTER, REG_BOOM_VEL_TILT, ALPHA);
-        int16_t desired_zoom_speed = IIRFilter(ZOOM_FILTER, REG_BOOM_VEL_ZOOM, ALPHA);
-        desired_pan_speed = Map(desired_pan_speed,
-                                OCU_JOYSTICK_MIN, OCU_JOYSTICK_MAX,
-                                kMinPanSpeed, kMaxPanSpeed);
-        desired_tilt_speed = Map(desired_tilt_speed,
-                                 OCU_JOYSTICK_MIN, OCU_JOYSTICK_MAX,
-                                 kMinTiltSpeed, kMaxTiltSpeed);
-        desired_zoom_speed = Map(desired_zoom_speed,
-                                 OCU_TOGGLE_MIN, OCU_TOGGLE_MAX,
-                                 kMinZoomSpeed, kMaxZoomSpeed);
+        // map the incoming data
+        int16_t desired_pan_speed = Map(REG_BOOM_VEL_PAN,
+                                        OCU_JOYSTICK_MIN, OCU_JOYSTICK_MAX,
+                                        kMinPanSpeed, kMaxPanSpeed);
+        int16_t desired_tilt_speed = Map(REG_BOOM_VEL_TILT,
+                                         OCU_JOYSTICK_MIN, OCU_JOYSTICK_MAX,
+                                         kMinTiltSpeed, kMaxTiltSpeed);
+        int16_t desired_zoom_speed = Map(REG_BOOM_VEL_ZOOM,
+                                         OCU_TOGGLE_MIN, OCU_TOGGLE_MAX,
+                                         kMinZoomSpeed, kMaxZoomSpeed);
         
         // integrate the speed to a fixed setting
         UpdatePan(desired_pan_speed, &pan);
@@ -278,7 +275,7 @@ static void UpdateZoom(const int8_t desired_speed, uint8_t* zoom) {
 float IIRFilter(const uint8_t i, const float x, const float alpha) {
   // first-order infinite impulse response (IIR) filter
   // (aka a 'leaky integrator')
-  #define MAX_NUM_FILTERS     3 // maximum number of filters
+  #define MAX_NUM_FILTERS     8 // maximum number of filters
   static float yLasts[MAX_NUM_FILTERS] = {0};
   float y = alpha * yLasts[i] + (1.0 - alpha) * x;
   yLasts[i] = y;
