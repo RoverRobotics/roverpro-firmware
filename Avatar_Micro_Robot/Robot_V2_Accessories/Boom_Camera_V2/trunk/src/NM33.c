@@ -25,7 +25,7 @@ Notes:
 
 #define SPACE_IN_ASCII            0x20
 #define ESC_IN_ASCII              0x1B
-#define LF_IN_ASCII               0x0A  // line feed
+#define LF_IN_ASCII               0x0A  // line feed, new line
 
 /*---------------------------Helper Function Prototypes-----------------------*/
 static void U1TX_ISR(void);
@@ -42,6 +42,7 @@ static void MyMemCpy(uint8_t src[], uint8_t src_length,
 static uint8_t rx_message[MAX_RX_MESSAGE_LENGTH] = {0};
 static uint8_t tx_message[MAX_TX_MESSAGE_LENGTH] = {0};
 static uint8_t tx_message_length = 0;
+static bool is_receptive = 0;
 
 /*---------------------------Test Harness-------------------------------------*/
 #ifdef TEST_NM33
@@ -59,7 +60,7 @@ int main(void) {
     Delay(100);
     pan += 1;
     if (kNM33LimitMaxPan < pan) pan = kNM33LimitMinPan;
-    NM33_set_location(pan, DEFAULT_TILT, DEFAULT_ZOOM);
+    if (NM33_IsReceptive()) NM33_set_location(pan, DEFAULT_TILT, DEFAULT_ZOOM);
   }
   
   return 0;
@@ -71,8 +72,8 @@ void NM33_Init(uint8_t txPin, uint8_t rxPin) {
 	// assign any application-dependent ISR's
 	U1TX_UserISR = U1TX_ISR;  // NB: these must be BEFORE UART initialization
   U1RX_UserISR = U1RX_ISR;
-	uint8_t UART1TX_PIN = txPin;  // 8
-	uint8_t UART1RX_PIN = rxPin;  // 9
+	uint8_t UART1TX_PIN = txPin;
+	uint8_t UART1RX_PIN = rxPin;
   UART_Init(UART1TX_PIN, UART1RX_PIN, kUARTBaudRate115200);
   
   // wait for the camera to boot up
@@ -84,10 +85,16 @@ void NM33_Init(uint8_t txPin, uint8_t rxPin) {
 }
 
 
+bool NM33_IsReceptive(void) {
+  return is_receptive;
+}
+
+
 void NM33_set_location(uint16_t pan, uint8_t tilt, uint8_t zoom) {
   BuildLocationMessage(DEFAULT_ID, pan, tilt, zoom, DEFAULT_ROLL,
                        tx_message, &tx_message_length);
   UART_TransmitByte(tx_message[0]);  // begin the transmission sequence
+  is_receptive = 0;
 }
 
 
@@ -100,7 +107,7 @@ void NM33_Deinit(void) {
 Function: BuildLocationMessage
 Parameters:
   uint8_t object_id, the ID of the camera (associated with a taken image)
-  uint16_t pan,       pan setting
+  uint16_t pan,      pan setting
   uint8_t tilt,      tilt setting
   uint8_t zoom,      zoom setting
   uint8_t roll,      roll setting
@@ -179,9 +186,13 @@ static void U1TX_ISR(void) {
 static void U1RX_ISR(void) {
   static uint8_t i;
   _U1RXIF = 0;
-  if (MAX_RX_MESSAGE_LENGTH <= i) i = 0;
-	rx_message[i] = UART_GetRxByte();
-	i++;
+  
+  uint8_t temp;
+  // see p.6 section (4) of NM33 Command Description
+  // keep track of when the camera finishes its response
+  // with a newline character
+  temp = UART_GetRxByte();
+	if (temp == LF_IN_ASCII) is_receptive = 1;
 }
 
 

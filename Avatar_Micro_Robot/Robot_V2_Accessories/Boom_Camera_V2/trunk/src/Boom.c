@@ -30,7 +30,7 @@ Description: Overarching file encompassing the application-level logic of the
 #define HEARTBEAT_TIMER           0
 #define HEARTBEAT_TIME            500
 #define CAM_TX_TIMER              1
-#define CAM_TX_TIME               (_100ms)//(15)
+#define CAM_TX_TIME               15  // USB registers are updated every ~15ms
 #define USB_INIT_TIMER            2
 #define USB_INIT_TIME             (_100ms)
 
@@ -119,14 +119,13 @@ void ProcessBoomIO(void) {
 
   switch (state) {
     case kInitializing:
-      // allow USB communication to be established before checking registers
-      // to see if it should power down
+      // allow USB communication to be established before
+      // checking registers to see if it should power down
       if (TMRS_IsTimerExpired(USB_INIT_TIMER)) state = kViewing;
       break;
     case kViewing:
       // power down if we lose connection or if software desires it
       if (REG_BOOM_POWER_DOWN) {
-        // disable UART
         // make everything an input (also turns everything off)
         TRISB = 0xffff; TRISC = 0xffff; TRISD = 0xffff;
         TRISE = 0xffff; TRISF = 0xffff; TRISG = 0xffff;
@@ -156,12 +155,12 @@ void ProcessBoomIO(void) {
         NM33_set_location(pan, tilt, zoom);
         */
         
-        // map the incoming data
+        // map the incoming data (NB: tilt is inverted)
         int16_t desired_pan_speed = Map(REG_BOOM_VEL_PAN,
                                         OCU_JOYSTICK_MIN, OCU_JOYSTICK_MAX,
                                         kMinPanSpeed, kMaxPanSpeed);
         int16_t desired_tilt_speed = Map(REG_BOOM_VEL_TILT,
-                                         OCU_JOYSTICK_MIN, OCU_JOYSTICK_MAX,
+                                         OCU_JOYSTICK_MAX, OCU_JOYSTICK_MIN,
                                          kMinTiltSpeed, kMaxTiltSpeed);
         int16_t desired_zoom_speed = Map(REG_BOOM_VEL_ZOOM,
                                          OCU_TOGGLE_MIN, OCU_TOGGLE_MAX,
@@ -172,8 +171,9 @@ void ProcessBoomIO(void) {
         UpdateTilt(desired_tilt_speed, &tilt);
         UpdateZoom(desired_zoom_speed, &zoom);
         
-        // write the update to the camera
-        NM33_set_location(pan, tilt, zoom);
+        // write the update to the camera, ensuring
+        // that it is available to receive the data
+        if (NM33_IsReceptive()) NM33_set_location(pan, tilt, zoom);
       }
   
       break;
