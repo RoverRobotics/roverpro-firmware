@@ -109,8 +109,8 @@ const kADCReading kMaxADCNoise = 31;
 // battery characterstics
 #define N_SIDES               2
 //#define CAPACITY              6     // [A*h], for smallest of our batteries
-#define I_REVIVE_MAX          3000//2000    // adding robot base current ~1A     // [mA], typically ~(0.1/h)*C
-#define I_SIDE_MAX            3000//3000    // the maximum input current to cell
+#define I_REVIVE_MAX          2000    // [mA], typically ~(0.1/h)*C
+#define I_SIDE_MAX            3000    // the maximum input current to cell
 //#define I_CC_STAGE          3000    // [mA], (0.2/h)*C to (0.7/h)*C
 #define I_IN_MAX              8000    // [mA], maximum input current to the
                                       // charging IC
@@ -142,7 +142,7 @@ float IIRFilter(const uint8_t i, const float x, const float alpha);
 
 /*---------------------------Module Variables---------------------------------*/
 static uint8_t bqdata[2] = {0};
-extern TWIDevice bq24745 = {
+static TWIDevice bq24745 = {
   .address = BQ24745_SLAVE_ADDRESS,
   .subaddress = 0x00,
   .n_data_bytes = 2,  // number of data bytes the device will send us
@@ -169,7 +169,7 @@ int main(void) {
 /*---------------------------Helper Function Definitions----------------------*/
 static void RunChargerSM(void) {
   static kChargerState state = kAwakening;
-  
+
   // toggle a pin to indicate normal operation
   if (TMRS_IsTimerExpired(HEARTBEAT_TIMER)) {
     TMRS_StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME);
@@ -193,6 +193,8 @@ static void RunChargerSM(void) {
   // keep the charging IC from timing out
   if (TMRS_IsTimerExpired(CHARGER_REFRESH_TIMER)) {
     TMRS_StartTimer(CHARGER_REFRESH_TIMER, CHARGER_REFRESH_TIME);
+    I_ch_max += I_CHARGE_DELTA;
+    if ((I_SIDE_MAX * N_SIDES) < I_ch_max) I_ch_max = I_SIDE_MAX * N_SIDES;
     if (TWI_ErrorHasOccurred(kTWI02)) TWI_Refresh(kTWI02);
     ConfigureChargingIC(I_IN_MAX, V_MAX_OUT, I_ch_max);
   }
@@ -200,24 +202,26 @@ static void RunChargerSM(void) {
   switch (state) {
     case kAwakening:
       if (TMRS_IsTimerExpired(AWAKENING_TIMER)) {
+        BQ24745_EN = 1;
+        CHARGER_CONNECT = 1;
+        ConfigureChargingIC(I_IN_MAX, V_MAX_OUT, I_ch_max);
+        Delay(50);    // allow the charging IC to begin regulating
+        SIDEA_CONNECT = 1; SIDEB_CONNECT = 1;
+        Delay(50);    // delay long enough to ensure a new A/D reading
         TMRS_StartTimer(REVIVE_SAFETY_TIMER, REVIVE_SAFETY_TIME);
         state = kReviving;
-        return;
       }
       break;
     case kReviving:
-      /*
       // if the battery is still dead-dead
       if (TMRS_IsTimerExpired(REVIVE_SAFETY_TIMER) &&
           (IIRFilter(SIDEA_V_FILTER, ADC_value(SIDEA_V_PIN), ALPHA) < kMaxADCNoise || 
            IIRFilter(SIDEB_V_FILTER, ADC_value(SIDEB_V_PIN), ALPHA) < kMaxADCNoise)) {
         // restart in case there is something wrong
         SIDEA_CONNECT = 0; SIDEB_CONNECT = 0;
-        TMRS_StartTimer(AWAKENING_TIMER, AWAKENING_TIME);
+        TMRS_StartTimer(AWAKENING_TIMER, _1m);
         state = kAwakening;
-        return;
       }
-      */
       
       // if the battery is sufficiently revived
       if (kReviveVoltage < IIRFilter(SIDEA_V_FILTER, ADC_value(SIDEA_V_PIN), ALPHA) &&
@@ -225,11 +229,18 @@ static void RunChargerSM(void) {
         // move on and allow higher-current charging
         I_ch_max = I_SIDE_MAX*N_SIDES;
         state = kCharging;
+      }
+      break;
+    case kCharging:
+      // prevent too much current from going to an individual cell
+      if (kMaxCellCurrent < IIRFilter(SIDEA_I_FILTER, ADC_value(SIDEA_I_PIN), ALPHA) ||
+          kMaxCellCurrent < IIRFilter(SIDEB_I_FILTER, ADC_value(SIDEB_I_PIN), ALPHA)) {
+        SIDEA_CONNECT = 0; SIDEB_CONNECT = 0;
+        TMRS_StartTimer(COOLDOWN_TIMER, COOLDOWN_TIME);
+        state = kInvestigatingOvercurrent;
         return;
       }
       
-      break;
-    case kCharging:
       // prevent one cell from charging the other by
       // giving the less-charged cell time to catch up
       if (IIRFilter(SIDEA_I_FILTER, ADC_value(SIDEA_I_PIN), ALPHA) < kMaxADCNoise) {
@@ -244,7 +255,8 @@ static void RunChargerSM(void) {
         state = kBalancing;
         return;
       }
-      
+      break;
+    case kBalancing:
       // prevent too much current from going to an individual cell
       if (kMaxCellCurrent < IIRFilter(SIDEA_I_FILTER, ADC_value(SIDEA_I_PIN), ALPHA) ||
           kMaxCellCurrent < IIRFilter(SIDEB_I_FILTER, ADC_value(SIDEB_I_PIN), ALPHA)) {
@@ -253,22 +265,12 @@ static void RunChargerSM(void) {
         state = kInvestigatingOvercurrent;
         return;
       }
-      break;
-    case kBalancing:
+      
       // connect then wait to get a valid sample
       if (TMRS_IsTimerExpired(BALANCE_TIMER)) {
         TMRS_StartTimer(BALANCE_CHECK_TIMER, BALANCE_CHECK_TIME);
         SIDEA_CONNECT = 1; SIDEB_CONNECT = 1;
         state = kCheckingBalance;
-        return;
-      }
-      
-      // prevent too much current from going to an individual cell
-      if (kMaxCellCurrent < IIRFilter(SIDEA_I_FILTER, ADC_value(SIDEA_I_PIN), ALPHA) ||
-          kMaxCellCurrent < IIRFilter(SIDEB_I_FILTER, ADC_value(SIDEB_I_PIN), ALPHA)) {
-        SIDEA_CONNECT = 0; SIDEB_CONNECT = 0;
-        TMRS_StartTimer(COOLDOWN_TIMER, COOLDOWN_TIME);
-        state = kInvestigatingOvercurrent;
         return;
       }
       break;
@@ -279,18 +281,14 @@ static void RunChargerSM(void) {
           SIDEA_CONNECT = 0; SIDEB_CONNECT = 1;
           TMRS_StartTimer(BALANCE_TIMER, BALANCE_TIME);
           state = kBalancing;
-          return;
         } else if (IIRFilter(SIDEB_I_FILTER, ADC_value(SIDEB_I_PIN), ALPHA) < kMaxADCNoise) {
           SIDEA_CONNECT = 1; SIDEB_CONNECT = 0;
           TMRS_StartTimer(BALANCE_TIMER, BALANCE_TIME);
           state = kBalancing;
-          return;
-        } else {  // otherwise try charging again at full current
-          I_ch_max = I_SIDE_MAX * N_SIDES;
+        } else {  // otherwise try charging both again
           state = kCharging;
-          Delay(100);   // delay long enough to ensure a new A/D reading
-          return;
         }
+        return;
       }
       break;
     case kInvestigatingOvercurrent:
@@ -301,15 +299,16 @@ static void RunChargerSM(void) {
           // limit that the robot will stay powered
           I_ch_max -= I_CHARGE_DELTA;
           if (I_ch_max < I_REVIVE_MAX) I_ch_max = I_REVIVE_MAX;
+          ConfigureChargingIC(I_IN_MAX, V_MAX_OUT, I_ch_max);
           SIDEA_CONNECT = 1; SIDEB_CONNECT = 1;
-          Delay(100);   // delay long enough to ensure a new A/D reading
+          Delay(50);    // delay long enough to ensure a new A/D reading
           state = kCharging;
           return;
         } else {
           // otherwise something is terribly wrong so reset
-          BQ24745_EN = 0;
-          CHARGER_CONNECT = 0;
           SIDEA_CONNECT = 0; SIDEB_CONNECT = 0;
+          CHARGER_CONNECT = 0;
+          BQ24745_EN = 0;
           state = kAwakening;
           return;
         }
@@ -330,41 +329,37 @@ Parameters:
 Notes:
   - see p.23 of battery charger datasheet 'Enable and Disable Charging'
   - this must be done periodically to avoid a timeout (170s) within the bq24745
-  - CURRENTLY ONLY CONSIDERS THE OUTPUT CHARGE CURRENT
 */
 static void ConfigureChargingIC(const uint16_t I_in_max,
                                 const uint16_t V_out_max,
                                 const uint16_t I_out_max) {
-  static uint16_t I_in_max_last, V_out_max_last, I_out_max_last = 0;
-  uint8_t temp[2] = {0};
+  uint16_t temp = 0;
+  uint8_t message[2] = {0};
+  const uint16_t kCurrentMask = 0x1F80;   // see p.20-23 of bq24645 datasheet
+  const uint16_t kVoltageMask = 0x7FF0;
   
-  // configure the maximum input current to ~8A (8.192A)
-  I_in_max_last = I_in_max;
-  temp[0] = 0x10; temp[1] = 0x00;
+  // configure the maximum input current
+  temp = ((I_in_max >> 1) & kCurrentMask);// mask away ingored bits
+  message[0] = (temp >> 8);               // high-byte
+  message[1] = (temp & 0xff);             // low-byte
   bq24745.subaddress = BQ24745_INPUT_CURRENT;
-  if (TWI_IsBusIdle(kTWI02)) {
-    TWI_WriteData(kTWI02, &bq24745, temp);
-  }
+  if (TWI_IsBusIdle(kTWI02)) TWI_WriteData(kTWI02, &bq24745, message);
   Delay(5);
   
-  // configure the maximum charging voltage to ~16.5V
-  V_out_max_last = V_out_max;
-  // transmit 0x4070 (p.20-21 of bq24745 datasheet)
-  temp[0] = 0x40; temp[1] = 0x70;
+  // configure the maximum charging voltage
+  temp = (V_out_max & kVoltageMask);
+  message[0] = (temp >> 8);
+  message[1] = (temp & 0xff);
   bq24745.subaddress = BQ24745_CHARGE_VOLTAGE;
-  if (TWI_IsBusIdle(kTWI02)) {
-    TWI_WriteData(kTWI02, &bq24745, temp);
-  }
+  if (TWI_IsBusIdle(kTWI02)) TWI_WriteData(kTWI02, &bq24745, message);
   Delay(5);
   
   // configure the maximum charging current
-  I_out_max_last = I_out_max;
-  temp[0] = (I_out_max >> 8);      // high-byte
-  temp[1] = (I_out_max & 0x80);    // low-byte, lowest 7bits are ignored
+  temp = (I_out_max & kCurrentMask);
+  message[0] = (temp >> 8);
+  message[1] = (I_out_max & 0xff);
   bq24745.subaddress = BQ24745_CHARGE_CURRENT;
-  if (TWI_IsBusIdle(kTWI02)) {
-    TWI_WriteData(kTWI02, &bq24745, temp);
-  }
+  if (TWI_IsBusIdle(kTWI02)) TWI_WriteData(kTWI02, &bq24745, message);
   Delay(5);
 }
 
@@ -425,7 +420,7 @@ static void InitCharger(void) {
 float IIRFilter(const uint8_t i, const float x, const float alpha) {
   // first-order infinite impulse response (IIR) filter
   // (aka a 'leaky integrator')
-  #define MAX_NUM_FILTERS     4 // maximum number of filters
+  #define MAX_NUM_FILTERS     8 // maximum number of filters
   static float yLasts[MAX_NUM_FILTERS] = {0};
   float y = alpha * yLasts[i] + (1.0 - alpha) * x;
   yLasts[i] = y;
