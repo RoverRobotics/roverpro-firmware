@@ -23,7 +23,7 @@ void (*U1RX_UserISR)(void) = UART_DummyISR;
 static void ConfigureBaudRate(UARTBaudRate baudRate);
 
 /*---------------------------Module Variables---------------------------------*/ 
-static unsigned char U1TX_RPn, U1RX_RPn = 0; // remappable pin number
+static uint8_t U1TX_RPn, U1RX_RPn = 0; // remappable pin number
 
 /*---------------------------Test Harness-------------------------------------*/
 #ifdef TEST_UART
@@ -62,7 +62,7 @@ int main(void) {
     */
 
     // see if anything gets send to python script
-    unsigned char dummyBreakPoint = 0;
+    uint8_t dummyBreakPoint = 0;
  	
     // test reception from python script--can we get in here?
   }
@@ -72,7 +72,7 @@ int main(void) {
 
 
 void U1TX_ISR(void) {
-  static unsigned char i = 0;
+  static uint8_t i = 0;
   _U1TXIF = 0;
   
   if (i++ < TX_PACKET_LENGTH) UART_TransmitByte(tx_packet[i]);
@@ -91,7 +91,7 @@ void U1RX_ISR(void) {
 Notes:
 	- by default, configures to 1 stop bit, 8-bit transmission, no parity
 */
-void UART_Init(unsigned char Tx_pin, unsigned char Rx_pin, 
+void UART_Init(uint8_t Tx_pin, uint8_t Rx_pin, 
                UARTBaudRate baudRate) {
 	U1TX_RPn = Tx_pin;
 	U1RX_RPn = Rx_pin;
@@ -116,13 +116,13 @@ void UART_Init(unsigned char Tx_pin, unsigned char Rx_pin,
 }
 
 
-void inline UART_TransmitByte(unsigned char byte) {
+void inline UART_TransmitByte(uint8_t byte) {
   U1TXREG = byte;
 }
 
 
-char inline UART_GetRxByte(void) {
-  return (char)U1RXREG;
+uint8_t inline UART_GetRxByte(void) {
+  return U1RXREG;
 }
 
 
@@ -163,9 +163,9 @@ Notes:
           = 16MHz / (4 * 9600) - 1
          ~= 416
 */
-static void ConfigureBaudRate(UARTBaudRate baudRate) {
+static void ConfigureBaudRate(UARTBaudRate baud_rate) {
   U1MODEbits.BRGH = 1;		// configure for high precision baud rate
-  switch (baudRate) {
+  switch (baud_rate) {
     case kUARTBaudRate9600:   U1BRG = 416; break;
     case kUARTBaudRate57600:  U1BRG = 68; break;
     case kUARTBaudRate115200: U1BRG = 34; break;

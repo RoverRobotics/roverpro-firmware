@@ -25,30 +25,30 @@ typedef enum {
 /*******************************************************************************
 Function: InitUART
 Parameters:
-  unsigned char Tx_pin, remappable pin number to assign to tranmission
-  unsigned char Rx_pin, remappable pin number to assign to reception 
-	UARTBaudRate baudRate, baud rate at which to communicate [pulse/s]
+  uint8_t Tx_pin,         remappable pin number to assign to tranmission
+  uint8_t Rx_pin,         remappable pin number to assign to reception 
+	UARTBaudRate baud_rate, baud rate at which to communicate [pulse/s]
 *******************************************************************************/
-void UART_Init(unsigned char Tx_pin, unsigned char Rx_pin, 
-               UARTBaudRate baudRate);
+void UART_Init(uint8_t Tx_pin, uint8_t Rx_pin, 
+               UARTBaudRate baud_rate);
 
 
 /*******************************************************************************
 Function: UART_TransmitByte
 Parameters:
-  unsigned char byte, the byte to send
+  uint8_t byte, the byte to send
 Description: Writes the given byte to the transmission register, U1TX
 *******************************************************************************/
-void inline UART_TransmitByte(unsigned char byte);
+void inline UART_TransmitByte(uint8_t byte);
 
 
 /*******************************************************************************
 Function: UART_GetRxByte
 Returns:
-  char, byte received from U1RX
+  uint8_t, byte received from U1RX
 Description: Returns the last byte from U1RX
 *******************************************************************************/
-char inline UART_GetRxByte(void);
+uint8_t inline UART_GetRxByte(void);
 
 
 /*******************************************************************************

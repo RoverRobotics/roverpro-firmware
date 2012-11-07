@@ -25,13 +25,13 @@ where T_AD = A/D conversion clock period
                                  // this module can handle
                                 
 /*---------------------------Helper-Function Prototypes-----------------------*/
-static void ConfigurePins(unsigned int bitMask);
+static void ConfigurePins(uint16_t bit_mask);
 static void ConfigureInterrupt(void);
-static inline void SelectAnalogPin(unsigned char analogPinIndex);
+static inline void SelectAnalogPin(uint8_t analog_pin_index);
 static void ADC_ExecuteISR(void);
 
 /*---------------------------Module Variables---------------------------------*/
-static uint16_t consumedPins = 0;		// bit mask of consumed pins
+static uint16_t consumed_pins = 0;		// bit mask of consumed pins
 static uint16_t buffer[MAX_N_AD_INPUTS] = {0};
 
 /*---------------------------Test Harness-------------------------------------*/
@@ -54,18 +54,18 @@ int main(void) {
 
 #endif
 /*---------------------------Public Function Definitions----------------------*/
-void ADC_Init(unsigned int bitMask) {
-	consumedPins = bitMask;
+void ADC_Init(uint16_t bit_mask) {
+	consumed_pins = bit_mask;
 	uint8_t i;
 	for (i = 0; i < MAX_N_AD_INPUTS; i++) buffer[i] = 0;
-	ConfigurePins(consumedPins);
+	ConfigurePins(consumed_pins);
 	ConfigureInterrupt();
 	AD1CON1bits.ASAM = 1; 			// begin auto-sampling
 }
 
 
-unsigned int ADC_value(unsigned char analogInputIndex) {
-  return buffer[analogInputIndex];
+uint16_t ADC_value(uint8_t analog_input_index) {
+  return buffer[analog_input_index];
 }
 
 
@@ -75,12 +75,12 @@ void ADC_Deinit(void) {
 	AD1CON1 = 0x0000; AD1CON2 = 0x0000; AD1CON3 = 0x0000; AD1CHS = 0x0000;
 	
 	// restore any pins
-	TRISB &= ~(consumedPins);	// return any inputs to their default as outputs
-	AD1PCFGL |= consumedPins;	// 1 = pin in digital mode
+	TRISB &= ~(consumed_pins);	// return any inputs to their default as outputs
+	AD1PCFGL |= consumed_pins;	// 1 = pin in digital mode
 	
 	// clear any module-level variables
-	consumedPins = 0;
-	unsigned char i;
+	consumed_pins = 0;
+	uint8_t i;
 	for (i = 0; i < MAX_N_AD_INPUTS; i++) buffer[i] = 0;	
 }
 
@@ -99,7 +99,7 @@ Notes:
     address on successive interrupts
 */
 static void ADC_ExecuteISR(void) {
-	static unsigned char index = 0;
+	static uint8_t index = 0;
 
 	buffer[index] = ADC1BUF0;
 	if ((MAX_N_AD_INPUTS - 1) < ++index) index = 0;
@@ -108,10 +108,10 @@ static void ADC_ExecuteISR(void) {
 }
 
 
-static void ConfigurePins(unsigned int bitMask) {
+static void ConfigurePins(uint16_t bit_mask) {
 	// configure port pin(s) as analog input(s)
-	TRISB |= bitMask;
-	AD1PCFGL &= ~(bitMask);
+	TRISB |= bit_mask;
+	AD1PCFGL &= ~(bit_mask);
 
   // select the appropriate pin to sample
 	AD1CHSbits.CH0NA = 0b000;		// configure negative reference to ground (V_ss)
@@ -143,7 +143,7 @@ static void ConfigureInterrupt(void) {
 }
 
 
-static inline void SelectAnalogPin(unsigned char analogPinIndex) {
-	AD1CHSbits.CH0SA = analogPinIndex;	  // configure the positive reference
+static inline void SelectAnalogPin(uint8_t analog_pin_index) {
+	AD1CHSbits.CH0SA = analog_pin_index;	// configure the positive reference
                                         // to the pin to sample	
 }

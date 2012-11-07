@@ -35,9 +35,9 @@ typedef enum {
 /*******************************************************************************
 Function: PWM_Init
 Parameters:
-  kPWMModule module,  which of the available hardware modules  
-	uint8_t RPn, 	      the remappable pin number on which to output
-	uint16_t ms, 	      the period of the PWM signal in milliseconds
+  const kPWMModule module,  which of the available hardware modules  
+	const uint8_t RPn,        the remappable pin number on which to output
+	const uint16_t ms, 	      the period of the PWM signal in milliseconds
 Description: Initializes the output compare module and begins outputting at 0% 
 	on the specified pin.  THE PWM PERIOD MUST BE THE SAME FOR ALL CHANNELS
 Usage: PWM_Init(kPWM01, 25, 1000); // configure RP25 as PWM with a period 
@@ -49,8 +49,8 @@ void PWM_Init(const kPWMModule module, const uint8_t RPn, const uint16_t ms);
 /*******************************************************************************
 Function: PWM_UpdateDutyCycle
 Parameters:
-  kPWMModule module,  which of the available hardware modules
-	float duty_cycle, 	the percent high-time (0.0-to-1.0 inclusive)
+  const kPWMModule module,  which of the available hardware modules
+	const float duty_cycle, 	the percent high-time (0.0-to-1.0 inclusive)
 Notes:
 	- does NOT check whether the given pin is valid and has been 
     previously initialized
@@ -62,7 +62,7 @@ void inline PWM_UpdateDutyCycle(const kPWMModule module,
 /*******************************************************************************
 Function: PWM_Deinit
 Parameters:
-  kPWMModule module,  which of the available hardware modules  
+  const kPWMModule module,  which of the available hardware modules  
 Description: Deinitializes this module, restoring any resources and/or pins 
   that were allocated during initialization.
 *******************************************************************************/

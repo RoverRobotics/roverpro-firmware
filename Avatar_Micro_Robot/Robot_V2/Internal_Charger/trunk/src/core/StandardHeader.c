@@ -16,7 +16,7 @@ File: StandardHeader.c
 int main(void) {
   _TRISE5 = OUTPUT; _RE5 = 0;       // configure a debugging pin
   
-  unsigned char i = 0;
+  uint8_t i = 0;
 	while (1) {
   	/*
   	// test Pause()
@@ -33,8 +33,8 @@ int main(void) {
 }
 #endif
 /*---------------------------Public Function Definitions----------------------*/
-void Delay(const unsigned int milliseconds) {
-  unsigned int i,j;
+void Delay(const uint16_t milliseconds) {
+  uint16_t i,j;
 	for (i = 0; i < OPS_PER_MS; i++) {
     for (j = 0; j < milliseconds; j++);
   }
@@ -42,18 +42,19 @@ void Delay(const unsigned int milliseconds) {
 
 
 void Delay5us(const uint16_t _5microseconds) {
-  unsigned int i,j;
+  uint16_t i,j;
 	for (i = 0; i < OPS_PER_5US; i++) {
     for (j = 0; j < _5microseconds; j++);
   }
 }
 
 
-unsigned int Map(const int value, const int from_low, const int from_high, 
-                 const int to_low, const int to_high) {
+uint16_t Map(const int16_t value, 
+             const int16_t from_low, const int16_t from_high, 
+             const int16_t to_low, const int16_t to_high) {
   // compute the linear interpolation
-  unsigned int result = ((double)(value - from_low) / (double)(from_high - from_low))
-                        * (double)(to_high - to_low) + to_low;
+  uint16_t result = ((double)(value - from_low) / (double)(from_high - from_low))
+                     * (double)(to_high - to_low) + to_low;
   
   // constrain the result to within a valid output range
   if (to_high < result) result = to_high;

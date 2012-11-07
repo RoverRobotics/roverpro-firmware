@@ -36,9 +36,9 @@ typedef enum {
 /*******************************************************************************
 Function: IC_Init
 Parameters:
-  kICModule module,   the input capture hardware module to use
-  uint8_t RPn,        the remappable pin number to monitor
-  uint8_t timeout,    the dead time in milliseconds after which the 
+  const kICModule module,   the input capture hardware module to use
+  const uint8_t RPn,        the remappable pin number to monitor
+  const uint8_t timeout,    the dead time in milliseconds after which the 
                       periods is reset to zero (0)
 Notes:
   - BUG ALERT: ensure you do NOT overflow whatever stores the number of events
@@ -52,7 +52,7 @@ void IC_Init(const kICModule module,
 /*******************************************************************************
 Function: IC_frequency
 Parameters:
-  kICModule module,   the input capture hardware module to use
+  const kICModule module,   the input capture hardware module to use
 Description: Returns the last-computed period in units of 16-microseconds (ms).  
   Returns zero (0) if no rising edges have been detected for more than the 
   chosen timeout time.
