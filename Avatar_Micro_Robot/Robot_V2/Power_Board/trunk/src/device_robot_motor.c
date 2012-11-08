@@ -3256,7 +3256,7 @@ void handle_power_bus(void)
     {
       send_debug_uart_string("BATTERY:  BB-2590\r\n",19);
       block_ms(10);
-      
+      turn_on_power_bus_old_method();      
       return;
     }
   
