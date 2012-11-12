@@ -28,6 +28,9 @@ sudo apt-get -y install vim
 #install SVN
 sudo apt-get -y install subversion
 
+#install VLC
+sudo apt-get -y install vlc
+
 #check out firmware repository
 sudo mkdir /svn
 sudo chmod 577 /svn
