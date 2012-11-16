@@ -1,7 +1,7 @@
 #include "p24FJ256GB106.h"
 #include "stdhdr.h"
 #include "device_robot_motor.h"
-#include "debug_uart.h"
+//#include "debug_uart.h"
 #include "device_robot_motor_i2c.h"
 
 int CheckI2C2Idle();

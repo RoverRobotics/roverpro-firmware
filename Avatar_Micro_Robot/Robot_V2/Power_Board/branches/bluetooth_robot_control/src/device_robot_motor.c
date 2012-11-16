@@ -106,6 +106,7 @@ Response from Device to Host:
 #include "debug_uart.h"
 #include "device_robot_motor_i2c.h"
 #include "DEE Emulation 16-bit.h"
+#include "uart_communication.h"
 
 //#define XbeeTest
 #define BATProtectionON
@@ -140,7 +141,7 @@ int SpeedUpdateTimerEnabled[3]={False,False,False};
 int SpeedUpdateTimerCount[3]={0,0,0};
 int USBTimeOutTimerExpired=False;
 long USBTimeOutTimerCount=0;
-int USBTimeOutTimerEnabled=True;
+int USBTimeOutTimerEnabled=False;
 int StateMachineTimerEnabled=True;
 int StateMachineTimerExpired=False;
 int StateMachineTimerCount=0;
@@ -368,9 +369,12 @@ void DeviceRobotMotorInit()
 
 	MC_Ini();
 
-	#ifndef XbeeTest
+  //UART_CONTROL
+  init_uart_control();
+
+	/*#ifndef XbeeTest
 		init_debug_uart();
-	#endif
+	#endif*/
 
   handle_power_bus();
 
@@ -664,6 +668,9 @@ void Device_MotorController_Process()
  	//Run control loop
 	if(IFS0bits.T1IF==SET)
 	{
+
+    handle_uart_communication();
+
  		PORTFbits.RF5=!PORTFbits.RF5;
  		//clear the flag
  		IFS0bits.T1IF=CLEAR;
@@ -1704,7 +1711,7 @@ void USBInput()
  			//ClearCurrentCtrlData(i);
  		}
 		#ifndef XbeeTest
-			send_debug_uart_string("USB Timeout Detected \r\n",23);
+//			send_debug_uart_string("USB Timeout Detected \r\n",23);
 		#endif
  	}
 	// if there is new data comming in, update all the data
@@ -3254,7 +3261,7 @@ void handle_power_bus(void)
     //If we're using the old battery (BB-2590)
     if( check_string_match(old_battery,battery_data1,7) || check_string_match(old_battery,battery_data2,7))
     {
-      send_debug_uart_string("BATTERY:  BB-2590\r\n",19);
+//      send_debug_uart_string("BATTERY:  BB-2590\r\n",19);
       block_ms(10);
       turn_on_power_bus_old_method();      
       return;
@@ -3264,7 +3271,7 @@ void handle_power_bus(void)
     //If we're using the new battery (BT-70791B)
     if(check_string_match(new_battery,battery_data1,9) || check_string_match(new_battery,battery_data2,9))
     {
-      send_debug_uart_string("BATTERY:  BT-70791B\r\n",21);
+//      send_debug_uart_string("BATTERY:  BT-70791B\r\n",21);
       block_ms(10);
       turn_on_power_bus_new_method();
       return;
@@ -3273,7 +3280,7 @@ void handle_power_bus(void)
   //if we're using the low lithium custom Matthew's battery
     if(check_string_match(custom_matthews_battery,battery_data1,7) || check_string_match(custom_matthews_battery,battery_data2,7))
     {
-      send_debug_uart_string("BATTERY:  ROBOTEX\r\n",19);
+ //     send_debug_uart_string("BATTERY:  ROBOTEX\r\n",19);
       block_ms(10);
       turn_on_power_bus_old_method();
       return;
@@ -3285,9 +3292,9 @@ void handle_power_bus(void)
   }  
 
     //if we're using an unknown battery
-    send_debug_uart_string("UNKNOWN BATTERY\r\n",17);
+ //   send_debug_uart_string("UNKNOWN BATTERY\r\n",17);
     block_ms(10);
-    send_debug_uart_string((char *)battery_data1,20);
+  //  send_debug_uart_string((char *)battery_data1,20);
     block_ms(10);
 
     turn_on_power_bus_hybrid_method();

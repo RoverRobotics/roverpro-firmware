@@ -220,6 +220,8 @@ void ProcessIO(void)
 	// GENERIC I/O PROCESS HERE
 	// ---------------------------------------------------------------------
 
+  gNewData = !gNewData;
+  return;
 
 	if((USBDeviceState < CONFIGURED_STATE)||(USBSuspendControl==1)) return;
     
