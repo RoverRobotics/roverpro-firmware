@@ -7,7 +7,7 @@
 
       <characteristic uuid="2a00">
         <properties read="true" const="true" />
-        <value>Bluegiga CR device</value>
+        <value>RoboteX Robot</value>
       </characteristic>
 
       <characteristic uuid="2a01">
@@ -17,7 +17,7 @@
     </service>
    
     <service uuid="0bd51666-e7cb-469b-8e4d-2742f1ba77cc" advertise="true">
-        <description>Cable replacement service</description>
+        <description>Robot Control</description>
         
         <characteristic uuid="e7add780-b042-4876-aae1-112855353cc1" id="xgatt_data">
             <description>Data</description>
