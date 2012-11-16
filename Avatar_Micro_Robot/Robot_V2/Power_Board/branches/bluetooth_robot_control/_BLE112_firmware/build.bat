@@ -1,4 +1,4 @@
 @echo off
 echo Compiling the project...
-..\..\bin\bgbuild.exe project.xml
+C:\ble-1.1.0-55\ble\bin\bgbuild.exe project.xml
 pause
