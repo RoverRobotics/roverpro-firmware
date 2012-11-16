@@ -4,11 +4,13 @@
 #include "uart_communication.h"
 
 #define U1RX_MESSAGE_LENGTH 7
+#define U1TX_MESSAGE_LENGTH 3
 
 void uart_control_tx_interrupt(void);
 void uart_control_rx_interrupt(void);
 unsigned int return_CRC(unsigned char* data, unsigned char length);
 char Is_CRC_valid(unsigned char* data, unsigned char length);
+void keep_bluetooth_alive(void);
 
 unsigned char uart_message_in_buffer[20];
 unsigned char uart_message_in[20];
@@ -28,9 +30,9 @@ void init_uart_control(void)
 
 	U1TXInterruptUserFunction = uart_control_tx_interrupt;
   U1RXInterruptUserFunction = uart_control_rx_interrupt;
-  uart_message_out[0] = 0x61;
-  uart_message_out[1] = 0x61;
-  uart_message_out[2] = 0x61;
+  uart_message_out[0] = 'H';
+  uart_message_out[1] = 'E';
+  uart_message_out[2] = 'Y';
 
 	U1TX_RPn = 3;
 	RPINR18bits.U1RXR = U1RX_RPn;
@@ -45,7 +47,7 @@ void init_uart_control(void)
  	U1MODEbits.UARTEN=1;//UART1 is enabled
  	U1STAbits.UTXEN=1;//transmit enabled
  	IFS0bits.U1TXIF=0;//clear the transmit flag
- 	IEC0bits.U1TXIE=0;//enable UART1 transmit interrupt
+ 	IEC0bits.U1TXIE=1;//enable UART1 transmit interrupt
  	IEC0bits.U1RXIE=1;//enable UART1 receive interrupt
 
 }
@@ -55,7 +57,7 @@ void uart_control_tx_interrupt(void)
 	_U1TXIF = 0;
   static unsigned char index = 1;
   
-  if(index >= 20)
+  if(index >= U1TX_MESSAGE_LENGTH)
   {
     index = 1;
     return;
@@ -167,10 +169,27 @@ char Is_CRC_valid(unsigned char* data, unsigned char length)
 
 }
 
+void keep_bluetooth_alive(void)
+{
+  static unsigned int counter = 0;
+
+  counter++;
+
+  if(counter > 1000)
+  {
+    counter = 0;
+    U1TXREG = uart_message_out[0];
+
+  }
+
+}
+
 void handle_uart_communication(void)
 {
   static unsigned int message_timeout_counter = 0;
   static unsigned int i;
+
+  keep_bluetooth_alive();
 
   message_timeout_counter++;
   if(message_timeout_counter > 333)
