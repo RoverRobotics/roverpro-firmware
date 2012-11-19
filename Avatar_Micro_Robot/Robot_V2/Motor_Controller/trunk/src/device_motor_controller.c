@@ -3,6 +3,8 @@
 #include "device_motor_controller.h"
 #include "testing.h"
 
+#define BRUSHED
+
 #define AHI_1_EN(a) (_TRISD0 = !a)
 #define ALO_1_EN(a) (_TRISD1 = !a)
 #define BHI_1_EN(a) (_TRISD2 = !a)
@@ -41,6 +43,11 @@ static unsigned int millisecond_counter = 0;
 
 static void test_pwm(void);
 
+static void brushed_control(int speed);
+static void brushless_init(void);
+static void brushed_init(void);
+void init_pwm_brushed(void);
+
 void Device_Motor_Controller_Process_IO(void)
 {
 
@@ -61,7 +68,12 @@ void Device_Motor_Controller_Process_IO(void)
   //BLO_1_ON(0);
 */
 //test_pwm();
+#ifdef BRUSHLESS
 handle_commutation();
+#endif
+
+#ifdef BRUSHED
+#endif
 
 
 
@@ -87,17 +99,13 @@ void Device_Motor_Controller_Init(void)
   //set_pwm_duty(0);
 
 
-  T2InterruptUserFunction = Timer2_ISR;
-  //T2 frequency is Fosc/2 = 16 MHz
-  //Max timer interrupt at 2^16/16MHz = 4.096ms
-  //Let's set PR2 to 800, to get interrupts every 50us:
-  PR2 = 800;
-  _T2IE = 1;
-  T2CONbits.TON = 1;
+  #ifdef BRUSHLESS
+    brushless_init();
+  #endif
 
-  init_pwm();
-
-  block_ms(5000);
+  #ifdef BRUSHED
+    brushed_init();
+  #endif
 
 
 
@@ -440,3 +448,152 @@ static void test_pwm(void)
   }
 
 }
+
+static void brushed_control(int speed)
+{
+
+  static unsigned int last_fifty_us_counter = 0;
+
+  if(speed > 100)
+    speed = 100;
+  else if(speed < -100)
+    speed = -100;  
+
+
+  if(fifty_us_counter >=19)
+  {
+    //turn on low side if high side is on
+    if(fifty_us_counter >=19)
+    {
+      if(speed < 0)
+      { 
+        set_AHI_1_duty_cycle(0);
+        set_BHI_1_duty_cycle(0);
+        ALO_1_ON(0);
+        BLO_1_ON(1);
+      }
+      else
+      {
+        set_AHI_1_duty_cycle(0);
+        set_BHI_1_duty_cycle(0);
+        BLO_1_ON(0);
+        ALO_1_ON(1);
+
+      }
+ 
+    }
+
+  }
+
+  //runs every 50us
+  else if(fifty_us_counter != last_fifty_us_counter)
+  {
+    last_fifty_us_counter = fifty_us_counter;
+
+    if(speed < 0)
+    {
+      BLO_1_ON(0);
+      set_AHI_1_duty_cycle(0);
+      ALO_1_ON(1);
+      set_BHI_1_duty_cycle(speed*10);
+    }
+    else
+    {
+      ALO_1_ON(0);
+      set_BHI_1_duty_cycle(0);
+      BLO_1_ON(1);
+      set_AHI_1_duty_cycle(speed*10);
+    }
+  }
+  
+  if(fifty_us_counter > 20)
+    fifty_us_counter = 0;
+
+}
+
+static void brushless_init(void)
+{
+  T2InterruptUserFunction = Timer2_ISR;
+  //T2 frequency is Fosc/2 = 16 MHz
+  //Max timer interrupt at 2^16/16MHz = 4.096ms
+  //Let's set PR2 to 800, to get interrupts every 50us:
+  PR2 = 800;
+  _T2IE = 1;
+  T2CONbits.TON = 1;
+
+  init_pwm();
+
+  block_ms(5000);
+
+}
+
+static void brushed_init(void)
+{
+  T2InterruptUserFunction = Timer2_ISR;
+  //T2 frequency is Fosc/2 = 16 MHz
+  //Max timer interrupt at 2^16/16MHz = 4.096ms
+  //Let's set PR2 to 800, to get interrupts every 50us:
+  PR2 = 800;
+  _T2IE = 1;
+  T2CONbits.TON = 1;
+
+  init_pwm_brushed();
+
+  block_ms(5000);
+
+}
+
+void init_pwm_brushed(void)
+{
+	//Choose 400Hz (2.5ms period)
+	//2.5ms = [PR2 + 1]*62.5ns*1
+  //CHI_1_OR = 18; //OC1
+  //Choose 8kHz (125us period)
+  //125us = (PR2 + 1)*62.5ns
+  //PR2 = 1999
+  AHI_1_OR = 18;
+  BHI_1_OR = 19;
+  CHI_1_OR = 20;
+	//PR2 = 40001;	
+
+  //if both are 0, module doesn't stay low
+  OC1R = 0;
+	OC1RS = 2001;
+
+  OC2R = 0;
+  OC2RS = 2001;
+  
+  OC3R = 0;
+  OC3RS = 2001;
+
+  PR3 = 8000;
+
+
+  //synchronize to Timer 3
+	/*OC1CON2bits.SYNCSEL = 0b1101;	
+	OC2CON2bits.SYNCSEL = 0b1101;	
+	OC3CON2bits.SYNCSEL = 0b1101;	*/
+OC1CON2bits.SYNCSEL = 0x1f;	
+	OC2CON2bits.SYNCSEL = 0x1f;	
+	OC3CON2bits.SYNCSEL = 0x1f;
+	//use timer 3
+
+  //Note:  We can't use PWM, as it is double-buffered
+  //(to avoid shoot-through)
+	//single-compare single-shot (starts high)
+	OC1CON1bits.OCM = 5;
+	OC2CON1bits.OCM = 5;
+	OC3CON1bits.OCM = 5;
+
+	OC1CON1bits.OCTSEL = 1;
+	OC2CON1bits.OCTSEL = 1;
+	OC3CON1bits.OCTSEL = 1;
+
+
+
+	//turn on timer 3
+	T3CONbits.TON = 1;
+
+
+}
+
