@@ -27,11 +27,21 @@
 #define set_BHI_1_duty_cycle(a)  (OC2R = 2000-a*2)
 #define set_CHI_1_duty_cycle(a)  (OC3R = 2000-a*2)
 
+#define set_ALO_1_duty_cycle(a)  (OC4R = 2000-a*2)
+#define set_BLO_1_duty_cycle(a)  (OC5R = 2000-a*2)
+
 //RP23
 #define AHI_1_OR _RP11R
 #define BHI_1_OR _RP23R
 #define CHI_1_OR _RP25R
 
+#define ALO_1_OR _RP24R
+#define BLO_1_OR _RP22R
+#define CLO_1_OR _RP20R
+
+#define ALO_1 0
+#define BLO_1 1
+#define CLO_1 2
 
 static void init_pwm(void);
 static void set_pwm_duty(unsigned int duty_cycle);
@@ -47,6 +57,7 @@ static void brushed_control(int speed);
 static void brushless_init(void);
 static void brushed_init(void);
 void init_pwm_brushed(void);
+static void low_side_control(int speed);
 
 void Device_Motor_Controller_Process_IO(void)
 {
@@ -236,19 +247,22 @@ static void handle_commutation(void)
   {
     if(MOSFET_state & 0b100000)
     { 
-      //AHI_1_ON(0);
+      BLO_1_ON(0);
+      CLO_1_ON(0);
       set_AHI_1_duty_cycle(0);
       ALO_1_ON(1);
     }
     if(MOSFET_state & 0b001000)
     {
-      //BHI_1_ON(0);
+      ALO_1_ON(0);
+      CLO_1_ON(0);
       set_BHI_1_duty_cycle(0);
       BLO_1_ON(1);
     }
     if(MOSFET_state & 0b000010)
     {
-      //CHI_1_ON(0);
+      ALO_1_ON(0);
+      BLO_1_ON(0);
       set_CHI_1_duty_cycle(0);
       CLO_1_ON(1);
     }
@@ -554,6 +568,10 @@ void init_pwm_brushed(void)
   AHI_1_OR = 18;
   BHI_1_OR = 19;
   CHI_1_OR = 20;
+
+  ALO_1_OR = 21;
+  BLO_1_OR = 22;
+  CLO_1_OR = 23;
 	//PR2 = 40001;	
 
   //if both are 0, module doesn't stay low
@@ -566,6 +584,15 @@ void init_pwm_brushed(void)
   OC3R = 0;
   OC3RS = 2001;
 
+  OC4R = 0;
+	OC4RS = 2001;
+
+  OC5R = 0;
+  OC5RS = 2001;
+  
+  OC6R = 0;
+  OC6RS = 2001;
+
   PR3 = 8000;
 
 
@@ -573,9 +600,12 @@ void init_pwm_brushed(void)
 	/*OC1CON2bits.SYNCSEL = 0b1101;	
 	OC2CON2bits.SYNCSEL = 0b1101;	
 	OC3CON2bits.SYNCSEL = 0b1101;	*/
-OC1CON2bits.SYNCSEL = 0x1f;	
+  OC1CON2bits.SYNCSEL = 0x1f;	
 	OC2CON2bits.SYNCSEL = 0x1f;	
 	OC3CON2bits.SYNCSEL = 0x1f;
+  OC4CON2bits.SYNCSEL = 0x1f;	
+	OC5CON2bits.SYNCSEL = 0x1f;	
+	OC6CON2bits.SYNCSEL = 0x1f;
 	//use timer 3
 
   //Note:  We can't use PWM, as it is double-buffered
@@ -584,16 +614,73 @@ OC1CON2bits.SYNCSEL = 0x1f;
 	OC1CON1bits.OCM = 5;
 	OC2CON1bits.OCM = 5;
 	OC3CON1bits.OCM = 5;
+	OC4CON1bits.OCM = 5;
+	OC5CON1bits.OCM = 5;
+	OC6CON1bits.OCM = 5;
 
 	OC1CON1bits.OCTSEL = 1;
 	OC2CON1bits.OCTSEL = 1;
 	OC3CON1bits.OCTSEL = 1;
+	OC4CON1bits.OCTSEL = 1;
+	OC5CON1bits.OCTSEL = 1;
+	OC6CON1bits.OCTSEL = 1;
 
 
 
 	//turn on timer 3
 	T3CONbits.TON = 1;
 
+
+}
+
+
+//when low side is off, it must be pulsed high intermittently if high side is active
+//when low side is on, it must be set to the same duty cycle as the high side
+static void low_side_control(int speed)
+{
+
+  //reverse:  B is high, A is low
+  if(speed < 0)
+  {
+
+    //ALO is low all the time
+    OC4CON1bits.OCM = 0;
+
+    //BLO only pulses at the last second
+    OC5R = 1990;
+    OC5RS = 2001;
+    OC4CON1bits.OCM = 5;
+
+
+    //ALO is equal to BHI
+    OC4R = OC2R;
+    OC4RS = OC2R;
+    
+  }
+  else if(speed > 0)
+  {
+
+    //BLO is low all the time
+    OC5CON1bits.OCM = 0;
+
+    //ALO only pulses once
+    OC4R = 1990;
+    OC4RS = 2001;
+    OC4CON1bits.OCM = 5;
+
+    //BLO is equal to AHI
+    OC5R = OC1R;
+    OC5RS = OC5R;
+
+  }
+
+  else
+  {
+    //both low sides are low
+    OC4CON1bits.OCM = 0;
+    OC5CON1bits.OCM = 0;
+
+  }
 
 }
 
