@@ -23,7 +23,7 @@
 			<properties write_no_response="true" />
             <description>Data</description>
             <properties write="true" indicate="true" />
-            <value variable_length="true" length="20" type="user" />
+            <value variable_length="false" length="7" type="user" />
         </characteristic>
     </service>
     
