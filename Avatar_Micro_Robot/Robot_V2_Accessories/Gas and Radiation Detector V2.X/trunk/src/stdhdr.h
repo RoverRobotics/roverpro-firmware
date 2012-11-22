@@ -21,7 +21,7 @@
 #define USB_COMMUNICATION_INCLUDE "../../../../../Common/REV_A/USB/usb_communication.h"
 
 
-#include STDINT_INCLUDE
+//#include STDINT_INCLUDE
 #include <libpic30.h>
 
 #include GENERIC_TYPEDEFS_INCLUDE
