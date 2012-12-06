@@ -1635,11 +1635,11 @@ int speed_control_loop(unsigned char i, int desired_speed)
 	else
 	{*/
 
-		if(desired_speed == 0)
+		/*if(desired_speed == 0)
 		{
 			motor_speed[i] = 0;
 			return 0;
-		}
+		}*/
 	
 		if(motor_speed[i] < desired_speed)
 		{
@@ -1684,13 +1684,14 @@ void USBInput()
 		control_loop_counter = 0;
 	 	Robot_Motor_TargetSpeedUSB[0]=speed_control_loop(0,REG_MOTOR_VELOCITY.left);
 	 	Robot_Motor_TargetSpeedUSB[1]=speed_control_loop(1,REG_MOTOR_VELOCITY.right);
+		Robot_Motor_TargetSpeedUSB[2]=speed_control_loop(2,REG_MOTOR_VELOCITY.flipper);
 	}
 
-	if(flipper_control_loop_counter > 15)
+	/*if(flipper_control_loop_counter > 15)
 	{
 		flipper_control_loop_counter  = 0;
 		Robot_Motor_TargetSpeedUSB[2]=speed_control_loop(2,REG_MOTOR_VELOCITY.flipper);
-	}
+	}*/
 
 
 	//long time no data, clear everything
