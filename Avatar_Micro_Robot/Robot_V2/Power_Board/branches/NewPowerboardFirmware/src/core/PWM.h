@@ -2,13 +2,16 @@
 File: PWM.h 
 
 Description: This file provides an interface to the PWM hardware modules
-  available on the PIC24FJ256GB106.
+  available on the PIC24FJ256GB106.  As this was originally designed to drive
+  motors, the scale of configurable PWM periods may be too small for some
+  applications, most notably controlling servos.
   
 Notes:
   - uses Timer2 as the time base for all channels
   - only remappable pins can be configured for PWM
   - assumes F_CY = 16MHz
   - performs NO error checking on input parameters
+	- can NOT go slower than T_PWM = 64us
 	
 Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 ==============================================================================*/
@@ -37,13 +40,11 @@ Function: PWM_Init
 Parameters:
   const kPWMModule module,  which of the available hardware modules  
 	const uint8_t RPn,        the remappable pin number on which to output
-	const uint16_t ms, 	      the period of the PWM signal in milliseconds
+	const uint16_t us, 	      the period of the PWM signal in microseconds
 Description: Initializes the output compare module and begins outputting at 0% 
-	on the specified pin.  THE PWM PERIOD MUST BE THE SAME FOR ALL CHANNELS
-Usage: PWM_Init(kPWM01, 25, 1000); // configure RP25 as PWM with a period 
-                                   // of 1000ms => 1s => 1Hz
+	on the specified pin.
 *******************************************************************************/
-void PWM_Init(const kPWMModule module, const uint8_t RPn, const uint16_t ms);
+void PWM_Init(const kPWMModule module, const uint8_t RPn, const uint16_t us);
 
 
 /*******************************************************************************

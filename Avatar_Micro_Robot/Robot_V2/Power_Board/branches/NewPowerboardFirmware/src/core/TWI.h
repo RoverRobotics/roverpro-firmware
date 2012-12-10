@@ -18,7 +18,7 @@ Responsible Engineer(s): Stellios Leventis (sleventis@robotex.com)
 #include "./StandardHeader.h"
 
 /*---------------------------Macros-------------------------------------------*/
-#define TWI_MAX_DATA_LENGTH   20  // the maximum number of bytes a device on 
+#define TWI_MAX_DATA_LENGTH   5   // the maximum number of bytes a device on 
                                   // the bus would ever transmit (used to 
                                   // obviate the need to dynamically manage
                                   // memory internally).  DO NOT make larger
@@ -36,7 +36,7 @@ typedef struct {
                         // producing  are stored (e.g. multiple
                         // acceleration directions)
   uint8_t n_data_bytes; // number of data bytes the sensor returns
-  uint8_t* data;
+  uint8_t *data;
 } TWIDevice;
 
 // baud rate options

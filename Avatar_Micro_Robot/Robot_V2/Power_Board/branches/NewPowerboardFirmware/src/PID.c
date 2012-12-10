@@ -14,25 +14,26 @@ Inpired By:
   - http://www.cds.caltech.edu/~murray/courses/cds101/fa04/caltech/am04_ch8-3nov04.pdf
   - friends and colleagues
 ==============================================================================*/
-/*---------------------------Dependencies-------------------------------------*/
+//---------------------------Dependencies---------------------------------------
 #include "./PID.h"
 
-/*---------------------------Macros and Definitions---------------------------*/
+//---------------------------Macros and Definitions-----------------------------
 typedef struct {
   float y_max;		// the maximum value the output can produce
-  float y_min;   // the minimum value the output can produce
-	float Kp;    	// proportional gain
-	float Ki;    	// integral gain
-  float Kd;    	// derivative gain
+  float y_min;    // the minimum value the output can produce
+	float Kp;    	  // proportional gain
+	float Ki;    	  // integral gain
+  float Kd;    	  // derivative gain
 } controller_t;
 
-/*---------------------------Module Variables---------------------------------*/
-#define MAX_NUM_CONTROLLERS   8
+//---------------------------Module Variables-----------------------------------
 static controller_t controllers[MAX_NUM_CONTROLLERS];
+static float integral_terms[MAX_NUM_CONTROLLERS] = {0};
+static float y_actual_lasts[MAX_NUM_CONTROLLERS] = {0};
 
-/*---------------------------Public Function Definitions----------------------*/
-void PID_InitController(unsigned char i, float y_max, float y_min, 
-                        float Kp, float Ki, float Kd) {
+//---------------------------Public Function Definitions------------------------
+void PID_Init(const uint8_t i, const float y_max, const float y_min, 
+              const float Kp, const float Ki, const float Kd) {
 	// populate the fields that comprise a controller
   controllers[i].y_max = y_max;
   controllers[i].y_min = y_min;
@@ -52,41 +53,45 @@ void PID_InitController(unsigned char i, float y_max, float y_min,
 }
 
 
-float PID_ComputeOutput(const unsigned char i,
+float PID_ComputeEffort(const uint8_t i,
                         const float y_desired,
                         const float y_actual,
 												const float y_nominal) {
-  static float integral_term, y_actual_last = 0;
   float error, delta_Y, y_command = 0;
   
-  error = y_desired - y_actual;
-  integral_term += (controllers[i].Ki * error);
-  delta_Y = (y_actual - y_actual_last);
+  error = y_desired - y_actual_lasts[i];
+  integral_terms[i] += (controllers[i].Ki * error);
+  delta_Y = (y_actual - y_actual_lasts[i]);
   
   // limit the integral term independently (see Notes section)
-  if (controllers[i].y_max < integral_term)
-    integral_term = controllers[i].y_max;
-  else if (integral_term < controllers[i].y_min)
-    integral_term = controllers[i].y_min;
+  if (controllers[i].y_max < integral_terms[i])
+    integral_terms[i] = controllers[i].y_max;
+  else if (integral_terms[i] < controllers[i].y_min)
+    integral_terms[i] = controllers[i].y_min;
   
   // compute the PID Output
-  y_command = (controllers[i].Kp * error) + integral_term -
+  y_command = (controllers[i].Kp * error) + integral_terms[i] -
 	            (controllers[i].Kd * delta_Y) + y_nominal;
   
   // if we've saturated, remove the current error term from 
   // the integral term to prevent integrator windup
   if (controllers[i].y_max < y_command) {
     y_command = controllers[i].y_max;
-    integral_term -= (controllers[i].Ki * error);
+    integral_terms[i] -= (controllers[i].Ki * error);
   } else if (y_command < controllers[i].y_min) {
     y_command = controllers[i].y_min;
-    integral_term -= (controllers[i].Ki * error);
+    integral_terms[i] -= (controllers[i].Ki * error);
   }
   
   // BUG ALERT: ensure the output never goes the opposite of the intended direction
   if ((0 < y_desired) && (y_command < 0)) y_command = 0;
   else if ((y_desired < 0) && (0 < y_command)) y_command = 0;
   
-  y_actual_last = y_actual;
+  y_actual_lasts[i] = y_actual;
   return y_command;
+}
+
+void PID_Reset(const uint8_t i) {
+  y_actual_lasts[i] = 0;
+  integral_terms[i] = 0;
 }

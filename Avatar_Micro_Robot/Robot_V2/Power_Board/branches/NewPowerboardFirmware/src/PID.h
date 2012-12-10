@@ -31,46 +31,54 @@ Sampling Rate Considerations.
     control system has effectively settled out.
 
 // TODO: implement an auto-tuner: Autotune(&Kp, &Ki, &Kd);
-  
+
 Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 ==============================================================================*/
-#ifndef PID_CONTROLLER_H
-#define PID_CONTROLLER_H
-/*---------------------------Macros-------------------------------------------*/
+#ifndef PID_H
+#define PID_H
+//---------------------------Dependencies---------------------------------------
+#include <stdint.h>   // for uintN_t data types
+
+//---------------------------Macros---------------------------------------------
 #define MAX_NUM_CONTROLLERS   8 // change to support as many controllers 
                                 // as needed (used to obviate the need for 
 																// dynamic memory management)
-/*---------------------------Public Functions---------------------------------*/
-/*******************************************************************************
-Function: PID_InitController
-Parameters:
-  unsigned char controller_index, the index (0-based) of the controller 
-                                  on which to operate
-	float y_max,     the maximum value the output can produce
-	float y_min,     the minimum value the output can produce
-	float Kp,        proportional gain
-	float Ki,        integral gain
-	float Kd,        differential gain
-*******************************************************************************/
-void PID_InitController(const unsigned char controller_index,
-                        const float y_max, const float y_min, 
-                        float Kp, float Ki, float Kd);
+//---------------------------Public Functions-----------------------------------
+// Function: PID_Init
+// Parameters:
+//   uint8_t controller_index, the index (0-based) of the controller 
+//                             on which to operate
+// 	float y_max,     the maximum value the output can produce
+// 	float y_min,     the minimum value the output can produce
+// 	float Kp,        proportional gain
+// 	float Ki,        integral gain
+// 	float Kd,        differential gain
+void PID_Init(const uint8_t controller_index,
+              const float y_max, const float y_min, 
+              const float Kp, const float Ki, const float Kd);
 
 
-/*******************************************************************************
-Function: ComputeOutput
-Returns:
-	float,	the resulting value to command for the current iteration
-Parameters:
-  unsigned char controller_index, the index (0-based) of the controller
-                                  on which to operate
-	float y_desired,  the desired output value
-	float y_actual,   the current, actual output value
-	float x_nominal,	the nominal effort to acheive the desired output
-	                  pass zero (0) if nominal offset is NOT desired.
-*******************************************************************************/
-float PID_ComputeOutput(const unsigned char controller_index,
+// Function: PID_ComputeEffort
+// Returns:
+// 	 float,	the resulting value to command for the current iteration
+// Parameters:
+//   uint8_t controller_index, the index (0-based) of the controller
+//                             on which to operate
+// 	float y_desired,  the desired output value
+// 	float y_actual,   the current, actual output value
+// 	float x_nominal,	the nominal effort to acheive the desired output
+// 	                  pass zero (0) if nominal offset is NOT desired.
+// 	bool should_reset whether the controller should 'forget' its history
+float PID_ComputeEffort(const uint8_t controller_index,
                         const float y_desired,
 												const float y_actual,
 												const float x_nominal);
+
+
+// Function: PID_Reset
+// Parameters:
+//   uint8_t controller_index, the index (0-based) of the controller
+//                             on which to operate
+void PID_Reset(const uint8_t controller_index);
+
 #endif

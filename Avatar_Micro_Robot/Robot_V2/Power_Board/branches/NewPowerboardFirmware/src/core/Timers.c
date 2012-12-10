@@ -2,14 +2,11 @@
 File: Timers.c
 ==============================================================================*/
 //#define TEST_TIMERS
-/*---------------------------Dependencies-------------------------------------*/
+//---------------------------Dependencies---------------------------------------
 #include "./Timers.h"
 
-/*---------------------------Macros and Type Definitions----------------------*/
-/*
-Type: timer_t
-Description: A timer is comprised of a duration and a start time.
-*/
+//---------------------------Macros and Type Definitions------------------------
+// Description: A timer is comprised of a duration and a start time.
 typedef struct {
 	uint32_t duration;        // the duration of the timer
 	uint32_t start_time;      // time at which the timer was started
@@ -18,14 +15,11 @@ typedef struct {
 #define INTERRUPTS_PER_TICK 	8
 #define TIMER_PERIOD 					250
 
-/*---------------------------Helper Function Prototypes-----------------------*/
-static void TMRS_ISR(void);
-
-/*---------------------------Module Variables---------------------------------*/
+//---------------------------Module Variables-----------------------------------
 static timer_t timers[MAX_NUM_TIMERS];
 static uint32_t time;       // the current time in units of ticks
 
-/*---------------------------Test Harness-------------------------------------*/
+//---------------------------Test Harness---------------------------------------
 #ifdef TEST_TIMERS
 #include "./ConfigurationBits.h"
 
@@ -52,19 +46,23 @@ int main(void) {
 	return 0;
 }
 #endif
-/*---------------------------End Test Harness---------------------------------*/
-/*---------------------------Public Function Definitions----------------------*/
+
+//---------------------------Public Function Definitions------------------------
 void __attribute__((__interrupt__, auto_psv)) _T1Interrupt(void) {
-  TMRS_ISR();
+  IFS0bits.T1IF = 0;  // clear the source of the interrupt
+  
+  static uint8_t num_times_called = 0;
+  if (INTERRUPTS_PER_TICK <= ++num_times_called) {
+    num_times_called = 0;
+	  time++;
+	}
 }
 
-/*******************************************************************************
-Notes:
-	- see p.143 of datasheet for initialization sequence
-	- ms_per_tick = ((f_osc/2)/prescaler)^-1*timer_period*interrupts_per_tick
-                = ((32MHz/2)/8)^-1*250*8
-		            = 1ms
-*******************************************************************************/
+// Notes:
+// 	- see p.143 of datasheet for initialization sequence
+// 	- ms_per_tick = ((f_osc/2)/prescaler)^-1*timer_period*interrupts_per_tick
+//                 = ((32MHz/2)/8)^-1*250*8
+// 		            = 1ms
 void TMRS_Init(void) {
   // initialize any potential timer so they all begin expired
   uint8_t i;
@@ -81,7 +79,7 @@ void TMRS_Init(void) {
   PR1 = TIMER_PERIOD;               // configure the timer period
 	
 	// configure the Timer1 interrupt
-  //_T1IP = 4;                      // configure interrupt priority
+  _T1IP = 7;                        // configure interrupt priority (7 = highest, almost always executes on queue)
   _T1IF = 0;	                      // begin with the interrupt flag cleared
   _T1IE = 1;	                      // enable the interrupt
 	
@@ -99,10 +97,10 @@ void TMRS_StartTimer(uint8_t timer_number, uint32_t new_time) {
 bool TMRS_IsTimerExpired(uint8_t timer_number) {
   // BUG ALERT: stop interrupts!  This line takes several clock cylces to execute
   bool result;
-  //asm volatile ("disi #0x3FFF"); // disable interrupts
+  asm volatile ("disi #0x3FFF"); // disable interrupts
   result = (timers[timer_number].duration < 
 	         (TMRS_time() - timers[timer_number].start_time));
-  //asm volatile ("disi #0");      // enable interrupts
+  asm volatile ("disi #0");      // enable interrupts
   
   return result;
 }
@@ -122,16 +120,4 @@ void TMRS_Deinit(void) {
 void TMRS_Pause(uint32_t milliseconds) {
   uint32_t start_time = TMRS_time();
   while ((TMRS_time() - start_time) < milliseconds) {}
-}
-
-/*---------------------------Private Function Definitions---------------------*/
-static void TMRS_ISR(void) {
-  static uint8_t num_times_called = 0;
-  
-  IFS0bits.T1IF = 0;  // clear the source of the interrupt
-  
-  if (INTERRUPTS_PER_TICK <= ++num_times_called) {
-    num_times_called = 0;
-	  time++;
-	}
 }

@@ -130,8 +130,8 @@ void TWI_Init(const kTWIModule module,
 	    ConfigureBaudRate(kTWI02, baud_rate);
 	    
 	    I2C2CONbits.SMEN = is_SMBus;
-	    //I2C2CONbits.STREN = 0;
-	    //I2C2CONbits.GCEN = 0;
+	    I2C2CONbits.STREN = 0;
+	    I2C2CONbits.GCEN = 0;
 	
 	    _MI2C2IF = 0;
 	    _MI2C2IE = 1;
@@ -194,28 +194,19 @@ void TWI_RequestData(const kTWIModule module, const TWIDevice* device) {
 
 inline bool TWI_IsBusIdle(const kTWIModule module) {
   // see p.53 of Section 24 of PIC24F Family Reference Manual
-  // !SEN -- we are NOT in middle of sending a start condition
-  // !RSEN -- we are NOT in the middle of sending a repeated start condition
-  // !PEN -- we are NOT in middle of sending a stop condition
-  // !ACKEN -- we are NOT in middle of acknowledge sequence
-  // !TRSTAT -- we (master) are NOT in middle of transmitting 
-  //            (hardware clear at end of slave acknowledge)
-  // !S -- another master is NOT beginning a transmission 
   switch (module) {
     case kTWI01:
-      return (!I2C1CONbits.SEN && !I2C1CONbits.RSEN && !I2C1CONbits.PEN &&
-              !I2C1CONbits.RCEN && !I2C1CONbits.ACKEN &&
-              !I2C1STATbits.TRSTAT && !I2C1STATbits.S);
+      return (!I2C1CONbits.SEN && !I2C1CONbits.RSEN && !I2C1CONbits.PEN && 
+              !I2C1CONbits.RCEN && !I2C1CONbits.ACKEN && !I2C1STATbits.TRSTAT);
     case kTWI02:
-      return (!I2C2CONbits.SEN && !I2C2CONbits.RSEN && !I2C2CONbits.PEN &&
-              !I2C2CONbits.RCEN && !I2C2CONbits.ACKEN &&
-              !I2C2STATbits.TRSTAT && !I2C2STATbits.S);
+      return (!I2C2CONbits.SEN && !I2C2CONbits.RSEN && !I2C2CONbits.PEN && 
+              !I2C2CONbits.RCEN && !I2C2CONbits.ACKEN && !I2C2STATbits.TRSTAT);  
     case kTWI03:
-      return (!I2C3CONbits.SEN && !I2C3CONbits.RSEN && !I2C3CONbits.PEN &&
-              !I2C3CONbits.RCEN && !I2C3CONbits.ACKEN &&
-              !I2C3STATbits.TRSTAT && !I2C3STATbits.S);
+      return (!I2C3CONbits.SEN && !I2C3CONbits.RSEN && !I2C3CONbits.PEN && 
+              !I2C3CONbits.RCEN && !I2C3CONbits.ACKEN && !I2C3STATbits.TRSTAT);
+    default:
+      return NO;
   }
-  return NO;
 }
 
 
@@ -271,24 +262,12 @@ bool TWI_ErrorHasOccurred(const kTWIModule module) {
     case kTWI01:
       return (I2C1STATbits.BCL || I2C1STATbits.I2COV || 
               I2C1STATbits.IWCOL || error_flags[kTWI01]);
-    case kTWI02: {
-      bool result = (I2C2STATbits.BCL || I2C2STATbits.I2COV ||
+    case kTWI02:
+      return (I2C2STATbits.BCL || I2C2STATbits.I2COV ||
               I2C2STATbits.IWCOL || error_flags[kTWI02]);
-      if (result == 1) {
-        Nop();
-        result = 1;
-      }
-      return result;
-    }  
-    case kTWI03: {
-      bool result = (I2C3STATbits.BCL || I2C3STATbits.I2COV || 
+    case kTWI03:
+      return (I2C3STATbits.BCL || I2C3STATbits.I2COV || 
               I2C3STATbits.IWCOL || error_flags[kTWI03]);
-      if (result == 1) {
-        Nop();
-        result = 1;
-      }
-      return result;
-    }  
     default:
       return YES;
   }
@@ -428,6 +407,7 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C1Interrupt(void) {
    	    } else if (indications[kTWI01] == kIndicationWrite) {
    	      I2C1TRN = buffers[kTWI01][(logical_lengths[kTWI01] - 
    	                                 remaining_tx_bytes[kTWI01])];
+   	      //remaining_tx_bytes[kTWI01]--;
    	      states[kTWI01] = kWriting;
  	      }
  	    } else {
@@ -529,6 +509,8 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
    	    states[kTWI02] = kSelectingDevice;
  	    } else {
  	      TWI_Refresh(kTWI02);
+ 	      Nop();
+ 	      Nop();
  	    }
  	    break;
  	  case kSelectingDevice:
@@ -537,6 +519,8 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
      	  states[kTWI02] = kSelectingRegister;
  	    } else {
  	      TWI_Refresh(kTWI02);
+ 	      Nop();
+ 	      Nop();
  	    }
  	    break;
  	  case kSelectingRegister:
@@ -547,10 +531,13 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
    	    } else if (indications[kTWI02] == kIndicationWrite) {
    	      I2C2TRN = buffers[kTWI02][(logical_lengths[kTWI02] - 
    	                                 remaining_tx_bytes[kTWI02])];
+   	      //remaining_tx_bytes[kTWI02]--;
    	      states[kTWI02] = kWriting;
  	      }
  	    } else {
  	      TWI_Refresh(kTWI02);
+ 	      Nop();
+ 	      Nop();
  	    }
  	    break;
  	  case kWriting:
@@ -565,6 +552,8 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
    	    remaining_tx_bytes[kTWI02]--;
    	  } else {
  	      TWI_Refresh(kTWI02);
+ 	      Nop();
+ 	      Nop();
  	    }
  	    break;
  	  case kShortstopping:
@@ -573,6 +562,8 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
    	    states[kTWI02] = kRestarting;
    	  } else {
  	      TWI_Refresh(kTWI02);
+ 	      Nop();
+ 	      Nop();
  	    }
  	    break;
  	  case kRestarting:
@@ -581,6 +572,8 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
    	    states[kTWI02] = kReselectingDevice;
    	  } else {
  	      TWI_Refresh(kTWI02);
+ 	      Nop();
+ 	      Nop();
  	    }
  	    break;
  	  case kReselectingDevice:
@@ -589,6 +582,8 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
  	      states[kTWI02] = kReading;
  	    } else {
  	      TWI_Refresh(kTWI02);
+ 	      Nop();
+ 	      Nop();
  	    }
  	    break;
  	  case kReading:
@@ -602,6 +597,8 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
         states[kTWI02] = kFinishingAck;
       } else {
  	      TWI_Refresh(kTWI02);
+ 	      Nop();
+ 	      Nop();
  	    }
  	    break;
  	  case kFinishingAck:
@@ -615,6 +612,8 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
    	    }
    	  } else {
  	      TWI_Refresh(kTWI02);
+ 	      Nop();
+ 	      Nop();
  	    }
  	    break;
  	  case kStopping:
@@ -623,6 +622,8 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void) {
    	    states[kTWI02] = kWaiting;
  	    } else {
  	      TWI_Refresh(kTWI02);
+ 	      Nop();
+ 	      Nop();
  	    }
  	    break;
  	  default:
@@ -664,6 +665,7 @@ void __attribute__((__interrupt__, auto_psv)) _MI2C3Interrupt(void) {
    	    } else if (indications[kTWI03] == kIndicationWrite) {
    	      I2C3TRN = buffers[kTWI03][(logical_lengths[kTWI03] - 
    	                                 remaining_tx_bytes[kTWI03])];
+   	      //remaining_tx_bytes[kTWI03]--;
    	      states[kTWI03] = kWriting;
  	      }
  	    } else {

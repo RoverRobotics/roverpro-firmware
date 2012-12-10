@@ -15,20 +15,20 @@ Notes:
 #include "./PPS.h"
 
 /*---------------------------Macros-------------------------------------------*/
-#define TICKS_PER_MS          2000  // for divide-by-8 prescaler
+#define TICKS_PER_US          16    // for divide-by-1 prescaler, PR2 = 1023
 #define N_PWM_MODULES         9     // the maximum number of I2C modules
                                     // available on this microcontroller
 
 /*---------------------------Helper Function Prototypes-----------------------*/
-static void ConfigureOC1(uint16_t ms);
-static void ConfigureOC2(uint16_t ms);
-static void ConfigureOC3(uint16_t ms);
-static void ConfigureOC4(uint16_t ms);
-static void ConfigureOC5(uint16_t ms);
-static void ConfigureOC6(uint16_t ms);
-static void ConfigureOC7(uint16_t ms);
-static void ConfigureOC8(uint16_t ms);
-static void ConfigureOC9(uint16_t ms);
+static void ConfigureOC1(uint16_t us);
+static void ConfigureOC2(uint16_t us);
+static void ConfigureOC3(uint16_t us);
+static void ConfigureOC4(uint16_t us);
+static void ConfigureOC5(uint16_t us);
+static void ConfigureOC6(uint16_t us);
+static void ConfigureOC7(uint16_t us);
+static void ConfigureOC8(uint16_t us);
+static void ConfigureOC9(uint16_t us);
 static void InitTimer2(void);
 
 /*---------------------------Module Variables---------------------------------*/
@@ -39,23 +39,23 @@ static uint16_t periods[N_PWM_MODULES] = {0};	// units of Timer2Ticks
 #ifdef TEST_PWM
 #include "./ConfigurationBits.h"
 
-/*
-TODO: RE-MAKE UNIT TEST NOW THAT PUBLIC INTERFACE HAS CHANGED
 int main(void) {
 	unsigned char dutyCycle = 0;
 
-	PWM_Init(1, 2, 10);
-	
+	PWM_Init(kPWM01, 17, 33);
+	PWM_UpdateDutyCycle(kPWM01, 0.5);
 	while (1) {
-		Delay(1000);
-		if (100 < ++dutyCycle) dutyCycle = 0;
-		PWM_UpdateDutyCycle(dutyCycle);
+	//	Delay(1000);
+ 	//	static float duty_cycle = 0;
+	//	duty_cycle += 0.1;
+ 	//	if (1.0 < duty_cycle) dutyCycle = 0;
+	//	PWM_UpdateDutyCycle(kPWM01, duty_cycle);
 	}
 
-	PWM_Deinit();
+	PWM_Deinit(kPWM01);
 	return 0;
 }
-*/
+
 #endif
 /*---------------------------Public Function Definitions----------------------*/
 void PWM_Init(const kPWMModule module, 
@@ -156,8 +156,8 @@ void PWM_Deinit(const kPWMModule module) {
 }
 
 /*---------------------------Helper Function Definitions----------------------*/
-static void ConfigureOC1(const uint16_t ms) {
-	periods[kPWM01] = ms * TICKS_PER_MS;
+static void ConfigureOC1(const uint16_t us) {
+	periods[kPWM01] = us * TICKS_PER_US;
 	OC1RS = periods[kPWM01];
 	PWM_UpdateDutyCycle(kPWM01, 0);
 	OC1CON2bits.SYNCSEL = 0x1f;		// this OC module
@@ -168,8 +168,8 @@ static void ConfigureOC1(const uint16_t ms) {
 }
 
 
-static void ConfigureOC2(uint16_t ms) {
-	periods[kPWM02] = ms * TICKS_PER_MS;
+static void ConfigureOC2(uint16_t us) {
+	periods[kPWM02] = us * TICKS_PER_US;
 	OC2RS = periods[kPWM02];
 	PWM_UpdateDutyCycle(kPWM02, 0);
 	OC2CON2bits.SYNCSEL = 0x1f;
@@ -179,8 +179,8 @@ static void ConfigureOC2(uint16_t ms) {
 }
 
 
-static void ConfigureOC3(uint16_t ms) {
-	periods[kPWM03] = ms * TICKS_PER_MS;
+static void ConfigureOC3(uint16_t us) {
+	periods[kPWM03] = us * TICKS_PER_US;
 	OC3RS = periods[kPWM03];
 	PWM_UpdateDutyCycle(kPWM03, 0);
 	OC3CON2bits.SYNCSEL = 0x1f;
@@ -190,8 +190,8 @@ static void ConfigureOC3(uint16_t ms) {
 }
 
 
-static void ConfigureOC4(uint16_t ms) {
-	periods[kPWM04] = ms * TICKS_PER_MS;
+static void ConfigureOC4(uint16_t us) {
+	periods[kPWM04] = us * TICKS_PER_US;
 	OC4RS = periods[kPWM04];
 	PWM_UpdateDutyCycle(kPWM04, 0);
 	OC4CON2bits.SYNCSEL = 0x1f;
@@ -200,8 +200,8 @@ static void ConfigureOC4(uint16_t ms) {
 	OC4CON1bits.OCTSEL  = 0b000;
 }
 
-static void ConfigureOC5(uint16_t ms) {
-	periods[kPWM05] = ms * TICKS_PER_MS;
+static void ConfigureOC5(uint16_t us) {
+	periods[kPWM05] = us * TICKS_PER_US;
 	OC5RS = periods[kPWM05];
 	PWM_UpdateDutyCycle(kPWM05, 0);
 	OC5CON2bits.SYNCSEL = 0x1f;
@@ -211,8 +211,8 @@ static void ConfigureOC5(uint16_t ms) {
 }
 
 
-static void ConfigureOC6(uint16_t ms) {
-	periods[kPWM06] = ms * TICKS_PER_MS;
+static void ConfigureOC6(uint16_t us) {
+	periods[kPWM06] = us * TICKS_PER_US;
 	OC6RS = periods[kPWM06];
 	PWM_UpdateDutyCycle(kPWM06, 0);
 	OC6CON2bits.SYNCSEL = 0x1f;
@@ -222,8 +222,8 @@ static void ConfigureOC6(uint16_t ms) {
 }
 
 
-static void ConfigureOC7(uint16_t ms) {
-	periods[kPWM07] = ms * TICKS_PER_MS;
+static void ConfigureOC7(uint16_t us) {
+	periods[kPWM07] = us * TICKS_PER_US;
 	OC7RS = periods[kPWM07];
 	PWM_UpdateDutyCycle(kPWM07, 0);
 	OC7CON2bits.SYNCSEL = 0x1f;
@@ -233,8 +233,8 @@ static void ConfigureOC7(uint16_t ms) {
 }
 
 
-static void ConfigureOC8(uint16_t ms) {
-	periods[kPWM08] = ms * TICKS_PER_MS;
+static void ConfigureOC8(uint16_t us) {
+	periods[kPWM08] = us * TICKS_PER_US;
 	OC8RS = periods[kPWM08];
 	PWM_UpdateDutyCycle(kPWM08, 0);
 	OC8CON2bits.SYNCSEL = 0x1f;
@@ -244,8 +244,8 @@ static void ConfigureOC8(uint16_t ms) {
 }
 
 
-static void ConfigureOC9(uint16_t ms) {
-	periods[kPWM09] = ms * TICKS_PER_MS;
+static void ConfigureOC9(uint16_t us) {
+	periods[kPWM09] = us * TICKS_PER_US;
 	OC9RS = periods[kPWM09];
 	PWM_UpdateDutyCycle(kPWM09, 0);
 	OC9CON2bits.SYNCSEL = 0x1f;
@@ -258,7 +258,7 @@ static void ConfigureOC9(uint16_t ms) {
 static void InitTimer2(void) {
 	// using as 16-bit timer
 	// NB: all PWM modules are based on this timer
-	T2CONbits.TCKPS = 0b01;		// configure prescaler to divide-by-8 (p.166)
-	PR2 = 0xffff;         		// configure the timer period
+	T2CONbits.TCKPS = 0b00;		// configure prescaler to divide-by-1 (p.166)
+	PR2 = 1023;           	  // configure the timer period
 	T2CONbits.TON = 1;				// turn on the timer
 }

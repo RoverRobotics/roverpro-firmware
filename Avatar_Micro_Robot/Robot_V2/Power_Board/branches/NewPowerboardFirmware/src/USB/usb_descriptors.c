@@ -29,41 +29,46 @@ USB_DEVICE_DESCRIPTOR device_dsc = {
 };
 
 // Configuration 1 Descriptor
-ROM BYTE configDescriptor1[] = {
-	// Configuration Descriptor
-	0x09,                         // Size of this descriptor in bytes
-	USB_DESCRIPTOR_CONFIGURATION, // CONFIGURATION descriptor type
-	0x20,0x00,                    // Total length of data for this cfg
-	1,                            // Number of interfaces in this cfg
-	1,                            // Index value of this configuration
-	0,                            // Configuration string index
-	_DEFAULT | _SELF,             // Attributes, see usb_device.h
-	50,                           // Max power consumption (2X mA)
-						
-	// Interface Descriptor
-	0x09,                         // Size of this descriptor in bytes
-	USB_DESCRIPTOR_INTERFACE,     // INTERFACE descriptor type
-	0,                            // Interface Number
-	0,                            // Alternate Setting Number
-	2,                            // Number of endpoints in this intf
-	0xFF,                         // Class code
-	0xFF,                         // Subclass code
-	0xFF,                         // Protocol code
-	0,                            // Interface string index
-	
-	// Endpoint Descriptor
-	0x07,                         // sizeof(USB_EP_DSC)
-	USB_DESCRIPTOR_ENDPOINT,      // Endpoint Descriptor
-	_EP01_OUT,                    // EndpointAddress
-	_ISO,                         // Attributes
-	0xFF, 0xFF,
-	1,                            // Interval
-	0x07,                         // sizeof(USB_EP_DSC)
-	USB_DESCRIPTOR_ENDPOINT,      // Endpoint Descriptor
-	_EP01_IN,                     // EndpointAddress
-	_ISO,                         // Attributes
-	0xFF, 0xFF,
-	1                             // Interval
+ROM BYTE configDescriptor1[]={
+    /* Configuration Descriptor */
+    0x09,                         // Size of this descriptor in bytes
+    USB_DESCRIPTOR_CONFIGURATION, // CONFIGURATION descriptor type
+    0x20,0x00,                    // Total length of data for this cfg
+    1,                            // Number of interfaces in this cfg
+    1,                            // Index value of this configuration
+    0,                            // Configuration string index
+    _DEFAULT | _SELF,             // Attributes, see usb_device.h
+    50,                           // Max power consumption (2X mA)
+							
+    /* Interface Descriptor */
+    0x09,//sizeof(USB_INTF_DSC),  // Size of this descriptor in bytes
+    USB_DESCRIPTOR_INTERFACE,     // INTERFACE descriptor type
+    0,                            // Interface Number
+    0,                            // Alternate Setting Number
+    2,                            // Number of endpoints in this intf
+    0xFF,                         // Class code
+    0xFF,                         // Subclass code
+    0xFF,                         // Protocol code
+    0,                            // Interface string index
+    
+    /* Endpoint Descriptor */
+    0x07,                         // sizeof(USB_EP_DSC)
+    USB_DESCRIPTOR_ENDPOINT,      // Endpoint Descriptor
+    _EP01_OUT,                    // EndpointAddress
+    _ISO,                         // Attributes
+//    OUT_PACKET_LENGTH & 0xFF,
+//    (OUT_PACKET_LENGTH>>8) & 0xFF,// size
+    0xFF, 0xFF,
+    1,                            // Interval
+    
+    0x07,                         // sizeof(USB_EP_DSC)
+    USB_DESCRIPTOR_ENDPOINT,      // Endpoint Descriptor
+    _EP01_IN,                     // EndpointAddress
+    _ISO,                         // Attributes
+//    IN_PACKET_LENGTH & 0xFF,
+//    (IN_PACKET_LENGTH>>8) & 0xFF, // size
+    0xFF, 0xFF,
+    1                             // Interval
 };
 
 

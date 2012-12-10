@@ -1,9 +1,15 @@
 /*==============================================================================
 File: drivetrain.h
  
-Description: This module provides an interface to the drivetrain on the robot.
+Description: This module provides an interface to the robot drivetrain.
 
-// TODO: implement later, for user level
+TODO: ideally a motor would be a struct that owns the following data
+typedef struct {
+  float desired_speed;
+  float actual_speed;
+  Direction direction;    // TODO: typedef Direction kForward, kReverse
+  uint16_t temperature;
+} Motor;
 
 Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 ==============================================================================*/
@@ -21,7 +27,8 @@ typedef enum {
 
 /*---------------------------Public Functions---------------------------------*/
 // Function: DT_Init
-// Description: Initializes the given motor.
+// Description: Initializes the given motor.  Note that the powerbus must be
+//   turned on as well.
 void DT_Init(const kMotor motor);
 
 // Function: DT_Run
@@ -38,7 +45,7 @@ void DT_set_speed(const kMotor motor, const float speed);
 
 // Function: DT_speed
 // Description: Getter to retreive the last-updated actual speed of the given
-//   motor.
+//   motor.  A negative speed means the motor track is in reverse.
 float DT_speed(const kMotor motor);
 
 #endif
