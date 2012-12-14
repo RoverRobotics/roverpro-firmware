@@ -13,8 +13,8 @@
 #define HEARTBEAT_PIN         (_RE5)
 #define RED_EN(a)             (_TRISD2 = !(a)); (_ODD2 = (a))
 #define GREEN_EN(a)           (_TRISD3 = !(a)); (_ODD3 = (a))
-#define TURN_RED(a)           (_LATD2 = !(a))
-#define TURN_GREEN(a)         (_LATD3 = !(a))
+#define TURN_RED(a)           (_LATD2 = !(a)); Nop(); Nop() // to give pin time to float up if needed
+#define TURN_GREEN(a)         (_LATD3 = !(a)); Nop(); Nop()
 
 // PWM
 #define T_PWM                 10   // [ms]
@@ -26,10 +26,13 @@
 #define HEARTBEAT_TIME        500  // [ms]
 #define G_UPDATE_TIMER        1
 #define G_UPDATE_TIME         500
+#define R_UPDATE_TIMER        2
+#define R_UPDATE_TIME         500
 
 //---------------------------Helper Function Prototypes-------------------------
 static void RunHeart(void);
-static void RunGreen(void);
+static void RunWaitingRoutine(void);
+static void RunErringRoutine(void);
 
 //---------------------------Module Variables-----------------------------------
 static volatile kUIState current_state = kUIStateWaiting;
@@ -41,14 +44,11 @@ static volatile kUIState current_state = kUIStateWaiting;
 int main(void) {
   TMRS_Init();
   UI_Init();
-  // test that we can turn on the green LED
+  // comment in each state to ensure we get the desired behavior
   //UI_set_state(kUIStateWaiting);
-  
-  // test that we can turn on the red LED
-  UI_set_state(kUIStateErring);
-  
-  // test that we can toggle the green LED at a pleasant rate
   //UI_set_state(kUIStateCharging);
+  //UI_set_state(kUIStateDoneCharging);
+  UI_set_state(kUIStateErring);
   while (1) {
     UI_Run();
   }
@@ -60,17 +60,18 @@ int main(void) {
 //---------------------------Public Function Implementations--------------------
 void UI_Init(void) {
   // configure and initialize any pins
-  HEARTBEAT_EN(1); HEARTBEAT_PIN = 0;
-  RED_EN(1); TURN_RED(OFF);
-  GREEN_EN(1); TURN_GREEN(OFF);
+  HEARTBEAT_EN(YES); HEARTBEAT_PIN = 0;
+  RED_EN(YES); TURN_RED(OFF);
+  GREEN_EN(YES); TURN_GREEN(OFF);
 }
 
 void UI_Run(void) {
   RunHeart();
   switch (current_state) {
-    case kUIStateWaiting: break;
-    case kUIStateCharging: RunGreen(); break;
-    case kUIStateErring: break;
+    case kUIStateWaiting: RunWaitingRoutine(); break;
+    case kUIStateCharging: break;
+    case kUIStateDoneCharging: break;
+    case kUIStateErring: RunErringRoutine(); break;
     default: while(1); break; // indicate an error
   }
 }
@@ -78,15 +79,19 @@ void UI_Run(void) {
 void UI_set_state(const kUIState state) {
   switch (state) {
     case kUIStateWaiting:
-      TURN_RED(OFF); TURN_GREEN(ON);
+      TURN_RED(OFF); TURN_GREEN(OFF);
       current_state = kUIStateWaiting;
       break;
     case kUIStateCharging:
-      TURN_RED(OFF); TURN_GREEN(OFF);
+      TURN_GREEN(OFF); TURN_RED(ON);
       current_state = kUIStateCharging;
       break;
+    case kUIStateDoneCharging:
+      TURN_RED(OFF); TURN_GREEN(ON);
+      current_state = kUIStateDoneCharging;
+      break;
     case kUIStateErring:
-      TURN_GREEN(OFF); Nop(); TURN_RED(ON); Nop();
+      TURN_GREEN(OFF); TURN_RED(OFF);
       current_state = kUIStateErring;
       break;
   }
@@ -96,13 +101,30 @@ kUIState UI_state(void) {
   return current_state;
 }
 
+
+void UI_Deinit(void) {
+  TURN_RED(OFF);
+  TURN_GREEN(OFF);
+  HEARTBEAT_PIN = 0;
+}
+
 //---------------------------Helper Function Implementations--------------------
-static void RunGreen(void) {
+static void RunWaitingRoutine(void) {
   static uint8_t last_state = 0;
-  // toggle the LED to indicate normal charging
+  // toggle the green LED
   if (TMRS_IsTimerExpired(G_UPDATE_TIMER)) {
     TMRS_StartTimer(G_UPDATE_TIMER, G_UPDATE_TIME);
     TURN_GREEN(last_state);
+    last_state ^= 1;
+  }
+}
+
+static void RunErringRoutine(void) {
+  static uint8_t last_state = 0;
+  // toggle the red LED
+  if (TMRS_IsTimerExpired(R_UPDATE_TIMER)) {
+    TMRS_StartTimer(R_UPDATE_TIMER, R_UPDATE_TIME);
+    TURN_RED(last_state);
     last_state ^= 1;
   }
 }

@@ -32,7 +32,7 @@ static void ADC_ExecuteISR(void);
 
 /*---------------------------Module Variables---------------------------------*/
 static uint16_t consumed_pins = 0;		// bit mask of consumed pins
-static uint16_t buffer[MAX_N_AD_INPUTS] = {0};
+extern uint16_t buffer[MAX_N_AD_INPUTS] = {0};
 
 /*---------------------------Test Harness-------------------------------------*/
 #ifdef TEST_ADC

@@ -7,10 +7,11 @@ Description: This is the overarching file that encompasses the application-level
 Notes:
   - intended for BB-2590
     two (2) cells in parallel each comprised of four (4) modules in series
-  - works on custom battery as well?
+  - TODO: works on custom battery as well?
   - consumes I2C1, I2C2, and I2C3 hardware modules
-  - NOT non-blocking or most ideal in terms of clarity, but it gets the initial
-    job done...
+  - NOT non-blocking or most ideal in terms of clarity
+  - note that the method of detecting a battery varies by state
+   
   
 Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 *******************************************************************************/
@@ -37,10 +38,10 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 #define SIDEB_CONNECT         _LATG6
 #define BQ24745_EN_EN(a)      (_TRISF3 = !(a)); Nop()
 #define BQ24745_EN            _LATF3
-// NB: configured as open-drain output, must be on a pin 
+// NB: configured as open-drain output, must be on a pin
 // that does NOT have analog sensing ability
-#define BATTERY_CHARGE_EN_EN(a) (_TRISE4 = !(a));
-#define BATTERY_CHARGE_EN(a)  (_ODE4 = !(a));     // active-low
+#define BATTERY_CHARGE_EN_EN(a) (_TRISE4 = !(a)); (_ODE4 = (a))
+#define BATTERY_CHARGE_EN(a)    (_LATE4 = !(a));  Nop(); Nop()
 
 //---analog sensing pins (ANx)
 #define SIDEA_I_PIN           7     // side A current sensing
@@ -65,35 +66,27 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 #define REVIVE_SAFETY_TIME    (_1m)
 #define COOLDOWN_TIMER        7
 #define COOLDOWN_TIME         (_100ms)
-#define BALANCE_TIMER         8
-#define BALANCE_TIME          (10*_1s)
-#define BALANCE_CHECK_TIMER   9
-#define BALANCE_CHECK_TIME    (10*_1s)
-#define SMB1_TIMEOUT_TIMER    10
-#define SMB1_TIMEOUT_TIME     (_10ms)
-#define SMB2_TIMEOUT_TIMER    11
-#define SMB2_TIMEOUT_TIME     (_10ms)
-#define SMB3_TIMEOUT_TIMER    12
-#define SMB3_TIMEOUT_TIME     (_10ms)
+//#define SMB2_TIMEOUT_TIMER    8
+//#define SMB2_TIMEOUT_TIME     (_10ms)
 
 // filters
-#define ALPHA                 0.2
+#define ALPHA                 0.8
 #define SIDEA_I_FILTER        0
 #define SIDEA_V_FILTER        1
 #define SIDEB_I_FILTER        2
 #define SIDEB_V_FILTER        3
 
 // battery characterstics
-#define N_SIDES               2
 //#define CAPACITY              6     // [A*h], for smallest of our batteries
 #define I_REVIVE_MAX          600     // [mA], typically ~(0.1/h)*C
 #define I_SIDE_MAX            3000    // the maximum input current to cell
 //#define I_CC_STAGE          3000    // [mA], (0.2/h)*C to (0.7/h)*C
 #define I_IN_MAX              8000    // [mA], maximum input current to the
                                       // charging IC
-#define V_MAX_OUT             16500   // [V], maximum output voltage to an
+#define V_OUT_MAX             16500   // [V], maximum output voltage to an
                                       // individual cell
 #define I_CHARGE_DELTA        125     // [mA], overall charge current increment
+#define I_CHARGE_MAX          3000//4000    // [mV], the wall-wart can only deliver ~4.5A at 19V
 
 // power management threshold(s)
 // maximum allowable current to an individual cell
@@ -110,30 +103,31 @@ static const kADCReading kToppingVoltage = 680;
 static const kADCReading kReviveVoltage = 514;
 
 // maximum anticipated noise on an A/D line
-// (0.100V / 3.3V) * 1023=
-static const kADCReading kMaxADCNoise = 31;
+// (0.050V / 3.3V) * 1023=
+static const kADCReading kMaxADCNoise = 15; // NB: trickle current is ~25au
 
 // thresholds to validate the power supply
 // (7.5/(75 + 7.5) * 20V / 3.3) *1023=
-// (7.5/(75 + 7.5) * 18V / 3.3) *1023= // TODO: math doesn't work out, getting 455
-static const kADCReading kMaxWallwartVoltage = 570;
-static const kADCReading kMinWallwartVoltage = 400;
+// (7.5/(75 + 7.5) * 18V / 3.3) *1023= MATH DOESN'T WORK OUT
+// NB: the leakage current on the zener diode is on the order of the
+// overall current coming in and is affecting the measurement.  
+static const kADCReading kMaxWallwartVoltage = 500;
+static const kADCReading kMinWallwartVoltage = 400; // getting 455 at ~19V
 
 // current into a battery side below which charging should terminate
 // I_chargeTermination = 0.1/h * (C_overallBattery/2cellPerBattery)
 // (100mA/cell*4cells) => 400mA
-// 0.01S*(0.4A*0.05Ohm)*1k ~= 1.5V, (1.5 / 3.30) * 1023=
+// 0.01S*(0.4A*0.05Ohm)*1k ~= 1.5V, (1.5 / 3.30) * 1023= 
 static const kADCReading kChargeTerminationCurrent = 62;
 
 //---------------------------Type Definitions-----------------------------------
 // possible states
 typedef enum {
-  kPursuingMate = 0,
+  kValidatingWallwart = 0,
+  kPursuingBattery,
 	kAwakening,
 	kReviving,  // when reviving deeply-discharged batteries
 	kCharging,  // both constant-current and constant-voltage stages
-	kBalancing,
-	kCheckingBalance,
 	kInvestigatingOvercurrent,
 	kWaiting,
 	kHanging,
@@ -149,9 +143,14 @@ static void ConfigureChargingIC(const uint16_t I_in_max,
                                 const uint16_t V_out_max,
                                 const uint16_t I_out_max);
 static bool IsWallwartValid(void);
-static bool DidFindBattery(void);
-static bool DidReviveBattery(void);
-static bool DidDetectOvercurrent(void);
+static bool IsBatteryValid(void);
+static bool IsBatteryVoltageDetected(void);
+static bool IsNoCurrentFlowing(void);
+static bool IsBatteryRevived(void);
+static bool IsOvercurrentDetected(void);
+static bool IsBatteryCharged(void);
+static bool IsWallwartAttached(void);
+static void ResetCharger(void);
 
 //---------------------------Module Variables-----------------------------------
 static uint8_t bqdata[2] = {0};
@@ -162,8 +161,13 @@ static TWIDevice bq24745 = {
   .data = bqdata
 };
 
-extern kChargerState state = kPursuingMate;  // TODO: limit scope after debugging
- 
+// TODO: limit scope after debugging
+extern kChargerState state = kValidatingWallwart;
+extern kADCReading temp1 = 0;
+extern kADCReading temp2 = 0;
+extern kADCReading temp3 = 0;
+extern kADCReading temp4 = 0;
+
 //---------------------------Test Harness---------------------------------------
 #ifdef TEST_CHARGER
 #include "./core/ConfigurationBits.h"
@@ -186,117 +190,111 @@ void RunChargerSM(void) {
   static volatile uint16_t I_ch_max = I_REVIVE_MAX;
   
   UI_Run();
-  if (!DidFindBattery()) asm("reset");
-  RunCoreSM();
+  
+  // ensure the charger does NOT stay powered while
+  // on the battery after the wall-wart is removed
+  if (!IsWallwartAttached()) ResetCharger();
   
   // keep the charging IC from timing out
   if (TMRS_IsTimerExpired(CHARGER_REFRESH_TIMER)) {
     TMRS_StartTimer(CHARGER_REFRESH_TIMER, CHARGER_REFRESH_TIME);
     I_ch_max += I_CHARGE_DELTA;
-    if ((I_SIDE_MAX * N_SIDES) < I_ch_max) I_ch_max = I_SIDE_MAX * N_SIDES;
+    if (I_CHARGE_MAX < I_ch_max) I_ch_max = I_CHARGE_MAX;
     if (TWI_ErrorHasOccurred(kTWI02)) TWI_Refresh(kTWI02);
-    ConfigureChargingIC(I_IN_MAX, V_MAX_OUT, I_ch_max);
+    ConfigureChargingIC(I_IN_MAX, V_OUT_MAX, I_ch_max);
   }
   
-  // always check whether the battery has been pulled
-  if (!DidFindBattery()) asm("reset");
-  
   switch (state) {
-    case kPursuingMate:
-      if (DidFindBattery()) {
-        TMRS_StartTimer(REVIVE_SAFETY_TIMER, REVIVE_SAFETY_TIME);
-        state = kReviving;
+    case kValidatingWallwart:
+      if (IsWallwartAttached() && IsWallwartValid()) {
+        I_ch_max = I_REVIVE_MAX;
+        ConfigureChargingIC(I_IN_MAX, V_OUT_MAX, I_REVIVE_MAX);
+        state = kPursuingBattery;
+        return;
+      } else {
+        UI_set_state(kUIStateErring);
+        state = kHanging;
+        return;
+      }
+      break;
+    case kPursuingBattery:
+      if (IsBatteryVoltageDetected() && IsBatteryValid()) {
         UI_set_state(kUIStateCharging);
+        BQ24745_EN = 1; // enable the charging IC
+        Delay(100);     // BUG ALERT: give some time to ensure a new A/D reading, working regulator
+        state = kReviving;
         return;
       }
       break;
     case kReviving:
       // if the battery is sufficiently revived
-      if (DidReviveBattery()) {
+      if (IsBatteryRevived()) {
         // move on and allow higher-current charging
-        I_ch_max = I_SIDE_MAX*N_SIDES;
+        I_ch_max = I_CHARGE_MAX;
+        ConfigureChargingIC(I_IN_MAX, V_OUT_MAX, I_ch_max);
+        Delay(50); // BUG ALERT: give some time to get new A/D reading and to begin regulating for sufficient current to battery?
         state = kCharging;
+        return;
+      }
+      
+      // if the battery was pulled, reset
+      if (IsNoCurrentFlowing()) {
+        Nop();
+        Nop();
+        ResetCharger();
       }
       break;
     case kCharging:
-      if (!DidFindBattery()) asm("reset");
+      /*
+      // if we detect a short on either side through the voltage sagging
+      if ((IIRFilter(SIDEA_V_FILTER, ADC_value(SIDEA_V_PIN), ALPHA) < 
+           kReviveVoltage) ||
+          (IIRFilter(SIDEB_V_FILTER, ADC_value(SIDEB_V_PIN), ALPHA) < 
+          kReviveVoltage)) {
+         SIDEA_CONNECT = 0; SIDEB_CONNECT = 0;
+         BQ24745_EN = 0;
+         CHARGER_CONNECT = 0;
+         UI_set_state(kUIStateErring);
+         state = kHanging;
+      }
+      */
     
       // prevent too much current from going to an individual cell
-      if (DidDetectOvercurrent()) {
+      if (IsOvercurrentDetected()) {
         SIDEA_CONNECT = 0; SIDEB_CONNECT = 0;
         TMRS_StartTimer(COOLDOWN_TIMER, COOLDOWN_TIME);
         state = kInvestigatingOvercurrent;
         return;
       }
       
-      // if the battery has sufficiently charged
-      if ((IIRFilter(SIDEA_I_FILTER, ADC_value(SIDEA_I_PIN), ALPHA) <
-           kChargeTerminationCurrent) &&
-          (IIRFilter(SIDEB_V_FILTER, ADC_value(SIDEB_V_PIN), ALPHA) <
-           kChargeTerminationCurrent)) {
-        // disconnect
-        SIDEA_CONNECT = 0; SIDEB_CONNECT = 0;
+      if (IsBatteryCharged()) {
+        // disable the charger, so we can sense the voltage on the battery
+        BQ24745_EN = 0;
+        Delay(1000);
+        UI_set_state(kUIStateDoneCharging);
         state = kWaiting;
         return;
       }
       
-      // prevent one cell from charging the other by
-      // giving the less-charged cell time to catch up
-      if (IIRFilter(SIDEA_I_FILTER, ADC_value(SIDEA_I_PIN), ALPHA) < kMaxADCNoise) {
-        SIDEA_CONNECT = 0; SIDEB_CONNECT = 1;
-        TMRS_StartTimer(BALANCE_TIMER, BALANCE_TIME);
-        state = kBalancing;
-        return;
-      }
-      if (IIRFilter(SIDEB_I_FILTER, ADC_value(SIDEB_I_PIN), ALPHA) < kMaxADCNoise) {
-        SIDEA_CONNECT = 1; SIDEB_CONNECT = 0;
-        TMRS_StartTimer(BALANCE_TIMER, BALANCE_TIME);
-        state = kBalancing;
-        return;
-      }
-      break;
-    case kBalancing:
-      // prevent too much current from going to an individual side
-      if (DidDetectOvercurrent()) {
-        SIDEA_CONNECT = 0; SIDEB_CONNECT = 0;
-        TMRS_StartTimer(COOLDOWN_TIMER, COOLDOWN_TIME);
-        state = kInvestigatingOvercurrent;
-        return;
+      // if the battery was pulled, reset
+      // NB: IMPORTANT THAT THIS IS LAST, MOST RESTRICTIVE CURRENT CHECK
+      if (IsNoCurrentFlowing()) {
+        Nop();
+        Nop();
+        ResetCharger();
       }
       
-      // connect then wait to get a valid sample
-      if (TMRS_IsTimerExpired(BALANCE_TIMER)) {
-        TMRS_StartTimer(BALANCE_CHECK_TIMER, BALANCE_CHECK_TIME);
-        SIDEA_CONNECT = 1; SIDEB_CONNECT = 1;
-        state = kCheckingBalance;
-        return;
-      }
-      break;
-    case kCheckingBalance:
-      if (TMRS_IsTimerExpired(BALANCE_CHECK_TIMER)) {
-        // if one side is still charging the other, disconnect it
-        if (IIRFilter(SIDEA_I_FILTER, ADC_value(SIDEA_I_PIN), ALPHA) < kMaxADCNoise) {
-          SIDEA_CONNECT = 0; SIDEB_CONNECT = 1;
-          TMRS_StartTimer(BALANCE_TIMER, BALANCE_TIME);
-          state = kBalancing;
-        } else if (IIRFilter(SIDEB_I_FILTER, ADC_value(SIDEB_I_PIN), ALPHA) < kMaxADCNoise) {
-          SIDEA_CONNECT = 1; SIDEB_CONNECT = 0;
-          TMRS_StartTimer(BALANCE_TIMER, BALANCE_TIME);
-          state = kBalancing;
-        } else {  // otherwise try charging both again
-          state = kCharging;
-        }
-        return;
-      }
       break;
     case kInvestigatingOvercurrent:
+      Nop();
+      Nop();
       if (TMRS_IsTimerExpired(COOLDOWN_TIMER)) {
         if (ADC_value(SIDEA_I_PIN) < kMaxADCNoise &&
             ADC_value(SIDEB_I_PIN) < kMaxADCNoise) {
-          // decrement the overall current to the theoretical
+          // decrement the overall current
           I_ch_max -= I_CHARGE_DELTA;
           if (I_ch_max < I_REVIVE_MAX) I_ch_max = I_REVIVE_MAX;
-          ConfigureChargingIC(I_IN_MAX, V_MAX_OUT, I_ch_max);
+          ConfigureChargingIC(I_IN_MAX, V_OUT_MAX, I_ch_max);
           SIDEA_CONNECT = 1; SIDEB_CONNECT = 1;
           Delay(50);    // delay long enough to ensure a new A/D reading
           state = kCharging;
@@ -313,16 +311,21 @@ void RunChargerSM(void) {
       }
       break;
     case kWaiting:
-    // TODO: make sure the battery is charged when here
+      // if the battery was pulled, reset
+      // NB: the only way to check here is to monitor the voltage
+      if (!IsBatteryVoltageDetected()) {
+        Nop();
+        Nop();
+        ResetCharger();
+      }
+      
       // if the battery has sufficiently self-discharged
-      Nop();
-      if ((IIRFilter(SIDEA_V_FILTER, ADC_value(SIDEA_V_PIN), ALPHA) < kToppingVoltage) &&
-          (IIRFilter(SIDEB_V_FILTER, ADC_value(SIDEB_V_PIN), ALPHA) < kToppingVoltage)) {
-        // give it a go again
+      if ((ADC_value(SIDEA_V_PIN) < kToppingVoltage) &&
+          (ADC_value(SIDEB_V_PIN) < kToppingVoltage)) {
         I_ch_max = I_REVIVE_MAX;
-        CHARGER_CONNECT = 1;
-        ConfigureChargingIC(I_IN_MAX, V_MAX_OUT, I_ch_max);
-        SIDEA_CONNECT = 1; SIDEB_CONNECT = 1;
+        BQ24745_EN = 1;
+        ConfigureChargingIC(I_IN_MAX, V_OUT_MAX, I_ch_max);
+        UI_set_state(kUIStateCharging);
         state = kCharging;
         return;
       }
@@ -331,7 +334,13 @@ void RunChargerSM(void) {
       Nop();
       break;
     default:
-      UI_set_state(kUIStateErring);
+      // indicate a design error
+      while (1) {
+        UI_set_state(kUIStateDoneCharging); UI_Run();
+        Delay(1000);
+        UI_set_state(kUIStateCharging); UI_Run();
+        Delay(1000);
+      }
       Nop();
       break;
   }
@@ -341,30 +350,19 @@ void InitCharger(void) {
   InitPins();
   
   // initialize any dependent modules
-  ADC_Init((1 << SIDEA_I_PIN) |
-           (1 << SIDEA_V_PIN) |
-           (1 << SIDEB_I_PIN) |
-           (1 << SIDEB_V_PIN) |
-           (1 << WALLWART_V_PIN) | 
+  ADC_Init((1 << SIDEA_I_PIN)     |
+           (1 << SIDEA_V_PIN)     |
+           (1 << SIDEB_I_PIN)     |
+           (1 << SIDEB_V_PIN)     |
+           (1 << WALLWART_V_PIN)  | 
            (1 << THERMISTOR_V_PIN));
   TWI_Init(kTWI02, kTWIBaudRate100kHz, SMBUS);
   TMRS_Init();
   UI_Init();
   
-  // ensure we are being supplied a valid A/C adapter
-  Delay(50);  // ensure we get a valid A/D reading
-  if (!IsWallwartValid()) {
-    UI_set_state(kUIStateErring);
-    while (1) {UI_Run(); ClrWdt();};
-  }
-  
+  TMRS_StartTimer(CHARGER_REFRESH_TIMER, CHARGER_REFRESH_TIME);
+  Delay(50);  // allow the A/D conversions buffer to get populated, likely don't need this
   UI_set_state(kUIStateWaiting);
-  
-  BQ24745_EN = 1;
-  CHARGER_CONNECT = 1;
-  ConfigureChargingIC(I_IN_MAX, V_MAX_OUT, I_REVIVE_MAX);
-  Delay(50);    // allow the charging IC to begin regulating
-  SIDEA_CONNECT = 1; SIDEB_CONNECT = 1;    
 }
 
 //---------------------------Private Function Definitions-----------------------
@@ -386,6 +384,8 @@ static void ConfigureChargingIC(const uint16_t I_in_max,
   uint8_t message[2] = {0};
   const uint16_t kCurrentMask = 0x1F80;   // see p.20-23 of bq24645 datasheet
   const uint16_t kVoltageMask = 0x7FF0;
+  
+  if (TWI_ErrorHasOccurred(kTWI02)) TWI_Init(kTWI02, kTWIBaudRate100kHz, SMBUS);
   
   // configure the maximum input current
   temp = ((I_in_max >> 1) & kCurrentMask);// mask away ingored bits
@@ -418,28 +418,76 @@ static void InitPins(void) {
   CHARGER_CONNECT_EN(1); CHARGER_CONNECT = 1;
   SIDEA_CONNECT_EN(1); SIDEA_CONNECT = 1;
   SIDEB_CONNECT_EN(1); SIDEB_CONNECT = 1;
-  BQ24745_EN_EN(1); BQ24745_EN = 1;
+  // NB: charger must be DISABLED to sense the voltage on the battery
+  BQ24745_EN_EN(1); BQ24745_EN = 0;
   BATTERY_CHARGE_EN_EN(1); BATTERY_CHARGE_EN(1);
   Delay(5); // wait for the ACOK pin to settle
 }
 
 static bool IsWallwartValid(void) {
   uint16_t temp = ADC_value(WALLWART_V_PIN);
-  return (kMinWallwartVoltage < temp &&
-          temp < kMaxWallwartVoltage);
+  return ((kMinWallwartVoltage < temp) && (temp < kMaxWallwartVoltage));
 }
 
-static bool DidFindBattery(void) {
-  return ((kMaxADCNoise < IIRFilter(SIDEA_V_FILTER, ADC_value(SIDEA_V_PIN), ALPHA)) && 
-          (kMaxADCNoise < IIRFilter(SIDEB_V_FILTER, ADC_value(SIDEB_V_PIN), ALPHA)));
+static bool IsNoCurrentFlowing(void) {
+  static uint16_t n_times_here = 0;
+  temp1 = IIRFilter(SIDEA_I_FILTER, ADC_value(SIDEA_I_PIN), ALPHA);
+  temp2 = IIRFilter(SIDEB_I_FILTER, ADC_value(SIDEB_I_PIN), ALPHA);
+  if (1000 < ++n_times_here) {
+    n_times_here = 0;
+    return ((temp1 < kMaxADCNoise) && (temp1 < kMaxADCNoise));
+  }
+  return NO;
 }
 
-static bool DidReviveBattery(void) {
+// Description: Returns whether there is voltage at BOTH sides
+//   Note that this is only valid if the charger is disabled, otherwise
+//   we are just seeing the voltage produced by the buck subcircuit
+static bool IsBatteryVoltageDetected(void) {
+  return (((kMaxADCNoise < ADC_value(SIDEA_V_PIN)) &&
+           (kMaxADCNoise < ADC_value(SIDEB_V_PIN))));          
+}
+
+static bool IsBatteryRevived(void) {
   return ((kReviveVoltage < IIRFilter(SIDEA_V_FILTER, ADC_value(SIDEA_V_PIN), ALPHA)) &&
           (kReviveVoltage < IIRFilter(SIDEB_V_FILTER, ADC_value(SIDEB_V_PIN), ALPHA)));
 }
 
-static bool DidDetectOvercurrent(void) {
+static bool IsOvercurrentDetected(void) {
   return ((kMaxSideCurrent < IIRFilter(SIDEA_I_FILTER, ADC_value(SIDEA_I_PIN), ALPHA)) ||
           (kMaxSideCurrent < IIRFilter(SIDEB_I_FILTER, ADC_value(SIDEB_I_PIN), ALPHA)));
+}
+
+// Description: Returns whether there is little current flowing on both sides.
+//   Additionally filters the A/D sensing to ensure this check is not
+//   spuriosly tripped. 
+static bool IsBatteryCharged(void) {
+  static uint16_t n_times_here = 0;
+  temp3 = IIRFilter(SIDEA_I_FILTER, ADC_value(SIDEA_I_PIN), ALPHA);
+  temp4 = IIRFilter(SIDEB_I_FILTER, ADC_value(SIDEB_I_PIN), ALPHA);
+  if (1000 < ++n_times_here) {
+    n_times_here = 0;
+    return ((temp3 < kChargeTerminationCurrent) &&
+            (temp4 < kChargeTerminationCurrent));
+  }
+  return NO;
+}
+
+static bool IsBatteryValid(void) {
+  return (ADC_value(THERMISTOR_V_PIN) < kMaxADCNoise);
+}
+
+static bool IsWallwartAttached(void) {
+  return BQ24745_ACOK;
+}
+
+static void ResetCharger(void) {
+  UI_Deinit();
+  CHARGER_CONNECT = 0;
+  SIDEA_CONNECT = 0;
+  SIDEB_CONNECT = 0;
+  BQ24745_EN = 0;
+  BATTERY_CHARGE_EN(0);
+  //Delay(3000);  // make it obvious when we reset
+  asm("reset");
 }

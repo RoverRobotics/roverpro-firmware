@@ -15,8 +15,9 @@
 //---------------------------Type Definitions-----------------------------------
 // supported UI states
 typedef enum {
-	kUIStateCharging = 0,
-  kUIStateWaiting,
+  kUIStateWaiting = 0,
+	kUIStateCharging,
+  kUIStateDoneCharging,
   kUIStateErring
 } kUIState;
 
@@ -38,5 +39,7 @@ void UI_set_state(const kUIState state);
 // Function: UI_state
 // Description: Returns the current state of the UI
 kUIState UI_state(void);
+
+void UI_Deinit(void);
 
 #endif
