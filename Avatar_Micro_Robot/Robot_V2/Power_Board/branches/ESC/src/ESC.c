@@ -12,7 +12,7 @@ Notes:
 #include "./core/Timers.h"    // for timers
 #include "./core/ADC.h"       // for A/D conversions
 #include "./core/PPS.h"
-#include <limits.h>           // for UINT_MAX macro
+#include "./OC.h"
 
 //---------------------------Macros---------------------------------------------
 // analog sensing pins (ANx)
@@ -22,20 +22,19 @@ Notes:
 #define POT2_PIN            12
 #define POT3_PIN            13
 
-// digital outputs
-#define GATE_PORT_EN(a)     (TRISD = ((a << 5) | (a << 4) | (a << 3) |(a << 2) | (a << 1) | (a << 0)))
-#define GATE_PORT           (PORTD)  // TODO: only write to the six pins with mask
+// digital inputs
+#define HALL_A_EN(a)        (_TRISE5 = (a))
+#define HALL_A              (_RE5)
+#define HALL_B_EN(a)        (_TRISE6 = (a))
+#define HALL_B              (_RE6)
+#define HALL_C_EN(a)        (_TRISE7 = (a))
+#define HALL_C              (_RE7)
 
+// NB: the hall effect sensor inputs go to both input capture pins as well as digital inputs
 // input-capture inputs
-#define HALL_A_RPN          21   
+#define HALL_A_RPN          21
 #define HALL_B_RPN          19
 #define HALL_C_RPN          37  // input-only RPn
-
-// timer(s)
-#define _10ms               10
-#define _100ms              100
-#define CONTROL_TIMER       0
-#define CONTROL_TIME        (_10ms)
 
 #define N_PHASES            6
 
@@ -49,13 +48,15 @@ Description: This lookup table is used to write the commutation state to
 Notes:
   - the high-side and low-side transistor sequences
     must be written in a manner that protects against "shoot-through."
-    As we step through the states, this should NOT be an issue.  There are 
+    As we step through the states, this should NEVER occurr since there are 
     never two contiguous states where both the high and low-side of the 
     same transistor pair are on.
+  - this starting point of this table must also be synced with the hall-effect
+    sensor configuration
 */
-static const uint8_t kDriveTable[N_PHASES] = { 
-  0x18, 0x12, 0x06, 0x24, 0x21, 0x09
-};
+//static const uint8_t kDriveTable[N_PHASES] = { 
+//  0x18, 0x12, 0x06, 0x24, 0x21, 0x09
+//};
 
 //---------------------------Type Definitions-----------------------------------
 // possible states
@@ -71,18 +72,17 @@ static void InitInputCaptureTimebase(void);
 static void InitIC1(const uint8_t RPn);
 static void InitIC2(const uint8_t RPn);
 static void InitIC3(const uint8_t RPn);
+static uint8_t inline hall_state(void);
 
 //---------------------------Module Variables-----------------------------------
-static uint8_t current_phase = 0;
 
 //---------------------------Test Harness---------------------------------------
 #ifdef TEST_ESC
 #include "./core/ConfigurationBits.h"
 int main(void) {
   ESC_Init();
-  Delay(1000); GATE_PORT = kDriveTable[5];
+  ESC_StartMotor();
   while (1) {
-    ESC_Run();
   }
   
   return 0;
@@ -91,21 +91,18 @@ int main(void) {
 
 //---------------------------Interrupt Service Routines (ISRs)------------------
 void __attribute__((__interrupt__, auto_psv)) _IC1Interrupt(void) {
-  _IC1IF = 0;                                         // clear the source of the interrupt
-  GATE_PORT = kDriveTable[current_phase];             // update the drive state
-  if (N_PHASES <= ++current_phase) current_phase = 0; // advance the phase
+  _IC1IF = 0;                           // clear the source of the interrupt
+  Energize(hall_state()); // energizes the appropriate coils to move to the next position
 }
 
 void __attribute__((__interrupt__, auto_psv)) _IC2Interrupt(void) {
   _IC2IF = 0;
-  GATE_PORT = kDriveTable[current_phase];
-  if (N_PHASES <= ++current_phase) current_phase = 0;
+  Energize(hall_state());
 }
 
 void __attribute__((__interrupt__, auto_psv)) _IC3Interrupt(void) {
   _IC3IF = 0;
-  GATE_PORT = kDriveTable[current_phase];
-  if (N_PHASES <= ++current_phase) current_phase = 0;
+  Energize(hall_state());
 }
 
 //---------------------------Public Function Definitions------------------------
@@ -121,28 +118,13 @@ void ESC_Init(void) {
            (1 << POT3_PIN));
   */
   InitInputCapture();
+  OC_Init();
   TMRS_Init();
 }
 
-void ESC_Run(void) {
-  /*
-  static volatile kControllerState state = kRunning;
-  
-  switch (state) {
-    case kRunning:
-      if (TMRS_IsTimerExpired(CONTROL_TIMER)) {
-        TMRS_StartTimer(CONTROL_TIMER, CONTROL_TIME);
-        // advance to the next phase
-        static uint8_t current_phase = 0;
-        if (N_PHASES <= ++current_phase) current_phase = 0;
-        Commutate(current_phase);
-      }
-      break;
-    default:
-      // TODO: indicate an error
-      break;
-  }
-  */
+
+void ESC_StartMotor(void) {
+  Energize(hall_state());
 }
 
 void ESC_set_speed(const float speed) {
@@ -155,9 +137,19 @@ float ESC_speed(void) {
 }
 
 //---------------------------Helper Function Definitions------------------------
+static uint8_t inline hall_state(void) {
+  uint8_t tempA = HALL_A; Nop(); Nop();
+  uint8_t tempB = HALL_B; Nop(); Nop();
+  uint8_t tempC = HALL_C; Nop(); Nop();
+  // TODO: handle invalid hall_state of 0 or 7
+  return ((tempC << 2) | (tempB << 1) | (tempA << 0));
+}
+
 static void InitPins(void) {
   // initialize any digital I/O pin(s)
-	GATE_PORT_EN(1);
+  HALL_A_EN(1);
+  HALL_B_EN(1);
+  HALL_C_EN(1);
 }
 
 static void InitInputCapture(void) {

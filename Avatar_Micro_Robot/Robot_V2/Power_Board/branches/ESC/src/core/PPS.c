@@ -15,7 +15,7 @@ static inline void LockControlRegisters(void);
 /*---------------------------Public Function Definitions----------------------*/
 void inline PPS_MapPeripheral(unsigned char pin, unsigned char direction,
                               unsigned char function) {
-	UnlockControlRegisters();
+	//UnlockControlRegisters();
 	
 	// Compiler compains when attempting to pass a bit-field by reference.  
 	// Must hard-code for now :(
@@ -94,7 +94,7 @@ void inline PPS_MapPeripheral(unsigned char pin, unsigned char direction,
   	  break;
 	}
 
-	LockControlRegisters();
+	//LockControlRegisters();
 }
 
 /*---------------------------Helper Function Definitions----------------------*/

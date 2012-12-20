@@ -1,5 +1,5 @@
 /*==============================================================================
-File:ESC.h
+File: ESC.h
 
 Description: This file encapsulates the control of the brushless DC (BLDC) 
   motors on the robot.  Electronic Speed Controller (ESC).
@@ -20,15 +20,15 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 //---------------------------Dependencies---------------------------------------
 
 //---------------------------Public Functions-----------------------------------
+
+
 // Function: ESC_Init
 // Description: Initializes the electronic speed controller module.
 void ESC_Init(void);
 
-// Function: ESC_Run
-// Description: Keeps any internal operations running, most notably timing-out
-//   the feedback speed.  Place this in the main loop.
-void ESC_Run(void);
+void ESC_StartMotor(void);
 
+/*
 // Function: ESC_set_speed
 // Parameters:
 //   const float speed,   the speed effort to apply (0.0-to-1.0)
@@ -39,5 +39,6 @@ void ESC_set_speed(const float speed);
 // Description: Getter to retreive the last-updated actual speed of the given
 //   motor.  A negative speed means the motor track is in reverse.
 float ESC_speed(void);
+*/
 
 #endif
