@@ -40,7 +40,7 @@ Description: Returns the last updated value in the buffer for the given pin in
   arbitrary units [au].  Note that this MAY NOT necessarily be the most current
 	value
 *******************************************************************************/
-uint16_t ADC_value(uint8_t analog_input_index);
+kADCReading ADC_value(uint8_t analog_input_index);
 
 
 /*******************************************************************************

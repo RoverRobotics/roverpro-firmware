@@ -67,11 +67,7 @@ typedef enum {
 
 //---------------------------Helper Function Prototypes-------------------------
 static void InitPins(void);
-static void InitInputCapture(void);
-static void InitInputCaptureTimebase(void);
-static void InitIC1(const uint8_t RPn);
-static void InitIC2(const uint8_t RPn);
-static void InitIC3(const uint8_t RPn);
+static void InitCNs(void);
 static uint8_t inline hall_state(void);
 
 //---------------------------Module Variables-----------------------------------
@@ -82,7 +78,17 @@ static uint8_t inline hall_state(void);
 int main(void) {
   ESC_Init();
   ESC_StartMotor();
+  //Energize(3);
   while (1) {
+    /*
+    // test full CW sequence
+    Energize(1); Delay(1000);
+    Energize(5); Delay(1000);
+    Energize(4); Delay(1000);
+    Energize(6); Delay(1000);
+    Energize(2); Delay(1000);
+    Energize(3); Delay(1000);
+    */
   }
   
   return 0;
@@ -90,121 +96,51 @@ int main(void) {
 #endif
 
 //---------------------------Interrupt Service Routines (ISRs)------------------
-void __attribute__((__interrupt__, auto_psv)) _IC1Interrupt(void) {
-  _IC1IF = 0;                           // clear the source of the interrupt
+void __attribute__((__interrupt__, auto_psv)) _CNInterrupt(void) {
+//  uint8_t temp = hall_state();
+//  Nop();
+//  Nop();
   Energize(hall_state()); // energizes the appropriate coils to move to the next position
-}
-
-void __attribute__((__interrupt__, auto_psv)) _IC2Interrupt(void) {
-  _IC2IF = 0;
-  Energize(hall_state());
-}
-
-void __attribute__((__interrupt__, auto_psv)) _IC3Interrupt(void) {
-  _IC3IF = 0;
-  Energize(hall_state());
+  _CNIF = 0;              // clear the source of the interrupt
 }
 
 //---------------------------Public Function Definitions------------------------
 void ESC_Init(void) {
   InitPins();
-  
-  // initialize any dependent module(s)
-  /*
-  ADC_Init((1 << M1_T_PIN) | 
-           (1 << M1_I_PIN) |
-           (1 << POT1_PIN) |
-           (1 << POT2_PIN) |
-           (1 << POT3_PIN));
-  */
-  InitInputCapture();
+  InitCNs();
   OC_Init();
-  TMRS_Init();
 }
-
 
 void ESC_StartMotor(void) {
   Energize(hall_state());
 }
 
-void ESC_set_speed(const float speed) {
-  // TODO: incomplete implementation
-}
-
-float ESC_speed(void) {
-  // TODO: incomplete implementation
-  return 0;
-}
-
 //---------------------------Helper Function Definitions------------------------
 static uint8_t inline hall_state(void) {
-  uint8_t tempA = HALL_A; Nop(); Nop();
-  uint8_t tempB = HALL_B; Nop(); Nop();
-  uint8_t tempC = HALL_C; Nop(); Nop();
-  // TODO: handle invalid hall_state of 0 or 7
+  static uint8_t tempA, tempB, tempC = 0; // make lookup a little faster
+  // BUG ALERT: must have Nop() to guarantee sufficient time to read
+  tempA = HALL_A; Nop();
+  tempB = HALL_B; Nop();
+  tempC = HALL_C; Nop();
   return ((tempC << 2) | (tempB << 1) | (tempA << 0));
 }
 
 static void InitPins(void) {
-  // initialize any digital I/O pin(s)
   HALL_A_EN(1);
   HALL_B_EN(1);
   HALL_C_EN(1);
 }
 
-static void InitInputCapture(void) {
-  InitInputCaptureTimebase();
-  InitIC1(HALL_A_RPN);
-  InitIC2(HALL_B_RPN);
-  InitIC3(HALL_C_RPN);
-}
-
-static void InitInputCaptureTimebase(void) {
-  T3CONbits.TCKPS = 0b00;   // configure prescaler to divide-by-1
-  _T3IF = 0; _T3IE = 0;     // disable the associated interrupt
-  T3CONbits.TON = 1;        // turn on the timer
-}
-
-static void InitIC1(const uint8_t RPn) {
-  // clear the input capture FIFO buffer
-  uint16_t temp;
-	while (IC1CON1bits.ICBNE) {temp = IC1BUF;};
+// NB: assumes that the associated pins are already configured as digital inputs
+static void InitCNs(void) {
+  _CNIE = 0;  // ensure all the CN interrupts are disabled as we configure
   
-  // configure the input capture
-  IC1CON1bits.ICTSEL = 0;   // use Timer3 as the time base
-  IC1CON1bits.ICI = 0b00;   // fire the interrupt every capture event
-  IC1CON1bits.ICM = 0b001;  // capture event on every edge
+  // register the desired pins to throw a CN interrupt
+  _CN63IE = 1;
+  _CN64IE = 1;
+  _CN65IE = 1;
   
-  PPS_MapPeripheral(RPn, INPUT, FN_IC1);
-
-  _IC1IF = 0;               // begin with the interrupt flag cleared
-  _IC1IE = 1;               // enable this interrupt
-}
-
-static void InitIC2(const uint8_t RPn) {
-  uint16_t temp;
-	while (IC2CON1bits.ICBNE) {temp = IC2BUF;};
-
-  IC2CON1bits.ICTSEL = 0;
-  IC2CON1bits.ICI = 0b00;
-  IC2CON1bits.ICM = 0b001;
-  
-  PPS_MapPeripheral(RPn, INPUT, FN_IC2);
-  
-  _IC2IF = 0;
-  _IC2IE = 1;
-}
-
-static void InitIC3(const uint8_t RPn) {
-  uint16_t temp;
-	while (IC3CON1bits.ICBNE) {temp = IC3BUF;};
-
-  IC3CON1bits.ICTSEL = 0;
-  IC3CON1bits.ICI = 0b00;
-  IC3CON1bits.ICM = 0b001;
-  
-  PPS_MapPeripheral(RPn, INPUT, FN_IC3);
-  
-  _IC3IF = 0;
-  _IC3IE = 1;
+  // initialize the change notification interrupt only once
+  _CNIF = 0;
+  _CNIE = 1;
 }

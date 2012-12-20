@@ -5,9 +5,8 @@ Description: This file encapsulates the control of the brushless DC (BLDC)
   motors on the robot.  Electronic Speed Controller (ESC).
   
 Notes:
-  - consumes timer3 as the time base for input capture
-  - consumes input capture module 1, 2 and 3
-  - consumes output compare module 1, 2, 3, 4, 5, 6???
+  - consumes timer4 as the time base for output compare
+  - consumes output compare modules 1-through-6
   - most BLDC motors have three-phase winding topology with star connection
  
 Goals:

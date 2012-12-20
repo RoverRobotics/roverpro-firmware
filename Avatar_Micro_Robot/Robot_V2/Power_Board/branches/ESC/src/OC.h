@@ -14,6 +14,9 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 //---------------------------Dependencies---------------------------------------
 #include <stdint.h>
 
+//---------------------------Type Definitions-----------------------------------
+typedef uint8_t kDirection;
+
 //---------------------------Public Functions-----------------------------------
 // Function: OC_Init
 // Description: Initializes the output compare module.

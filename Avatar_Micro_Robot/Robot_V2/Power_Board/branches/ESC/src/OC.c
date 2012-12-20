@@ -4,11 +4,10 @@ File: OC.c
 //#define TEST_OC
 //---------------------------Dependencies---------------------------------------
 #include "./OC.h"
-#include "./core/StandardHeader.h"
+#include "./core/StandardHeader.h"  // for CCW, CW macros
 #include "./core/PPS.h"
 
 //---------------------------Macros---------------------------------------------
-// NB: the hall effect sensor inputs go to both input capture pins as well as digital inputs
 // input-capture inputs
 #define A_HI_RPN            11
 #define A_LO_RPN            24
@@ -16,9 +15,6 @@ File: OC.c
 #define B_LO_RPN            22
 #define C_HI_RPN            25
 #define C_LO_RPN            20
-
-//#define TEST_HI_RPN         21
-//#define TEST_LO_RPN         19
 
 //---------------------------Helper Function Prototypes-------------------------
 static void InitOutputCompareTimebase(void);
@@ -38,6 +34,7 @@ static void inline TurnOnC_HI(void);
 static void inline TurnOnC_LO(void);
 
 //---------------------------Module Variables-----------------------------------
+//static volatile kDirection direction = CCW;
 
 //---------------------------Test Harness---------------------------------------
 #ifdef TEST_OC
@@ -56,27 +53,49 @@ int main(void) {
 }
 #endif
 
-//---------------------------Interrupt Service Routines (ISRs)------------------
-
 //---------------------------Public Function Definitions------------------------
 void Energize(const uint8_t hall_state) {
   DisableOCModules();
-  
+  // CCW
   switch (hall_state) {
-    case 1: TurnOnB_HI(); TurnOnC_LO(); break;
-    case 2: TurnOnC_HI(); TurnOnA_LO(); break;
-    case 3: TurnOnB_HI(); TurnOnA_LO(); break;
-    case 4: TurnOnA_HI(); TurnOnB_LO(); break;
-    case 5: TurnOnA_HI(); TurnOnC_LO(); break;
-    case 6: TurnOnC_HI(); TurnOnB_LO();  break;
-    default: break; // NB: 0 and 7 are invalid hall states
+    case 1: TurnOnC_HI(); TurnOnB_LO(); break;
+    case 2: TurnOnA_HI(); TurnOnC_LO(); break;
+    case 3: TurnOnA_HI(); TurnOnB_LO(); break;
+    case 4: TurnOnB_HI(); TurnOnA_LO(); break;
+    case 5: TurnOnC_HI(); TurnOnA_LO(); break;
+    case 6: TurnOnB_HI(); TurnOnC_LO(); break;
+    default: break;
   }
+  
+  /*
+  if (direction == CW) {
+    // whitelist the valid states and ignore anything else
+    switch (hall_state) {
+      case 1: TurnOnB_HI(); TurnOnA_LO(); break;
+      case 2: TurnOnC_HI(); TurnOnB_LO(); break;
+      case 3: TurnOnC_HI(); TurnOnA_LO(); break;
+      case 4: TurnOnA_HI(); TurnOnC_LO(); break;
+      case 5: TurnOnB_HI(); TurnOnC_LO(); break;
+      case 6: TurnOnA_HI(); TurnOnB_LO(); break;
+      default: break;
+    }
+  } else if (direction == CCW) {
+    switch (hall_state) {
+      case 1: TurnOnC_HI(); TurnOnB_LO(); break;
+      case 2: TurnOnA_HI(); TurnOnC_LO(); break;
+      case 3: TurnOnA_HI(); TurnOnB_LO(); break;
+      case 4: TurnOnB_HI(); TurnOnA_LO(); break;
+      case 5: TurnOnC_HI(); TurnOnA_LO(); break;
+      case 6: TurnOnB_HI(); TurnOnC_LO(); break;
+      default: break;
+    }
+  }
+  */
 }  
 
 void OC_Init(void) {
   InitOutputCompareTimebase();
-  InitOC1(); InitOC2(); InitOC3();
-  InitOC4(); InitOC5(); InitOC6();
+  InitOC1(); InitOC2(); InitOC3(); InitOC4(); InitOC5(); InitOC6();
 }
   
 //---------------------------Helper Function Definitions------------------------
@@ -177,12 +196,13 @@ static void InitOC6(void) {
 // Disables all output compare modules, configures them as digital outputs
 //   and initializes them to logical low.
 static void DisableOCModules(void) {
-  LATD = 0x0000;
+  LATD = 0;
   PPS_MapPeripheral(A_HI_RPN, OUTPUT, FN_NULL);
   PPS_MapPeripheral(A_LO_RPN, OUTPUT, FN_NULL);
   PPS_MapPeripheral(B_HI_RPN, OUTPUT, FN_NULL);
   PPS_MapPeripheral(B_LO_RPN, OUTPUT, FN_NULL);
   PPS_MapPeripheral(C_HI_RPN, OUTPUT, FN_NULL);
   PPS_MapPeripheral(C_LO_RPN, OUTPUT, FN_NULL);
-  TRISD = 0x0000; Nop(); Nop();
+  TRISD = 0; Nop(); Nop();
+  LATD = 0;
 }
