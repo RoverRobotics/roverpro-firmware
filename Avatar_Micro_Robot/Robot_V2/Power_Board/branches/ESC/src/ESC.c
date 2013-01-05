@@ -1,26 +1,17 @@
 /*==============================================================================
 File:ESC.c
-
-Notes:
-  - uses output compare with a dedicated timer since PWM won't latch until a 
-    period is complete.
 ==============================================================================*/
 #define TEST_ESC
 //---------------------------Dependencies---------------------------------------
 #include "./core/StandardHeader.h"
 #include "./ESC.h"
-#include "./core/Timers.h"    // for timers
-#include "./core/ADC.h"       // for A/D conversions
-#include "./core/PPS.h"
-#include "./OC.h"
+//#include "./core/ADC.h"       // for A/D conversions
+#include "./core/StandardHeader.h"  // for CCW, CW macros
+#include "./core/PPS.h"             // for OC function name macros
 
 //---------------------------Macros---------------------------------------------
 // analog sensing pins (ANx)
-#define M1_T_PIN            2           // motor1 temperature sensing
-#define M1_I_PIN            3           // motor1 current sensing
-#define POT1_PIN            11
 #define POT2_PIN            12
-#define POT3_PIN            13
 
 // digital inputs
 #define HALL_A_EN(a)        (_TRISE5 = (a))
@@ -29,65 +20,54 @@ Notes:
 #define HALL_B              (_RE6)
 #define HALL_C_EN(a)        (_TRISE7 = (a))
 #define HALL_C              (_RE7)
+#define HALL_STATE          ((HALL_C << 2) | (HALL_B << 1) | (HALL_A))
 
-// NB: the hall effect sensor inputs go to both input capture pins as well as digital inputs
+// debugging
+#define HEARTBEAT_EN(a)     (_TRISB9 = !(a))
+#define HEARTBEAT_PIN       (_RB9)  // pin 8 of connector P8
+
+// for testing
+#define TEST1_RPN_PIN       (_RP21R)
+#define TEST2_RPN_PIN       (_RP19R)
+
 // input-capture inputs
-#define HALL_A_RPN          21
-#define HALL_B_RPN          19
-#define HALL_C_RPN          37  // input-only RPn
+#define A_HI_RPN_PIN        (_RP11R)
+#define A_LO_RPN_PIN        (_RP24R)
+#define B_HI_RPN_PIN        (_RP23R)//TEST1_RPN_PIN
+#define B_LO_RPN_PIN        (_RP22R)//TEST2_RPN_PIN
+#define C_HI_RPN_PIN        (_RP25R)
+#define C_LO_RPN_PIN        (_RP20R)
 
-#define N_PHASES            6
-
-//---------------------------Constants------------------------------------------
-/*
-Description: This lookup table is used to write the commutation state to 
-  the control pins.  It assumes exclusive use of a port and that the high-side
-  and low-side commutation pins are grouped as follows: 
-              control pin: C_LO C_HI B_LO B_HI A_LO A_HI
-              port bit:       5    4    3    2    1    0
-Notes:
-  - the high-side and low-side transistor sequences
-    must be written in a manner that protects against "shoot-through."
-    As we step through the states, this should NEVER occurr since there are 
-    never two contiguous states where both the high and low-side of the 
-    same transistor pair are on.
-  - this starting point of this table must also be synced with the hall-effect
-    sensor configuration
-*/
-//static const uint8_t kDriveTable[N_PHASES] = { 
-//  0x18, 0x12, 0x06, 0x24, 0x21, 0x09
-//};
-
-//---------------------------Type Definitions-----------------------------------
-// possible states
-typedef enum {
-  kWaiting = 0,
-  kRunning,
-} kControllerState;
+#define DEFAULT_DC          3000 // [ticks]
+#define PWM_PERIOD          10000//2000 // [ticks]
 
 //---------------------------Helper Function Prototypes-------------------------
 static void InitPins(void);
 static void InitCNs(void);
-static uint8_t inline hall_state(void);
 
-//---------------------------Module Variables-----------------------------------
+// OC-module related
+static void Energize(const uint8_t hall_state);
+static void InitOCs(void);
+static void UpdateDutyCycle(const uint16_t duty_cycle);
+static void InitHighSidePulser(void);
+static void InitLowSidePulser(void);
+static void InitRechargePulser(void);
+static uint16_t inline max_allowable_dc(void);
 
 //---------------------------Test Harness---------------------------------------
 #ifdef TEST_ESC
 #include "./core/ConfigurationBits.h"
 int main(void) {
   ESC_Init();
-  ESC_StartMotor();
-  //Energize(3);
+  //ESC_StartMotor();
+  Energize(1);
   while (1) {
     /*
-    // test full CW sequence
-    Energize(1); Delay(1000);
-    Energize(5); Delay(1000);
-    Energize(4); Delay(1000);
-    Energize(6); Delay(1000);
-    Energize(2); Delay(1000);
-    Energize(3); Delay(1000);
+    uint16_t duty_cycle = IIRFilter(0,
+                                    Map(ADC_value(POT2_PIN), 0, 1023, 0, 1000),
+                                    0.8,
+                                    NO);
+    OC_UpdateDutyCycle(duty_cycle);
     */
   }
   
@@ -96,11 +76,18 @@ int main(void) {
 #endif
 
 //---------------------------Interrupt Service Routines (ISRs)------------------
+// This interrupt is thrown when the running timer4 counter counts up to OC1R
+void __attribute__((__interrupt__, auto_psv)) _OC1Interrupt(void) {
+   HEARTBEAT_PIN = 1;      // clock the time we spend in here on the oscilloscope
+ // restart the single-shot pulse
+  OC3CON1bits.OCM = 0b000;
+  OC3CON1bits.OCM = 0b100;
+  _OC1IF = 0;
+ HEARTBEAT_PIN = 0;
+}
+
 void __attribute__((__interrupt__, auto_psv)) _CNInterrupt(void) {
-//  uint8_t temp = hall_state();
-//  Nop();
-//  Nop();
-  Energize(hall_state()); // energizes the appropriate coils to move to the next position
+  Energize(HALL_STATE);   // energize the appropriate coils to move to the next position
   _CNIF = 0;              // clear the source of the interrupt
 }
 
@@ -108,21 +95,53 @@ void __attribute__((__interrupt__, auto_psv)) _CNInterrupt(void) {
 void ESC_Init(void) {
   InitPins();
   InitCNs();
-  OC_Init();
+  InitOCs();
+  //ADC_Init((1 << POT1_PIN) | (1 << POT2_PIN) | (1 << POT3_PIN));
+  HEARTBEAT_EN(1); HEARTBEAT_PIN = 0;
 }
 
 void ESC_StartMotor(void) {
-  Energize(hall_state());
+  Energize(HALL_STATE);
 }
 
 //---------------------------Helper Function Definitions------------------------
-static uint8_t inline hall_state(void) {
-  static uint8_t tempA, tempB, tempC = 0; // make lookup a little faster
-  // BUG ALERT: must have Nop() to guarantee sufficient time to read
-  tempA = HALL_A; Nop();
-  tempB = HALL_B; Nop();
-  tempC = HALL_C; Nop();
-  return ((tempC << 2) | (tempB << 1) | (tempA << 0));
+static void Energize(const uint8_t hall_state) {
+  // disable any previous output
+  LATD = 0;
+  A_HI_RPN_PIN = FN_NULL; A_LO_RPN_PIN = FN_NULL;
+  B_HI_RPN_PIN = FN_NULL; B_LO_RPN_PIN = FN_NULL;
+  C_HI_RPN_PIN = FN_NULL; C_LO_RPN_PIN = FN_NULL;
+  LATD = 0;
+  
+  //T4CONbits.TON = 0;
+  //TMR4 = PR4 - 2;
+  
+  // map the desired pins to the existing output compare modules
+  // for CW direction
+  switch (hall_state) {
+    case 1: B_HI_RPN_PIN = FN_OC1; B_LO_RPN_PIN = FN_OC3; A_LO_RPN_PIN = FN_OC2; break;
+    case 2: C_HI_RPN_PIN = FN_OC1; C_LO_RPN_PIN = FN_OC3; B_LO_RPN_PIN = FN_OC2; break;
+    case 3: C_HI_RPN_PIN = FN_OC1; C_LO_RPN_PIN = FN_OC3; A_LO_RPN_PIN = FN_OC2; break;
+    case 4: A_HI_RPN_PIN = FN_OC1; A_LO_RPN_PIN = FN_OC3; C_LO_RPN_PIN = FN_OC2; break;
+    case 5: B_HI_RPN_PIN = FN_OC1; B_LO_RPN_PIN = FN_OC3; C_LO_RPN_PIN = FN_OC2; break;
+    case 6: A_HI_RPN_PIN = FN_OC1; A_LO_RPN_PIN = FN_OC3; B_LO_RPN_PIN = FN_OC2; break;
+  }
+  
+  //T4CONbits.TON = 1;
+}
+
+
+static void UpdateDutyCycle(const uint16_t duty_cycle) {
+  if (max_allowable_dc() < duty_cycle) OC1R = max_allowable_dc();
+  else OC1R = duty_cycle;
+  
+  // shadow the other variable 
+  OC2R = OC1R;
+  OC3R = OC1R;
+}
+
+static uint16_t inline max_allowable_dc(void) {
+  return 0; //(PWM_PERIOD - (DC_PADDING + DC_PADDING + RECHARGE_PULSE_DURATION + DC_PADDING));
 }
 
 static void InitPins(void) {
@@ -133,7 +152,7 @@ static void InitPins(void) {
 
 // NB: assumes that the associated pins are already configured as digital inputs
 static void InitCNs(void) {
-  _CNIE = 0;  // ensure all the CN interrupts are disabled as we configure
+  _CNIE = 0;      // ensure all the CN interrupts are disabled as we configure
   
   // register the desired pins to throw a CN interrupt
   _CN63IE = 1;
@@ -141,6 +160,55 @@ static void InitCNs(void) {
   _CN65IE = 1;
   
   // initialize the change notification interrupt only once
+  _CNIP = 0b110;  // the 2nd-highest priority
   _CNIF = 0;
   _CNIE = 1;
+}
+
+static void InitOCs(void) {
+  // initialize the output compare timebase
+  T4CONbits.TON = 0;        // ensure the timer is off while we configure it
+  T4CONbits.TCKPS = 0b00;   // configure prescaler to divide-by-1
+  PR4 = PWM_PERIOD;
+  TMR4 = PR4;               // NB: important for initialization, so we don't have to wait a whole TMR4 period to get started?
+  
+  TRISG = 0; LATD = 0;
+  InitHighSidePulser();
+  InitLowSidePulser();
+  InitRechargePulser();
+  
+  // turn on the timebase timer
+  T4CONbits.TON = 1;
+}
+
+static void InitHighSidePulser(void) {
+  OC1CON1bits.OCTSEL = 0b010;   // select timer4 as the time base
+  OC1CON2bits.SYNCSEL = 0b01110;// triggered by timer4
+  OC1CON2bits.OCINV = 1;        // invert the output for more intuitive 
+                                // duty-cycle writes
+  OC1R = DEFAULT_DC;            // initialize the duty cycle (NB: we cannot get 0%?)
+  OC1RS = PWM_PERIOD;
+  _OC1IP = 0b111;               // the highest priority
+  _OC1IF = 0;                   // enable interrupts to be thrown when
+  _OC1IE = 1;                   // timer4 counter is equal to OC1R
+  
+ 
+  OC1CON1bits.OCM = 0b101;      // Double Compare Continuous Pulse mode, turn on 
+}
+
+static void InitLowSidePulser(void) {
+  OC2CON1bits.OCTSEL = OC1CON1bits.OCTSEL;
+  OC2CON2bits.SYNCSEL = OC1CON2bits.SYNCSEL;
+  OC2CON2bits.OCINV = OC1CON2bits.OCINV;
+  OC2R = OC1R;
+  OC2RS =  OC1RS;
+  OC2CON1bits.OCM = OC1CON1bits.OCM;
+}
+
+static void InitRechargePulser(void) {
+  OC3CON1bits.OCTSEL = OC1CON1bits.OCTSEL;
+  OC3CON2bits.SYNCSEL = OC1CON2bits.SYNCSEL;
+  // consume the remainder of the period with the recharge pulse
+  OC3R = OC1R;//OC3R = OC1R + 5;
+  OC3RS = PWM_PERIOD - 30; //PWM_PERIOD - 55;
 }
