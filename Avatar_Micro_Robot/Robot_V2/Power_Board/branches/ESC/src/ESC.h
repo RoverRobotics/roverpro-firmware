@@ -21,17 +21,17 @@ void ESC_Init(void);
 
 // Function: ESC_StartMotor
 // Description: Begins commutating the motor at the current duty cycle.
-void ESC_StartMotor(void);
+void ESC_StartMotor(const int16_t speed);
 
 // Function: ESC_set_speed
 // Parameters:
-//   const float speed,   the speed effort to apply (0.0-to-1.0)
-//                        negative speed is interpreted as reverse
-void ESC_set_speed(const float speed);
+//   const int16_t speed,  the speed effort to apply (0.0-to-1.0)
+//                         negative speed is interpreted as reverse
+void ESC_set_speed(const int16_t speed);
 
 // Function: ESC_speed
 // Description: Getter to retreive the last-updated actual speed of the given
 //   motor.  A negative speed means the motor track is in reverse.
-float ESC_speed(void);
+int16_t ESC_speed(void);
 
 #endif

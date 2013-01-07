@@ -8,6 +8,7 @@ File:ESC.c
 //#include "./core/ADC.h"       // for A/D conversions
 #include "./core/StandardHeader.h"  // for CCW, CW macros
 #include "./core/PPS.h"             // for OC function name macros
+#include <stdlib.h>             // for abs()
 
 //---------------------------Macros---------------------------------------------
 // analog sensing pins (ANx)
@@ -38,8 +39,10 @@ File:ESC.c
 #define C_HI_RPN_PIN        (_RP25R)
 #define C_LO_RPN_PIN        (_RP20R)
 
-#define DEFAULT_DC          3000 // [ticks]
+#define DEFAULT_DC          2000 // [ticks]
 #define PWM_PERIOD          10000//2000 // [ticks]
+#define DEAD_TIME           200   // [ticks]
+#define MAX_DC              (PWM_PERIOD - DEAD_TIME)
 
 //---------------------------Helper Function Prototypes-------------------------
 static void InitPins(void);
@@ -52,15 +55,20 @@ static void UpdateDutyCycle(const uint16_t duty_cycle);
 static void InitHighSidePulser(void);
 static void InitLowSidePulser(void);
 static void InitRechargePulser(void);
-static uint16_t inline max_allowable_dc(void);
+
+//---------------------------Module Variables-----------------------------------
+static volatile uint8_t direction = CCW;
+static volatile uint16_t current_speed = 0;
 
 //---------------------------Test Harness---------------------------------------
 #ifdef TEST_ESC
 #include "./core/ConfigurationBits.h"
 int main(void) {
   ESC_Init();
-  //ESC_StartMotor();
-  Energize(1);
+  ESC_StartMotor(2000);
+  Delay(500); ESC_set_speed(3000);
+  Delay(500); ESC_set_speed(4000);
+  Delay(500); ESC_set_speed(5000);
   while (1) {
     /*
     uint16_t duty_cycle = IIRFilter(0,
@@ -100,9 +108,24 @@ void ESC_Init(void) {
   HEARTBEAT_EN(1); HEARTBEAT_PIN = 0;
 }
 
-void ESC_StartMotor(void) {
+void ESC_StartMotor(const int16_t speed) {
+  ESC_set_speed(speed);
   Energize(HALL_STATE);
 }
+
+void ESC_set_speed(const int16_t speed) {
+  // update the direction
+  if (speed < 0) direction = CW;
+  else direction = CCW;
+  
+  // update the magnitude
+  UpdateDutyCycle(abs(speed));
+}
+
+int16_t ESC_speed(void) {
+ return current_speed;
+}
+
 
 //---------------------------Helper Function Definitions------------------------
 static void Energize(const uint8_t hall_state) {
@@ -118,30 +141,36 @@ static void Energize(const uint8_t hall_state) {
   
   // map the desired pins to the existing output compare modules
   // for CW direction
-  switch (hall_state) {
-    case 1: B_HI_RPN_PIN = FN_OC1; B_LO_RPN_PIN = FN_OC3; A_LO_RPN_PIN = FN_OC2; break;
-    case 2: C_HI_RPN_PIN = FN_OC1; C_LO_RPN_PIN = FN_OC3; B_LO_RPN_PIN = FN_OC2; break;
-    case 3: C_HI_RPN_PIN = FN_OC1; C_LO_RPN_PIN = FN_OC3; A_LO_RPN_PIN = FN_OC2; break;
-    case 4: A_HI_RPN_PIN = FN_OC1; A_LO_RPN_PIN = FN_OC3; C_LO_RPN_PIN = FN_OC2; break;
-    case 5: B_HI_RPN_PIN = FN_OC1; B_LO_RPN_PIN = FN_OC3; C_LO_RPN_PIN = FN_OC2; break;
-    case 6: A_HI_RPN_PIN = FN_OC1; A_LO_RPN_PIN = FN_OC3; B_LO_RPN_PIN = FN_OC2; break;
+  if (direction == CCW) {
+    switch (hall_state) {
+      case 1: C_HI_RPN_PIN = FN_OC1; C_LO_RPN_PIN = FN_OC3; B_LO_RPN_PIN = FN_OC2; break;
+      case 2: A_HI_RPN_PIN = FN_OC1; A_LO_RPN_PIN = FN_OC3; C_LO_RPN_PIN = FN_OC2; break;
+      case 3: A_HI_RPN_PIN = FN_OC1; A_LO_RPN_PIN = FN_OC3; B_LO_RPN_PIN = FN_OC2; break;
+      case 4: B_HI_RPN_PIN = FN_OC1; B_LO_RPN_PIN = FN_OC3; A_LO_RPN_PIN = FN_OC2; break;
+      case 5: C_HI_RPN_PIN = FN_OC1; C_LO_RPN_PIN = FN_OC3; A_LO_RPN_PIN = FN_OC2; break;
+      case 6: B_HI_RPN_PIN = FN_OC1; B_LO_RPN_PIN = FN_OC3; C_LO_RPN_PIN = FN_OC2; break;
+    }
+  } else {
+    switch (hall_state) {
+      case 1: B_HI_RPN_PIN = FN_OC1; B_LO_RPN_PIN = FN_OC3; A_LO_RPN_PIN = FN_OC2; break;
+      case 2: C_HI_RPN_PIN = FN_OC1; C_LO_RPN_PIN = FN_OC3; B_LO_RPN_PIN = FN_OC2; break;
+      case 3: C_HI_RPN_PIN = FN_OC1; C_LO_RPN_PIN = FN_OC3; A_LO_RPN_PIN = FN_OC2; break;
+      case 4: A_HI_RPN_PIN = FN_OC1; A_LO_RPN_PIN = FN_OC3; C_LO_RPN_PIN = FN_OC2; break;
+      case 5: B_HI_RPN_PIN = FN_OC1; B_LO_RPN_PIN = FN_OC3; C_LO_RPN_PIN = FN_OC2; break;
+      case 6: A_HI_RPN_PIN = FN_OC1; A_LO_RPN_PIN = FN_OC3; B_LO_RPN_PIN = FN_OC2; break;
+    }
   }
-  
   //T4CONbits.TON = 1;
 }
 
 
 static void UpdateDutyCycle(const uint16_t duty_cycle) {
-  if (max_allowable_dc() < duty_cycle) OC1R = max_allowable_dc();
+  if (MAX_DC < duty_cycle) OC1R = MAX_DC;
   else OC1R = duty_cycle;
   
   // shadow the other variable 
   OC2R = OC1R;
   OC3R = OC1R;
-}
-
-static uint16_t inline max_allowable_dc(void) {
-  return 0; //(PWM_PERIOD - (DC_PADDING + DC_PADDING + RECHARGE_PULSE_DURATION + DC_PADDING));
 }
 
 static void InitPins(void) {
