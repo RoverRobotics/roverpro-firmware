@@ -26,6 +26,8 @@ Notes:
 #define SPACE_IN_ASCII            0x20
 #define ESC_IN_ASCII              0x1B
 #define LF_IN_ASCII               0x0A  // line feed, new line
+#define YEN_IN_ASCII              0xBE  // yen or yuan
+
 
 /*---------------------------Helper Function Prototypes-----------------------*/
 static void U1TX_ISR(void);
@@ -75,10 +77,10 @@ void NM33_Init(uint8_t txPin, uint8_t rxPin) {
 	uint8_t UART1TX_PIN = txPin;
 	uint8_t UART1RX_PIN = rxPin;
   UART_Init(UART1TX_PIN, UART1RX_PIN, kUARTBaudRate115200);
-  
-  // wait for the camera to boot up
-  Delay(1500);
-  
+  // wait for the camera to boot up and for the initial stream of 
+  // characters to come in
+  Delay(5000);//Delay(1500);
+  is_receptive = 1;
   // move to default location
   BuildLocationMessage(DEFAULT_ID, DEFAULT_PAN, DEFAULT_TILT, DEFAULT_ZOOM, 
                        DEFAULT_ROLL, tx_message, &tx_message_length);
@@ -99,6 +101,7 @@ void NM33_set_location(uint16_t pan, uint8_t tilt, uint8_t zoom) {
 
 
 void NM33_Deinit(void) {
+  is_receptive = 0;
   UART_Deinit();
 }
 
@@ -184,15 +187,27 @@ static void U1TX_ISR(void) {
 
 
 static void U1RX_ISR(void) {
-  static uint8_t i;
   _U1RXIF = 0;
-  
-  uint8_t temp;
+  static uint8_t i = 0;
+  const uint8_t kNumBytesNotEchoed = 0;
+  rx_message[i] = U1RXREG;
+  i++;
+  if (1 <= i) {
+    i = 0;
+  }
   // see p.6 section (4) of NM33 Command Description
-  // keep track of when the camera finishes its response
-  // with a newline character
-  temp = UART_GetRxByte();
-	if (temp == LF_IN_ASCII) is_receptive = 1;
+  // keep track of when the camera finishes its echoed-response
+  
+  // NB: on startup we receive a large message
+  // before transmitting anything, during which tx_message_length = 0
+  /*
+    if (tx_message_length < (i + kNumBytesNotEchoed)) {
+    // tested 1, tested 2, tested 3
+    // NB: do NOT count ESC or LF which is NOT echoed back
+    i = 0;
+    is_receptive = 1;
+  }
+  */
 }
 
 

@@ -33,6 +33,8 @@ Description: Overarching file encompassing the application-level logic of the
 #define CAM_TX_TIME               15  // USB registers are updated every ~15ms
 #define USB_INIT_TIMER            2
 #define USB_INIT_TIME             (_100ms)
+#define TX_TIMEOUT_TIMER          3
+#define TX_TIMEOUT_TIME           (50)
 
 // NM33 pin assignments
 #define MY_TX_PIN                 8
@@ -43,12 +45,6 @@ Description: Overarching file encompassing the application-level logic of the
 #define OCU_JOYSTICK_MAX          1000
 #define OCU_TOGGLE_MIN            -7
 #define OCU_TOGGLE_MAX            7
-
-// filters
-#define PAN_FILTER                0
-#define TILT_FILTER               1
-#define ZOOM_FILTER               2
-#define ALPHA                     0.8
 
 // default settings
 #define DEFAULT_PAN               90
@@ -78,7 +74,6 @@ static void DeinitPins(void);
 static void UpdatePan(const int8_t desired_speed, uint16_t* pan);
 static void UpdateTilt(const int8_t desired_speed, uint8_t* tilt);
 static void UpdateZoom(const int8_t desired_speed, uint8_t* zoom);
-float IIRFilter(const uint8_t i, const float x, const float alpha);
 
 /*---------------------------Module Variables---------------------------------*/
 
@@ -109,6 +104,7 @@ void InitBoom(void) {
   
   TMRS_Init();
   TMRS_StartTimer(CAM_TX_TIMER, CAM_TX_TIME);
+  TMRS_StartTimer(TX_TIMEOUT_TIMER, TX_TIMEOUT_TIME);
   TMRS_StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME);
   TMRS_StartTimer(USB_INIT_TIMER, USB_INIT_TIME);
 }
@@ -173,7 +169,11 @@ void ProcessBoomIO(void) {
         
         // write the update to the camera, ensuring
         // that it is available to receive the data
-        if (NM33_IsReceptive()) NM33_set_location(pan, tilt, zoom);
+        //if (NM33_IsReceptive() || TMRS_IsTimerExpired(TX_TIMEOUT_TIMER)) {
+        if (TMRS_IsTimerExpired(TX_TIMEOUT_TIMER)) {
+          TMRS_StartTimer(TX_TIMEOUT_TIMER, TX_TIMEOUT_TIME);
+          NM33_set_location(pan, tilt, zoom);
+        }
       }
   
       break;
@@ -270,16 +270,3 @@ static void UpdateZoom(const int8_t desired_speed, uint8_t* zoom) {
   
   (*zoom) = temp_zoom;
 }
-
-
-float IIRFilter(const uint8_t i, const float x, const float alpha) {
-  // first-order infinite impulse response (IIR) filter
-  // (aka a 'leaky integrator')
-  #define MAX_NUM_FILTERS     8 // maximum number of filters
-  static float yLasts[MAX_NUM_FILTERS] = {0};
-  float y = alpha * yLasts[i] + (1.0 - alpha) * x;
-  yLasts[i] = y;
-  
-  return y;
-}
-

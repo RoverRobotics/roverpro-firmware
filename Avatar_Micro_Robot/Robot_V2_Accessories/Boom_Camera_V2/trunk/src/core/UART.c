@@ -99,12 +99,6 @@ void UART_Init(unsigned char Tx_pin, unsigned char Rx_pin,
 	PPS_MapPeripheral(U1RX_RPn, INPUT, FN_U1RX);
 	ConfigureBaudRate(baudRate);
 	
-	//_U1RXIP = 6;            // configure interrupt priority
-	//_U1TXIP = 5;            // Note: 7 is highest priority interrupt
-	
-	//U1STAbits.UTXISEL1 = 0; // configure Tx interrupt to fire when last
-	//U1STAbits.UTXISEL0 = 0; // transmission is over (see p.5 Section 21 UART)
-	
 	_U1TXIF = 0;            // begin with any interrupt flags cleared
 	_U1RXIF = 0;
 
