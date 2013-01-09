@@ -30,11 +30,11 @@ Description: Overarching file encompassing the application-level logic of the
 #define HEARTBEAT_TIMER           0
 #define HEARTBEAT_TIME            500
 #define CAM_TX_TIMER              1
-#define CAM_TX_TIME               15  // USB registers are updated every ~15ms
+#define CAM_TX_TIME               250//15  // USB registers are updated every ~15ms
 #define USB_INIT_TIMER            2
 #define USB_INIT_TIME             (_100ms)
 #define TX_TIMEOUT_TIMER          3
-#define TX_TIMEOUT_TIME           (50)
+#define TX_TIMEOUT_TIME           250
 
 // NM33 pin assignments
 #define MY_TX_PIN                 8
@@ -45,11 +45,6 @@ Description: Overarching file encompassing the application-level logic of the
 #define OCU_JOYSTICK_MAX          1000
 #define OCU_TOGGLE_MIN            -7
 #define OCU_TOGGLE_MAX            7
-
-// default settings
-#define DEFAULT_PAN               90
-#define DEFAULT_TILT              80
-#define DEFAULT_ZOOM              100
       
 /*---------------------------Type Definitions---------------------------------*/
 typedef enum {
@@ -112,70 +107,29 @@ void InitBoom(void) {
 
 void ProcessBoomIO(void) {
   static volatile BoomState state = kViewing;
-
+  static volatile uint8_t waitingToGoForward = 1;
+  
   switch (state) {
     case kInitializing:
       // allow USB communication to be established before
       // checking registers to see if it should power down
-      if (TMRS_IsTimerExpired(USB_INIT_TIMER)) state = kViewing;
+      if (TMRS_IsTimerExpired(USB_INIT_TIMER)) {
+        //NM33_set_location(DEFAULT_PAN, DEFAULT_TILT, DEFAULT_ZOOM);
+        state = kViewing;
+      }
       break;
     case kViewing:
-      // power down if we lose connection or if software desires it
-      if (REG_BOOM_POWER_DOWN) {
-        // make everything an input (also turns everything off)
-        TRISB = 0xffff; TRISC = 0xffff; TRISD = 0xffff;
-        TRISE = 0xffff; TRISF = 0xffff; TRISG = 0xffff;
-        NM33_Deinit();
-        while (1) {}; // wait until the watchdog timer resets us
-      }
-
-      // toggle a pin to indicate normal operation
-      if (TMRS_IsTimerExpired(HEARTBEAT_TIMER)) {
-        TMRS_StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME);
-        HEARTBEAT_PIN ^= 1;
+      if ((500 < REG_BOOM_VEL_PAN) && waitingToGoForward) {
+        // write the update to the camera
+        NM33_set_location((DEFAULT_PAN+90), DEFAULT_TILT, DEFAULT_ZOOM);
+        waitingToGoForward = 0;
       }
       
-      // transmit the latest desired position to the camera
-      if (TMRS_IsTimerExpired(CAM_TX_TIMER)) {
-        TMRS_StartTimer(CAM_TX_TIMER, CAM_TX_TIME);
-        static uint16_t pan = DEFAULT_PAN;
-        static uint8_t tilt = DEFAULT_TILT;
-        static uint8_t zoom = DEFAULT_ZOOM;
-        
-        /*
-        // basic firmware-only test
-        static int8_t desired_speed = 1;
-        desired_speed += 1;
-        if (25 < desired_speed) desired_speed = 0;
-        UpdatePan(desired_speed, &pan);
-        NM33_set_location(pan, tilt, zoom);
-        */
-        
-        // map the incoming data (NB: tilt is inverted)
-        int16_t desired_pan_speed = Map(REG_BOOM_VEL_PAN,
-                                        OCU_JOYSTICK_MIN, OCU_JOYSTICK_MAX,
-                                        kMinPanSpeed, kMaxPanSpeed);
-        int16_t desired_tilt_speed = Map(REG_BOOM_VEL_TILT,
-                                         OCU_JOYSTICK_MAX, OCU_JOYSTICK_MIN,
-                                         kMinTiltSpeed, kMaxTiltSpeed);
-        int16_t desired_zoom_speed = Map(REG_BOOM_VEL_ZOOM,
-                                         OCU_TOGGLE_MIN, OCU_TOGGLE_MAX,
-                                         kMinZoomSpeed, kMaxZoomSpeed);
-        
-        // integrate the speed to a fixed setting
-        UpdatePan(desired_pan_speed, &pan);
-        UpdateTilt(desired_tilt_speed, &tilt);
-        UpdateZoom(desired_zoom_speed, &zoom);
-        
-        // write the update to the camera, ensuring
-        // that it is available to receive the data
-        //if (NM33_IsReceptive() || TMRS_IsTimerExpired(TX_TIMEOUT_TIMER)) {
-        if (TMRS_IsTimerExpired(TX_TIMEOUT_TIMER)) {
-          TMRS_StartTimer(TX_TIMEOUT_TIMER, TX_TIMEOUT_TIME);
-          NM33_set_location(pan, tilt, zoom);
-        }
+      if ((REG_BOOM_VEL_PAN < -500) && !waitingToGoForward) {
+        NM33_set_location(DEFAULT_PAN, DEFAULT_TILT, DEFAULT_ZOOM);
+        waitingToGoForward = 1;
       }
-  
+        
       break;
     default:
       ENABLE_HEARTBEAT(0);  // indicate an error

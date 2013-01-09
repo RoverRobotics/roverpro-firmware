@@ -26,6 +26,10 @@ typedef enum {
 } kNM33Limit;
 
 
+#define DEFAULT_PAN               90
+#define DEFAULT_TILT              80
+#define DEFAULT_ZOOM              100
+
 /*---------------------------Public Functions---------------------------------*/
 /*******************************************************************************
 Function: NM33_Init

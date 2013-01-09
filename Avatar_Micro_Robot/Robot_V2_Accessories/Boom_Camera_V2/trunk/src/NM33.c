@@ -18,9 +18,6 @@ Notes:
 
 // default message parameters
 #define DEFAULT_ID                3
-#define DEFAULT_PAN               0
-#define DEFAULT_TILT              80
-#define DEFAULT_ZOOM              50
 #define DEFAULT_ROLL              90
 
 #define SPACE_IN_ASCII            0x20
@@ -82,8 +79,7 @@ void NM33_Init(uint8_t txPin, uint8_t rxPin) {
   Delay(5000);//Delay(1500);
   is_receptive = 1;
   // move to default location
-  BuildLocationMessage(DEFAULT_ID, DEFAULT_PAN, DEFAULT_TILT, DEFAULT_ZOOM, 
-                       DEFAULT_ROLL, tx_message, &tx_message_length);
+  NM33_set_location(DEFAULT_PAN, DEFAULT_TILT, DEFAULT_ZOOM);
 }
 
 
