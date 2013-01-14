@@ -11,26 +11,26 @@ Notes:
 #ifndef NM33_H
 #define NM33_H
 
-/*---------------------------Dependencies-------------------------------------*/
-#include <stdint.h>
-#include <stdbool.h>
+//---------------------------Dependencies---------------------------------------
+#include <stdint.h>   // for uintN_t data types
+#include <stdbool.h>  // for bool data type
 
-/*---------------------------Type Definitions---------------------------------*/
+//---------------------------Type Definitions-----------------------------------
 typedef enum {
-	kNM33LimitMinPan = 0,
-	kNM33LimitMaxPan = 359,
-	kNM33LimitMinTilt = 0,
-	kNM33LimitMaxTilt = 90,
-	kNM33LimitMinZoom = 10,
-	kNM33LimitMaxZoom = 130
+	kNM33LimitMinPan = 0, //5,//0,
+	kNM33LimitMaxPan = 359, //355,//359,
+	kNM33LimitMinTilt = 0, //2,//0,
+	kNM33LimitMaxTilt = 90, //88,//90,
+	kNM33LimitMinZoom = 10, //15,//10,
+	kNM33LimitMaxZoom = 130 //120//130
 } kNM33Limit;
 
-
+// default settings
 #define DEFAULT_PAN               90
 #define DEFAULT_TILT              80
 #define DEFAULT_ZOOM              100
 
-/*---------------------------Public Functions---------------------------------*/
+//---------------------------Public Functions-----------------------------------
 /*******************************************************************************
 Function: NM33_Init
 Parameters:

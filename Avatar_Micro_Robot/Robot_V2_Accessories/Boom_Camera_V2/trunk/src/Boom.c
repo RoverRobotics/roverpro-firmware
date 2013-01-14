@@ -5,14 +5,14 @@ Description: Overarching file encompassing the application-level logic of the
   boom-camera module.
 *******************************************************************************/
 #define TEST_BOOM
-/*---------------------------Dependencies-------------------------------------*/
+//---------------------------Dependencies---------------------------------------
 #include "./core/StandardHeader.h"
 #include "./core/Timers.h"
 #include "./USB/RXUSBDevice.h"      // for USB firmware/software-shared 
                                     // registers
 #include "./NM33.h"                 // for interface to wide-angle camera
 
-/*---------------------------Macros-------------------------------------------*/
+//---------------------------Macros---------------------------------------------
 #define BOOM_PRODUCT_ID           0x0012  // RoboteX's boom camera product ID
 
 // power management
@@ -30,11 +30,11 @@ Description: Overarching file encompassing the application-level logic of the
 #define HEARTBEAT_TIMER           0
 #define HEARTBEAT_TIME            500
 #define CAM_TX_TIMER              1
-#define CAM_TX_TIME               250//15  // USB registers are updated every ~15ms
+#define CAM_TX_TIME               100//15  // USB registers are updated every ~15ms
 #define USB_INIT_TIMER            2
-#define USB_INIT_TIME             (_100ms)
-#define TX_TIMEOUT_TIMER          3
-#define TX_TIMEOUT_TIME           250
+#define USB_INIT_TIME             (100)
+//#define TX_TIMEOUT_TIMER          3
+//#define TX_TIMEOUT_TIME           CAM_TX_TIME
 
 // NM33 pin assignments
 #define MY_TX_PIN                 8
@@ -45,15 +45,19 @@ Description: Overarching file encompassing the application-level logic of the
 #define OCU_JOYSTICK_MAX          1000
 #define OCU_TOGGLE_MIN            -7
 #define OCU_TOGGLE_MAX            7
-      
-/*---------------------------Type Definitions---------------------------------*/
+
+// TODO: remove after debugging
+#define DEBUG1_PIN_EN(a)          (_TRISB9 = !(a)); AD1PCFGL |= (1 << 9)  // TODO: REMOVE AFTER DEBUGGING
+#define DEBUG1_PIN                (_RB9)
+
+//---------------------------Type Definitions-----------------------------------
 typedef enum {
-  kMinPanSpeed = -5, // [deg/update_period]
+  kMinPanSpeed = -5,  // [deg/update_period]
   kMaxPanSpeed = 5,
   kMinTiltSpeed = -5, // [deg/update_period]
   kMaxTiltSpeed = 5,
-  kMinZoomSpeed = -3, // [au/update_period]
-  kMaxZoomSpeed = 3,
+  kMinZoomSpeed = -2, // [au/update_period]
+  kMaxZoomSpeed = 2,
 } kCameraSpeedLimit;
 
 typedef enum {
@@ -61,7 +65,7 @@ typedef enum {
   kViewing,
 } BoomState;
 
-/*---------------------------Helper Function Prototypes-----------------------*/
+//---------------------------Helper Function Prototypes-------------------------
 void InitBoom(void);
 void ProcessBoomIO(void);
 static void InitPins(void);
@@ -70,9 +74,7 @@ static void UpdatePan(const int8_t desired_speed, uint16_t* pan);
 static void UpdateTilt(const int8_t desired_speed, uint8_t* tilt);
 static void UpdateZoom(const int8_t desired_speed, uint8_t* zoom);
 
-/*---------------------------Module Variables---------------------------------*/
-
-/*---------------------------Test Harness-------------------------------------*/
+//---------------------------Test Harness---------------------------------------
 #ifdef TEST_BOOM
 #include "./core/ConfigurationBits.h"
 
@@ -89,47 +91,92 @@ int main(void) {
 }
 
 #endif
-/*---------------------------Public Function Definitions----------------------*/
+//---------------------------Public Function Definitions------------------------
 void InitBoom(void) {
 	InitPins();
-	
   RXUSBDevice_Init(BOOM_PRODUCT_ID);
-  
   NM33_Init(MY_TX_PIN, MY_RX_PIN);
   
   TMRS_Init();
   TMRS_StartTimer(CAM_TX_TIMER, CAM_TX_TIME);
-  TMRS_StartTimer(TX_TIMEOUT_TIMER, TX_TIMEOUT_TIME);
-  TMRS_StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME);
+  //TMRS_StartTimer(TX_TIMEOUT_TIMER, TX_TIMEOUT_TIME);
+  //TMRS_StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME);
   TMRS_StartTimer(USB_INIT_TIMER, USB_INIT_TIME);
+  
+  // TODO: REMOVE AFTER DEBUGGING
+  DEBUG1_PIN_EN(1); DEBUG1_PIN = 0;
 }
 
 
 void ProcessBoomIO(void) {
+  //static volatile BoomState state = kInitializing;
   static volatile BoomState state = kViewing;
-  static volatile uint8_t waitingToGoForward = 1;
-  
+
   switch (state) {
     case kInitializing:
       // allow USB communication to be established before
       // checking registers to see if it should power down
-      if (TMRS_IsTimerExpired(USB_INIT_TIMER)) {
-        //NM33_set_location(DEFAULT_PAN, DEFAULT_TILT, DEFAULT_ZOOM);
-        state = kViewing;
-      }
+      if (TMRS_IsTimerExpired(USB_INIT_TIMER)) state = kViewing;
       break;
     case kViewing:
-      if ((500 < REG_BOOM_VEL_PAN) && waitingToGoForward) {
-        // write the update to the camera
-        NM33_set_location((DEFAULT_PAN+90), DEFAULT_TILT, DEFAULT_ZOOM);
-        waitingToGoForward = 0;
+      /*
+      // power down if we lose connection or if software desires it
+      if (REG_BOOM_POWER_DOWN) {
+        // make everything an input (also turns everything off)
+        TRISB = 0xffff; TRISC = 0xffff; TRISD = 0xffff;
+        TRISE = 0xffff; TRISF = 0xffff; TRISG = 0xffff;
+        NM33_Deinit();
+        while (1) {}; // wait until the watchdog timer resets us
       }
+
+      // toggle a pin to indicate normal operation
+      if (TMRS_IsTimerExpired(HEARTBEAT_TIMER)) {
+        TMRS_StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME);
+        HEARTBEAT_PIN ^= 1;
+      }
+      */
       
-      if ((REG_BOOM_VEL_PAN < -500) && !waitingToGoForward) {
-        NM33_set_location(DEFAULT_PAN, DEFAULT_TILT, DEFAULT_ZOOM);
-        waitingToGoForward = 1;
-      }
+      // transmit the latest desired position to the camera
+      if (TMRS_IsTimerExpired(CAM_TX_TIMER)) {
+        TMRS_StartTimer(CAM_TX_TIMER, CAM_TX_TIME);
+        static uint16_t pan = DEFAULT_PAN;
+        static uint8_t tilt = DEFAULT_TILT;
+        static uint8_t zoom = DEFAULT_ZOOM;
         
+        /*
+        // basic firmware-only test
+        static int8_t desired_speed = 1;
+        desired_speed += 1;
+        if (25 < desired_speed) desired_speed = 0;
+        UpdatePan(desired_speed, &pan);
+        NM33_set_location(pan, tilt, zoom);
+        */
+        
+        // map the incoming data (NB: tilt is inverted)
+        int16_t desired_pan_speed = Map(REG_BOOM_VEL_PAN,
+                                        OCU_JOYSTICK_MIN, OCU_JOYSTICK_MAX,
+                                        kMinPanSpeed, kMaxPanSpeed);
+        int16_t desired_tilt_speed = Map(REG_BOOM_VEL_TILT,
+                                         OCU_JOYSTICK_MAX, OCU_JOYSTICK_MIN,
+                                         kMinTiltSpeed, kMaxTiltSpeed);
+        int16_t desired_zoom_speed = Map(REG_BOOM_VEL_ZOOM,
+                                         OCU_TOGGLE_MIN, OCU_TOGGLE_MAX,
+                                         kMinZoomSpeed, kMaxZoomSpeed);
+        
+        // integrate the speed to a fixed setting
+        UpdatePan(desired_pan_speed, &pan);
+        UpdateTilt(desired_tilt_speed, &tilt);
+        UpdateZoom(desired_zoom_speed, &zoom);
+        
+        // write the update to the camera, ensuring
+        // that it is available to receive the data
+        //if (NM33_IsReceptive() || TMRS_IsTimerExpired(TX_TIMEOUT_TIMER)) {
+        //if (TMRS_IsTimerExpired(TX_TIMEOUT_TIMER)) {
+        //  TMRS_StartTimer(TX_TIMEOUT_TIMER, TX_TIMEOUT_TIME);
+          NM33_set_location(pan, tilt, zoom);
+        //}
+      }
+  
       break;
     default:
       ENABLE_HEARTBEAT(0);  // indicate an error
@@ -139,12 +186,12 @@ void ProcessBoomIO(void) {
   RXUSBDevice_ProcessMessage();
 }
 
-/*---------------------------Helper Function Definitions----------------------*/
+//---------------------------Helper Function Definitions------------------------
 static void InitPins(void) {
 	//DeinitPins();
   ENABLE_VBAT(YES); TURN_VBAT(ON);
   ENABLE_FAN(YES); TURN_FAN(ON);
-  ENABLE_HEARTBEAT(YES); HEARTBEAT_PIN = 0;
+  //ENABLE_HEARTBEAT(YES); HEARTBEAT_PIN = 0;
 }
 
 
@@ -166,14 +213,11 @@ static void DeinitPins(void) {
 	TRISG = 0x0000; Nop(); PORTG = 0x0000;
 }
 
-
-/*
-Function: UpdatePan
-Parameters:
-  int8_t desired_speed,  the desired pan speed in [deg/delta_t]
-                         where delta_t is the time interval since the last call
-  int16_t* pan,          the current pan to be updated, passed by reference
-*/
+// Function: UpdatePan
+// Parameters:
+//   int8_t desired_speed,  the desired pan speed in [deg/delta_t]
+//                          where delta_t is the time interval since the last call
+//   int16_t* pan,          the current pan to be updated, passed by reference
 static void UpdatePan(const int8_t desired_speed, uint16_t* pan) {
   int16_t temp_pan = (*pan);
   
@@ -183,17 +227,17 @@ static void UpdatePan(const int8_t desired_speed, uint16_t* pan) {
   if (kNM33LimitMaxPan < temp_pan) temp_pan = kNM33LimitMinPan + (temp_pan - kNM33LimitMaxPan);
   if (temp_pan < kNM33LimitMinPan) temp_pan = kNM33LimitMaxPan - (kNM33LimitMinPan - temp_pan);
   
+  if (kNM33LimitMaxPan < temp_pan) temp_pan = kNM33LimitMaxPan;
+  if (temp_pan < kNM33LimitMinPan) temp_pan = kNM33LimitMinPan;
+  
   (*pan) = temp_pan;
 }
 
-
-/*
-Function: UpdateTilt
-Parameters:
-  int8_t desired_speed,  the desired tilt speed in [deg/delta_t]
-                         where delta_t is the time interval since the last call
-  int16_t* tilt,         the current tilt to be updated, passed by reference
-*/
+// Function: UpdateTilt
+// Parameters:
+//   int8_t desired_speed,  the desired tilt speed in [deg/delta_t]
+//                          where delta_t is the time interval since the last call
+//   int16_t* tilt,         the current tilt to be updated, passed by reference
 static void UpdateTilt(const int8_t desired_speed, uint8_t* tilt) {
   int16_t temp_tilt = (*tilt);
   temp_tilt += desired_speed;
@@ -205,15 +249,12 @@ static void UpdateTilt(const int8_t desired_speed, uint8_t* tilt) {
   (*tilt) = temp_tilt;
 }
 
-
-/*
-Function: UpdateZoom
-Parameters:
-  int8_t desired_speed,  the desired zoom speed in [au/delta_t]
-                         where au is arbitrary units
-                               delta_t is the time interval since the last call
-  int16_t* zoom,         the current zoom to be updated, passed by reference
-*/
+// Function: UpdateZoom
+// Parameters:
+//   int8_t desired_speed,  the desired zoom speed in [au/delta_t]
+//                          where au is arbitrary units
+//                                delta_t is the time interval since the last call
+//   int16_t* zoom,         the current zoom to be updated, passed by reference
 static void UpdateZoom(const int8_t desired_speed, uint8_t* zoom) {
   int16_t temp_zoom = (*zoom);
   temp_zoom += desired_speed;

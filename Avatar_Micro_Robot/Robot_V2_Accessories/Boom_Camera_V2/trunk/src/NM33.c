@@ -7,11 +7,12 @@ Notes:
   - see also: http://www.asciitable.com/
 ==============================================================================*/
 //#define TEST_NM33
-/*---------------------------Dependencies-------------------------------------*/
+//---------------------------Dependencies---------------------------------------
 #include "./NM33.h"
 #include "./core/StandardHeader.h"
 #include "./core/UART.h"
-/*---------------------------Macros-------------------------------------------*/
+
+//---------------------------Macros---------------------------------------------
 #define MAX_RX_MESSAGE_LENGTH     40
 #define MAX_TX_MESSAGE_LENGTH			40
 #define MAX_NUM_DIGITS            3
@@ -23,10 +24,8 @@ Notes:
 #define SPACE_IN_ASCII            0x20
 #define ESC_IN_ASCII              0x1B
 #define LF_IN_ASCII               0x0A  // line feed, new line
-#define YEN_IN_ASCII              0xBE  // yen or yuan
 
-
-/*---------------------------Helper Function Prototypes-----------------------*/
+//---------------------------Helper Function Prototypes-------------------------
 static void U1TX_ISR(void);
 static void U1RX_ISR(void);
 static void BuildLocationMessage(uint8_t object_id, uint16_t pan, uint8_t tilt, 
@@ -37,13 +36,13 @@ static inline uint8_t DigitToAscii(uint8_t digit);
 static void MyMemCpy(uint8_t src[], uint8_t src_length, 
                      uint8_t* dest_start_index, uint8_t dest[]);
 
-/*---------------------------Module Variables---------------------------------*/ 
+//---------------------------Module Variables----------------------------------- 
 static uint8_t rx_message[MAX_RX_MESSAGE_LENGTH] = {0};
 static uint8_t tx_message[MAX_TX_MESSAGE_LENGTH] = {0};
 static uint8_t tx_message_length = 0;
 static bool is_receptive = 0;
 
-/*---------------------------Test Harness-------------------------------------*/
+//---------------------------Test Harness---------------------------------------
 #ifdef TEST_NM33
 #include "./core/StandardHeader.h"  // for configuration bits
 
@@ -51,6 +50,7 @@ static bool is_receptive = 0;
 #define MY_RX_PIN   9
 
 int main(void) {
+  // TODO: UPDATE UNIT TEST
   NM33_Init(MY_TX_PIN, MY_RX_PIN);
   
   uint16_t pan = 50;
@@ -59,14 +59,15 @@ int main(void) {
     Delay(100);
     pan += 1;
     if (kNM33LimitMaxPan < pan) pan = kNM33LimitMinPan;
-    if (NM33_IsReceptive()) NM33_set_location(pan, DEFAULT_TILT, DEFAULT_ZOOM);
+    //if (NM33_IsReceptive()) NM33_set_location(pan, DEFAULT_TILT, DEFAULT_ZOOM);
+    NM33_set_location(pan, DEFAULT_TILT, DEFAULT_ZOOM);
   }
   
   return 0;
 }
 #endif
 
-/*---------------------------Public Function Definitions----------------------*/
+//---------------------------Public Function Definitions------------------------
 void NM33_Init(uint8_t txPin, uint8_t rxPin) {
 	// assign any application-dependent ISR's
 	U1TX_UserISR = U1TX_ISR;  // NB: these must be BEFORE UART initialization
@@ -76,17 +77,17 @@ void NM33_Init(uint8_t txPin, uint8_t rxPin) {
   UART_Init(UART1TX_PIN, UART1RX_PIN, kUARTBaudRate115200);
   // wait for the camera to boot up and for the initial stream of 
   // characters to come in
-  Delay(5000);//Delay(1500);
+  Delay(5000);
   is_receptive = 1;
+  
   // move to default location
   NM33_set_location(DEFAULT_PAN, DEFAULT_TILT, DEFAULT_ZOOM);
 }
 
-
 bool NM33_IsReceptive(void) {
+  // TODO: NOT YET IMPLEMENTED
   return is_receptive;
 }
-
 
 void NM33_set_location(uint16_t pan, uint8_t tilt, uint8_t zoom) {
   BuildLocationMessage(DEFAULT_ID, pan, tilt, zoom, DEFAULT_ROLL,
@@ -95,26 +96,23 @@ void NM33_set_location(uint16_t pan, uint8_t tilt, uint8_t zoom) {
   is_receptive = 0;
 }
 
-
 void NM33_Deinit(void) {
   is_receptive = 0;
   UART_Deinit();
 }
 
-/*---------------------------Private Function Definitions---------------------*/
-/*
-Function: BuildLocationMessage
-Parameters:
-  uint8_t object_id, the ID of the camera (associated with a taken image)
-  uint16_t pan,      pan setting
-  uint8_t tilt,      tilt setting
-  uint8_t zoom,      zoom setting
-  uint8_t roll,      roll setting
-  uint8_t message[], pointer to the message to populate
-  uint8_t* message_length, pointer to the message_length to update 
-Description: Populates the given message in the protocol with the given
-  values and a constant mode.
-*/
+//---------------------------Private Function Definitions-----------------------
+// Function: BuildLocationMessage
+// Parameters:
+//   uint8_t object_id, the ID of the camera (associated with a taken image)
+//   uint16_t pan,      pan setting
+//   uint8_t tilt,      tilt setting
+//   uint8_t zoom,      zoom setting
+//   uint8_t roll,      roll setting
+//   uint8_t message[], pointer to the message to populate
+//   uint8_t* message_length, pointer to the message_length to update 
+// Description: Populates the given message in the protocol with the given
+//   values and a constant mode.
 static void BuildLocationMessage(uint8_t object_id, uint16_t pan, uint8_t tilt, 
                                  uint8_t zoom, uint16_t roll, uint8_t message[],
                                  uint8_t* message_length) {
@@ -169,7 +167,6 @@ static void BuildLocationMessage(uint8_t object_id, uint16_t pan, uint8_t tilt,
   (*message_length) = i;
 }
 
-
 static void U1TX_ISR(void) {
   static uint8_t i = 0;
   _U1TXIF = 0;
@@ -180,7 +177,6 @@ static void U1TX_ISR(void) {
   if (i < tx_message_length) UART_TransmitByte(tx_message[i]);
   else i = 0;
 }
-
 
 static void U1RX_ISR(void) {
   _U1RXIF = 0;
@@ -206,20 +202,18 @@ static void U1RX_ISR(void) {
   */
 }
 
-
 static inline uint8_t DigitToAscii(uint8_t digit) {
   const uint8_t kOffsetToIntegers = 48;
   return (digit + kOffsetToIntegers);
 }
 
-
 // Description: Populates the given statically-declared array with 
-// digits as characters.  For example,
+//   digits as characters.  For example,
 // IntToAscii(123, my_string, my_string_length) populates output as
-// my_string[2] = 1
-// my_string[1] = 2
-// my_string[0] = 3
-// my_string_length = 3
+//   my_string[2] = 1
+//   my_string[1] = 2
+//   my_string[0] = 3
+//   my_string_length = 3
 static void IntToAscii(uint16_t n, uint8_t digits_str[],
                        uint8_t* digits_str_length) {
   uint8_t count = 0;
@@ -230,7 +224,6 @@ static void IntToAscii(uint16_t n, uint8_t digits_str[],
   
   (*digits_str_length) = count;
 }
-
 
 static void MyMemCpy(uint8_t src[], uint8_t src_length, 
                      uint8_t* dest_start_index, uint8_t dest[]) {

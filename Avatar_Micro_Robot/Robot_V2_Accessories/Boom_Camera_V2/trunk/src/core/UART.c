@@ -9,7 +9,7 @@ F_OSC = 32MHz (given our 20MHz crystal, dividy-by-5 from PLL, and
 F_CY = F_OSC / 2 = 16MHz
 ==============================================================================*/
 //#define TEST_UART
-/*---------------------------Dependencies-------------------------------------*/
+//---------------------------Dependencies---------------------------------------
 #include "./UART.h"
 #include "./PPS.h"
 #include "./StandardHeader.h"
@@ -19,13 +19,13 @@ void UART_DummyISR(void);
 void (*U1TX_UserISR)(void) = UART_DummyISR;
 void (*U1RX_UserISR)(void) = UART_DummyISR;
 
-/*---------------------------Helper Function Prototypes-----------------------*/
+//---------------------------Helper Function Prototypes-------------------------
 static void ConfigureBaudRate(UARTBaudRate baudRate);
 
-/*---------------------------Module Variables---------------------------------*/ 
+//---------------------------Module Variables----------------------------------- 
 static unsigned char U1TX_RPn, U1RX_RPn = 0; // remappable pin number
 
-/*---------------------------Test Harness-------------------------------------*/
+//---------------------------Test Harness---------------------------------------
 #ifdef TEST_UART
 #include "./Pause.h"
 #include "./Protocol.h"
@@ -50,7 +50,7 @@ int main(void) {
   U1RX_UserISR = U1RX_ISR;
   
   UART_Init(MY_TX_PIN, MY_RX_PIN, kUARTBaudRate9600);
-   
+  
   while (1) {
     /*
     // test slow transmission, inspecting result in debugger
@@ -70,7 +70,6 @@ int main(void) {
   return 0;
 }
 
-
 void U1TX_ISR(void) {
   static unsigned char i = 0;
   _U1TXIF = 0;
@@ -79,41 +78,36 @@ void U1TX_ISR(void) {
   else i = 0;
 }
 
-
 void U1RX_ISR(void) {
   _U1RXIF = 0;  
   rx_packet[i] = UART_GetRxByte();
 }
 #endif
 
-/*---------------------------Public Function Definitions----------------------*/
-/*
-Notes:
-	- by default, configures to 1 stop bit, 8-bit transmission, no parity
-*/
+//---------------------------Public Function Definitions------------------------
+// Notes:
+// 	- by default, configures to 1 stop bit, 8-bit transmission, no parity
 void UART_Init(unsigned char Tx_pin, unsigned char Rx_pin, 
                UARTBaudRate baudRate) {
 	U1TX_RPn = Tx_pin;
 	U1RX_RPn = Rx_pin;
 	PPS_MapPeripheral(U1TX_RPn, OUTPUT, FN_U1TX);
-	PPS_MapPeripheral(U1RX_RPn, INPUT, FN_U1RX);
+	//PPS_MapPeripheral(U1RX_RPn, INPUT, FN_U1RX);  // TODO: REMOVE AFTER DEBUGGING
 	ConfigureBaudRate(baudRate);
 	
 	_U1TXIF = 0;            // begin with any interrupt flags cleared
-	_U1RXIF = 0;
+	//_U1RXIF = 0;          // TODO: REMOVE AFTER DEBUGGING
 
 	IEC0bits.U1TXIE = 1;    // enable UART1 Tx interrupt
-	IEC0bits.U1RXIE = 1;    // enable UART1 Rx interrupt
+	//IEC0bits.U1RXIE = 1;    // enable UART1 Rx interrupt  // TODO: REMOVE AFTER DEBUGGING
 	U1MODEbits.UARTEN = 1;  // enable UART1
 	U1STAbits.UTXEN = 1;    // enable transmission
 	// BUG ALERT: the UxTXIF bit is set when the module is first enabled
 }
 
-
 void inline UART_TransmitByte(unsigned char byte) {
   U1TXREG = byte;
 }
-
 
 char inline UART_GetRxByte(void) {
   return (char)U1RXREG;
@@ -149,14 +143,12 @@ void  __attribute__((__interrupt__, auto_psv)) _U1RXInterrupt(void) {
  	U1RX_UserISR();
 }
 
-/*---------------------------Private Function Definitions---------------------*/
-/*
-Notes:
-  - see also Table 21-2 of PIC24F family reference manual
-  - UxBRG = F_CY / (16 * desired_baud_rate) - 1 (see p.200 of datasheet)
-          = 16MHz / (4 * 9600) - 1
-         ~= 416
-*/
+//---------------------------Private Function Definitions-----------------------
+// Notes:
+//   - see also Table 21-2 of PIC24F family reference manual
+//   - UxBRG = F_CY / (16 * desired_baud_rate) - 1 (see p.200 of datasheet)
+//           = 16MHz / (4 * 9600) - 1
+//          ~= 416
 static void ConfigureBaudRate(UARTBaudRate baudRate) {
   U1MODEbits.BRGH = 1;		// configure for high precision baud rate
   switch (baudRate) {

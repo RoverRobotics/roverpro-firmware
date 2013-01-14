@@ -1,22 +1,22 @@
 /*==============================================================================
 File: RXUSBDevice.c
-==============================================================================*/
+===============================================================================*/
 //#define TEST_RXUSBDEVICE
-/*---------------------------Dependencies-------------------------------------*/
+//---------------------------Dependencies---------------------------------------
 #include "./RXUSBDevice.h"
 #include "./core/StandardHeader.h"
 #include "./USB/HardwareProfile.h"      // used by USB somehow?
 #include "./microchip/USB/usb.h"        // interface to microchip's USB stack
                                         // BUG ALERT: usb_config.h MUST be 
-                                        // defined before this
+                                        // defined before this?
 #include "./microchip/USB/usb_device.h" // for USBDeviceAttach(), etc
 
-/*---------------------------Macros-------------------------------------------*/
+//---------------------------Macros---------------------------------------------
 #define USB_NEXT_PING_PONG  0x0004      // ?
 
-/*---------------------------Helper Function Prototypes-----------------------*/
+//---------------------------Helper Function Prototypes-------------------------
 
-/*---------------------------Module Variables---------------------------------*/
+//---------------------------Module Variables-----------------------------------
 extern volatile BDT_ENTRY *pBDTEntryOut[USB_MAX_EP_NUMBER + 1];
 extern USB_DEVICE_DESCRIPTOR device_dsc;	// warning must be this name, defined in usb_descriptors.c
 
@@ -30,7 +30,7 @@ uint8_t InPacket[IN_PACKET_LENGTH];
 USB_HANDLE USBGenericOutHandle = 0;
 USB_HANDLE USBGenericInHandle = 0;
 
-/*---------------------------Test Harness-------------------------------------*/
+//---------------------------Test Harness---------------------------------------
 #ifdef TEST_RXUSBDEVICE
 #include "./core/ConfigurationBits.h"
 
@@ -46,9 +46,9 @@ int main(void) {
 }
 #endif
 
-/*---------------------------Public Function Definitions----------------------*/
+//---------------------------Public Function Definitions------------------------
 void RXUSBDevice_Init(uint16_t productID) {
-  // assign any pins?
+  // initialize any pins?
   
   // determine the number of registers ?
   while (registers[numRegisters].ptr != 0) numRegisters++;
@@ -58,17 +58,20 @@ void RXUSBDevice_Init(uint16_t productID) {
 	USBDeviceAttach();
 }
 
-
 void RXUSBDevice_ProcessMessage(void) {
 	static unsigned char usb_rx_failed = 0;
 	if ((USBDeviceState < CONFIGURED_STATE)||(USBSuspendControl==1)) return;
-
+  
+	/*
+	TODO: understand why this was creating lag in USB?
 	if (!USBHandleBusy(USBGenericInHandle) && (usb_rx_failed == 1) ) {
 	  USBGenericOutHandle = USBRxOnePacket((BYTE)USBGEN_EP_NUM, (BYTE*)&OutPacket,(WORD)(OUT_PACKET_LENGTH));
 		usb_rx_failed = 0;
+		//_RB9 ^= 1; // TODO: REMOVE AFTER DEBUGGING
 		return;
 	}
-    
+	*/
+  
   if (!USBHandleBusy(USBGenericOutHandle)) {
     // CHECK FOR VALID PACKET
     i = 0;                // reset IN packet pointer
@@ -144,17 +147,19 @@ void RXUSBDevice_ProcessMessage(void) {
   	gNewData = !gNewData; // toggle new data flag for those watching
   
 crapout5:
-  	if (!USBHandleBusy(USBGenericInHandle)) {
+		USBGenericOutHandle = USBRxOnePacket((BYTE)USBGEN_EP_NUM, (BYTE*)&OutPacket, (WORD)(OUT_PACKET_LENGTH));
+  	/*
+  	// TODO: UNDERSTAND WHY THIS CREATED LAG?
+    if (!USBHandleBusy(USBGenericInHandle)) {
   		// prepare USB hardware to receive next packet.
       USBGenericOutHandle = USBRxOnePacket((BYTE)USBGEN_EP_NUM, (BYTE*)&OutPacket,(WORD)(OUT_PACKET_LENGTH));
   		usb_rx_failed = 0;
   	} else {
   		usb_rx_failed = 1;
   	}
+  	*/
   }
 }
-
-
 
 /****************************NOT USED RIGHT NOW********************************/
 void USBCBInitEP(void) {
@@ -162,10 +167,9 @@ void USBCBInitEP(void) {
   USBGenericOutHandle = USBRxOnePacket((BYTE)USBGEN_EP_NUM,(BYTE*)&OutPacket,(WORD)(OUT_PACKET_LENGTH));
 }
 
-
 bool USER_USB_CALLBACK_EVENT_HANDLER(USB_EVENT event, void *pdata, WORD size) {
   switch (event) {
-    case EVENT_CONFIGURED: 
+    case EVENT_CONFIGURED:
       USBCBInitEP();
       break;
     case EVENT_SET_DESCRIPTOR:
@@ -190,8 +194,6 @@ bool USER_USB_CALLBACK_EVENT_HANDLER(USB_EVENT event, void *pdata, WORD size) {
     default:
       break;
   }
-    
-  return TRUE; 
+  
+  return 1;
 }
-
-/*---------------------------Private Function Definitions---------------------*/
