@@ -181,7 +181,7 @@ static void U1TX_ISR(void) {
 static void U1RX_ISR(void) {
   _U1RXIF = 0;
   static uint8_t i = 0;
-  const uint8_t kNumBytesNotEchoed = 0;
+  //const uint8_t kNumBytesNotEchoed = 0;
   rx_message[i] = U1RXREG;
   i++;
   if (1 <= i) {

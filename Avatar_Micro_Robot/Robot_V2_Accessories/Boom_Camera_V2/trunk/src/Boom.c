@@ -21,10 +21,6 @@ Description: Overarching file encompassing the application-level logic of the
 #define ENABLE_FAN(a)             (_TRISD0 = !(a))	// NOTE: 5V regulator attached to fan pins for current hack!!!
 #define TURN_FAN(a)								(_RD0 = (a))
 
-// indicators
-#define ENABLE_HEARTBEAT(a)       (_TRISE5 = (a))
-#define HEARTBEAT_PIN             (_RE5)
-
 // timers
 #define _100ms										100
 #define HEARTBEAT_TIMER           0
@@ -33,8 +29,6 @@ Description: Overarching file encompassing the application-level logic of the
 #define CAM_TX_TIME               100//15  // USB registers are updated every ~15ms
 #define USB_INIT_TIMER            2
 #define USB_INIT_TIME             (100)
-//#define TX_TIMEOUT_TIMER          3
-//#define TX_TIMEOUT_TIME           CAM_TX_TIME
 
 // NM33 pin assignments
 #define MY_TX_PIN                 8
@@ -45,10 +39,6 @@ Description: Overarching file encompassing the application-level logic of the
 #define OCU_JOYSTICK_MAX          1000
 #define OCU_TOGGLE_MIN            -7
 #define OCU_TOGGLE_MAX            7
-
-// TODO: remove after debugging
-#define DEBUG1_PIN_EN(a)          (_TRISB9 = !(a)); AD1PCFGL |= (1 << 9)  // TODO: REMOVE AFTER DEBUGGING
-#define DEBUG1_PIN                (_RB9)
 
 //---------------------------Type Definitions-----------------------------------
 typedef enum {
@@ -69,7 +59,6 @@ typedef enum {
 void InitBoom(void);
 void ProcessBoomIO(void);
 static void InitPins(void);
-static void DeinitPins(void);
 static void UpdatePan(const int8_t desired_speed, uint16_t* pan);
 static void UpdateTilt(const int8_t desired_speed, uint8_t* tilt);
 static void UpdateZoom(const int8_t desired_speed, uint8_t* zoom);
@@ -99,12 +88,7 @@ void InitBoom(void) {
   
   TMRS_Init();
   TMRS_StartTimer(CAM_TX_TIMER, CAM_TX_TIME);
-  //TMRS_StartTimer(TX_TIMEOUT_TIMER, TX_TIMEOUT_TIME);
-  //TMRS_StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME);
   TMRS_StartTimer(USB_INIT_TIMER, USB_INIT_TIME);
-  
-  // TODO: REMOVE AFTER DEBUGGING
-  DEBUG1_PIN_EN(1); DEBUG1_PIN = 0;
 }
 
 
@@ -127,12 +111,6 @@ void ProcessBoomIO(void) {
         TRISE = 0xffff; TRISF = 0xffff; TRISG = 0xffff;
         NM33_Deinit();
         while (1) {}; // wait until the watchdog timer resets us
-      }
-
-      // toggle a pin to indicate normal operation
-      if (TMRS_IsTimerExpired(HEARTBEAT_TIMER)) {
-        TMRS_StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME);
-        HEARTBEAT_PIN ^= 1;
       }
       */
       
@@ -168,18 +146,13 @@ void ProcessBoomIO(void) {
         UpdateTilt(desired_tilt_speed, &tilt);
         UpdateZoom(desired_zoom_speed, &zoom);
         
-        // write the update to the camera, ensuring
-        // that it is available to receive the data
-        //if (NM33_IsReceptive() || TMRS_IsTimerExpired(TX_TIMEOUT_TIMER)) {
-        //if (TMRS_IsTimerExpired(TX_TIMEOUT_TIMER)) {
-        //  TMRS_StartTimer(TX_TIMEOUT_TIMER, TX_TIMEOUT_TIME);
-          NM33_set_location(pan, tilt, zoom);
-        //}
+        // write the update to the camera
+        NM33_set_location(pan, tilt, zoom);
       }
   
       break;
     default:
-      ENABLE_HEARTBEAT(0);  // indicate an error
+      // TODO: indicate an error
       break;
   }
   
@@ -191,26 +164,6 @@ static void InitPins(void) {
 	//DeinitPins();
   ENABLE_VBAT(YES); TURN_VBAT(ON);
   ENABLE_FAN(YES); TURN_FAN(ON);
-  //ENABLE_HEARTBEAT(YES); HEARTBEAT_PIN = 0;
-}
-
-
-static void DeinitPins(void) {
-  // return any resources consumed by dependent modules
-	TMRS_Deinit();
-  // NM33_Deinit();
-	
-	// configure all I/O pins as digital outputs and ground them
-  AD1CON1 = 0x0000; Nop();
-	AD1CON2 = 0x0000; Nop();
-	AD1CON3 = 0x0000; Nop();
-  AD1PCFGL = 0xffff; Nop();
-	TRISB = 0x0000; Nop(); PORTB = 0x0000;
-	TRISC = 0x0000; Nop(); PORTC = 0x0000;
-	TRISD = 0x0000; Nop(); PORTD = 0x0000;
-	TRISE = 0x0000; Nop(); PORTE = 0x0000;
-	TRISF = 0x0000; Nop(); PORTF = 0x0000;
-	TRISG = 0x0000; Nop(); PORTG = 0x0000;
 }
 
 // Function: UpdatePan

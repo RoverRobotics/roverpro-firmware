@@ -92,14 +92,14 @@ void UART_Init(unsigned char Tx_pin, unsigned char Rx_pin,
 	U1TX_RPn = Tx_pin;
 	U1RX_RPn = Rx_pin;
 	PPS_MapPeripheral(U1TX_RPn, OUTPUT, FN_U1TX);
-	//PPS_MapPeripheral(U1RX_RPn, INPUT, FN_U1RX);  // TODO: REMOVE AFTER DEBUGGING
+	PPS_MapPeripheral(U1RX_RPn, INPUT, FN_U1RX);
 	ConfigureBaudRate(baudRate);
 	
 	_U1TXIF = 0;            // begin with any interrupt flags cleared
-	//_U1RXIF = 0;          // TODO: REMOVE AFTER DEBUGGING
+	_U1RXIF = 0;
 
 	IEC0bits.U1TXIE = 1;    // enable UART1 Tx interrupt
-	//IEC0bits.U1RXIE = 1;    // enable UART1 Rx interrupt  // TODO: REMOVE AFTER DEBUGGING
+	IEC0bits.U1RXIE = 1;    // enable UART1 Rx interrupt
 	U1MODEbits.UARTEN = 1;  // enable UART1
 	U1STAbits.UTXEN = 1;    // enable transmission
 	// BUG ALERT: the UxTXIF bit is set when the module is first enabled

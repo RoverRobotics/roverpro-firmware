@@ -59,7 +59,7 @@ void RXUSBDevice_Init(uint16_t productID) {
 }
 
 void RXUSBDevice_ProcessMessage(void) {
-	static unsigned char usb_rx_failed = 0;
+  //	static unsigned char usb_rx_failed = 0;
 	if ((USBDeviceState < CONFIGURED_STATE)||(USBSuspendControl==1)) return;
   
 	/*
@@ -67,7 +67,6 @@ void RXUSBDevice_ProcessMessage(void) {
 	if (!USBHandleBusy(USBGenericInHandle) && (usb_rx_failed == 1) ) {
 	  USBGenericOutHandle = USBRxOnePacket((BYTE)USBGEN_EP_NUM, (BYTE*)&OutPacket,(WORD)(OUT_PACKET_LENGTH));
 		usb_rx_failed = 0;
-		//_RB9 ^= 1; // TODO: REMOVE AFTER DEBUGGING
 		return;
 	}
 	*/
