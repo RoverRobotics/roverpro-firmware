@@ -1,18 +1,25 @@
 /*==============================================================================
 File: ESC.h
 
-Description: This file encapsulates the control of the brushless DC (BLDC) 
-  motors on the robot.  Electronic Speed Controller (ESC).
-  
+Description: This module defines an Electronic Speed Controller (ESC) to drive
+  a Brushless DC (BLDC) motor.
+
 Notes:
   - consumes timer4 as the time base for output compare
   - consumes output compare modules OC1, OC2 and OC3
-  - most BLDC motors have three-phase winding topology with star connection
+  - employs Bipolar PWM switching -— both the high-side and low-side ON
+    transistors are modulated (better for sensorless design)
+  - requires a motor with sensors
+  - most BLDC motors have a three-phase winding topology with a star connection
+  - most timing offsets (mechanical offset of the position sensors along the 
+    motor shaft) are 15-45deg
 
 Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 ==============================================================================*/
 #ifndef ESC_H
 #define ESC_H
+//---------------------------Dependencies---------------------------------------
+#include "./core/StandardHeader.h"  // uintN_t data types
 
 //---------------------------Public Functions-----------------------------------
 // Function: ESC_Init

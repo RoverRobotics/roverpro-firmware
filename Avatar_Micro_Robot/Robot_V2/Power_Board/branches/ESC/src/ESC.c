@@ -1,5 +1,9 @@
 /*==============================================================================
 File:ESC.c
+
+Notes:
+  - if noise becomes an issue, we can only switch the high-side transistor (and
+    pulse its low-side counterpart) and leave the low-side transistor on
 ==============================================================================*/
 #define TEST_ESC
 //---------------------------Dependencies---------------------------------------
@@ -12,7 +16,16 @@ File:ESC.c
 
 //---------------------------Macros---------------------------------------------
 // analog sensing pins (ANx)
-#define POT2_PIN            12
+#define POT2_PIN            12  // TODO: remove after debugging board
+
+// user interface pins
+#define DIRI_EN(a)          (_TRISB2 = (a)); AD1PCFGL |= (1 << 2)
+#define DIRI                (_RB2)          // pin 1 of P9
+#define DIRO_EN(a)          (_TRISB4 = !(a)); AD1PCFGL |= (1 << 4)
+#define DIRO                (_RB4)          // pin 2 of P9
+#define TACHI_RPN_PIN       (_RP8)
+#define TACHO_EN(a)         (_TRISB5 = !(a)); AD1PCFGL |= (1 << 5)
+#define TACHO               (_RB5)          // pin 3 of P9
 
 // digital inputs
 #define HALL_A_EN(a)        (_TRISE5 = (a))
@@ -24,10 +37,10 @@ File:ESC.c
 #define HALL_STATE          ((HALL_C << 2) | (HALL_B << 1) | (HALL_A))
 
 // debugging
-#define HEARTBEAT_EN(a)     (_TRISB9 = !(a))
-#define HEARTBEAT_PIN       (_RB9)  // pin 8 of connector P8
+//#define HEARTBEAT_EN(a)     (_TRISB9 = !(a))
+//#define HEARTBEAT_PIN       (_RB9)  // pin 8 of connector P8
 
-// for testing
+// TODO: remove after debugging
 #define TEST1_RPN_PIN       (_RP21R)
 #define TEST2_RPN_PIN       (_RP19R)
 
@@ -39,14 +52,41 @@ File:ESC.c
 #define C_HI_RPN_PIN        (_RP25R)
 #define C_LO_RPN_PIN        (_RP20R)
 
-#define DEFAULT_DC          2000 // [ticks]
-#define PWM_PERIOD          10000//2000 // [ticks]
-#define DEAD_TIME           200   // [ticks]
-#define MAX_DC              (PWM_PERIOD - DEAD_TIME)
+// TODO: ensure these do NOT change
+#define DEFAULT_DC              500//956   // [ticks]
+#define PWM_PERIOD              1000  // [ticks], 1000 => ~16kHz
+
+// The time before the end of the period to schedule the falling edge of the
+// recharge pulse.
+#define CROSSOVER_TOLERANCE     4     // [ticks], 28 leaves ~200ns before drive pulse begins
+
+// Time consumed in the interrupt to reinitialize the single-shot pulse.
+#define REPULSE_INTERRUPT_DELAY 24    // [ticks]
+
+// The minimum recharge pulse duration in units of timer4 ticks (62.5ns/tick).
+#define RECHARGE_DURATION       16    // [ticks], 16 => ~1us recharge pulse width
+
+// The maximum duty cycle must be capped to ensure there is space during a period
+// for the recharge pulse and the associated, manually-tuned delays.
+#define MAX_DC  (PWM_PERIOD - CROSSOVER_TOLERANCE - REPULSE_INTERRUPT_DELAY - RECHARGE_DURATION) // should compute to 956
+// NB: THE MAXIMUM DC FOR REVERSE IS LESS.  THERE IS A LARGE INCREASE IN CURRENT
+// FOR DUTY CYCLES GREATER THAN ~860.  THE COMMUTATION BEGINS TO FIGHT ITSELF
+
+// how long to delay after catching a stall condition
+#define DELAY_MS    2000  // [ms]
+
+#define MIN_N_EXPECTED_EVENTS_PER_MS  1000
+
+//---------------------------Constants------------------------------------------
+// [au], maximum allowable current draw from an individual side
+// 0.01S*(17A*0.001Ohm)*11k ~= 1.87V, (1.87 / 3.30) * 1023=
+//static const kADCReading kMaxCurrent = 520;
 
 //---------------------------Helper Function Prototypes-------------------------
 static void InitPins(void);
 static void InitCNs(void);
+static void Coast(void);
+static bool inline IsMotorStalled(void);
 
 // OC-module related
 static void Energize(const uint8_t hall_state);
@@ -57,7 +97,6 @@ static void InitLowSidePulser(void);
 static void InitRechargePulser(void);
 
 //---------------------------Module Variables-----------------------------------
-static volatile uint8_t direction = CCW;
 static volatile uint16_t current_speed = 0;
 
 //---------------------------Test Harness---------------------------------------
@@ -65,17 +104,22 @@ static volatile uint16_t current_speed = 0;
 #include "./core/ConfigurationBits.h"
 int main(void) {
   ESC_Init();
-  ESC_StartMotor(2000);
-  Delay(500); ESC_set_speed(3000);
-  Delay(500); ESC_set_speed(4000);
-  Delay(500); ESC_set_speed(5000);
+  ESC_StartMotor(400); Delay(3000);
+  ESC_set_speed(860);
+  //Energize(3);
+  //Energize(1);
+  //Energize(1);
+  //Energize(1);
+  //Energize(1);
+  //Energize(1);
+  
   while (1) {
     /*
-    uint16_t duty_cycle = IIRFilter(0,
-                                    Map(ADC_value(POT2_PIN), 0, 1023, 0, 1000),
-                                    0.8,
-                                    NO);
-    OC_UpdateDutyCycle(duty_cycle);
+    if (IsMotorStalled()) {
+      Coast();
+      Delay(DELAY_MS);
+      asm("reset");
+    }
     */
   }
   
@@ -86,16 +130,15 @@ int main(void) {
 //---------------------------Interrupt Service Routines (ISRs)------------------
 // This interrupt is thrown when the running timer4 counter counts up to OC1R
 void __attribute__((__interrupt__, auto_psv)) _OC1Interrupt(void) {
-   HEARTBEAT_PIN = 1;      // clock the time we spend in here on the oscilloscope
- // restart the single-shot pulse
+  // restart the single-shot pulse
   OC3CON1bits.OCM = 0b000;
   OC3CON1bits.OCM = 0b100;
   _OC1IF = 0;
- HEARTBEAT_PIN = 0;
 }
 
 void __attribute__((__interrupt__, auto_psv)) _CNInterrupt(void) {
   Energize(HALL_STATE);   // energize the appropriate coils to move to the next position
+  TACHO ^= 1;             // output that we commutated
   _CNIF = 0;              // clear the source of the interrupt
 }
 
@@ -105,7 +148,7 @@ void ESC_Init(void) {
   InitCNs();
   InitOCs();
   //ADC_Init((1 << POT1_PIN) | (1 << POT2_PIN) | (1 << POT3_PIN));
-  HEARTBEAT_EN(1); HEARTBEAT_PIN = 0;
+  //HEARTBEAT_EN(1); HEARTBEAT_PIN = 0;
 }
 
 void ESC_StartMotor(const int16_t speed) {
@@ -114,10 +157,6 @@ void ESC_StartMotor(const int16_t speed) {
 }
 
 void ESC_set_speed(const int16_t speed) {
-  // update the direction
-  if (speed < 0) direction = CW;
-  else direction = CCW;
-  
   // update the magnitude
   UpdateDutyCycle(abs(speed));
 }
@@ -126,40 +165,70 @@ int16_t ESC_speed(void) {
  return current_speed;
 }
 
-
 //---------------------------Helper Function Definitions------------------------
 static void Energize(const uint8_t hall_state) {
-  // disable any previous output
-  LATD = 0;
-  A_HI_RPN_PIN = FN_NULL; A_LO_RPN_PIN = FN_NULL;
-  B_HI_RPN_PIN = FN_NULL; B_LO_RPN_PIN = FN_NULL;
-  C_HI_RPN_PIN = FN_NULL; C_LO_RPN_PIN = FN_NULL;
-  LATD = 0;
-  
   //T4CONbits.TON = 0;
   //TMR4 = PR4 - 2;
   
   // map the desired pins to the existing output compare modules
-  // for CW direction
-  if (direction == CCW) {
+  if (0) {//DIRI == CCW) {
     switch (hall_state) {
-      case 1: C_HI_RPN_PIN = FN_OC1; C_LO_RPN_PIN = FN_OC3; B_LO_RPN_PIN = FN_OC2; break;
-      case 2: A_HI_RPN_PIN = FN_OC1; A_LO_RPN_PIN = FN_OC3; C_LO_RPN_PIN = FN_OC2; break;
-      case 3: A_HI_RPN_PIN = FN_OC1; A_LO_RPN_PIN = FN_OC3; B_LO_RPN_PIN = FN_OC2; break;
-      case 4: B_HI_RPN_PIN = FN_OC1; B_LO_RPN_PIN = FN_OC3; A_LO_RPN_PIN = FN_OC2; break;
-      case 5: C_HI_RPN_PIN = FN_OC1; C_LO_RPN_PIN = FN_OC3; A_LO_RPN_PIN = FN_OC2; break;
-      case 6: B_HI_RPN_PIN = FN_OC1; B_LO_RPN_PIN = FN_OC3; C_LO_RPN_PIN = FN_OC2; break;
+      case 1:
+        // disable any previous output
+        LATD = 0;
+        A_HI_RPN_PIN = FN_NULL; A_LO_RPN_PIN = FN_NULL; B_HI_RPN_PIN = FN_NULL;
+        C_HI_RPN_PIN = FN_OC1; C_LO_RPN_PIN = FN_OC3; B_LO_RPN_PIN = FN_OC2; break;
+      case 2:
+        LATD = 0;
+        B_HI_RPN_PIN = FN_NULL; B_LO_RPN_PIN = FN_NULL; C_HI_RPN_PIN = FN_NULL;
+        A_HI_RPN_PIN = FN_OC1; A_LO_RPN_PIN = FN_OC3; C_LO_RPN_PIN = FN_OC2; break;
+      case 3:
+        LATD = 0;
+        B_HI_RPN_PIN = FN_NULL; C_HI_RPN_PIN = FN_NULL; C_LO_RPN_PIN = FN_NULL;
+        A_HI_RPN_PIN = FN_OC1; A_LO_RPN_PIN = FN_OC3; B_LO_RPN_PIN = FN_OC2; break;
+      case 4:
+        LATD = 0;
+        A_HI_RPN_PIN = FN_NULL; C_HI_RPN_PIN = FN_NULL; C_LO_RPN_PIN = FN_NULL;
+        B_HI_RPN_PIN = FN_OC1; B_LO_RPN_PIN = FN_OC3; A_LO_RPN_PIN = FN_OC2; break;
+      case 5:
+        LATD = 0;
+        A_HI_RPN_PIN = FN_NULL; B_HI_RPN_PIN = FN_NULL; B_LO_RPN_PIN = FN_NULL;
+        C_HI_RPN_PIN = FN_OC1; C_LO_RPN_PIN = FN_OC3; A_LO_RPN_PIN = FN_OC2; break;
+      case 6:
+        LATD = 0;
+        A_HI_RPN_PIN = FN_NULL; A_LO_RPN_PIN = FN_NULL; C_HI_RPN_PIN = FN_NULL;
+        B_HI_RPN_PIN = FN_OC1; B_LO_RPN_PIN = FN_OC3; C_LO_RPN_PIN = FN_OC2; break;
     }
   } else {
+  // TODO: is there an error with this table, draws 10A when tries to do this at 90%dc
     switch (hall_state) {
-      case 1: B_HI_RPN_PIN = FN_OC1; B_LO_RPN_PIN = FN_OC3; A_LO_RPN_PIN = FN_OC2; break;
-      case 2: C_HI_RPN_PIN = FN_OC1; C_LO_RPN_PIN = FN_OC3; B_LO_RPN_PIN = FN_OC2; break;
-      case 3: C_HI_RPN_PIN = FN_OC1; C_LO_RPN_PIN = FN_OC3; A_LO_RPN_PIN = FN_OC2; break;
-      case 4: A_HI_RPN_PIN = FN_OC1; A_LO_RPN_PIN = FN_OC3; C_LO_RPN_PIN = FN_OC2; break;
-      case 5: B_HI_RPN_PIN = FN_OC1; B_LO_RPN_PIN = FN_OC3; C_LO_RPN_PIN = FN_OC2; break;
-      case 6: A_HI_RPN_PIN = FN_OC1; A_LO_RPN_PIN = FN_OC3; B_LO_RPN_PIN = FN_OC2; break;
+      case 1:
+        LATD = 0;
+        A_HI_RPN_PIN = FN_NULL; C_HI_RPN_PIN = FN_NULL; C_LO_RPN_PIN = FN_NULL;
+        B_HI_RPN_PIN = FN_OC1; B_LO_RPN_PIN = FN_OC3; A_LO_RPN_PIN = FN_OC2; break;
+      case 2:
+        LATD = 0;
+        A_HI_RPN_PIN = FN_NULL; A_LO_RPN_PIN = FN_NULL; B_HI_RPN_PIN = FN_NULL;
+        C_HI_RPN_PIN = FN_OC1; C_LO_RPN_PIN = FN_OC3; B_LO_RPN_PIN = FN_OC2; break;
+      case 3:
+        LATD = 0;
+        A_HI_RPN_PIN = FN_NULL; B_HI_RPN_PIN = FN_NULL; B_LO_RPN_PIN = FN_NULL;
+        C_HI_RPN_PIN = FN_OC1; C_LO_RPN_PIN = FN_OC3; A_LO_RPN_PIN = FN_OC2; break;
+      case 4:
+        LATD = 0;
+        B_HI_RPN_PIN = FN_NULL; B_LO_RPN_PIN = FN_NULL; C_HI_RPN_PIN = FN_NULL;
+        A_HI_RPN_PIN = FN_OC1; A_LO_RPN_PIN = FN_OC3; C_LO_RPN_PIN = FN_OC2; break;
+      case 5:
+        LATD = 0;
+        A_HI_RPN_PIN = FN_NULL; A_LO_RPN_PIN = FN_NULL; C_HI_RPN_PIN = FN_NULL;
+        B_HI_RPN_PIN = FN_OC1; B_LO_RPN_PIN = FN_OC3; C_LO_RPN_PIN = FN_OC2; break;
+      case 6:
+        LATD = 0;
+        B_HI_RPN_PIN = FN_NULL; C_HI_RPN_PIN = FN_NULL; C_LO_RPN_PIN = FN_NULL;
+        A_HI_RPN_PIN = FN_OC1; A_LO_RPN_PIN = FN_OC3; B_LO_RPN_PIN = FN_OC2; break;
     }
   }
+  //DIRO = DIRI;  // output the current direction
   //T4CONbits.TON = 1;
 }
 
@@ -168,15 +237,19 @@ static void UpdateDutyCycle(const uint16_t duty_cycle) {
   if (MAX_DC < duty_cycle) OC1R = MAX_DC;
   else OC1R = duty_cycle;
   
-  // shadow the other variable 
+  // shadow the other variable
   OC2R = OC1R;
   OC3R = OC1R;
 }
 
 static void InitPins(void) {
+  Coast();
   HALL_A_EN(1);
   HALL_B_EN(1);
   HALL_C_EN(1);
+  DIRI_EN(1);
+  DIRO_EN(1);
+  TACHO_EN(1);
 }
 
 // NB: assumes that the associated pins are already configured as digital inputs
@@ -201,7 +274,7 @@ static void InitOCs(void) {
   PR4 = PWM_PERIOD;
   TMR4 = PR4;               // NB: important for initialization, so we don't have to wait a whole TMR4 period to get started?
   
-  TRISG = 0; LATD = 0;
+  TRISD = 0; LATD = 0;
   InitHighSidePulser();
   InitLowSidePulser();
   InitRechargePulser();
@@ -238,6 +311,23 @@ static void InitRechargePulser(void) {
   OC3CON1bits.OCTSEL = OC1CON1bits.OCTSEL;
   OC3CON2bits.SYNCSEL = OC1CON2bits.SYNCSEL;
   // consume the remainder of the period with the recharge pulse
-  OC3R = OC1R;//OC3R = OC1R + 5;
-  OC3RS = PWM_PERIOD - 30; //PWM_PERIOD - 55;
+  OC3R = OC1R;  // NB: start as close as we can to when the interrupt fires
+  OC3RS = PWM_PERIOD - CROSSOVER_TOLERANCE - REPULSE_INTERRUPT_DELAY;
+}
+
+static void Coast(void) {
+  // turn everything off
+  LATD = 0;
+  A_HI_RPN_PIN = FN_NULL; A_LO_RPN_PIN = FN_NULL;
+  B_HI_RPN_PIN = FN_NULL; B_LO_RPN_PIN = FN_NULL;
+  C_HI_RPN_PIN = FN_NULL; C_LO_RPN_PIN = FN_NULL;
+  LATD = 0; // to really ensure everything is off
+}
+
+static bool inline IsMotorStalled(void) {
+  static uint16_t events_per_ms = 0;
+  // NB: assuming our slowest speed
+  // if we have not seen any commutation events
+  // for a relatively long amount of time
+  return (events_per_ms < MIN_N_EXPECTED_EVENTS_PER_MS);
 }
