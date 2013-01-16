@@ -19,6 +19,7 @@ Notes:
   - the carrier board provides the regulated logic-level voltages to the
     power board
   - the temperature sensor (TMP112) is not used right now
+  - when turning, the effort is limited to avoid burning out the drive motors
   
 Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 ==============================================================================*/
@@ -39,6 +40,7 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 #include <stdlib.h>                     // for abs()
 #include <math.h>                       // for fabsf()
 #include "./drivetrain.h"               // to control drive motors and flipper
+#include "./core/UART.h"                // REMOVE WHEN DONE DEBUGGING
 
 //---------------------------Macros---------------------------------------------
 #define POWERBOARD_PRODUCT_ID 0x03      // for USB
@@ -55,9 +57,9 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 
 #define MAX_EFFORT          1.00        // maximum control effort magnitude (can also be -1000)
 #define MIN_EFFORT          -1.00
-#define K_P                 0.0003      // proportional gain
-#define K_I                 0.00001     // integral gain
-#define K_D                 0.0         // differential gain
+#define K_P                 0.0005      // proportional gain
+#define K_I                 0.00003     // integral gain
+#define K_D                 0.000000    // differential gain
 
 // filters
 #define ALPHA               0.8
@@ -66,6 +68,7 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 
 // OCU speed filter-related values
 #define MAX_DESIRED_SPEED   900         // [au], caps incoming signal from OCU
+#define MIN_ACHEIVABLE_SPEED 50
 
 //---analog sensing pins (ANx)
 #define M1_T_PIN            2           // motor1 temperature sensing
@@ -121,13 +124,14 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 #define CHARGER_CHECK_TIME  (5*_10ms)   // potential internal charger
 #define PBTOGGLE_TIMER      11
 #define PBTOGGLE_TIME       (30*_100ms)
+#define STEP_INPUT_TIMER    12          // TODO: REMOVE AFTER DEBUGGING
+#define STEP_INPUT_TIME     (_100ms)
 
 //---------------------------Constants------------------------------------------
 // [au], maximum allowable current draw from an individual side
 // 0.01S*(17A*0.001Ohm)*11k ~= 1.87V, (1.87 / 3.30) * 1023=
 //static const kADCReading kMaxSideCurrent = 580;
 static const kADCReading kMaxSideCurrent = 520;
-
 
 // potential smart battery device names (reversed) used during initialization
 static const int8_t old_bat_str[8] = {'0','9','5','2','-','B','B', 0x07};
@@ -184,6 +188,11 @@ static void TogglePowerbus(void);
 //---control-related
 static float GetNominalDriveEffort(const float desired_speed);
 static int16_t GetDesiredSpeed(const kMotor motor);
+static void ClearMotorHistory(void);
+
+// TODO: remove after debugging
+static void MyTx_UART(void);
+static void MyRx_UART(void);
 
 //---------------------------Module Variables-----------------------------------
 static uint16_t lmotor_temperature = DEFAULT_DATA;
@@ -224,6 +233,12 @@ static TWIDevice charger = {
 };
 
 static volatile kPowerboardState state = kWaiting;
+
+// TODO: REMOVE AFTER DEBUGGING
+#define TX_PACKET_LENGTH      3
+#define MY_TX_PIN 6 // which RPn number
+#define MY_RX_PIN 7
+static int8_t tx_packet[TX_PACKET_LENGTH] = {0};
 
 //---------------------------Test Harness---------------------------------------
 #ifdef TEST_POWERBOARD
@@ -268,6 +283,12 @@ void InitPowerboard(void) {
  	PID_Init(RIGHT_CONTROLLER, MAX_EFFORT, MIN_EFFORT, K_P, K_I, K_D);
  	
  	InitI2CDevices();
+ 	
+ 	// TODO: REMOVE AFTER DEBUGGING
+ 	TMRS_StartTimer(STEP_INPUT_TIMER, STEP_INPUT_TIME);
+ 	U1TX_UserISR = MyTx_UART;
+ 	U1RX_UserISR = MyRx_UART;
+ 	UART_Init(MY_TX_PIN, MY_RX_PIN, kUARTBaudRate9600);
 }
 
 
@@ -279,14 +300,8 @@ void ProcessPowerboardIO(void) {
     DT_set_speed(kMotorRight, 0.0);
     DT_set_speed(kMotorFlipper, 0.0);
     
-    // clear the history in the rolling averages
-    IIRFilter(LMOTOR_FILTER, 0, 0, YES);
-    IIRFilter(RMOTOR_FILTER, 0, 0, YES);
-    
-    // clear the history in the controllers
-    PID_Reset(LEFT_CONTROLLER);
-    PID_Reset(RIGHT_CONTROLLER);
-    
+    ClearMotorHistory();
+
     TMRS_StartTimer(COOLDOWN_TIMER, COOLDOWN_TIME);
     state = kCoolingDown;
   }
@@ -333,6 +348,7 @@ void ProcessPowerboardIO(void) {
 
 //---------------------------Helper Function Definitions------------------------
 static void UpdateMotorSpeeds(void) {
+  /*
   // update the flipper
   float desired_flipper_speed = REG_MOTOR_VELOCITY.flipper / 1200.0;
   DT_set_speed(kMotorFlipper, desired_flipper_speed);
@@ -340,18 +356,39 @@ static void UpdateMotorSpeeds(void) {
   // update the left drive motor
   float desired_speed_left = IIRFilter(LMOTOR_FILTER, GetDesiredSpeed(kMotorLeft), ALPHA, NO);
   float nominal_effort_left = GetNominalDriveEffort(desired_speed_left);
-  //float actual_speed_left = DT_speed(kMotorLeft);
-  //float effort_left = PID_ComputeEffort(LEFT_CONTROLLER, desired_speed_left, actual_speed_left, nominal_effort_left);
-  //DT_set_speed(kMotorLeft, effort_left);
-  DT_set_speed(kMotorLeft, nominal_effort_left);
+  float actual_speed_left = DT_speed(kMotorLeft);
+  float effort_left = PID_ComputeEffort(LEFT_CONTROLLER, desired_speed_left, actual_speed_left, nominal_effort_left);
+  DT_set_speed(kMotorLeft, effort_left);
+  //DT_set_speed(kMotorLeft, nominal_effort_left);
   
   // update the right drive motor
   float desired_speed_right = IIRFilter(RMOTOR_FILTER, GetDesiredSpeed(kMotorRight), ALPHA, NO);
   float nominal_effort_right = GetNominalDriveEffort(desired_speed_right);
-  //float actual_speed_right = DT_speed(kMotorRight);
-  //float effort_right = PID_ComputeEffort(RIGHT_CONTROLLER, desired_speed_right, actual_speed_right, nominal_effort_right);
-  //DT_set_speed(kMotorRight, effort_right);
-  DT_set_speed(kMotorRight, nominal_effort_right);
+  float actual_speed_right = DT_speed(kMotorRight);
+  float effort_right = PID_ComputeEffort(RIGHT_CONTROLLER, desired_speed_right, actual_speed_right, nominal_effort_right);
+  DT_set_speed(kMotorRight, effort_right);
+  //DT_set_speed(kMotorRight, nominal_effort_right);
+  */
+  
+  // logging data test to find good PID constants
+  // provide a step input and see how long it takes to settle
+  float desired_speed = 0;
+  
+  if (TMRS_IsTimerExpired(STEP_INPUT_TIMER)) {
+    TMRS_StartTimer(STEP_INPUT_TIMER, STEP_INPUT_TIME);
+    desired_speed = 500;
+  }
+  float nominal_effort = GetNominalDriveEffort(desired_speed);
+  float actual_speed = DT_speed(kMotorLeft);
+  float effort = PID_ComputeEffort(LEFT_CONTROLLER, desired_speed, actual_speed, nominal_effort);
+  DT_set_speed(kMotorLeft, effort);
+ 
+  // stream the data out through UART to Arduino
+  // note this is result of PREVIOUS EFFORT
+  tx_packet[0] = (desired_speed*100);
+  tx_packet[1] = (actual_speed*100);
+  tx_packet[2] = (effort*100);
+  UART_TransmitByte(tx_packet[0]);  // begin the transmission
 }
 
 // Description: Maps the incoming control data to suitable values
@@ -364,22 +401,34 @@ static int16_t GetDesiredSpeed(const kMotor motor) {
   
   switch (motor) {
     case kMotorLeft:
-      // if the sign bits do not match AND magnitudes are non-negligible
-      // we are turning in place
+      if (abs(temp_left) < MIN_ACHEIVABLE_SPEED) {
+        return 0;
+      }
+      
+      // if we are turning (sign bits do not match AND magnitudes are non-negligible)
       if (((temp_left >> 15) != (temp_right >> 15)) && 
            ((200 < abs(temp_left)) && (200 < abs(temp_right)))) {
+        //ClearMotorHistory();
         if (0 < temp_left) return 500;
         else return -500;
       }
+      
+      
       if (MAX_DESIRED_SPEED < temp_left) return MAX_DESIRED_SPEED;
-      else if (temp_right < -MAX_DESIRED_SPEED) return -MAX_DESIRED_SPEED;
+      else if (temp_left < -MAX_DESIRED_SPEED) return -MAX_DESIRED_SPEED;
       else return temp_left;
     case kMotorRight:
+      if (abs(temp_right) < MIN_ACHEIVABLE_SPEED) {
+        return 0;
+      }
+      
       if (((temp_left >> 15) != (temp_right >> 15)) &&
           ((200 < abs(temp_left)) && (200 < abs(temp_right)))) {
+        //ClearMotorHistory();
         if (0 < temp_right) return 500;
         else return -500;
       }
+      
       if (MAX_DESIRED_SPEED < temp_right) return MAX_DESIRED_SPEED;
       else if (temp_right < -MAX_DESIRED_SPEED) return -MAX_DESIRED_SPEED;
       else return temp_right;
@@ -397,6 +446,16 @@ static float GetNominalDriveEffort(const float desired_speed) {
   
   if (desired_speed < 0) return ((0.0007 * desired_speed) - 0.0067);
   else return ((0.0007 * desired_speed) + 0.0067);
+}
+
+static void ClearMotorHistory(void) {
+  // clear the history in the rolling averages
+  IIRFilter(LMOTOR_FILTER, 0, 0, YES);
+  IIRFilter(RMOTOR_FILTER, 0, 0, YES);
+  
+  // clear the history in the controllers
+  PID_Reset(LEFT_CONTROLLER);
+  PID_Reset(RIGHT_CONTROLLER);
 }
 
 static void UpdateSensors(void) {
@@ -638,7 +697,6 @@ static void InitFan(void) {
   fan.subaddress = MAX6615AEE_PWM1_TARGET_DC;
 	TWI_WriteData(kTWI02, &fan, data); Delay(5); ClrWdt();
 }
-
 
 // Description: Eases the turn on of the power bus to avoid a current spike
 //   that could cause the battery to go into an overcurrent condition.  Large
@@ -931,4 +989,17 @@ static void TogglePowerbus(void) {
       break;
     default: pb_state = 0; break;
   }
+}
+
+// TODO: remove after debugging
+static void MyTx_UART(void) {
+  static uint8_t i = 0;
+  _U1TXIF = 0;
+  
+  if (i++ < TX_PACKET_LENGTH) UART_TransmitByte(tx_packet[i]);
+  else i = 0;
+}
+
+static void MyRx_UART(void) {
+  _U1RXIF = 0;
 }

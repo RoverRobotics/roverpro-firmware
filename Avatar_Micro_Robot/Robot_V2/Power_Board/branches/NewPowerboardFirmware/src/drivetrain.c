@@ -11,11 +11,11 @@ Notes:
 #include "./drivetrain.h"
 #include "./core/InputCapture.h"// for motor shaft speed feedback
 #include "./core/PWM.h"         // for PWM interface
-#include <math.h>               // for fabsf(), causing strange 'target halted'
+#include <math.h>               // for fabsf()
 
 //---------------------------Macros---------------------------------------------
 // motor PWM pin assignments
-#define T_PWM               45//33  // [us], 1/33us => 30kHz
+#define T_PWM               40//33  // [us], 1/33us => 30kHz
 #define M1_PWM_PIN    	    24  //_RP24R
 #define M2_PWM_PIN 	        2   //_RP2R
 #define M3_PWM_PIN          25  //_RP25R
