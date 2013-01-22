@@ -10,8 +10,8 @@ Description: This file calibrates a LOSI electronic speed controller (ESC) for
 Responsible Engineer: Stellios Leventis  (sleventis@robotex.com)
 =============================================================================*/
 /*---------------------------Dependencies------------------------------------*/
-#include <PWM.h>
-#include <Timers.h>
+#include "PWM.h"
+#include "Timers.h"
 
 /*---------------------------Macros------------------------------------------*/
 #define MAX_DC               20    // 0.20 * 10ms = 2ms pulse width
@@ -35,12 +35,12 @@ void setup() {
   InitPWM(1250);                          // T = 1250 * 8us => 10ms => f = 100Hz
   UpdateDutyCycle(PWM_PIN, NEUTRAL_DC);  // step 0
   
-  StartTimer(TEST_TIMER, (80 * _100ms));
+  TMRS_StartTimer(TEST_TIMER, (80 * _100ms));
 }
 
 void loop() {
-  if (IsTimerExpired(TEST_TIMER)) {
-    StartTimer(TEST_TIMER, CALIBRATION_TIME);
+  if (TMRS_IsTimerExpired(TEST_TIMER)) {
+    TMRS_StartTimer(TEST_TIMER, CALIBRATION_TIME);
     static unsigned char procedure_step = 1;
     switch (procedure_step++) {
       case 1:
