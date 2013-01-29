@@ -1910,7 +1910,7 @@ void MC_Ini(void)//initialzation for the whole program
 	//initialize all of the analog inputs
 		AD1PCFG = 0xffff;
 		M1_TEMP_EN(1);
-		M1_CURR_EN(1);
+		MOTOR_CURR_EN(1);
 		M2_TEMP_EN(1);
 		M2_CURR_EN(1);
 		M3_TEMP_EN(1);
@@ -3243,6 +3243,22 @@ void handle_power_bus(void)
   //initialize i2c buses
   I2C2Ini();
   I2C3Ini();
+
+  //enable power bus charge MOSFET
+  PWR_BUS_CHARGE_EN(1);
+
+  //turn on charge MOSFET for 500ms
+  PWR_BUS_CHARGE_ON(1);
+  block_ms(500);
+
+  //turn on power bus MOSFETs
+  Cell_Ctrl(Cell_A,Cell_ON);
+  Cell_Ctrl(Cell_B,Cell_ON);
+
+  //turn off power bus charge MOSFET
+  PWR_BUS_CHARGE_ON(0);
+
+  return;
 
   for(j=0;j<3;j++)
   {

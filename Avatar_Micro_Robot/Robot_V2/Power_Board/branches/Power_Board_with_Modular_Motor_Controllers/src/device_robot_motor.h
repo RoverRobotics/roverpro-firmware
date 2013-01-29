@@ -171,7 +171,7 @@
 
 //Analog pins
 #define M1_TEMP_EN(a)		_PCFG2 = !a
-#define M1_CURR_EN(a)		_PCFG3 = !a
+#define MOTOR_CURR_EN(a)		_PCFG3 = !a
 #define M2_TEMP_EN(a)		_PCFG0 = !a
 #define M2_CURR_EN(a)		_PCFG1 = !a
 #define M3_TEMP_EN(a)		_PCFG14 = !a
@@ -233,6 +233,8 @@
 #define M3_MODE 	_LATE4
 #define M3_COAST 	_LATF1
  
+#define PWR_BUS_CHARGE_EN(a)  _TRISE1 = !a
+#define PWR_BUS_CHARGE_ON(a)  _LATE1 = a
 
 //#define M3_Fault 	PORTBbits.RB2
 //fan fails aren't connected anymore
