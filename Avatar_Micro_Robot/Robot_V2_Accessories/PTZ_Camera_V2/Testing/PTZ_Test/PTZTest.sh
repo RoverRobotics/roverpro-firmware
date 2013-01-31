@@ -25,7 +25,7 @@ read user_input
 current_folder=`dirname $shell_script`
 cd $current_folder/source
 
-elif [ "$user_input" = "f" ]; then
+if [ "$user_input" = "f" ]; then
 echo "\r\n\r\nBase Firmware Version:\r\n\r\n"
 sudo lsusb -v -d 2694:0005 | grep "RoboteX" -A 2
 echo "\r\n\r\nRotation Firmware Version:\r\n\r\n"
