@@ -51,6 +51,10 @@ typedef struct
 #define CAMERA_MESSAGE_QUERY_ZOOM 0x82
 #define CAMERA_MESSAGE_QUERY_FOCUS 0x83
 
+#define CAMERA_MESSAGE_QUERY_FOCUS_RANGE 0xAA
+#define CAMERA_MESSAGE_QUERY_FOCUS_MIN 0x00
+#define CAMERA_MESSAGE_QUERY_FOCUS_MAX 0x01
+
 #define USB_TIMEOUT 100
 
 //2500 is about 20 seconds
@@ -138,8 +142,13 @@ volatile static unsigned long ticks = 0;
 
 static uint8_t queryZoomTrigger=0;
 static uint8_t queryFocusTrigger=0;
+static uint8_t queryFocusMaxTrigger=0;
+static uint8_t queryFocusMinTrigger=0;
+
 static unsigned long queryZoomTicks;
 static unsigned long queryFocusTicks;
+static unsigned long queryFocusMaxTicks;
+static unsigned long queryFocusMinTicks;
 static unsigned long commandSendTime;
 
 // -------------------------------------------------------------------------
@@ -149,6 +158,8 @@ static unsigned long commandSendTime;
 static int messageSent = 0;
 static uint8_t zoomQueried = 0;
 static uint8_t focusQueried = 0;
+static uint8_t focusMinQueried = 0;
+static uint8_t focusMaxQueried = 0;
 static int lastZoomSpeed = 0;
 //static uint16_t analogZoomLevel = 0;
 //static uint16_t digitalZoomLevel = 0;
@@ -166,6 +177,9 @@ static int tiltPidLastProp = 0;
 static uint8_t autoFocus = 1;
 static uint16_t shutterSpeed = 0x0111;
 
+void test_focus(void);
+unsigned int calculate_focus(unsigned int focus_level);
+
 // -------------------------------------------------------------------------
 // *********** Registers (move to register.h)
 // *****************************************************
@@ -176,6 +190,9 @@ uint8_t REG_CAMERA_REBOOT;
 uint8_t REG_CAMERA_LENS_RESET;
 uint8_t REG_CAMERA_NIGHT_MODE_ENABLE;
 uint8_t REG_CAMERA_DIGITAL_ZOOM_ENABLE;
+
+static uint16_t focus_min = 0;
+static uint16_t focus_max = 0;
 
 // receive data from the camera (ACK packets)
 void  __attribute__((__interrupt__, auto_psv)) _U2RXInterrupt(void)
@@ -563,6 +580,20 @@ static void CameraQueryZoom()
 	CameraSendCommand(message);
 }
 
+static void CameraQueryFocusMin()
+{
+  char message[7] = {0xA3, 0xAA,(REG_CAMERA_POS_ROT.zoom>>8)&0xff, REG_CAMERA_POS_ROT.zoom&0xff, 0x00, 0x00, 0xAF};
+	CameraSendCommand(message);
+
+}
+
+static void CameraQueryFocusMax()
+{
+  char message[7] = {0xA3, 0xAA,(REG_CAMERA_POS_ROT.zoom>>8)&0xff, REG_CAMERA_POS_ROT.zoom&0xff, 0x01, 0x00, 0xAF};
+	CameraSendCommand(message);
+
+}
+
 static void CameraQueryFocus()
 {
     char message[7] = {0xA3, 0x83, 0x00, 0x00, 0x00, 0x00, 0xAF};
@@ -686,6 +717,8 @@ void DevicePTZRotationInit()
   //when the rotation board was programmed.
   //block_ms(10000);
 	DefaultConfiguration();
+
+  //test_focus();
 }
 
 static void Input()
@@ -700,7 +733,7 @@ static void Input()
 
 	// make sure the packet is a legitimate camera ack packet
 	// not checking checksum
-	if((uart2RxData[0] == CAMERA_MESSAGE_START_BYTE) && (uart2RxData[6] == CAMERA_MESSAGE_END_BYTE) /*&& (CameraChecksum(uart2RxData+1, 4) == uart2RxData[5])*/)
+	if( (uart2RxData[0] == CAMERA_MESSAGE_START_BYTE) && (uart2RxData[6] == CAMERA_MESSAGE_END_BYTE) /*&& (CameraChecksum(uart2RxData+1, 4) == uart2RxData[5])*/)
 	{
 		// we only care if we're in the sent state
 		if(cameraMessageState == MESSAGE_SENT)
@@ -722,8 +755,21 @@ static void Input()
 				focusQueried = 0;
 				REG_CAMERA_FOCUS = (((uint16_t)uart2RxData[2])<<8) | uart2RxData[3];
 			}
+      else if(focusMinQueried && (uart2RxData[1] == CAMERA_MESSAGE_QUERY_FOCUS_RANGE) && (uart2RxData[4] == CAMERA_MESSAGE_QUERY_FOCUS_MIN)) 
+			{
+
+          focusMinQueried = 0;
+  				focus_min = (((uint16_t)uart2RxData[2])<<8) | uart2RxData[3];
+      }   
+      else if(focusMaxQueried && (uart2RxData[1] == CAMERA_MESSAGE_QUERY_FOCUS_RANGE) && (uart2RxData[4] == CAMERA_MESSAGE_QUERY_FOCUS_MAX)) 
+      {
+          focusMaxQueried = 0;
+  				focus_max = (((uint16_t)uart2RxData[2])<<8) | uart2RxData[3];
+      }     
+
 		}
-	} 
+
+	}
 
 	// if we've acknowledged a packet, poll for zoom and focus on their respective intervals
 	if(cameraMessageState == MESSAGE_ACKNOWLEDGED)
@@ -742,6 +788,20 @@ static void Input()
 			messageSent = 1;
 			queryFocusTrigger = 0;
 		}
+    else if(queryFocusMaxTrigger)
+    {
+      CameraQueryFocusMax();
+      focusMaxQueried = 1;
+      messageSent = 1;
+      queryFocusMaxTrigger = 0;
+    }
+    else if(queryFocusMinTrigger)
+    {
+      CameraQueryFocusMin();
+      focusMinQueried = 1;
+      messageSent = 1;
+      queryFocusMinTrigger = 0;
+    }
 	}
 }
 
@@ -783,6 +843,17 @@ static void TimerUpdate()
 		queryFocusTrigger = 1;
 		queryFocusTicks = ticks;
 	}
+	else if(((ticks-queryFocusMaxTicks) > QUERY_ZOOM_INTERVAL) || queryFocusMaxTrigger)
+	{
+		queryFocusMaxTrigger = 1;
+		queryFocusMaxTicks = ticks;
+	}
+	else if(((ticks-queryFocusMinTicks) > QUERY_ZOOM_INTERVAL) || queryFocusMinTrigger)
+	{
+		queryFocusMinTrigger = 1;
+		queryFocusMinTicks = ticks;
+	}
+
 
 	// handle timeout case - go from SENT to ACKNOWLEDGED after a timeout period
 	if((cameraMessageState == MESSAGE_SENT) && ((ticks-commandSendTime)>COMMAND_TIMEOUT))
@@ -842,17 +913,22 @@ static void ZoomControl()
 
 	if((cameraMessageState == MESSAGE_ACKNOWLEDGED))
 	{
-		if((REG_CAMERA_FOCUS_SET != 0) && (REG_CAMERA_FOCUS_SET != REG_CAMERA_FOCUS))
+
+
+    if(REG_CAMERA_FOCUS_MANUAL && autoFocus)
 		{
-			CameraSetFocus(REG_CAMERA_FOCUS_SET);
-		}
-		else if((!REG_CAMERA_FOCUS_MANUAL) != autoFocus)
+      autoFocus = 0;
+      CameraAFOff();
+    }  
+    else if(!REG_CAMERA_FOCUS_MANUAL && !autoFocus)
+    {
+      autoFocus = 1;
+      CameraAFOn();
+
+    }
+		else if((REG_CAMERA_FOCUS_MANUAL) && (REG_CAMERA_FOCUS_SET != REG_CAMERA_FOCUS))
 		{
-			autoFocus = !REG_CAMERA_FOCUS_MANUAL;
-			if(autoFocus)
-				CameraAFOn();
-			else
-				CameraAFOff();
+			CameraSetFocus(calculate_focus(REG_CAMERA_FOCUS_SET));
 		}
         else if(REG_CAMERA_SHUTTER != shutterSpeed)
         {
@@ -944,4 +1020,35 @@ void DevicePTZRotationProcessIO()
 	InputSummation();
 	ZoomControl();
 	TiltControl();
+}
+
+void test_focus(void)
+{
+  while(1)
+  {
+
+  	TimerUpdate();
+  	Input();
+  	Recovery();
+  	InputSummation();
+  	ZoomControl();
+  	//TiltControl();
+    ClrWdt();
+  }
+
+
+}
+
+
+unsigned int calculate_focus(unsigned int focus_level)
+{
+  float focus_scale = (float)(focus_max-focus_min)/1000;
+
+  int calculated_focus = focus_scale*(float)focus_level+focus_min;
+
+  if(calculated_focus > focus_max) calculated_focus = focus_max;
+  else if(calculated_focus < focus_min) calculated_focus = focus_min;
+
+  return calculated_focus;
+
 }
