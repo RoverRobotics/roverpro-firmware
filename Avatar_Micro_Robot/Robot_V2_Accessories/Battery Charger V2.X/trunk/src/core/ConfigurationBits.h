@@ -26,7 +26,7 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
   
   share emulator functions with PGEC1/PGED1
 */
-_CONFIG1(JTAGEN_OFF & GCP_OFF & GWRP_OFF & COE_OFF & FWDTEN_OFF & ICS_PGx1
+_CONFIG1(JTAGEN_OFF & GCP_ON & GWRP_OFF & COE_OFF & FWDTEN_OFF & ICS_PGx1
          & WDTPS_PS256)
 
 /*
