@@ -32,9 +32,7 @@ _CONFIG2( IESO_OFF & FCKSM_CSDCMD & OSCIOFNC_ON & POSCMOD_HS &
 //WDTPS_PS2048 = ~10s
 
           FNOSC_PRIPLL & PLLDIV_DIV5 & IOL1WAY_ON)
-/*_CONFIG1( JTAGEN_OFF & GCP_OFF & GWRP_OFF & COE_OFF & FWDTEN_OFF & ICS_PGx2) 
-_CONFIG2( IESO_OFF & FCKSM_CSDCMD & OSCIOFNC_ON & POSCMOD_HS &
-          FNOSC_FRCPLL & PLLDIV_DIV2 & IOL1WAY_ON)*/
+
 
 
 // -------------------------------------------------------------------------
