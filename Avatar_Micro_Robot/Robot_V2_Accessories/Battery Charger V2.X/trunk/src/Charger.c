@@ -245,6 +245,7 @@ void RunChargerSM(void) {
       }
       break;
     case kCharging:
+	  /*
       /*
       // if we detect a short on either side through the voltage sagging
       if ((IIRFilter(SIDEA_V_FILTER, ADC_value(SIDEA_V_PIN), ALPHA) < 
@@ -258,6 +259,7 @@ void RunChargerSM(void) {
          state = kHanging;
       }
       */
+	  //*/
     
       // prevent too much current from going to an individual cell
       if (IsOvercurrentDetected()) {
@@ -278,11 +280,13 @@ void RunChargerSM(void) {
       
       // if the battery was pulled, reset
       // NB: IMPORTANT THAT THIS IS LAST, MOST RESTRICTIVE CURRENT CHECK
+	  /*
       if (IsNoCurrentFlowing()) {
         Nop();
         Nop();
         ResetCharger();
       }
+	*/
       
       break;
     case kInvestigatingOvercurrent:
