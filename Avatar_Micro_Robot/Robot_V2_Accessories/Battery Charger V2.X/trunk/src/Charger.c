@@ -116,9 +116,9 @@ static const kADCReading kMinWallwartVoltage = 400; // getting 455 at ~19V
 
 // current into a battery side below which charging should terminate
 // I_chargeTermination = 0.1/h * (C_overallBattery/2cellPerBattery)
-// (100mA/cell*4cells) => 400mA
-// 0.01S*(0.4A*0.05Ohm)*1k ~= 1.5V, (1.5 / 3.30) * 1023= 
-static const kADCReading kChargeTerminationCurrent = 62;
+// Manufacturer recommends 100mA termination on each side of the battery:
+// 0.01S*(0.1A*0.05Ohm)*1k ~= 0.05V, (.05 / 3.30) * 1023= 15.5
+static const kADCReading kChargeTerminationCurrent = 16;
 
 //---------------------------Type Definitions-----------------------------------
 // possible states
