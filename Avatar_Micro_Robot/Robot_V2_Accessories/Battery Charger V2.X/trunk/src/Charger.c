@@ -333,6 +333,17 @@ void RunChargerSM(void) {
         state = kCharging;
         return;
       }
+
+      //if wall wart is removed, turn off MOSFETs to battery and reset charger
+      if(!IsWallwartAttached() || !IsWallwartValid())
+      {
+        SIDEA_CONNECT = 0; SIDEB_CONNECT = 0;
+        Delay(1000);
+        
+        ResetCharger();
+      }
+
+
       break;
     case kHanging:
       Nop();
