@@ -262,12 +262,12 @@ void RunChargerSM(void) {
 	  //*/
     
       // prevent too much current from going to an individual cell
-      if (IsOvercurrentDetected()) {
+      /*if (IsOvercurrentDetected()) {
         SIDEA_CONNECT = 0; SIDEB_CONNECT = 0;
         TMRS_StartTimer(COOLDOWN_TIMER, COOLDOWN_TIME);
         state = kInvestigatingOvercurrent;
         return;
-      }
+      }*/
       
       if (IsBatteryCharged()) {
         // disable the charger, so we can sense the voltage on the battery
