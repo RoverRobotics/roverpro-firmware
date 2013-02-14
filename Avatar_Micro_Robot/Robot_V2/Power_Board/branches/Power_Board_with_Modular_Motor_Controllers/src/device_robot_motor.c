@@ -3234,6 +3234,7 @@ void handle_power_bus(void)
   unsigned char old_battery[7] = {'B','B','-','2','5','9','0'};
   unsigned char new_battery[9] = {'B','T','-','7','0','7','9','1','B'};
   unsigned char custom_matthews_battery[7] = {'R','O','B','O','T','E','X'};
+  unsigned int i = 0;
   unsigned int j;
 
   //enable outputs for power bus
@@ -3249,7 +3250,12 @@ void handle_power_bus(void)
 
   //turn on charge MOSFET for 500ms
   PWR_BUS_CHARGE_ON(1);
-  block_ms(500);
+
+  for(i=0;i<50;i++)
+  {
+    block_ms(10);
+    ClrWdt();
+  }
 
   //turn on power bus MOSFETs
   Cell_Ctrl(Cell_A,Cell_ON);
