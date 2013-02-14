@@ -78,7 +78,7 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 
 // battery characterstics
 //#define CAPACITY              6     // [A*h], for smallest of our batteries
-#define I_REVIVE_MAX          600     // [mA], typically ~(0.1/h)*C
+#define I_REVIVE_MAX          200     // [mA], typically ~(0.1/h)*C
 #define I_SIDE_MAX            3000    // the maximum input current to cell
 //#define I_CC_STAGE          3000    // [mA], (0.2/h)*C to (0.7/h)*C
 #define I_IN_MAX              8000    // [mA], maximum input current to the
@@ -218,7 +218,7 @@ void RunChargerSM(void) {
       }
       break;
     case kPursuingBattery:
-      if (IsBatteryVoltageDetected() && IsBatteryValid()) {
+      if (IsBatteryValid()) {
         UI_set_state(kUIStateCharging);
         BQ24745_EN = 1; // enable the charging IC
         Delay(100);     // BUG ALERT: give some time to ensure a new A/D reading, working regulator
