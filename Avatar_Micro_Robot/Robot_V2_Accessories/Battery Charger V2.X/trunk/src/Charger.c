@@ -81,12 +81,12 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 #define I_REVIVE_MAX          350     // [mA], typically ~(0.1/h)*C
 #define I_SIDE_MAX            3000    // the maximum input current to cell
 //#define I_CC_STAGE          3000    // [mA], (0.2/h)*C to (0.7/h)*C
-#define I_IN_MAX              8000    // [mA], maximum input current to the
+#define I_IN_MAX              3500    // [mA], maximum input current to the
                                       // charging IC
 #define V_OUT_MAX             16500   // [V], maximum output voltage to an
                                       // individual cell
 #define I_CHARGE_DELTA        125     // [mA], overall charge current increment
-#define I_CHARGE_MAX          3000//4000    // [mV], the wall-wart can only deliver ~4.5A at 19V
+#define I_CHARGE_MAX          4000//4000    // [mV], the wall-wart can only deliver ~4.5A at 19V
 
 // power management threshold(s)
 // maximum allowable current to an individual cell
