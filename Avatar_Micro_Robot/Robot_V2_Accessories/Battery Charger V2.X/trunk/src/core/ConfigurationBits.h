@@ -26,8 +26,10 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
   
   share emulator functions with PGEC1/PGED1
 */
-_CONFIG1(JTAGEN_OFF & GCP_ON & GWRP_OFF & COE_OFF & FWDTEN_OFF & ICS_PGx1
-         & WDTPS_PS256)
+_CONFIG1(JTAGEN_OFF & GCP_ON & GWRP_OFF & COE_OFF & FWDTEN_ON & ICS_PGx1
+         & WDTPS_PS2048)
+
+  //WDTPS_2048 - about 10s (not verified)
 
 /*
 	disable two-speed start-up for Internal External Switch Over Mode

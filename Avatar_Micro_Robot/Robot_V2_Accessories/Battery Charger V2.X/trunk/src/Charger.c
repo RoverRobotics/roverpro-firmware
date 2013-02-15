@@ -178,7 +178,7 @@ int main(void) {
   //SWDTEN = 1;
   while (1) {
     RunChargerSM();
-  	//ClrWdt(); // clear the software WDT
+  	ClrWdt(); // clear the hardware WDT
   }
   
   return 0;
@@ -193,7 +193,12 @@ void RunChargerSM(void) {
   
   // ensure the charger does NOT stay powered while
   // on the battery after the wall-wart is removed
-  if (!IsWallwartAttached()) ResetCharger();
+  if (!IsWallwartAttached()) 
+  {
+    SIDEA_CONNECT = 0; SIDEB_CONNECT = 0;
+    Delay(2000);
+    ResetCharger();
+  }
   
   // keep the charging IC from timing out
   if (TMRS_IsTimerExpired(CHARGER_REFRESH_TIMER)) {
@@ -333,16 +338,6 @@ void RunChargerSM(void) {
         state = kCharging;
         return;
       }
-
-      //if wall wart is removed, turn off MOSFETs to battery and reset charger
-      if(!IsWallwartAttached() || !IsWallwartValid())
-      {
-        SIDEA_CONNECT = 0; SIDEB_CONNECT = 0;
-        Delay(1000);
-        
-        ResetCharger();
-      }
-
 
       break;
     case kHanging:
