@@ -19,12 +19,12 @@ Notes:
 #define POT2_PIN            12  // TODO: remove after debugging board
 
 // user interface pins
-#define DIRI_EN(a)          (_TRISB2 = (a)); AD1PCFGL |= (1 << 2)
-#define DIRI                (_RB2)          // pin 1 of P9
-#define DIRO_EN(a)          (_TRISB4 = !(a)); AD1PCFGL |= (1 << 4)
-#define DIRO                (_RB4)          // pin 2 of P9
+#define DIRI_EN(a)          (_TRISD7 = (a)); //AD1PCFGL |= (1 << 2)
+#define DIRI                (_RD7)          
+#define DIRO_EN(a)          (_TRISC13 = !(a)); //AD1PCFGL |= (1 << 4)
+#define DIRO                (_RC13)          // pin 2 of P9
 #define TACHI_RPN_PIN       (_RP8)
-#define TACHO_EN(a)         (_TRISB5 = !(a)); AD1PCFGL |= (1 << 5)
+#define TACHO_EN(a)         (_TRISB5 = !(a)); //AD1PCFGL |= (1 << 5)
 #define TACHO               (_RB5)          // pin 3 of P9
 
 // digital inputs
@@ -52,19 +52,32 @@ Notes:
 #define C_HI_RPN_PIN        (_RP25R)
 #define C_LO_RPN_PIN        (_RP20R)
 
+#define A_HI_EN(a)          (_TRISD0 = !(a))
+#define A_LO_EN(a)          (_TRISD1 = !(a))
+#define B_HI_EN(a)          (_TRISD2 = !(a))
+#define B_LO_EN(a)          (_TRISD3 = !(a))
+#define C_HI_EN(a)          (_TRISD4 = !(a))
+#define C_LO_EN(a)          (_TRISD5 = !(a))
+
+
 // TODO: ensure these do NOT change
-#define DEFAULT_DC              500//956   // [ticks]
-#define PWM_PERIOD              1000  // [ticks], 1000 => ~16kHz
+//#define DEFAULT_DC              500//956   // [ticks]
+//#define PWM_PERIOD              1000  // [ticks], 1000 => ~16kHz
+
+#define DEFAULT_DC                250
+#define PWM_PERIOD                500
 
 // The time before the end of the period to schedule the falling edge of the
 // recharge pulse.
-#define CROSSOVER_TOLERANCE     4     // [ticks], 28 leaves ~200ns before drive pulse begins
+//#define CROSSOVER_TOLERANCE     4     // [ticks], 28 leaves ~200ns before drive pulse begins
+#define CROSSOVER_TOLERANCE     8
 
 // Time consumed in the interrupt to reinitialize the single-shot pulse.
 #define REPULSE_INTERRUPT_DELAY 24    // [ticks]
 
 // The minimum recharge pulse duration in units of timer4 ticks (62.5ns/tick).
-#define RECHARGE_DURATION       16    // [ticks], 16 => ~1us recharge pulse width
+//#define RECHARGE_DURATION       16    // [ticks], 16 => ~1us recharge pulse width
+#define RECHARGE_DURATION       32
 
 // The maximum duty cycle must be capped to ensure there is space during a period
 // for the recharge pulse and the associated, manually-tuned delays.
@@ -96,6 +109,16 @@ static void InitHighSidePulser(void);
 static void InitLowSidePulser(void);
 static void InitRechargePulser(void);
 
+static void InitTimer(void);
+static unsigned int millisecond_counter = 0;
+static unsigned int ten_millisecond_counter = 0;
+static unsigned int hundred_millisecond_counter = 0;
+static unsigned int second_counter = 0;
+static void test_commutation_position(void);
+static void handle_stall(void);
+
+static unsigned char energized_hall_state;
+
 //---------------------------Module Variables-----------------------------------
 static volatile uint16_t current_speed = 0;
 
@@ -103,9 +126,26 @@ static volatile uint16_t current_speed = 0;
 #ifdef TEST_ESC
 #include "./core/ConfigurationBits.h"
 int main(void) {
+
+  unsigned char hall_state_a = 0;
+  unsigned char hall_state_b = 0;
+
+  
+
   ESC_Init();
-  ESC_StartMotor(400); Delay(3000);
-  ESC_set_speed(860);
+  //allow power board to come online
+  //test_commutation_position();
+  Delay(5000);
+
+  _CN63PDE = 1;
+  _CN64PDE = 1;
+  _CN65PDE = 1;
+
+  //ESC_StartMotor(400); Delay(500);
+  ESC_set_speed(200);
+  Delay(3000);
+  ESC_set_speed(100);
+
   //Energize(3);
   //Energize(1);
   //Energize(1);
@@ -113,7 +153,18 @@ int main(void) {
   //Energize(1);
   //Energize(1);
   
+  //_CNIE = 0;
+
   while (1) {
+
+    if(ten_millisecond_counter)
+    {
+      ten_millisecond_counter = 0;
+      handle_stall();
+    }
+
+    
+
     /*
     if (IsMotorStalled()) {
       Coast();
@@ -121,6 +172,17 @@ int main(void) {
       asm("reset");
     }
     */
+   /* hall_state_a = HALL_STATE;
+    Nop(); Nop(); Nop(); Nop(); Nop(); Nop(); Nop(); Nop(); Nop(); Nop(); Nop(); Nop(); Nop(); Nop(); Nop(); Nop(); 
+    hall_state_b = HALL_STATE;
+    if(hall_state_a == hall_state_b)
+    {
+      Nop();
+      Nop();
+      Energize(hall_state_a);
+    }
+    Nop(); Nop(); Nop(); Nop(); Nop(); Nop(); Nop(); Nop(); Nop(); Nop(); Nop(); Nop(); Nop(); Nop(); Nop(); Nop(); */
+
   }
   
   return 0;
@@ -137,6 +199,8 @@ void __attribute__((__interrupt__, auto_psv)) _OC1Interrupt(void) {
 }
 
 void __attribute__((__interrupt__, auto_psv)) _CNInterrupt(void) {
+  //unsigned char temp_hall_state = HALL_STATE;
+  //Nop();
   Energize(HALL_STATE);   // energize the appropriate coils to move to the next position
   TACHO ^= 1;             // output that we commutated
   _CNIF = 0;              // clear the source of the interrupt
@@ -170,9 +234,19 @@ static void Energize(const uint8_t hall_state) {
   //T4CONbits.TON = 0;
   //TMR4 = PR4 - 2;
   
+
+  /*if(hall_state != HALL_STATE) 
+  {
+    Nop();
+    return;
+  }*/
+
   // map the desired pins to the existing output compare modules
-  if (0) {//DIRI == CCW) {
+  //if (DIRI) {//DIRI == CCW)
+    if(DIRI) {
     switch (hall_state) {
+      case 0:
+        Coast(); break;
       case 1:
         // disable any previous output
         LATD = 0;
@@ -198,10 +272,14 @@ static void Energize(const uint8_t hall_state) {
         LATD = 0;
         A_HI_RPN_PIN = FN_NULL; A_LO_RPN_PIN = FN_NULL; C_HI_RPN_PIN = FN_NULL;
         B_HI_RPN_PIN = FN_OC1; B_LO_RPN_PIN = FN_OC3; C_LO_RPN_PIN = FN_OC2; break;
+      case 7:
+        Coast(); break;
     }
   } else {
   // TODO: is there an error with this table, draws 10A when tries to do this at 90%dc
     switch (hall_state) {
+      case 0:
+        Coast(); break;
       case 1:
         LATD = 0;
         A_HI_RPN_PIN = FN_NULL; C_HI_RPN_PIN = FN_NULL; C_LO_RPN_PIN = FN_NULL;
@@ -226,8 +304,12 @@ static void Energize(const uint8_t hall_state) {
         LATD = 0;
         B_HI_RPN_PIN = FN_NULL; C_HI_RPN_PIN = FN_NULL; C_LO_RPN_PIN = FN_NULL;
         A_HI_RPN_PIN = FN_OC1; A_LO_RPN_PIN = FN_OC3; B_LO_RPN_PIN = FN_OC2; break;
+      case 7:
+        Coast(); break;
     }
   }
+
+  energized_hall_state = hall_state;
   //DIRO = DIRI;  // output the current direction
   //T4CONbits.TON = 1;
 }
@@ -243,6 +325,8 @@ static void UpdateDutyCycle(const uint16_t duty_cycle) {
 }
 
 static void InitPins(void) {
+  AD1PCFGL = 0xffff;
+  AD1PCFGH = 0xffff;
   Coast();
   HALL_A_EN(1);
   HALL_B_EN(1);
@@ -260,7 +344,8 @@ static void InitCNs(void) {
   _CN63IE = 1;
   _CN64IE = 1;
   _CN65IE = 1;
-  
+
+ 
   // initialize the change notification interrupt only once
   _CNIP = 0b110;  // the 2nd-highest priority
   _CNIF = 0;
@@ -274,10 +359,17 @@ static void InitOCs(void) {
   PR4 = PWM_PERIOD;
   TMR4 = PR4;               // NB: important for initialization, so we don't have to wait a whole TMR4 period to get started?
   
-  TRISD = 0; LATD = 0;
+  A_HI_EN(1);
+  A_LO_EN(1);
+  B_HI_EN(1);
+  B_LO_EN(1);
+  C_HI_EN(1);
+  C_LO_EN(1);
+  //TRISD = 0; LATD = 0;
   InitHighSidePulser();
   InitLowSidePulser();
   InitRechargePulser();
+  InitTimer();
   
   // turn on the timebase timer
   T4CONbits.TON = 1;
@@ -315,6 +407,18 @@ static void InitRechargePulser(void) {
   OC3RS = PWM_PERIOD - CROSSOVER_TOLERANCE - REPULSE_INTERRUPT_DELAY;
 }
 
+static void InitTimer(void)
+{
+
+  //T2 frequency is Fosc/2 = 16 MHz
+  //Max timer interrupt at 2^16/16MHz = 4.096ms
+  //Let's set PR2 to 16000, to get interrupts every 1ms:
+  PR2 = 16000;
+  _T2IE = 1;
+  T2CONbits.TON = 1;
+
+}
+
 static void Coast(void) {
   // turn everything off
   LATD = 0;
@@ -330,4 +434,146 @@ static bool inline IsMotorStalled(void) {
   // if we have not seen any commutation events
   // for a relatively long amount of time
   return (events_per_ms < MIN_N_EXPECTED_EVENTS_PER_MS);
+}
+
+static void test_commutation_position(void)
+{
+
+  unsigned int i;
+  unsigned int state_order[8] = {0, 1, 5, 4, 6, 2, 3, 7};
+
+  //disable CN interrupts
+  //_CNIE = 0;
+
+  Coast();
+  while(1);
+
+  for(i=0;i<8;i++)
+  {
+    //Energize(i);
+    Energize(state_order[i]);
+    Delay(500);
+    Coast();
+    Delay(3000);
+  }
+
+
+  
+  while(1);
+
+
+}
+
+
+void __attribute__((__interrupt__, auto_psv)) _T2Interrupt(void)
+{
+  _T2IF = 0;
+  millisecond_counter++;
+  
+  //Make sure rollover is at a multiple of 10
+  if(millisecond_counter == 10000)
+    millisecond_counter = 0;
+
+
+  if(millisecond_counter%10 == 0)
+  {
+    ten_millisecond_counter++;
+    if(millisecond_counter%100 == 0)
+    {
+      hundred_millisecond_counter++;
+      if(millisecond_counter%1000 == 0)
+      {
+        second_counter++;
+      }
+     
+    }
+  }
+}
+
+static void handle_stall(void)
+{
+
+  typedef enum {
+    sStalled = 0,
+    sStallRestart,
+    sNoStall,
+  } sStallState;
+
+  static unsigned char current_hall_state = 0;
+  static unsigned char last_hall_state = 0;
+  static unsigned int stall_counter = 0;
+  static unsigned char stall_retry_counter = 0;
+  static unsigned char currently_stalled_flag = 0;
+  static unsigned char restart_hall_state = 0;
+  static sStallState state = sNoStall;
+
+  current_hall_state = HALL_STATE;
+
+switch(state)
+{
+  case sNoStall:
+
+    if(current_hall_state == last_hall_state)
+    {
+      stall_counter++;
+    }
+    else
+    {
+      stall_counter = 0;
+    }
+  
+    if(stall_counter >= 3)
+    {
+      if(current_hall_state != energized_hall_state)
+        Energize(current_hall_state);
+    }
+  
+    if(stall_counter >= 20)
+    {
+      Coast();
+      state = sStalled;
+      energized_hall_state = 0;
+      restart_hall_state = current_hall_state;
+    }
+
+  break;
+
+  case sStalled:
+    ESC_set_speed(0);
+    stall_retry_counter++;
+    if(stall_retry_counter < 200)
+      break;
+
+    stall_retry_counter = 0;
+    stall_counter = 0;
+    ESC_set_speed(300);
+    state = sStallRestart;
+  break;
+
+  case sStallRestart:
+
+    Energize(current_hall_state);
+
+    if(restart_hall_state != current_hall_state)
+    {
+      ESC_set_speed(200);
+      state = sNoStall;
+    }
+
+  break;
+
+
+}
+
+
+
+
+
+
+
+
+  last_hall_state = current_hall_state;
+      
+
+
 }
