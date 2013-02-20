@@ -24,6 +24,7 @@ Notes:
 #define DIRO_EN(a)          (_TRISC13 = !(a)); //AD1PCFGL |= (1 << 4)
 #define DIRO                (_RC13)          // pin 2 of P9
 #define TACHI_RPN_PIN       (_RP8)
+#define TACHI_RP_NUM        8
 #define TACHO_EN(a)         (_TRISB5 = !(a)); //AD1PCFGL |= (1 << 5)
 #define TACHO               (_RB5)          // pin 3 of P9
 
@@ -104,6 +105,7 @@ static bool inline IsMotorStalled(void);
 // OC-module related
 static void Energize(const uint8_t hall_state);
 static void InitOCs(void);
+static void InitIC(void);
 static void UpdateDutyCycle(const uint16_t duty_cycle);
 static void InitHighSidePulser(void);
 static void InitLowSidePulser(void);
@@ -119,6 +121,15 @@ static void handle_stall(void);
 
 static unsigned char energized_hall_state;
 
+static unsigned char currently_stalled = 0;
+
+static void handle_tachi_timeout(void);
+static unsigned int last_IC_period = 0;
+static unsigned char IC_period_updated = 0;
+static unsigned int return_speed_command(void);
+
+static unsigned int temp_speed_command = 0;
+static unsigned int temp_uncorrected_speed = 0;
 //---------------------------Module Variables-----------------------------------
 static volatile uint16_t current_speed = 0;
 
@@ -129,6 +140,7 @@ int main(void) {
 
   unsigned char hall_state_a = 0;
   unsigned char hall_state_b = 0;
+  static unsigned char last_millisecond_counter = 0;
 
   
 
@@ -156,6 +168,17 @@ int main(void) {
   //_CNIE = 0;
 
   while (1) {
+
+    if(millisecond_counter != last_millisecond_counter)
+    {
+      handle_tachi_timeout();
+      if(currently_stalled == 0)
+      {
+        temp_speed_command = return_speed_command();
+        ESC_set_speed(return_speed_command());
+      }
+      last_millisecond_counter = millisecond_counter;
+    }
 
     if(ten_millisecond_counter)
     {
@@ -211,6 +234,7 @@ void ESC_Init(void) {
   InitPins();
   InitCNs();
   InitOCs();
+  InitIC();
   //ADC_Init((1 << POT1_PIN) | (1 << POT2_PIN) | (1 << POT3_PIN));
   //HEARTBEAT_EN(1); HEARTBEAT_PIN = 0;
 }
@@ -521,19 +545,20 @@ switch(state)
     {
       stall_counter = 0;
     }
-  
+
     if(stall_counter >= 3)
     {
       if(current_hall_state != energized_hall_state)
         Energize(current_hall_state);
     }
-  
+    break;
     if(stall_counter >= 20)
     {
       Coast();
       state = sStalled;
       energized_hall_state = 0;
       restart_hall_state = current_hall_state;
+      currently_stalled = 1;
     }
 
   break;
@@ -551,12 +576,12 @@ switch(state)
   break;
 
   case sStallRestart:
-
     Energize(current_hall_state);
 
     if(restart_hall_state != current_hall_state)
     {
-      ESC_set_speed(200);
+      currently_stalled = 0;
+      //ESC_set_speed(200);
       state = sNoStall;
     }
 
@@ -574,6 +599,115 @@ switch(state)
 
   last_hall_state = current_hall_state;
       
+
+
+}
+
+
+
+void __attribute__((__interrupt__, auto_psv)) _IC1Interrupt(void) {
+  static unsigned char rising_edge_detected_last = 1;
+  _IC1IF = 0;                      // clear the source of the interrupt
+//  elapsed_times[0] = 0;
+  
+  static uint16_t last_value = 0;
+  uint16_t current_value = IC1BUF; // current running Timer3 tick value
+                                   // (you must subtract off last value)
+
+  //risign edge
+  if(rising_edge_detected_last == 0)
+  {
+    last_value = current_value;
+    rising_edge_detected_last = 1;
+    IC1CON1bits.ICM = 0b010;  //trigger on falling edge
+
+  }
+  //falling edge, so calculate high time
+  else
+  {
+
+    //if the signal was continuously high, there would have been an overflow
+    if(IC1CON1bits.ICOV)
+    {
+      rising_edge_detected_last = 0;
+      IC1CON1bits.ICM = 0b011;  //trigger on rising edge
+      IC_period_updated = 1;
+      return;
+    }
+  
+	  // handle rollover, remove old offset
+    if (last_value < current_value) last_IC_period = current_value - last_value;
+    else last_IC_period = (0xffff - last_value) + current_value;
+    rising_edge_detected_last = 0;
+    IC1CON1bits.ICM = 0b011;  //trigger on rising edge
+    IC_period_updated = 1;
+  }
+}
+
+static void InitIC(void)
+{
+
+  // clear the input capture FIFO buffer
+  uint16_t temp;
+	while (IC1CON1bits.ICBNE) {temp = IC1BUF;};
+
+  // configure the input capture
+  IC1CON1bits.ICTSEL = 0b100;   // use Timer1 as the time base
+  IC1CON1bits.ICI = 0b00;   // fire the interrupt every capture event
+  IC1CON1bits.ICM = 0b011;  // capture event on every rising edge
+
+  IC1CON2bits.SYNCSEL = 0b01011; //Timer 1
+  //IC1CON2bits.SYNCSEL = 0b10110;
+  
+  _IC1R = TACHI_RP_NUM; 
+
+
+  _IC1IF = 0;               // begin with the interrupt flag cleared
+  _IC1IE = 1;               // enable this interrupt
+
+  T1CONbits.TON = 1;
+
+
+}
+
+static void handle_tachi_timeout(void)
+{
+  
+  /*if((IC_period_updated == 0) && (_RB8==0))
+  {
+    last_IC_period = 0;
+  }
+  else if((IC_period_updated == 0))
+  {
+    last_IC_period = 2000;
+  }
+  else
+  {
+    IC_period_updated = 0;
+  }*/
+
+}
+static unsigned int return_speed_command(void)
+{
+  unsigned int IC_period = last_IC_period;
+  unsigned int uncorrected_speed = 0;
+  //return 400;
+  if(IC_period == 0)
+    return 0;
+  else
+  {
+    
+    uncorrected_speed = IC_period/4;
+    temp_uncorrected_speed = uncorrected_speed;
+    //return 0;
+    if(uncorrected_speed > 400) 
+      return 400;
+    else if (uncorrected_speed < 100)
+      return 0;
+
+    return uncorrected_speed;
+
+  }
 
 
 }
