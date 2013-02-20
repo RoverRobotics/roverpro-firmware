@@ -140,7 +140,7 @@ int main(void) {
 
   unsigned char hall_state_a = 0;
   unsigned char hall_state_b = 0;
-  static unsigned char last_millisecond_counter = 0;
+  static unsigned int last_millisecond_counter = 0;
 
   
 
@@ -673,7 +673,7 @@ static void InitIC(void)
 static void handle_tachi_timeout(void)
 {
   
-  /*if((IC_period_updated == 0) && (_RB8==0))
+  if((IC_period_updated == 0) && (_RB8==0))
   {
     last_IC_period = 0;
   }
@@ -684,7 +684,7 @@ static void handle_tachi_timeout(void)
   else
   {
     IC_period_updated = 0;
-  }*/
+  }
 
 }
 static unsigned int return_speed_command(void)
