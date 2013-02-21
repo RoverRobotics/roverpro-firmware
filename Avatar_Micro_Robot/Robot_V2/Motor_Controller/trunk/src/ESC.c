@@ -177,14 +177,15 @@ int main(void) {
     if(millisecond_counter != last_millisecond_counter)
     {
       handle_tachi_timeout();
-      handle_filtering();
-     // if(currently_stalled == 0)
-     // {
+
+      //TODO: reimplement stall check and timeout
+      if(currently_stalled == 0)
+      {
         temp_speed_command = return_speed_command();
         ESC_set_speed(temp_speed_command);
         if(temp_speed_command > max_temp_speed_command)
           max_temp_speed_command = temp_speed_command;
-      //}
+      }
       last_millisecond_counter = millisecond_counter;
     }
 
@@ -275,7 +276,7 @@ static void Energize(const uint8_t hall_state) {
 
   // map the desired pins to the existing output compare modules
   //if (DIRI) {//DIRI == CCW)
-    if(DIRI) {
+    if(DIRI==0) {
     switch (hall_state) {
       case 0:
         Coast(); break;
@@ -610,12 +611,7 @@ switch(state)
 
 
 
-
-
-
-
-  last_hall_state = current_hall_state;
-      
+     
 
 
 }
@@ -625,13 +621,12 @@ switch(state)
 void __attribute__((__interrupt__, auto_psv)) _IC1Interrupt(void) {
   static unsigned char rising_edge_detected_last = 1;
   _IC1IF = 0;                      // clear the source of the interrupt
-//  elapsed_times[0] = 0;
   
   static uint16_t last_value = 0;
   uint16_t current_value = IC1BUF; // current running Timer3 tick value
                                    // (you must subtract off last value)
 
-  //risign edge
+  //rising edge
   if(rising_edge_detected_last == 0)
   {
     last_value = current_value;
@@ -643,7 +638,8 @@ void __attribute__((__interrupt__, auto_psv)) _IC1Interrupt(void) {
   else
   {
 
-    //if the signal was continuously high, there would have been an overflow
+    //If the signal was continuously high, there would have been an overflow
+    //TODO: verify that this actually gets caught
     if(IC1CON1bits.ICOV)
     {
       rising_edge_detected_last = 0;
@@ -659,11 +655,11 @@ void __attribute__((__interrupt__, auto_psv)) _IC1Interrupt(void) {
     IC1CON1bits.ICM = 0b011;  //trigger on rising edge
     IC_period_updated = 1;
 
+    //If the pulse is greater than 2000, then we likely missed the last falling edge
+    //TODO: Upper limit in case the pulse was actually high for an extended amount of time ?
     if(last_IC_period > 2000)
     {
       last_IC_period = 0;
-      Nop();
-      Nop();
     }
   }
 }
@@ -747,35 +743,3 @@ static unsigned int return_speed_command(void)
 
 }
 
-static void handle_filtering(void)
-{
-  static unsigned int direction_counter = 0;
-  static unsigned char new_direction = 0;
-  static unsigned char last_direction = 0;
-
-  filtered_direction = 1;
-  return;
-
-  new_direction = DIRI;
-
-
-
-  if(new_direction == last_direction)
-  {
-    direction_counter++;
-  }
-  else
-  {
-    direction_counter = 0;
-  }
-
-  if(direction_counter > 10)
-  {
-    filtered_direction = new_direction;
-    direction_counter = 0;
-  }
-
-  last_direction = new_direction;
-
-
-}
