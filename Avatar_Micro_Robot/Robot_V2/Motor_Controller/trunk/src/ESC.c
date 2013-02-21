@@ -128,10 +128,17 @@ static unsigned int last_IC_period = 0;
 static unsigned char IC_period_updated = 0;
 static unsigned int return_speed_command(void);
 
+static unsigned char commutation_flag = 0;
+
 static unsigned int temp_speed_command = 0;
 static unsigned int temp_uncorrected_speed = 0;
+static unsigned int max_temp_speed_command = 0;
 //---------------------------Module Variables-----------------------------------
 static volatile uint16_t current_speed = 0;
+
+static unsigned char filtered_direction = 0;
+
+static void handle_filtering();
 
 //---------------------------Test Harness---------------------------------------
 #ifdef TEST_ESC
@@ -147,16 +154,14 @@ int main(void) {
   ESC_Init();
   //allow power board to come online
   //test_commutation_position();
-  Delay(5000);
 
-  _CN63PDE = 1;
+
+  /*_CN63PDE = 1;
   _CN64PDE = 1;
-  _CN65PDE = 1;
+  _CN65PDE = 1;*/
 
   //ESC_StartMotor(400); Delay(500);
-  ESC_set_speed(200);
-  Delay(3000);
-  ESC_set_speed(100);
+
 
   //Energize(3);
   //Energize(1);
@@ -172,11 +177,14 @@ int main(void) {
     if(millisecond_counter != last_millisecond_counter)
     {
       handle_tachi_timeout();
-      if(currently_stalled == 0)
-      {
+      handle_filtering();
+     // if(currently_stalled == 0)
+     // {
         temp_speed_command = return_speed_command();
-        ESC_set_speed(return_speed_command());
-      }
+        ESC_set_speed(temp_speed_command);
+        if(temp_speed_command > max_temp_speed_command)
+          max_temp_speed_command = temp_speed_command;
+      //}
       last_millisecond_counter = millisecond_counter;
     }
 
@@ -334,6 +342,7 @@ static void Energize(const uint8_t hall_state) {
   }
 
   energized_hall_state = hall_state;
+  commutation_flag = 1;
   //DIRO = DIRI;  // output the current direction
   //T4CONbits.TON = 1;
 }
@@ -537,7 +546,7 @@ switch(state)
 {
   case sNoStall:
 
-    if(current_hall_state == last_hall_state)
+    if(commutation_flag == 0)
     {
       stall_counter++;
     }
@@ -546,10 +555,17 @@ switch(state)
       stall_counter = 0;
     }
 
+    commutation_flag = 0;
+
     if(stall_counter >= 3)
     {
       if(current_hall_state != energized_hall_state)
         Energize(current_hall_state);
+
+      stall_counter = 0;
+      /*_CNIE = 0;
+      state = sStallRestart;
+      restart_hall_state = current_hall_state;*/
     }
     break;
     if(stall_counter >= 20)
@@ -580,6 +596,7 @@ switch(state)
 
     if(restart_hall_state != current_hall_state)
     {
+      _CNIE = 1;
       currently_stalled = 0;
       //ESC_set_speed(200);
       state = sNoStall;
@@ -641,6 +658,13 @@ void __attribute__((__interrupt__, auto_psv)) _IC1Interrupt(void) {
     rising_edge_detected_last = 0;
     IC1CON1bits.ICM = 0b011;  //trigger on rising edge
     IC_period_updated = 1;
+
+    if(last_IC_period > 2000)
+    {
+      last_IC_period = 0;
+      Nop();
+      Nop();
+    }
   }
 }
 
@@ -679,7 +703,7 @@ static void handle_tachi_timeout(void)
   }
   else if((IC_period_updated == 0))
   {
-    last_IC_period = 2000;
+    //last_IC_period = 2000;
   }
   else
   {
@@ -691,23 +715,67 @@ static unsigned int return_speed_command(void)
 {
   unsigned int IC_period = last_IC_period;
   unsigned int uncorrected_speed = 0;
-  //return 400;
+
   if(IC_period == 0)
+    {
+      Coast();
+      energized_hall_state = 0;
     return 0;
+    }
   else
   {
     
-    uncorrected_speed = IC_period/4;
+    //uncorrected_speed = IC_period/4;
+    //uncorrected_speed = 100+IC_period/5;
+    uncorrected_speed = 200+IC_period/6.7;
+    
+    //uncorrected_speed = 300;
     temp_uncorrected_speed = uncorrected_speed;
     //return 0;
     if(uncorrected_speed > 400) 
+    {
+      Nop();
       return 400;
-    else if (uncorrected_speed < 100)
-      return 0;
+    }
+    //else if (uncorrected_speed < 100)
+   //   return 0;
 
     return uncorrected_speed;
 
   }
+
+
+}
+
+static void handle_filtering(void)
+{
+  static unsigned int direction_counter = 0;
+  static unsigned char new_direction = 0;
+  static unsigned char last_direction = 0;
+
+  filtered_direction = 1;
+  return;
+
+  new_direction = DIRI;
+
+
+
+  if(new_direction == last_direction)
+  {
+    direction_counter++;
+  }
+  else
+  {
+    direction_counter = 0;
+  }
+
+  if(direction_counter > 10)
+  {
+    filtered_direction = new_direction;
+    direction_counter = 0;
+  }
+
+  last_direction = new_direction;
 
 
 }
