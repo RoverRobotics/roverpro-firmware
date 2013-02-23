@@ -60,6 +60,10 @@ Notes:
 #define C_HI_EN(a)          (_TRISD4 = !(a))
 #define C_LO_EN(a)          (_TRISD5 = !(a))
 
+#define A_LO                (_LATD1)
+#define B_LO                (_LATD3)
+#define C_LO                (_LATD5)
+
 
 // TODO: ensure these do NOT change
 //#define DEFAULT_DC              500//956   // [ticks]
@@ -139,6 +143,8 @@ static volatile uint16_t current_speed = 0;
 static unsigned char filtered_direction = 0;
 
 static void handle_filtering();
+
+static void Brake();
 
 //---------------------------Test Harness---------------------------------------
 #ifdef TEST_ESC
@@ -740,6 +746,22 @@ static unsigned int return_speed_command(void)
 
   }
 
+
+}
+
+static void Brake(void)
+{
+  // turn everything off
+  LATD = 0;
+  A_HI_RPN_PIN = FN_NULL; A_LO_RPN_PIN = FN_NULL;
+  B_HI_RPN_PIN = FN_NULL; B_LO_RPN_PIN = FN_NULL;
+  C_HI_RPN_PIN = FN_NULL; C_LO_RPN_PIN = FN_NULL;
+  LATD = 0; // to really ensure everything is off
+
+  //turn on low side MOSFETs
+  A_LO = 1;
+  B_LO = 1;
+  C_LO = 1;
 
 }
 
