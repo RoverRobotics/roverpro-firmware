@@ -439,7 +439,7 @@ void ocu_batt_i2c_fsm(void)
 				i2c_interrupt_state++;
 			break;
 			case 0x0b:
-				fan_duty_cycle = ocu_batt_i2c_rx_byte1;
+				//fan_duty_cycle = ocu_batt_i2c_rx_byte1;
 				i2c_interrupt_state++;
 			break;
 			case 0x0c:
@@ -543,7 +543,7 @@ void ocu_batt_i2c_fsm(void)
 			case 0x0b:
 				OCU_Batt_I2C2_state = 0x00;
 				ocu_batt_i2c_message_length = 1;
-				start_ocu_batt_i2c_read(I2C_ADD_FAN_CONTROLLER,0x18);
+				start_ocu_batt_i2c_write(I2C_ADD_FAN_CONTROLLER,0x0B,REG_OCU_BLOWER_SPEED);
 			break;
 			case 0x0c:
 				OCU_Batt_I2C2_state = 0x00;

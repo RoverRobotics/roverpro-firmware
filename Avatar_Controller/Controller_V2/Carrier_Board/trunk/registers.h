@@ -14,7 +14,7 @@ Notes:
   - REGISTER(MY_REGISTER_NAME, SOFTWARE_R/W_DIRECTION, 
              SYNC_OR_NO_SYNC, my_data_type)
   
-Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
+Responsible Engineer(s):
 =============================================================================*/
 #ifndef REGISTERS_H
 #define REGISTERS_H
@@ -225,6 +225,26 @@ REGISTER( REG_ROBOT_RESET_CODE,   DEVICE_READ,  DEVICE_CARRIER,   SYNC,    uint1
 
 //register that is nonzero whenever the AC Adapter is plugged in
 REGISTER( REG_OCU_AC_POWER,   DEVICE_READ,  DEVICE_OCU,   SYNC,    uint8_t)
+
+//register that is nonzero when radio should be powered down or in reset, and zero
+//during normal operation
+REGISTER( REG_ROBOT_RADIO_RESET,   DEVICE_WRITE,  DEVICE_CARRIER,   SYNC,    uint8_t)
+
+//registers for the boom camera.  These should be used similar to the registers for
+//the PTZ.
+REGISTER( REG_BOOM_VEL_PAN,	DEVICE_WRITE,	DEVICE_BOOM_CAM,	SYNC,	int16_t )
+REGISTER( REG_BOOM_VEL_TILT,	DEVICE_WRITE,	DEVICE_BOOM_CAM,	SYNC,	int16_t )
+REGISTER( REG_BOOM_VEL_ZOOM,	DEVICE_WRITE,	DEVICE_BOOM_CAM,	SYNC,	int16_t )
+REGISTER( REG_BOOM_POWER_DOWN,	DEVICE_WRITE,	DEVICE_BOOM_CAM,	SYNC,	int8_t )
+
+REGISTER( REG_MOTOR_CHARGER_STATE,	DEVICE_READ,	DEVICE_MOTOR,	SYNC,	uint16_t )
+
+REGISTER( REG_CAMERA_BASE_FAN_ON,	DEVICE_WRITE,	DEVICE_PTZ_BASE,	SYNC,	uint8_t )
+REGISTER( REG_CAMERA_ROT_FAN_ON,	DEVICE_WRITE,	DEVICE_PTZ_ROTATION,	SYNC,	uint8_t )
+
+REGISTER( REG_OCU_BLOWER_SPEED,	DEVICE_WRITE,	DEVICE_OCU,	SYNC,	uint8_t )
+
+
 
 REGISTER_END()
 
