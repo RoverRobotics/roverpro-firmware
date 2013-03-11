@@ -10,9 +10,6 @@ void ocu_batt_smbus_isr(void);
 
 void init_i2c(void);
 
-void i2c1_detect_failure(void);
-void i2c2_detect_failure(void);
-
 extern int left_battery_current;
 extern int right_battery_current;
 

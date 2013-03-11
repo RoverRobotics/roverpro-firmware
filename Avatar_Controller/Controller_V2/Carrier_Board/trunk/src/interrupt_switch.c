@@ -26,7 +26,6 @@ void (*ADC1InterruptUserFunction)(void) = InterruptDummyFunction;
 void (*I2C1InterruptUserFunction)(void) = InterruptDummyFunction;
 void (*U1TXInterruptUserFunction)(void) = InterruptDummyFunction;
 void (*U1RXInterruptUserFunction)(void) = InterruptDummyFunction;
-void (*U2RXInterruptUserFunction)(void) = InterruptDummyFunction;
 void (*I2C2InterruptUserFunction)(void) = InterruptDummyFunction;
 
 
@@ -116,9 +115,4 @@ void  __attribute__((__interrupt__, auto_psv)) _MI2C1Interrupt(void)
 void  __attribute__((__interrupt__, auto_psv)) _MI2C2Interrupt(void)
 {
  	I2C2InterruptUserFunction();
-}
-
-void  __attribute__((__interrupt__, auto_psv)) _U2RXInterrupt(void)
-{
- 	U2RXInterruptUserFunction();
 }

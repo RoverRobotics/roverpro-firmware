@@ -10,10 +10,8 @@
 #include "stdhdr.h"
 #include "device_ocu.h"
 #include "device_ocu_i2c.h"
-#include "debug_uart.h"
 
 #define BATTERY_SOC_CUTOFF  10
-#define DEBUG_BATTERY_ISSUES
 
 //button inputs
 #define VOLUME_UP()		(_RG7)
@@ -184,13 +182,6 @@ void read_all_bq2060a_registers(void);
 int DeviceControllerBoot(void);
 
 void set_backlight_brightness(unsigned char percentage);
-
-//For interrupt-driven timing:
-static void Timer2_ISR(void);
-static unsigned int millisecond_counter = 0;
-static unsigned int ten_millisecond_counter = 0;
-static unsigned int hundred_millisecond_counter = 0;
-static unsigned int second_counter = 0;
 
 #pragma code
 
@@ -475,18 +466,11 @@ void DeviceOcuInit()
 	T2CONbits.TCKPS = 0;	
 
 
-  T2InterruptUserFunction = Timer2_ISR;
-  //T2 frequency is Fosc/2 = 16 MHz
-  //Max timer interrupt at 2^16/16MHz = 4.096ms
-  //Let's set PR2 to 16000, to get interrupts every 1ms:
-  PR2 = 16000;
-  _T2IE = 1;
-
 	
 	//TPS61161: between 5kHz and 100 kHz PWM dimming frequency
 	//Choose 20kHz (50us period)
 	//50us = [PR2 + 1]*62.5ns*1
-	//PR2 = 801;	
+	PR2 = 801;	
 	OC1RS = 800;
 	set_backlight_brightness(0);
 	
@@ -505,11 +489,9 @@ void DeviceOcuInit()
 
 	init_i2c();
 	
-	U2RXInterruptUserFunction = ocu_gps_isr;
+	U1RXInterruptUserFunction = ocu_gps_isr;
 
 	ocu_gps_init();	
-
-  init_debug_uart();
 
 	REG_OCU_BACKLIGHT_BRIGHTNESS = 0;
 //	set_backlight_brightness(50);
@@ -522,28 +504,19 @@ void DeviceOcuProcessIO()
 {
   static unsigned int initial_backlight_counter = 0;
 	main_loop_counter++;
-  static unsigned int test_toggle = 0;
 
 	handle_power_button();
 	update_button_states();
 		
 
-		_U2RXIE = 1;
+		IEC0bits.U1RXIE = 1;
+		IEC3bits.MI2C2IE = 1;
+		_MI2C1IE = 1;
+		ocu_batt_i2c_fsm();
+		ocu_i2c1_fsm();
 
 
-  if(ten_millisecond_counter)
-  {
-    ten_millisecond_counter = 0;
-    i2c1_detect_failure();
-    i2c2_detect_failure();
-	  handle_gas_gauge();
-    initial_backlight_counter++;
-  }
-  
-  //we run the i2c FSMs at max speed
-  ocu_batt_i2c_fsm();
-  ocu_i2c1_fsm();
-
+	handle_gas_gauge();
 	handle_charging();
 
   //I need to check if the computer is on, since these buttons are "pressed" when the power supply
@@ -602,10 +575,15 @@ void DeviceOcuProcessIO()
   {
     if(REG_OCU_BACKLIGHT_BRIGHTNESS == 0)
     {
-      if(initial_backlight_counter > 2000)
+      if(initial_backlight_counter > 300)
       {
-        initial_backlight_counter = 6000;
+        initial_backlight_counter = 301;
         REG_OCU_BACKLIGHT_BRIGHTNESS = 50;
+      }
+      else
+      {
+        initial_backlight_counter++;
+        block_ms(100);
       }
     }
   }
@@ -637,16 +615,7 @@ void handle_gas_gauge(void)
 //	static unsigned int low_voltage_counter = 0;
   static unsigned int low_capacity_counter = 0;
   static unsigned int initial_low_capacity_counter = 0;
-  static unsigned int max_low_capacity_counts = 10;
-  static unsigned int last_good_SOC_left = 0;
-  static unsigned int last_good_SOC_right = 0;
   unsigned char i;
-
-
-  //counter to determine how long controller has been turned on (caps out at 10 seconds
-  initial_low_capacity_counter++;
-  if(initial_low_capacity_counter > 1000)
-    initial_low_capacity_counter = 1001;
 
   if( (left_battery_current == 0xffff) || (right_battery_current == 0xffff))
   {
@@ -659,9 +628,11 @@ void handle_gas_gauge(void)
 
 	if( (REG_OCU_REL_SOC_L < BATTERY_SOC_CUTOFF) || (REG_OCU_REL_SOC_R < BATTERY_SOC_CUTOFF) )
 	{
+    initial_low_capacity_counter++;
+    if(initial_low_capacity_counter > 1000)
+      initial_low_capacity_counter = 2000;
 
-
-    if( ((REG_OCU_REL_SOC_L == 0 ) || (REG_OCU_REL_SOC_R == 0 )) && (initial_low_capacity_counter < 100) )   
+    if( ((REG_OCU_REL_SOC_L == 0 ) || (REG_OCU_REL_SOC_R == 0 )) && (initial_low_capacity_counter < 1000) )   
     {
       //initally, relative SOC registers will be 0.  Let's not turn off due to low capacity until we get a
       //valid capacity reading, or the counter goes too high.
@@ -674,7 +645,7 @@ void handle_gas_gauge(void)
 
   //if we're getting bad SOC data on both the batteries -- if we have a valid measurement on just one, then we'll assume
   //that the other battery approximates the SOC of the one we have an invalid measurement for.
-  else if( ((REG_OCU_REL_SOC_L == 0xffff) && (REG_OCU_REL_SOC_R == 0xffff)) &&  (initial_low_capacity_counter > 100))
+  else if( (REG_OCU_REL_SOC_L == 0xffff) && (REG_OCU_REL_SOC_R == 0xffff) )
   {
       low_capacity_counter++;
   }
@@ -685,36 +656,8 @@ void handle_gas_gauge(void)
 
   }
 
-  //if both battery readings are high enough, allow more leniency in determining whether the battery is low
-  //TODO: think about what would happen if one was valid and one was invalid
-  if( (REG_OCU_REL_SOC_L == 0xffff) && (REG_OCU_REL_SOC_R == 0xffff) );
-  else if( (REG_OCU_REL_SOC_L == 0) || (REG_OCU_REL_SOC_R == 0) );
-  else if( (REG_OCU_REL_SOC_L >= 20) && (REG_OCU_REL_SOC_R >= 20) )
-    max_low_capacity_counts = 500;
-  else if( (REG_OCU_REL_SOC_L >= 15) && (REG_OCU_REL_SOC_R >= 15) )
-    max_low_capacity_counts = 200;
-  else if( (REG_OCU_REL_SOC_L >= 12) && (REG_OCU_REL_SOC_R >= 12) )
-    max_low_capacity_counts = 100;
-  else
-    max_low_capacity_counts = 20;
-
-  if( (REG_OCU_REL_SOC_L != 0xffff) && (REG_OCU_REL_SOC_L != 0))
-  {
-    last_good_SOC_left = REG_OCU_REL_SOC_L;
-  }
-  if( (REG_OCU_REL_SOC_R != 0xffff) && (REG_OCU_REL_SOC_R != 0))
-  {
-    last_good_SOC_right = REG_OCU_REL_SOC_R;
-  }
-
-	//Total loop time takes about 3ms.  A bad i2c reading can cause and additional
-  //delay of 2ms per i2c bus (4ms total)  Every 200 cycles, there can be one 
-  //100ms wait for each i2c bus (200ms total, or 1ms per cycle),
-  //so every 1000 counts will take between
-  //3000ms and 8000ms.
-  //Experimentally, however, 5000 counts ended up being about 6 seconds, so maybe the 3ms
-  //loop time includes the 2ms SMBus wait.
-	if(low_capacity_counter >= max_low_capacity_counts)
+	//if counter gets to 10 different readings, shut off
+	if(low_capacity_counter >= 10)
 	{
 	//only shut off everything if the adapter isn't plugged in
 		if(!CHARGER_ACOK())
@@ -727,22 +670,6 @@ void handle_gas_gauge(void)
 			V5V_ON(0);
 			V12V_ON(0);
 			COMPUTER_PWR_OK(0);
-
-      send_debug_uart_string("Low battery shutoff\r\n",21);
-      block_ms(10);
-      display_int_in_dec("LEFT:             \r\n",REG_OCU_REL_SOC_L);
-      block_ms(10);
-      display_int_in_dec("RIGHT:            \r\n",REG_OCU_REL_SOC_R);
-
-      #ifdef DEBUG_BATTERY_ISSUES
-      block_ms(10);
-      display_int_in_dec("LAST L:           \r\n",last_good_SOC_left);
-      block_ms(10);
-      display_int_in_dec("LAST R:           \r\n",last_good_SOC_right);    
-      block_ms(10);
-      display_int_in_dec("low cap cnt:      \r\n",low_capacity_counter);        
-      #endif
-
       for(i=0;i<4;i++)
       {
         RED_LED_ON(1);
@@ -774,11 +701,11 @@ void ocu_gps_isr(void)
 
 	unsigned char new_byte;
 
-	U2STAbits.OERR = 0;
+	U1STAbits.OERR = 0;
 
-  _U2RXIF = 0;
+	IFS0bits.U1RXIF = 0;
 
-	new_byte = U2RXREG;
+	new_byte = U1RXREG;
 	gps_interrupt_counter++;
 	
 
@@ -953,17 +880,17 @@ void set_backlight_brightness(unsigned char percentage)
 
 void ocu_gps_init(void)
 {
-	//set GPS tx to U2TX
-	GPS_TX_OR = 5;
+	//set GPS tx to U1TX
+	GPS_TX_OR = 3;
 	
-	//set U2RX to GPS rx pin
-	_U2RXR = GPS_RX_PIN;	
+	//set U1RX to GPS rx pin
+	RPINR18bits.U1RXR = GPS_RX_PIN;	
 	
-	U2BRG = 103;
+	U1BRG = 103;
 	
-	_U2RXIE = 0;
+	IEC0bits.U1RXIE = 0;
 	
-	U2MODEbits.UARTEN = 1;
+	U1MODEbits.UARTEN = 1;
 
 
 }
@@ -1338,8 +1265,7 @@ void handle_charging(void)
   if(computer_on_flag)
   {
     if(phantom_red_led == 0)
-      if(REG_OCU_BATT_CURRENT >= 0)
-        REG_OCU_BATT_CURRENT = 0;
+      REG_OCU_BATT_CURRENT = 0;
   }
 
 
@@ -1367,30 +1293,7 @@ void read_all_bq2060a_registers(void)
 
 }
 
-static void Timer2_ISR(void)
-{
-  _T2IF = 0;
-  millisecond_counter++;
-  
-  //Make sure rollover is at a multiple of 10
-  if(millisecond_counter == 10000)
-    millisecond_counter = 0;
 
-
-  if(millisecond_counter%10 == 0)
-  {
-    ten_millisecond_counter++;
-    if(millisecond_counter%100 == 0)
-    {
-      hundred_millisecond_counter++;
-      if(millisecond_counter%1000 == 0)
-      {
-        second_counter++;
-      }
-     
-    }
-  }
-}
 
 
 
