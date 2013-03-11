@@ -150,19 +150,6 @@ void BL_PRI bootloader(void)
 	}
 }*/
 
-void CalcChecksum()
-{
-	_prog_addressT p = 0;
-	uint8_t buf[4] = { 0 };
-
-	//REG_FIRMWARE_CHECKSUM = 0;
-
-    for( p = 0; p < (FIRMWARE_SIZE/2); p += 2) {
-		_memcpy_p2d24( buf, p, 1 );
-        //REG_FIRMWARE_CHECKSUM = REG_FIRMWARE_CHECKSUM + buf[0] + buf[1] + buf[2];
-	}
-}
-
 
 // -------------------------------------------------------------------------
 // PROTOTYPES

@@ -517,6 +517,9 @@ void DevicePTZBaseInit()
 	IniTimer1();
 
 	IniPWM1();
+
+  REG_CAMERA_BASE_FAN_ON = 1;
+
 }
 
 void InputSummation()
@@ -621,6 +624,15 @@ void DevicePTZBaseProcessIO()
     _LATB3 = 1;
     REG_CAMERA_BASE_POWER_DOWN = 0;
   }
+
+  if(REG_CAMERA_BASE_FAN_ON)
+  {
+    _LATD0 = 1;
+  }
+  else
+  {
+    _LATD0 = 0;
+  }  
 
     
 

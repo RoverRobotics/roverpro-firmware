@@ -515,6 +515,9 @@ static void PTZIni()
 	//initialize and turn on rotation fan
 	_TRISG7 = 0;
 	_LATG7 = 1;
+
+  REG_CAMERA_ROT_FAN_ON = 1;
+
 }
 
 
@@ -1020,6 +1023,16 @@ void DevicePTZRotationProcessIO()
 	InputSummation();
 	ZoomControl();
 	TiltControl();
+
+  if(REG_CAMERA_ROT_FAN_ON)
+  {
+    _LATG7 = 1;
+  }
+  else
+  {
+    _LATG7 = 0;
+  }
+
 }
 
 void test_focus(void)
