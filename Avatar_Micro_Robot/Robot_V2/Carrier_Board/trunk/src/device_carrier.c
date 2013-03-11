@@ -390,12 +390,12 @@ void init_fan(void)
 	handle_watchdogs();
 
 	//set fan configuration
-	writeI2CReg( FAN_CONTROLLER_ADDRESS,0x02,0b00011010);
+	///writeI2CReg( FAN_CONTROLLER_ADDRESS,0x02,0b00011010);
 	block_ms(5);
 
 
 /* For thermistor control */
-	//make thermistor 1 control fan 2, and vice versa
+/*	//make thermistor 1 control fan 2, and vice versa
 	writeI2CReg( FAN_CONTROLLER_ADDRESS,0x11,0b00011000);
 	block_ms(5);
 
@@ -408,6 +408,8 @@ void init_fan(void)
 
 	block_ms(5);
 
+  
+
 	//wait a while
 	for(i=0;i<50;i++)
 	{
@@ -417,10 +419,13 @@ void init_fan(void)
 
 	//fan turns on at 40C
 	writeI2CReg( FAN_CONTROLLER_ADDRESS,0x10,40);
-	block_ms(5);
+	block_ms(5);*/
 	//End thermistor control
 
-/* For software control
+ //For software control
+
+  writeI2CReg(FAN_CONTROLLER_ADDRESS,0x02,0b01011000);
+  block_ms(15);
 
 	writeI2CReg(FAN_CONTROLLER_ADDRESS,0x11,0x00);
 
@@ -430,11 +435,17 @@ void init_fan(void)
 
 	block_ms(5);
 
-	REG_CARRIER_REAR_BLOWER_SPEED = 100;
+	REG_CARRIER_REAR_BLOWER_SPEED = 200;
 	
 	writeI2CReg(FAN_CONTROLLER_ADDRESS,0x0B,240);
-	ClrWdt();
-	block_ms(1000);*/
+
+	//wait a while
+	for(i=0;i<10;i++)
+	{
+		handle_watchdogs();
+		block_ms(20);
+	}
+
 
 	//end software control
 
@@ -666,6 +677,7 @@ int DeviceCarrierReadHmc5843Register( unsigned char add, unsigned char reg )
 }
 
 
+
 void robot_gps_init(void)
 {
 	//set GPS tx to U2TX
@@ -806,8 +818,9 @@ void DeviceCarrierGetTelemetry()
 	while (!_DONE) { }
 
 	REG_ROBOT_HUMIDITY = ADC1BUF0 * ADC_REF_VOLTAGE / ADC_SAMPLE_COUNT;
+  block_ms(5);
 
-//	writeI2CReg(FAN_CONTROLLER_ADDRESS,0x0B,REG_CARRIER_REAR_BLOWER_SPEED);
+	writeI2CReg(FAN_CONTROLLER_ADDRESS,0x0B,REG_CARRIER_REAR_BLOWER_SPEED);
 
 	REG_TELEMETRY_COUNT++;
 }
