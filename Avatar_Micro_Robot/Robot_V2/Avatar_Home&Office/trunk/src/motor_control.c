@@ -66,10 +66,7 @@ static void UpdateRDutyCycle(const uint16_t duty_cycle);
 
 //---------------------------Helper Function Prototypes-------------------------
 
-static void Coast(void);
-
 // OC-module related
-static void Energize(const uint8_t hall_state);
 static void InitOCs(void);
 
 static void InitHighSidePulser(void);
@@ -86,21 +83,8 @@ static unsigned int ten_millisecond_counter = 0;
 static unsigned int hundred_millisecond_counter = 0;
 static unsigned int second_counter = 0;
 
-static unsigned char energized_hall_state;
-
-static unsigned char currently_stalled = 0;
-
-static unsigned int return_speed_command(void);
-
-static unsigned char commutation_flag = 0;
-
-
 //---------------------------Module Variables-----------------------------------
 static volatile uint16_t current_speed = 0;
-
-static unsigned char filtered_direction = 0;
-
-
 
 static void Brake();
 
@@ -163,6 +147,13 @@ void __attribute__((__interrupt__, auto_psv)) _OC1Interrupt(void) {
   _OC1IF = 0;
 }
 
+void __attribute__((__interrupt__, auto_psv)) _OC4Interrupt(void) {
+  // restart the single-shot pulse
+  OC6CON1bits.OCM = 0b000;
+  OC6CON1bits.OCM = 0b100;
+  _OC4IF = 0;
+}
+
 //---------------------------Public Function Definitions------------------------
 void ESC_Init(void) {
   InitOCs();
@@ -195,6 +186,21 @@ static void set_motor_pwm(int left_speed, int right_speed)
     B_HI_L_RPN_PIN = FN_OC1; B_LO_L_RPN_PIN = FN_OC2;
   }
 
+  if(right_speed == 0)
+  {
+    Coast_R();
+  }
+  else if(right_speed > 0)
+  {
+    A_HI_R_RPN_PIN = FN_OC4; A_LO_R_RPN_PIN = FN_OC5; 
+    B_HI_R_RPN_PIN = FN_OC6; B_LO_R_RPN_PIN = FN_NULL;
+  }
+  else
+  {
+    A_HI_R_RPN_PIN = FN_NULL; A_LO_R_RPN_PIN = FN_OC6; 
+    B_HI_R_RPN_PIN = FN_OC4; B_LO_R_RPN_PIN = FN_OC5;
+  }
+
 
 }
 
@@ -213,7 +219,12 @@ static void UpdateLDutyCycle(const uint16_t duty_cycle) {
 
 
 static void UpdateRDutyCycle(const uint16_t duty_cycle) {
-
+  if (MAX_DC < duty_cycle) OC4R = MAX_DC;
+  else OC4R = duty_cycle;
+  
+  // shadow the other variable
+  OC5R = OC4R;
+  OC6R = OC4R;
 
 
 }
@@ -259,6 +270,22 @@ static void InitHighSidePulser(void) {
   
  
   OC1CON1bits.OCM = 0b101;      // Double Compare Continuous Pulse mode, turn on 
+
+
+  OC4CON1bits.OCTSEL = 0b010;   // select timer4 as the time base
+  OC4CON2bits.SYNCSEL = 0b01110;// triggered by timer4
+  OC4CON2bits.OCINV = 1;        // invert the output for more intuitive 
+                                // duty-cycle writes
+  OC4R = DEFAULT_DC;            // initialize the duty cycle (NB: we cannot get 0%?)
+  OC4RS = PWM_PERIOD;
+  _OC4IP = 0b111;               // the highest priority
+  _OC4IF = 0;                   // enable interrupts to be thrown when
+  _OC4IE = 1;                   // timer4 counter is equal to OC1R
+  
+ 
+  OC4CON1bits.OCM = 0b101;      // Double Compare Continuous Pulse mode, turn on 
+
+
 }
 
 static void InitLowSidePulser(void) {
@@ -268,6 +295,14 @@ static void InitLowSidePulser(void) {
   OC2R = OC1R;
   OC2RS =  OC1RS;
   OC2CON1bits.OCM = OC1CON1bits.OCM;
+
+
+  OC5CON1bits.OCTSEL = OC1CON1bits.OCTSEL;
+  OC5CON2bits.SYNCSEL = OC1CON2bits.SYNCSEL;
+  OC5CON2bits.OCINV = OC1CON2bits.OCINV;
+  OC5R = OC4R;
+  OC5RS =  OC4RS;
+  OC5CON1bits.OCM = OC4CON1bits.OCM;
 }
 
 static void InitRechargePulser(void) {
@@ -276,6 +311,14 @@ static void InitRechargePulser(void) {
   // consume the remainder of the period with the recharge pulse
   OC3R = OC1R;  // NB: start as close as we can to when the interrupt fires
   OC3RS = PWM_PERIOD - CROSSOVER_TOLERANCE - REPULSE_INTERRUPT_DELAY;
+
+
+  OC6CON1bits.OCTSEL = OC4CON1bits.OCTSEL;
+  OC6CON2bits.SYNCSEL = OC4CON2bits.SYNCSEL;
+  // consume the remainder of the period with the recharge pulse
+  OC6R = OC4R;  // NB: start as close as we can to when the interrupt fires
+  OC6RS = PWM_PERIOD - CROSSOVER_TOLERANCE - REPULSE_INTERRUPT_DELAY;
+
 }
 
 static void InitTimer(void)
@@ -343,16 +386,17 @@ static void Brake(void)
 static void test_MOSFETs(void)
 {
   unsigned int i;
-  Brake();
-//  UpdateDutyCycle(400);
   while(1)
   {
-  for(i=1;i<7;i++)
-  {
-//    Energize(i);
+
+    set_motor_pwm(0,0);
+    Delay(2000);
+    set_motor_pwm(-100, -100);
+    Delay(2000);
+    set_motor_pwm(100,100);
     Delay(2000);
   }
-  }
+
   
 
 

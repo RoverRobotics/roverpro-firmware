@@ -10,6 +10,8 @@
 #define BQ24745_EN(a)   _TRISE3=(!a)
 #define BQ24745_ON(a)   _LATE3=a
 
+#define BQ24745_ACOK()    _RE2
+
 //motor controller pins
 // input-capture inputs
 #define A_HI_R_RPN_PIN        (_RP11R)
