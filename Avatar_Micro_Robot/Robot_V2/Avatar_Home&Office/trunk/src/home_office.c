@@ -18,6 +18,14 @@ void main(void)
   start_up();
   ESC_Init();
 
+  motor_control_test_function();
+
+  while(1)
+  {
+    ClrWdt();
+
+  }
+
 }
 
 

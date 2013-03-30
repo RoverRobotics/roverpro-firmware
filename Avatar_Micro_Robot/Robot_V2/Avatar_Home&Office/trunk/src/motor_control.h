@@ -41,4 +41,6 @@ void ESC_set_speed(const int16_t speed);
 //   motor.  A negative speed means the motor track is in reverse.
 int16_t ESC_speed(void);
 
+void motor_control_test_function(void);
+
 #endif

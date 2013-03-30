@@ -33,13 +33,14 @@ static void UpdateRDutyCycle(const uint16_t duty_cycle);
 //#define DEFAULT_DC              500//956   // [ticks]
 //#define PWM_PERIOD              1000  // [ticks], 1000 => ~16kHz
 
-#define DEFAULT_DC                250
-#define PWM_PERIOD                500
+#define DEFAULT_DC                50
+#define PWM_PERIOD                1000
 
 // The time before the end of the period to schedule the falling edge of the
 // recharge pulse.
 //#define CROSSOVER_TOLERANCE     4     // [ticks], 28 leaves ~200ns before drive pulse begins
-#define CROSSOVER_TOLERANCE     8
+//#define CROSSOVER_TOLERANCE     8
+#define CROSSOVER_TOLERANCE     24
 
 // Time consumed in the interrupt to reinitialize the single-shot pulse.
 #define REPULSE_INTERRUPT_DELAY 24    // [ticks]
@@ -66,6 +67,9 @@ static void UpdateRDutyCycle(const uint16_t duty_cycle);
 
 //---------------------------Helper Function Prototypes-------------------------
 
+
+static void test_MOSFETs(void);
+
 // OC-module related
 static void InitOCs(void);
 
@@ -87,8 +91,6 @@ static unsigned int second_counter = 0;
 static volatile uint16_t current_speed = 0;
 
 static void Brake();
-
-static void test_MOSFETs(void);
 
 //---------------------------Test Harness---------------------------------------
 #ifdef TEST_ESC
@@ -139,20 +141,35 @@ int main(void) {
 #endif
 
 //---------------------------Interrupt Service Routines (ISRs)------------------
+
+
+
 // This interrupt is thrown when the running timer4 counter counts up to OC1R
 void __attribute__((__interrupt__, auto_psv)) _OC1Interrupt(void) {
   // restart the single-shot pulse
+
+  /*unsigned int i;
+  for(i=0;i<100;i++)
+    Nop();*/
+
   OC3CON1bits.OCM = 0b000;
+  OC6CON1bits.OCM = 0b000;
+
+
   OC3CON1bits.OCM = 0b100;
+  OC6CON1bits.OCM = 0b100;
+
   _OC1IF = 0;
 }
 
 void __attribute__((__interrupt__, auto_psv)) _OC4Interrupt(void) {
   // restart the single-shot pulse
-  OC6CON1bits.OCM = 0b000;
-  OC6CON1bits.OCM = 0b100;
-  _OC4IF = 0;
+  //OC6CON1bits.OCM = 0b000;
+  //OC6CON1bits.OCM = 0b100;
+  //_OC4IF = 0;
 }
+
+
 
 //---------------------------Public Function Definitions------------------------
 void ESC_Init(void) {
@@ -168,8 +185,8 @@ int16_t ESC_speed(void) {
 static void set_motor_pwm(int left_speed, int right_speed)
 {
   
-  UpdateLDutyCycle(left_speed);
-  UpdateRDutyCycle(right_speed);
+  UpdateLDutyCycle(abs(left_speed));
+  UpdateRDutyCycle(abs(right_speed));
 
   if(left_speed == 0)
   {
@@ -177,13 +194,14 @@ static void set_motor_pwm(int left_speed, int right_speed)
   }
   else if(left_speed > 0)
   {
-    A_HI_L_RPN_PIN = FN_OC1; A_LO_L_RPN_PIN = FN_OC2; 
-    B_HI_L_RPN_PIN = FN_OC3; B_LO_L_RPN_PIN = FN_NULL;
+    A_HI_L_RPN_PIN = FN_OC1; A_LO_L_RPN_PIN = FN_OC3; 
+    B_HI_L_RPN_PIN = FN_NULL; B_LO_L_RPN_PIN = FN_OC2;
+    //A_LO_L_RPN_PIN = FN_OC1; B_LO_L_RPN_PIN = FN_OC3;
   }
   else
   {
-    A_HI_L_RPN_PIN = FN_NULL; A_LO_L_RPN_PIN = FN_OC3; 
-    B_HI_L_RPN_PIN = FN_OC1; B_LO_L_RPN_PIN = FN_OC2;
+    A_HI_L_RPN_PIN = FN_NULL; A_LO_L_RPN_PIN = FN_OC2; 
+    B_HI_L_RPN_PIN = FN_OC1; B_LO_L_RPN_PIN = FN_OC3;
   }
 
   if(right_speed == 0)
@@ -192,13 +210,15 @@ static void set_motor_pwm(int left_speed, int right_speed)
   }
   else if(right_speed > 0)
   {
-    A_HI_R_RPN_PIN = FN_OC4; A_LO_R_RPN_PIN = FN_OC5; 
-    B_HI_R_RPN_PIN = FN_OC6; B_LO_R_RPN_PIN = FN_NULL;
+    A_HI_R_RPN_PIN = FN_OC4; A_LO_R_RPN_PIN = FN_OC6; 
+    B_HI_R_RPN_PIN = FN_NULL; B_LO_R_RPN_PIN = FN_OC5;
+    //A_LO_R_RPN_PIN = FN_OC4; 
+    //B_LO_R_RPN_PIN = FN_OC6; 
   }
   else
   {
-    A_HI_R_RPN_PIN = FN_NULL; A_LO_R_RPN_PIN = FN_OC6; 
-    B_HI_R_RPN_PIN = FN_OC4; B_LO_R_RPN_PIN = FN_OC5;
+    A_HI_R_RPN_PIN = FN_NULL; A_LO_R_RPN_PIN = FN_OC5; 
+    B_HI_R_RPN_PIN = FN_OC4; B_LO_R_RPN_PIN = FN_OC6;
   }
 
 
@@ -278,9 +298,9 @@ static void InitHighSidePulser(void) {
                                 // duty-cycle writes
   OC4R = DEFAULT_DC;            // initialize the duty cycle (NB: we cannot get 0%?)
   OC4RS = PWM_PERIOD;
-  _OC4IP = 0b111;               // the highest priority
-  _OC4IF = 0;                   // enable interrupts to be thrown when
-  _OC4IE = 1;                   // timer4 counter is equal to OC1R
+  //_OC4IP = 0b111;               // the highest priority
+  //_OC4IF = 0;                   // enable interrupts to be thrown when
+  //_OC4IE = 1;                   // timer4 counter is equal to OC1R
   
  
   OC4CON1bits.OCM = 0b101;      // Double Compare Continuous Pulse mode, turn on 
@@ -297,9 +317,9 @@ static void InitLowSidePulser(void) {
   OC2CON1bits.OCM = OC1CON1bits.OCM;
 
 
-  OC5CON1bits.OCTSEL = OC1CON1bits.OCTSEL;
-  OC5CON2bits.SYNCSEL = OC1CON2bits.SYNCSEL;
-  OC5CON2bits.OCINV = OC1CON2bits.OCINV;
+  OC5CON1bits.OCTSEL = OC4CON1bits.OCTSEL;
+  OC5CON2bits.SYNCSEL = OC4CON2bits.SYNCSEL;
+  OC5CON2bits.OCINV = OC4CON2bits.OCINV;
   OC5R = OC4R;
   OC5RS =  OC4RS;
   OC5CON1bits.OCM = OC4CON1bits.OCM;
@@ -386,14 +406,18 @@ static void Brake(void)
 static void test_MOSFETs(void)
 {
   unsigned int i;
+    Delay(5000);
   while(1)
   {
 
+    //short in right side PWM code
     set_motor_pwm(0,0);
     Delay(2000);
-    set_motor_pwm(-100, -100);
+    set_motor_pwm(-800, -800);
     Delay(2000);
-    set_motor_pwm(100,100);
+    set_motor_pwm(0,0);
+    Delay(2000);
+    set_motor_pwm(800,800);
     Delay(2000);
   }
 
@@ -402,3 +426,9 @@ static void test_MOSFETs(void)
 
 }
 
+void motor_control_test_function(void)
+{
+
+
+  test_MOSFETs();
+}

@@ -17,12 +17,13 @@ void battery_FSM(void)
   typedef enum {
     sLowBatteryOnCharger = 0,
     sFullBatteryOnCharger,
-    sOffCharger,
+    sLowBatteryOffCharger,
+    sFullBatteryOffCharger,
   } sBatteryState;
 
   unsigned int low_battery_counter = 0;
 
-  static sBatteryState state = sOffCharger;
+  static sBatteryState state = sLowBatteryOffCharger;
 
   switch(state)
   {
@@ -30,7 +31,7 @@ void battery_FSM(void)
 
       if(BQ24745_ACOK()==0)
       {
-        state = sOffCharger;
+        state = sLowBatteryOffCharger;
       }
 
       if(return_battery_voltage() > MIN_LOW_BATT_ADC_COUNTS)
@@ -51,18 +52,23 @@ void battery_FSM(void)
     case sFullBatteryOnCharger:
       if(BQ24745_ACOK()==0)
       {
-        state = sOffCharger;
+        state = sLowBatteryOffCharger;
       }
       
     break;
-    case sOffCharger:
+    case sLowBatteryOffCharger:
 
       if(BQ24745_ACOK())
       {
 
         state = sLowBatteryOnCharger;
       }
-
+      else if (return_battery_voltage() > MIN_LOW_BATT_ADC_COUNTS)
+      {
+        SYS_BUS_ON(1);
+        V5_ON(1);
+        state = sFullBatteryOffCharger;
+      }
 
       if(return_battery_voltage() < MIN_LOW_BATT_ADC_COUNTS)
       {
@@ -78,6 +84,12 @@ void battery_FSM(void)
         low_battery_counter = 0;
       }
 
+    break;
+    case sFullBatteryOffCharger:
+      if(return_battery_voltage() < MIN_LOW_BATT_ADC_COUNTS)
+      {
+        state = sLowBatteryOffCharger;
+      }
     break;
 
 
