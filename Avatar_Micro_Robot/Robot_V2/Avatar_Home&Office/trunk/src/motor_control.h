@@ -43,4 +43,12 @@ int16_t ESC_speed(void);
 
 void motor_control_test_function(void);
 
+void motor_control_FSM(void);
+
+
+//ADC counts = .01*i*.001*11k*1023/3.3
+//ADC counts = i*34.1
+//set overcurrent to be 10A
+#define OVERCURRENT_ADC 341
+
 #endif

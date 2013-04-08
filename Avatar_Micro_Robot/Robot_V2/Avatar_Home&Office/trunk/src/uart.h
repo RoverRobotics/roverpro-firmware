@@ -1,0 +1,5 @@
+extern unsigned char new_motor_control_message_flag;
+void parse_UART_message(void);
+void init_uart(void);
+
+extern char last_motor_commands[2];

@@ -14,6 +14,7 @@ Notes:
 #include "./core/PPS.h"             // for OC function name macros
 #include <stdlib.h>             // for abs()
 #include "home_office.h"
+#include "uart.h"
 
 //---------------------------Macros---------------------------------------------
 // analog sensing pins (ANx)
@@ -81,11 +82,7 @@ static void InitRechargePulser(void);
 static void Coast_L(void);
 static void Coast_R(void);
 
-static void InitTimer(void);
-static unsigned int millisecond_counter = 0;
-static unsigned int ten_millisecond_counter = 0;
-static unsigned int hundred_millisecond_counter = 0;
-static unsigned int second_counter = 0;
+
 
 //---------------------------Module Variables-----------------------------------
 static volatile uint16_t current_speed = 0;
@@ -185,8 +182,8 @@ int16_t ESC_speed(void) {
 static void set_motor_pwm(int left_speed, int right_speed)
 {
   
-  UpdateLDutyCycle(abs(left_speed));
-  UpdateRDutyCycle(abs(right_speed));
+  UpdateLDutyCycle(abs(left_speed)*8);
+  UpdateRDutyCycle(abs(right_speed)*8);
 
   if(left_speed == 0)
   {
@@ -271,7 +268,7 @@ static void InitOCs(void) {
   InitHighSidePulser();
   InitLowSidePulser();
   InitRechargePulser();
-  InitTimer();
+//  InitTimer();
   
   // turn on the timebase timer
   T4CONbits.TON = 1;
@@ -341,17 +338,7 @@ static void InitRechargePulser(void) {
 
 }
 
-static void InitTimer(void)
-{
 
-  //T2 frequency is Fosc/2 = 16 MHz
-  //Max timer interrupt at 2^16/16MHz = 4.096ms
-  //Let's set PR2 to 16000, to get interrupts every 1ms:
-  PR2 = 16000;
-  _T2IE = 1;
-  T2CONbits.TON = 1;
-
-}
 
 static void Coast_L(void) {
   // turn everything off
@@ -372,30 +359,7 @@ static void Coast_R(void) {
 
 
 
-void __attribute__((__interrupt__, auto_psv)) _T2Interrupt(void)
-{
-  _T2IF = 0;
-  millisecond_counter++;
-  
-  //Make sure rollover is at a multiple of 10
-  if(millisecond_counter == 10000)
-    millisecond_counter = 0;
 
-
-  if(millisecond_counter%10 == 0)
-  {
-    ten_millisecond_counter++;
-    if(millisecond_counter%100 == 0)
-    {
-      hundred_millisecond_counter++;
-      if(millisecond_counter%1000 == 0)
-      {
-        second_counter++;
-      }
-     
-    }
-  }
-}
 
 //brake isn't working like I think it should -- need to investigate later
 static void Brake(void)
@@ -431,4 +395,81 @@ void motor_control_test_function(void)
 
 
   test_MOSFETs();
+}
+
+void motor_control_FSM(void)
+{
+  static unsigned int overcurrent_counter = 0;
+  static unsigned int overcurrent_wait_counter = 0;
+  static unsigned int communication_timeout_counter = 0;
+
+  typedef enum {
+    sRunning = 0,
+    sWaitingAfterOvercurrent,
+    sCommunicationTimeout,
+  } sOvercurrentState;
+
+  static sOvercurrentState state = 0;
+
+  switch(state)
+  {
+    case sRunning:
+
+      if(ADC1BUF3 > OVERCURRENT_ADC)
+      {
+        overcurrent_counter++;
+      }
+      else
+      {
+        overcurrent_counter = 0;
+      }
+      
+      if(overcurrent_counter > 10)
+      {
+        set_motor_pwm(0,0);
+        state = sWaitingAfterOvercurrent;
+      }
+      else
+      {
+        
+      }
+
+      if(new_motor_control_message_flag)
+      {
+        new_motor_control_message_flag = 0;
+        communication_timeout_counter = 0;
+        set_motor_pwm(last_motor_commands[0],last_motor_commands[1]);
+      }
+      else
+      {
+        communication_timeout_counter++;
+      }
+
+      if(communication_timeout_counter >= 50)
+      {
+        state = sCommunicationTimeout;
+      }
+
+
+    break;
+    case sWaitingAfterOvercurrent:
+
+      set_motor_pwm(0,0);
+      overcurrent_wait_counter++;
+      if(overcurrent_wait_counter > 200)
+      {
+        state = sRunning;
+        overcurrent_wait_counter = 0;
+      }
+
+    break;
+    case sCommunicationTimeout:
+      set_motor_pwm(0,0);
+      if(new_motor_control_message_flag)
+      {
+        state = sRunning;
+      }
+    break;
+  }
+
 }

@@ -104,7 +104,11 @@ void battery_FSM(void)
 static unsigned int return_battery_voltage(void)
 {
 
-  return 1000;
+  //6:1 voltage divider:
+  //ADC*3.3/1023*6
+  //ADC = Voltage*1023/3.3/6
+  return ADC1BUF2;
+  //return 1000;
 }
 
 static unsigned char safe_to_charge(void)
