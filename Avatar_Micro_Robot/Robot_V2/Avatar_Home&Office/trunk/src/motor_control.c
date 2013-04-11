@@ -82,6 +82,7 @@ static void InitRechargePulser(void);
 static void Coast_L(void);
 static void Coast_R(void);
 
+static unsigned char motors_stopped = 0;
 
 
 //---------------------------Module Variables-----------------------------------
@@ -184,6 +185,15 @@ static void set_motor_pwm(int left_speed, int right_speed)
   
   UpdateLDutyCycle(abs(left_speed)*8);
   UpdateRDutyCycle(abs(right_speed)*8);
+
+  if( (left_speed == 0) && (right_speed == 0) )
+  {
+    motors_stopped = 1;
+  }
+  else
+  {
+    motors_stopped = 0;
+  }
 
   if(left_speed == 0)
   {
@@ -472,4 +482,9 @@ void motor_control_FSM(void)
     break;
   }
 
+}
+
+unsigned char are_motors_stopped(void)
+{
+  return motors_stopped;
 }

@@ -45,6 +45,7 @@ void motor_control_test_function(void);
 
 void motor_control_FSM(void);
 
+unsigned char are_motors_stopped(void);
 
 //ADC counts = .01*i*.001*11k*1023/3.3
 //ADC counts = i*34.1

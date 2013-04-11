@@ -184,3 +184,10 @@ void __attribute__((__interrupt__, auto_psv)) _U1RXInterrupt(void) {
   }
 
 }
+
+void send_battery_message(void)
+{
+
+
+
+}

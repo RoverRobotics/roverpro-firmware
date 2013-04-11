@@ -1,15 +1,92 @@
 #include "charging.h"
 #include "home_office.h"
+#include "motor_control.h"
 #include "./core/StandardHeader.h"
 
-//12V:
-//12 * (2k/12k) * 1023/3.3 = 620
-#define MIN_LOW_BATT_ADC_COUNTS 620  
-//14V 
-#define MIN_LOW_BATT_CHARGING_ADC_COUNTS  723
+//voltage formula:
+//V*(2k/12k)*1023/3.3
+#define BATT_12V_CALC   620
+#define BATT_14V_CALC   723
+#define BATT_18V_CALC   930
+
+#define BATT_12V_EXP    584
+#define BATT_14V_EXP    646
+#define BATT_18V_EXP    736
+
+
+#define BATTERY_METER_0     650
+#define BATTERY_METER_25    700
+#define BATTERY_METER_50    725
+#define BATTERY_METER_75    775
+#define BATTERY_METER_100   800 
+
+#define MIN_LOW_BATT_ADC_COUNTS             BATT_12V_CALC      
+#define MIN_LOW_BATT_CHARGING_ADC_COUNTS    BATT_14V_CALC
+#define BATTERY_FULLY_CHARGED_ADC_COUNTS    BATT_18V_CALC
+
+//forg charger
+
+
+#define BQ24745_I2C_ADD               0x09
+#define BQ24745_INPUT_CURRENT_REG     0x3F
+#define BQ24745_CHG_VOLTAGE_REG       0x15
+#define BQ24745_CHG_CURRENT_REG       0x14
+#define BQ24745_INPUT_CURRENT         0x0400
+//#define BQ24745_CHG_VOLTAGE           18432 //actually charges
+//#define BQ24745_CHG_VOLTAGE           20000 //doesn't charge
+//#define BQ24745_CHG_VOLTAGE           19968 //still doesn't charge
+#define BQ24745_CHG_VOLTAGE           19200
+
+
+static int i2c3_interrupt_state = 0;
+
+static char charging_state = 0;
+static char battery_meter = 0;
+
+
+
+
+
+
+//Formula: R/(10k+R)*1023
+//R found experimentally
+//R @ 40C: 6.55k
+//R @ 45C: 5.26k
+//R @ 50C: 4.43k
+#define THERMISTOR_40C      405
+#define THERMISTOR_45C      353
+#define THERMISTOR_50C      314
+
+//disallow charging at 10C
+//10C = 20.240k
+//20.24/(10+20.24)*1023 = 684.7
+#define MAX_THERM_ADC_COUNTS 684
+
+
+
 
 static unsigned int return_battery_voltage(void);
-static unsigned char safe_to_charge(void);
+static unsigned int return_max_charging_current(void);
+static void set_ADC_values(void);
+static void charge_battery(unsigned int charge_current);
+static unsigned char check_delta_v(unsigned char reset);
+
+
+static void update_battery_meter(void);
+
+static unsigned char battery_fully_charged = 0;
+
+static unsigned int battery_voltage = 0;
+static unsigned int B1_THERM = 0;
+static unsigned int B2_THERM = 0;
+
+
+//i2c variables
+static unsigned char i2c3_register;
+static unsigned char i2c3_tx_byte1;
+static unsigned char i2c3_tx_byte2;
+static unsigned int i2c3_slave_address;
+static unsigned int i2c3_transmit_word_completed = 1;
 
 
 void battery_FSM(void)
@@ -21,31 +98,43 @@ void battery_FSM(void)
     sFullBatteryOffCharger,
   } sBatteryState;
 
-  unsigned int low_battery_counter = 0;
+  static unsigned int low_battery_counter = 0;
 
   static sBatteryState state = sLowBatteryOffCharger;
+
+
+  if(BQ24745_ACOK())
+  {
+    charging_state |= 0x80;
+  }
+  else
+  {
+    //charging_state &= ~(0x80);
+    charging_state = 0;
+  }
+
+  set_ADC_values();
+  update_battery_meter();
 
   switch(state)
   {
     case sLowBatteryOnCharger:
+
+    battery_fully_charged = 0;
 
       if(BQ24745_ACOK()==0)
       {
         state = sLowBatteryOffCharger;
       }
 
-      if(return_battery_voltage() > MIN_LOW_BATT_ADC_COUNTS)
+      if(return_battery_voltage() > MIN_LOW_BATT_CHARGING_ADC_COUNTS)
       {
         SYS_BUS_ON(1);
         V5_ON(1);
         state = sFullBatteryOnCharger;
       }
 
-      if(safe_to_charge())
-      {
-        BQ24745_ON(1);
-        //charge current and stuff
-      }
+    charge_battery(return_max_charging_current());
 
     break;
 
@@ -54,10 +143,49 @@ void battery_FSM(void)
       {
         state = sLowBatteryOffCharger;
       }
+
+
+      if(return_max_charging_current())
+      {
+        if(battery_fully_charged)
+        {
+          charge_battery(128);
+        }
+        else
+        {
+          charge_battery(return_max_charging_current());
+        }
+
+
+      }
+      else
+      {
+          charge_battery(0);
+      }
       
+      if(battery_fully_charged == 0)
+      {
+        if(return_max_charging_current() == 0)
+        {
+          battery_fully_charged = 1;
+          charge_battery(0);
+          charging_state |= 0x20;
+        }
+  
+        if(check_delta_v(0))
+        {
+          battery_fully_charged = 1;
+          charge_battery(0);
+          charging_state |= 0x40;
+        }
+      }
+
+
+
     break;
     case sLowBatteryOffCharger:
 
+      check_delta_v(1);
       if(BQ24745_ACOK())
       {
 
@@ -74,7 +202,7 @@ void battery_FSM(void)
       {
 
         low_battery_counter++;
-        if(low_battery_counter > 5)
+        if(low_battery_counter > 100)
         {
           SYS_BUS_ON(0);
         }
@@ -86,9 +214,15 @@ void battery_FSM(void)
 
     break;
     case sFullBatteryOffCharger:
+      low_battery_counter = 0;
       if(return_battery_voltage() < MIN_LOW_BATT_ADC_COUNTS)
       {
         state = sLowBatteryOffCharger;
+      }
+      if(BQ24745_ACOK())
+      {
+
+        state = sLowBatteryOnCharger;
       }
     break;
 
@@ -107,14 +241,288 @@ static unsigned int return_battery_voltage(void)
   //6:1 voltage divider:
   //ADC*3.3/1023*6
   //ADC = Voltage*1023/3.3/6
-  return ADC1BUF2;
+  return battery_voltage;
   //return 1000;
 }
 
-static unsigned char safe_to_charge(void)
+static unsigned int return_max_charging_current(void)
 {
 
+  //return 0 if either battery is too hot:
+  if( (B1_THERM <= THERMISTOR_50C) || (B2_THERM <= THERMISTOR_50C) )
+    return 0;
+
+  if( (B1_THERM <= THERMISTOR_40C) || (B2_THERM <= THERMISTOR_40C) )
+  {
+    return 1024;
+  }
 
 
-  return 1;
+  //return 1 if either battery has a thermistor and the temperature isn't too cold:
+  if(B1_THERM < MAX_THERM_ADC_COUNTS)
+  {
+    return 2048;
+  }
+
+  if(B2_THERM < MAX_THERM_ADC_COUNTS)
+  {
+    return 2048;
+  }
+
+
+  return 0;
+}
+
+static void charge_battery(unsigned int charge_current)
+{
+  static unsigned int last_charge_current = 0;
+  static unsigned int register_write_state = 0;
+  static unsigned int i2c3_timeout_counter = 0;
+
+  if(charge_current > 0)
+  {  
+    BQ24745_ON(1);
+  }
+  else
+  {
+    BQ24745_ON(0);
+  }
+
+  if(charge_current != last_charge_current)
+  {
+    register_write_state = 0;
+  }
+  
+
+  if(i2c3_transmit_word_completed)
+  {
+    i2c3_timeout_counter = 0;
+    i2c3_transmit_word_completed = 0;
+    i2c3_interrupt_state = 0;
+    i2c3_slave_address = BQ24745_I2C_ADD;
+
+    switch(register_write_state)
+    {
+      case 0:
+        i2c3_register = BQ24745_CHG_CURRENT_REG;
+        i2c3_tx_byte1 = charge_current & 0xff;
+        i2c3_tx_byte2 = charge_current >> 8;
+        register_write_state++;
+      break;
+      case 1:
+        i2c3_register = BQ24745_CHG_VOLTAGE_REG;
+        i2c3_tx_byte1 = BQ24745_CHG_VOLTAGE & 0xff;
+        i2c3_tx_byte2 = BQ24745_CHG_VOLTAGE >> 8;
+        register_write_state++;
+      break;
+      case 2:
+        i2c3_register = BQ24745_INPUT_CURRENT_REG;
+        i2c3_tx_byte1 = BQ24745_INPUT_CURRENT & 0xff;
+        i2c3_tx_byte2 = BQ24745_INPUT_CURRENT >> 8;
+        register_write_state = 0;
+      break;
+    }
+    _MI2C3IE = 1;
+    I2C3CONbits.SEN = 1;
+
+  }
+  else
+  {
+    i2c3_timeout_counter++;
+  }
+
+
+  last_charge_current = charge_current;
+
+}
+
+static void set_ADC_values(void)
+{
+  battery_voltage = ADC1BUF2;
+  B1_THERM = ADC1BUF0;
+  B2_THERM = ADC1BUF1;
+
+}
+
+static void i2c3_ISR(void)
+{
+  
+
+
+
+  switch(i2c3_interrupt_state)
+		{
+			//start condition has finished, now we send the slave address (with read bit set to 0)
+			case 0x00:
+	
+					I2C3TRN = (i2c3_slave_address<<1);
+					i2c3_interrupt_state++;
+	
+			break;
+	
+			//slave address written, now we send register address
+			case 0x01:
+	
+				I2C3TRN = i2c3_register;
+				i2c3_interrupt_state++;
+	
+			break;
+	
+			//after the slave register has been sent, we send another start condition
+			case 0x02:
+	
+				I2C3TRN = i2c3_tx_byte1;
+				i2c3_interrupt_state++;
+	
+			break;
+	
+			//start condition completed; we send the slave address again, this time with the read bit set
+			case 0x03:
+	
+				I2C3TRN = i2c3_tx_byte2;
+				i2c3_interrupt_state++;
+	
+			break;
+	
+			//Send stop condition.
+			case 0x04:
+	
+				I2C3CONbits.PEN = 1;
+				i2c3_interrupt_state++;
+	
+			break;
+	
+			//stop has finished.  Alert (though module variable) that a new word is ready.
+			case 0x05:
+	
+					//need more general descriptor
+					i2c3_transmit_word_completed = 1;
+	
+			break; 
+	
+			//gets here if message wasn't acked properly, and we sent a stop condition
+			case 0x06:
+	
+			break;
+	
+	
+	
+		}
+}
+
+void  __attribute__((__interrupt__, auto_psv)) _MI2C3Interrupt(void)
+{
+  _MI2C3IF = 0;
+  i2c3_ISR();
+}
+
+void i2c3_init(void)
+{
+
+	I2C3CON = 0x1000;
+
+	I2C3CONbits.I2CEN = 1;
+
+	I2C3BRG = 0xff;
+
+	//initialize I2C interrupts
+
+  _MI2C3IE = 0;
+
+}
+
+static unsigned char check_delta_v(unsigned char reset)
+{
+  static unsigned int counter = 0;
+  static unsigned int flat_voltage_counter = 0;
+  static unsigned int average_voltage = 0;
+  static unsigned int last_average_voltage = 0;
+  
+  //1V per hour = 310 ADC counts per hour = 5.17 ADC counts per minute
+  static unsigned int rise_threshold = 5;
+
+  if(reset)
+  {
+    counter = 0;
+    flat_voltage_counter = 0;
+    last_average_voltage = 0;
+  }
+
+  if(counter < 3)
+  {
+    average_voltage+=return_battery_voltage();
+  }
+  else if(counter == 3)
+  {
+    average_voltage = average_voltage/3;
+  }
+
+  counter++;
+
+  //every second, check for rise
+  if(counter > 100)
+  {
+    counter = 0;
+    if(average_voltage < (last_average_voltage+rise_threshold) )
+    {
+      flat_voltage_counter++;
+    }
+    else
+    {
+      flat_voltage_counter = 0;
+      last_average_voltage = average_voltage;
+    }
+    average_voltage = 0;
+  }
+
+  if(flat_voltage_counter > 60)
+  {
+    Nop();
+    Nop();
+    return 1;
+  }
+
+  return 0;
+
+
+
+}
+
+static void update_battery_meter(void)
+{
+
+  static unsigned int current_voltage = 0;
+  static unsigned char last_battery_meter = 0;
+  static unsigned int battery_levels[5] = {BATTERY_METER_0, BATTERY_METER_25, BATTERY_METER_50, BATTERY_METER_75, BATTERY_METER_100};
+  static unsigned int battery_meter_hysteresis = 10;
+  static unsigned int motors_stopped_counter = 0;
+
+  current_voltage = return_battery_voltage();
+
+  if(are_motors_stopped())
+  {
+    motors_stopped_counter++;
+    if(motors_stopped_counter > 100)
+    {
+
+      if(current_voltage > battery_levels[(unsigned char)battery_meter]+battery_meter_hysteresis)
+        battery_meter++;
+      else if(current_voltage < (battery_levels[(unsigned char)battery_meter]) )
+        battery_meter--;
+
+      if(battery_meter > 4)
+        battery_meter = 4;
+      else if(battery_meter < 0)
+        battery_meter = 0;
+
+      motors_stopped_counter = 0;
+      
+    }
+  }
+  else
+    motors_stopped_counter = 0;
+  
+
+
+
 }

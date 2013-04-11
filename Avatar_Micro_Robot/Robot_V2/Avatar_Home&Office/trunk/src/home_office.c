@@ -26,16 +26,24 @@ void main(void)
   ESC_Init();
   ADC_Init();
   init_uart();
+  i2c3_init();
 
   //motor_control_test_function();
 
   while(1)
   {
-    if(ten_millisecond_counter)
+  if(ten_millisecond_counter)
   {  
     motor_control_FSM();
     parse_UART_message();
+    battery_FSM();
     ten_millisecond_counter = 0;
+  }
+  if(hundred_millisecond_counter)
+  {
+    hundred_millisecond_counter = 0;
+    send_battery_message();
+
   }
     ClrWdt();
 
