@@ -489,7 +489,9 @@ void motor_control_FSM(void)
         set_motor_pwm(0,0);
         break;
       }
-      if( (last_motor_commands[0] < 100) && (last_motor_commands[1] < 100) )
+
+      //if on the dock, only allow backward motion
+      if( (last_motor_commands[0] > 0) && (last_motor_commands[1] < 0) )
       {
         set_motor_pwm(last_motor_commands[0],last_motor_commands[1]);
       }

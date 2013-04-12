@@ -6,6 +6,8 @@
 #define MAX_INCOMING_MESSAGE_LENGTH 7
 #define MAX_OUTGOING_MESSAGE_LENGTH 7
 
+#define MESSAGE_BATTERY_INFO 0x01
+
 //For Bluetooth control
 #define BLE112_RX_PIN 19
 //for XBee control
@@ -209,13 +211,14 @@ void send_battery_message(void)
 
   BLE112_tx_buffer[0] = 0xff;
   BLE112_tx_buffer[1] = 0xcc;
-  BLE112_tx_buffer[2] = return_charging_state();
-  BLE112_tx_buffer[3] = return_battery_meter();;
+  BLE112_tx_buffer[2] = MESSAGE_BATTERY_INFO;
+  BLE112_tx_buffer[3] = return_charging_state();
+  BLE112_tx_buffer[4] = return_battery_meter();;
   
   CRC = return_CRC(BLE112_tx_buffer,6-4);
   
-  BLE112_tx_buffer[4] = CRC>>8;
-  BLE112_tx_buffer[5] = CRC&0xff;
+  BLE112_tx_buffer[5] = CRC>>8;
+  BLE112_tx_buffer[6] = CRC&0xff;
 
   U1TXREG = BLE112_tx_buffer[0];
   _U1TXIE = 1;
