@@ -39,7 +39,7 @@ void main(void)
     battery_FSM();
     ten_millisecond_counter = 0;
   }
-  if(hundred_millisecond_counter)
+  if(hundred_millisecond_counter >= 10)
   {
     hundred_millisecond_counter = 0;
     send_battery_message();
@@ -182,3 +182,5 @@ static void InitTimer(void)
   T2CONbits.TON = 1;
 
 }
+
+

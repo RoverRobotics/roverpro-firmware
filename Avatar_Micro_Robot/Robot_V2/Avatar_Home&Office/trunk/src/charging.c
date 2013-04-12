@@ -202,7 +202,7 @@ void battery_FSM(void)
       {
 
         low_battery_counter++;
-        if(low_battery_counter > 100)
+        if(low_battery_counter > 1000)
         {
           SYS_BUS_ON(0);
         }
@@ -526,3 +526,7 @@ static void update_battery_meter(void)
 
 
 }
+
+
+unsigned char return_battery_meter(void) {return battery_meter;}
+unsigned char return_charging_state(void) {return charging_state;}

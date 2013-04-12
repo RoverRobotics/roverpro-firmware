@@ -82,6 +82,9 @@ static void InitRechargePulser(void);
 static void Coast_L(void);
 static void Coast_R(void);
 
+static unsigned char check_communication_timeout(void);
+static unsigned char check_overcurrent(void);
+
 static unsigned char motors_stopped = 0;
 
 
@@ -417,6 +420,7 @@ void motor_control_FSM(void)
     sRunning = 0,
     sWaitingAfterOvercurrent,
     sCommunicationTimeout,
+    sOnDock
   } sOvercurrentState;
 
   static sOvercurrentState state = 0;
@@ -425,39 +429,25 @@ void motor_control_FSM(void)
   {
     case sRunning:
 
-      if(ADC1BUF3 > OVERCURRENT_ADC)
-      {
-        overcurrent_counter++;
-      }
-      else
-      {
-        overcurrent_counter = 0;
-      }
-      
-      if(overcurrent_counter > 10)
+
+      if(check_overcurrent())   
       {
         set_motor_pwm(0,0);
         state = sWaitingAfterOvercurrent;
-      }
-      else
-      {
-        
+        break;
       }
 
-      if(new_motor_control_message_flag)
-      {
-        new_motor_control_message_flag = 0;
-        communication_timeout_counter = 0;
-        set_motor_pwm(last_motor_commands[0],last_motor_commands[1]);
-      }
-      else
-      {
-        communication_timeout_counter++;
-      }
-
-      if(communication_timeout_counter >= 50)
-      {
+      if(check_communication_timeout())  {
         state = sCommunicationTimeout;
+        set_motor_pwm(0,0);
+        break;
+      }
+
+      set_motor_pwm(last_motor_commands[0],last_motor_commands[1]);
+
+      if(BQ24745_ACOK())
+      {
+        state = sOnDock;
       }
 
 
@@ -480,6 +470,36 @@ void motor_control_FSM(void)
         state = sRunning;
       }
     break;
+    case sOnDock:
+
+      if(BQ24745_ACOK() == 0)
+      {
+        state = sRunning;
+      }
+
+      if(check_overcurrent())   
+      {
+        set_motor_pwm(0,0);
+        state = sWaitingAfterOvercurrent;
+        break;
+      }
+
+      if(check_communication_timeout())  {
+        state = sCommunicationTimeout;
+        set_motor_pwm(0,0);
+        break;
+      }
+      if( (last_motor_commands[0] < 100) && (last_motor_commands[1] < 100) )
+      {
+        set_motor_pwm(last_motor_commands[0],last_motor_commands[1]);
+      }
+      else
+      {
+        set_motor_pwm(0,0);
+      }
+
+
+    break;
   }
 
 }
@@ -487,4 +507,51 @@ void motor_control_FSM(void)
 unsigned char are_motors_stopped(void)
 {
   return motors_stopped;
+}
+
+static unsigned char check_overcurrent(void)
+{
+
+  static unsigned int overcurrent_counter = 0;
+
+  if(ADC1BUF3 > OVERCURRENT_ADC)
+  {
+    overcurrent_counter++;
+  }
+  else
+  {
+    overcurrent_counter = 0;
+  }
+  
+  if(overcurrent_counter > 10)
+  {
+    set_motor_pwm(0,0);
+    //state = sWaitingAfterOvercurrent;
+  }
+
+}
+
+static unsigned char check_communication_timeout(void)
+{
+  static unsigned int communication_timeout_counter = 0;
+
+  if(new_motor_control_message_flag)
+  {
+    new_motor_control_message_flag = 0;
+    communication_timeout_counter = 0;
+    set_motor_pwm(last_motor_commands[0],last_motor_commands[1]);
+  }
+  else
+  {
+    communication_timeout_counter++;
+  }
+
+  if(communication_timeout_counter >= 50)
+  {
+    set_motor_pwm(0,0);
+    return 1;
+  }
+
+  return 0;
+
 }

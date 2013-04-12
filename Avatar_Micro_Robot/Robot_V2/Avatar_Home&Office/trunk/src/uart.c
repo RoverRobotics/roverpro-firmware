@@ -1,6 +1,7 @@
 #include "uart.h"
 #include "./core/StandardHeader.h"
 #include "home_office.h"
+#include "charging.h"
 
 #define MAX_INCOMING_MESSAGE_LENGTH 7
 #define MAX_OUTGOING_MESSAGE_LENGTH 7
@@ -9,6 +10,7 @@
 #define BLE112_RX_PIN 19
 //for XBee control
 //#define BLE112_RX_PIN 6
+#define BLE112_TX_OR _RP27R
 
 
 #define UART_MOTOR_CMD      0x00
@@ -19,8 +21,12 @@ static unsigned int return_CRC(unsigned char* data, unsigned char length);
 
 static unsigned char BLE112_in_buffer[MAX_INCOMING_MESSAGE_LENGTH];
 static unsigned char BLE112_in_message[MAX_INCOMING_MESSAGE_LENGTH];
+static unsigned char BLE112_tx_buffer[MAX_OUTGOING_MESSAGE_LENGTH];
 
 static char BLE112_message_ready = 0;
+
+static unsigned int BLE112_tx_message_length = 0;
+static unsigned int BLE112_transmitting = 0; 
 
 char last_motor_commands[2] = {0,0};
 
@@ -30,14 +36,21 @@ unsigned char new_motor_control_message_flag = 0;
 void init_uart(void)
 {
 
-	RPINR18bits.U1RXR = BLE112_RX_PIN;	
+	RPINR18bits.U1RXR = BLE112_RX_PIN;
+  BLE112_TX_OR = 3;
 	
 	U1BRG = 103;
 	
-	IEC0bits.U1RXIE = 1;
-  //_U1TXIE = 1;
+
+
+	_U1RXIE = 1;
+  _U1TXIE = 0;
 	
 	U1MODEbits.UARTEN = 1;
+
+  U1STAbits.UTXEN = 1;
+
+  
 
 
 }
@@ -187,7 +200,44 @@ void __attribute__((__interrupt__, auto_psv)) _U1RXInterrupt(void) {
 
 void send_battery_message(void)
 {
+  unsigned int CRC = 0;
 
+  if(BLE112_transmitting)
+    return;
 
+  BLE112_tx_message_length = 6;
+
+  BLE112_tx_buffer[0] = 0xff;
+  BLE112_tx_buffer[1] = 0xcc;
+  BLE112_tx_buffer[2] = return_charging_state();
+  BLE112_tx_buffer[3] = return_battery_meter();;
+  
+  CRC = return_CRC(BLE112_tx_buffer,6-4);
+  
+  BLE112_tx_buffer[4] = CRC>>8;
+  BLE112_tx_buffer[5] = CRC&0xff;
+
+  U1TXREG = BLE112_tx_buffer[0];
+  _U1TXIE = 1;
+
+}
+
+void __attribute__((__interrupt__, auto_psv)) _U1TXInterrupt(void) {
+
+  static unsigned char message_index = 0;
+  _U1TXIF = 0;
+  
+  //start at 1, since we already sent the first byte
+  message_index++;
+
+  if(message_index >= BLE112_tx_message_length)
+  {
+    message_index = 0;
+    _U1TXIE = 0;
+    BLE112_transmitting = 0;
+    return;
+  } 
+
+  U1TXREG = BLE112_tx_buffer[message_index];
 
 }
