@@ -430,6 +430,12 @@ void motor_control_FSM(void)
     case sRunning:
 
 
+      if(check_communication_timeout())  {
+        set_motor_pwm(0,0);
+        state = sCommunicationTimeout;
+        break;
+      }
+
       if(check_overcurrent())   
       {
         set_motor_pwm(0,0);
@@ -437,17 +443,13 @@ void motor_control_FSM(void)
         break;
       }
 
-      if(check_communication_timeout())  {
-        state = sCommunicationTimeout;
-        set_motor_pwm(0,0);
-        break;
-      }
-
       set_motor_pwm(last_motor_commands[0],last_motor_commands[1]);
 
       if(BQ24745_ACOK())
       {
+        set_motor_pwm(0,0);
         state = sOnDock;
+        break;
       }
 
 
@@ -461,6 +463,9 @@ void motor_control_FSM(void)
         state = sRunning;
         overcurrent_wait_counter = 0;
       }
+
+      //keep updating communication timeout counter
+      check_communication_timeout();
 
     break;
     case sCommunicationTimeout:
@@ -477,16 +482,16 @@ void motor_control_FSM(void)
         state = sRunning;
       }
 
+      if(check_communication_timeout())  {
+        set_motor_pwm(0,0);
+        state = sCommunicationTimeout;
+        break;
+      }
+
       if(check_overcurrent())   
       {
         set_motor_pwm(0,0);
         state = sWaitingAfterOvercurrent;
-        break;
-      }
-
-      if(check_communication_timeout())  {
-        state = sCommunicationTimeout;
-        set_motor_pwm(0,0);
         break;
       }
 
@@ -528,8 +533,10 @@ static unsigned char check_overcurrent(void)
   if(overcurrent_counter > 10)
   {
     set_motor_pwm(0,0);
-    //state = sWaitingAfterOvercurrent;
+    return 1;
   }
+
+  return 0;
 
 }
 
@@ -551,6 +558,7 @@ static unsigned char check_communication_timeout(void)
   if(communication_timeout_counter >= 50)
   {
     set_motor_pwm(0,0);
+    communication_timeout_counter = 2000;
     return 1;
   }
 
