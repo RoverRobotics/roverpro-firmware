@@ -35,14 +35,15 @@ void main(void)
   if(ten_millisecond_counter)
   {  
     motor_control_FSM();
-    parse_UART_message();
+    //parse_UART_message();
+    messaging_FSM();
     battery_FSM();
     ten_millisecond_counter = 0;
   }
   if(hundred_millisecond_counter >= 10)
   {
     hundred_millisecond_counter = 0;
-    send_battery_message();
+    //send_battery_message();
 
   }
     ClrWdt();
