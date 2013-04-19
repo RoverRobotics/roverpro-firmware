@@ -20,10 +20,9 @@
         <description>Robot Control</description>
         
         <characteristic uuid="e7add780-b042-4876-aae1-112855353cc1" id="xgatt_data">
-			<properties write_no_response="true" />
             <description>Data</description>
             <properties write="true" indicate="true" />
-            <value variable_length="false" length="7" type="user" />
+            <value variable_length="true" length="9" type="user" />
         </characteristic>
     </service>
     
