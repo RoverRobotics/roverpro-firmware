@@ -346,8 +346,10 @@ static void set_robot_id(unsigned char b1, unsigned char b2, unsigned char b3, u
 
 static unsigned long return_robot_id(void)
 {
-  unsigned long robot_id = 0x11111111;
+  unsigned long robot_id = 0;
   unsigned int i;
+  unsigned char bytes_for_CRC[8];
+  unsigned char new_byte = 0;
 
   DataEEInit();
   dataEEFlags.val = 0;
@@ -357,13 +359,29 @@ static unsigned long return_robot_id(void)
 
   for(i=0;i<4;i++)
   {
-    robot_id = (robot_id<<8)+DataEERead(i);
+    new_byte = DataEERead(i);
+    robot_id = (robot_id<<8)+new_byte;
+    bytes_for_CRC[i+2] = new_byte;
     //robot_id=DataEERead(3);
     Nop();
     Nop();
   }
 
-  return robot_id;
+  for(i=4;i<6;i++)
+  {
+    bytes_for_CRC[i+2] = DataEERead(i);
+    Nop();
+    Nop();
+  }
+
+  if(Is_CRC_valid(bytes_for_CRC,8))
+  {
+    return robot_id;
+  }
+  else
+  {
+    return 0xffffffff;
+  }
   //return 0xabcdef99;
 }
 

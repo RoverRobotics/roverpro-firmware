@@ -24,6 +24,9 @@
 #define MIN_LOW_BATT_CHARGING_ADC_COUNTS    BATT_14V_CALC
 #define BATTERY_FULLY_CHARGED_ADC_COUNTS    BATT_18V_CALC
 
+#define _4_HOURS  1.44e6
+#define _24_HOURS  8.44e6
+
 //forg charger
 
 
@@ -71,6 +74,8 @@ static void set_ADC_values(void);
 static void charge_battery(unsigned int charge_current);
 static unsigned char check_delta_v(unsigned char reset);
 
+static unsigned char did_charge_timeout(unsigned char reset);
+
 
 static void update_battery_meter(void);
 
@@ -96,11 +101,15 @@ void battery_FSM(void)
     sFullBatteryOnCharger,
     sLowBatteryOffCharger,
     sFullBatteryOffCharger,
+    sTrickleCharging,
   } sBatteryState;
 
   static unsigned int low_battery_counter = 0;
 
   static sBatteryState state = sLowBatteryOffCharger;
+
+  static unsigned long charging_restart_counter = 0;
+
 
 
   if(BQ24745_ACOK())
@@ -121,6 +130,7 @@ void battery_FSM(void)
     case sLowBatteryOnCharger:
 
     battery_fully_charged = 0;
+      charging_state = 0x80;
 
       if(BQ24745_ACOK()==0)
       {
@@ -136,6 +146,12 @@ void battery_FSM(void)
 
     charge_battery(return_max_charging_current());
 
+    if(did_charge_timeout(0))
+    {
+      state = sTrickleCharging;
+      charging_state |= 0x10;
+    }
+
     break;
 
     case sFullBatteryOnCharger:
@@ -145,47 +161,62 @@ void battery_FSM(void)
       }
 
 
+
+      if(return_max_charging_current() == 0)
+      {
+        state = sTrickleCharging;
+        charge_battery(0);
+        charging_state |= 0x20;
+      }
+
+      if(check_delta_v(0))
+      {
+        state = sTrickleCharging;
+        charge_battery(0);
+        charging_state |= 0x40;
+      }
+
+    if(did_charge_timeout(0))
+    {
+      state = sTrickleCharging;
+      charging_state |= 0x10;
+    }
+
+    break;
+
+    case sTrickleCharging:
+
+
+      if(BQ24745_ACOK()==0)
+      {
+        state = sLowBatteryOffCharger;
+      }
+
+
       if(return_max_charging_current())
       {
-        if(battery_fully_charged)
-        {
           charge_battery(128);
-        }
-        else
-        {
-          charge_battery(return_max_charging_current());
-        }
-
-
       }
       else
       {
           charge_battery(0);
       }
-      
-      if(battery_fully_charged == 0)
+
+      charging_restart_counter++;
+      if(charging_restart_counter > _4_HOURS)
       {
-        if(return_max_charging_current() == 0)
-        {
-          battery_fully_charged = 1;
-          charge_battery(0);
-          charging_state |= 0x20;
-        }
-  
-        if(check_delta_v(0))
-        {
-          battery_fully_charged = 1;
-          charge_battery(0);
-          charging_state |= 0x40;
-        }
+        state = sLowBatteryOnCharger;
+        did_charge_timeout(1);
       }
 
 
+    break;
 
     break;
     case sLowBatteryOffCharger:
 
       check_delta_v(1);
+      did_charge_timeout(1);
       if(BQ24745_ACOK())
       {
 
@@ -536,6 +567,26 @@ static void update_battery_meter(void)
     motors_stopped_counter = 0;
   
 
+
+
+}
+
+static unsigned char did_charge_timeout(unsigned char reset)
+{
+  static unsigned long charge_timeout = 0;
+
+  if(reset)
+  {
+    charge_timeout = 0;
+    return 0;
+  }
+
+  charge_timeout++;
+  if(charge_timeout > _4_HOURS)
+    return 1;
+
+  return 0;
+  
 
 
 }
