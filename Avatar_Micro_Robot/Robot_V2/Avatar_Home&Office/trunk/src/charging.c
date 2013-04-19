@@ -439,7 +439,14 @@ static unsigned char check_delta_v(unsigned char reset)
   static unsigned int last_average_voltage = 0;
   
   //1V per hour = 310 ADC counts per hour = 5.17 ADC counts per minute
-  static unsigned int rise_threshold = 5;
+  //.5V per hour = 155 counts per hour = 2.58 counts per minute
+  static unsigned int rise_threshold = 0;
+  static unsigned int voltage_latch_threshold = 5;
+
+  static unsigned int debug_average_voltage = 0;
+  static unsigned int last_last_average_voltage = 0;
+
+  unsigned int num_samples = 10;
 
   if(reset)
   {
@@ -448,13 +455,13 @@ static unsigned char check_delta_v(unsigned char reset)
     last_average_voltage = 0;
   }
 
-  if(counter < 3)
+  if(counter < num_samples)
   {
     average_voltage+=return_battery_voltage();
   }
-  else if(counter == 3)
+  else if(counter == num_samples)
   {
-    average_voltage = average_voltage/3;
+    average_voltage = average_voltage/num_samples;
   }
 
   counter++;
@@ -470,8 +477,14 @@ static unsigned char check_delta_v(unsigned char reset)
     else
     {
       flat_voltage_counter = 0;
-      last_average_voltage = average_voltage;
+      last_last_average_voltage = last_average_voltage;
+      //prevent voltage spike from raising the average too much
+      if( (average_voltage-last_average_voltage) <= voltage_latch_threshold)
+        last_average_voltage = average_voltage;
+      else
+        last_average_voltage = average_voltage + voltage_latch_threshold;
     }
+    debug_average_voltage = average_voltage;
     average_voltage = 0;
   }
 

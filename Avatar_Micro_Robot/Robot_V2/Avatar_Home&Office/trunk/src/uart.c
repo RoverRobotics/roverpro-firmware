@@ -263,7 +263,7 @@ void send_battery_message(void)
   if(BLE112_transmitting)
     return;
 
-  BLE112_tx_message_length = 6;
+  BLE112_tx_message_length = 7;
 
   BLE112_tx_buffer[0] = 0xff;
   BLE112_tx_buffer[1] = 0xcc;
@@ -271,7 +271,7 @@ void send_battery_message(void)
   BLE112_tx_buffer[3] = return_charging_state();
   BLE112_tx_buffer[4] = return_battery_meter();;
   
-  CRC = return_CRC(BLE112_tx_buffer,6-4);
+  CRC = return_CRC(BLE112_tx_buffer,7-4);
   
   BLE112_tx_buffer[5] = CRC>>8;
   BLE112_tx_buffer[6] = CRC&0xff;
