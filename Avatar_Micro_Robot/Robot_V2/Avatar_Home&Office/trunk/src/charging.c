@@ -239,7 +239,7 @@ void battery_FSM(void)
         low_battery_counter++;
         if(low_battery_counter > 1000)
         {
-          SYS_BUS_ON(0);
+          //SYS_BUS_ON(0);
         }
       }
       else
@@ -289,19 +289,19 @@ static unsigned int return_max_charging_current(void)
 
   if( (B1_THERM <= THERMISTOR_40C) || (B2_THERM <= THERMISTOR_40C) )
   {
-    return 2048;
+    return 1024;
   }
 
 
   //return 1 if either battery has a thermistor and the temperature isn't too cold:
   if(B1_THERM < MAX_THERM_ADC_COUNTS)
   {
-    return 2048;
+    return 1024;
   }
 
   if(B2_THERM < MAX_THERM_ADC_COUNTS)
   {
-    return 2048;
+    return 1024;
   }
 
 
@@ -476,7 +476,7 @@ static unsigned char check_delta_v(unsigned char reset)
   //1V per hour = 310 ADC counts per hour = 5.17 ADC counts per minute
   //.5V per hour = 155 counts per hour = 2.58 counts per minute
   static int rise_threshold = 1;
-  static int fall_threshold = 3;
+  static int fall_threshold = 1;
   static int voltage_latch_threshold = 2;
 
   static int debug_average_voltage = 0;
@@ -516,8 +516,8 @@ static unsigned char check_delta_v(unsigned char reset)
 
     if(last_average_voltage == 0) last_average_voltage = average_voltage;
 
-    //if(average_voltage <= (last_average_voltage-fall_threshold) )
-    if(average_voltage < (last_average_voltage+rise_threshold))
+    if(average_voltage <= (last_average_voltage-fall_threshold) )
+    //if(average_voltage < (last_average_voltage+rise_threshold))
     {
       flat_voltage_counter++;
     }
