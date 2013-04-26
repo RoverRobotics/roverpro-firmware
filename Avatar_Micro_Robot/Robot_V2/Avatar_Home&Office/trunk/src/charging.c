@@ -34,7 +34,9 @@
 #define BQ24745_INPUT_CURRENT_REG     0x3F
 #define BQ24745_CHG_VOLTAGE_REG       0x15
 #define BQ24745_CHG_CURRENT_REG       0x14
-#define BQ24745_INPUT_CURRENT         0x0400
+//#define BQ24745_INPUT_CURRENT         0x0400
+#define BQ24745_INPUT_CURRENT         1536
+
 //#define BQ24745_CHG_VOLTAGE           18432 //actually charges
 //#define BQ24745_CHG_VOLTAGE           20000 //doesn't charge
 //#define BQ24745_CHG_VOLTAGE           19968 //still doesn't charge
@@ -239,7 +241,7 @@ void battery_FSM(void)
         low_battery_counter++;
         if(low_battery_counter > 1000)
         {
-          //SYS_BUS_ON(0);
+          SYS_BUS_ON(0);
         }
       }
       else
@@ -284,24 +286,24 @@ static unsigned int return_max_charging_current(void)
 {
 
   //return 0 if either battery is too hot:
-  if( (B1_THERM <= THERMISTOR_45C) || (B2_THERM <= THERMISTOR_45C) )
+  if( (B1_THERM <= THERMISTOR_50C) || (B2_THERM <= THERMISTOR_50C) )
     return 0;
 
-  if( (B1_THERM <= THERMISTOR_40C) || (B2_THERM <= THERMISTOR_40C) )
+  /*if( (B1_THERM <= THERMISTOR_40C) || (B2_THERM <= THERMISTOR_40C) )
   {
     return 1024;
-  }
+  }*/
 
 
   //return 1 if either battery has a thermistor and the temperature isn't too cold:
   if(B1_THERM < MAX_THERM_ADC_COUNTS)
   {
-    return 1024;
+    return 1536;
   }
 
   if(B2_THERM < MAX_THERM_ADC_COUNTS)
   {
-    return 1024;
+    return 1536;
   }
 
 
@@ -476,13 +478,14 @@ static unsigned char check_delta_v(unsigned char reset)
   //1V per hour = 310 ADC counts per hour = 5.17 ADC counts per minute
   //.5V per hour = 155 counts per hour = 2.58 counts per minute
   static int rise_threshold = 1;
-  static int fall_threshold = 1;
+  static int fall_threshold = 5;
   static int voltage_latch_threshold = 2;
 
   static int debug_average_voltage = 0;
   static int last_last_average_voltage = 0;
 
   unsigned int num_samples = 10;
+
 
   if(reset)
   {
@@ -538,10 +541,12 @@ static unsigned char check_delta_v(unsigned char reset)
     average_voltage = 0;
   }
 
-  if(flat_voltage_counter > 60)
+  if(flat_voltage_counter > 10)
   {
+    /*charge_battery(0);
     Nop();
-    Nop();
+    while(1)  ClrWdt();
+    Nop()*/;
     return 1;
   }
 
@@ -562,10 +567,10 @@ static void update_battery_meter(void)
 
   current_voltage = return_battery_voltage();
 
-  charging_state &= 0b11111100;
+  /*charging_state &= 0b11111100;
   charging_state |= current_voltage >> 8;
   battery_meter = current_voltage&0xff;
-  return;
+  return;*/
 
   if(are_motors_stopped())
   {
