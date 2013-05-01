@@ -286,7 +286,7 @@ static unsigned int return_max_charging_current(void)
 {
 
   //return 0 if either battery is too hot:
-  if( (B1_THERM <= THERMISTOR_50C) || (B2_THERM <= THERMISTOR_50C) )
+  if( (B1_THERM <= THERMISTOR_45C) || (B2_THERM <= THERMISTOR_45C) )
     return 0;
 
   /*if( (B1_THERM <= THERMISTOR_40C) || (B2_THERM <= THERMISTOR_40C) )
