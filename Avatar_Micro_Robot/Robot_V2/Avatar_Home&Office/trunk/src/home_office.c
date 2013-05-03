@@ -18,7 +18,7 @@ static unsigned int second_counter = 0;
 
 
 
-void main(void)
+int main(void)
 {
   InitPins();
   start_up();

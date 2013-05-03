@@ -183,7 +183,6 @@ void __attribute__((__interrupt__, auto_psv)) _U1RXInterrupt(void) {
 
   static unsigned char message_index = 0;
   static unsigned char current_length = 100;
-  static unsigned char current_device = 0x00;
   unsigned char i;
   _U1RXIF = 0;
   BLE112_in_buffer[message_index] = U1RXREG;

@@ -91,7 +91,7 @@ static unsigned char motors_stopped = 0;
 //---------------------------Module Variables-----------------------------------
 static volatile uint16_t current_speed = 0;
 
-static void Brake();
+//static void Brake();
 
 //---------------------------Test Harness---------------------------------------
 #ifdef TEST_ESC
@@ -375,14 +375,14 @@ static void Coast_R(void) {
 
 
 //brake isn't working like I think it should -- need to investigate later
-static void Brake(void)
+/*static void Brake(void)
 {
 
-}
+}*/
 
 static void test_MOSFETs(void)
 {
-  unsigned int i;
+
     Delay(5000);
   while(1)
   {
@@ -412,9 +412,8 @@ void motor_control_test_function(void)
 
 void motor_control_FSM(void)
 {
-  static unsigned int overcurrent_counter = 0;
+
   static unsigned int overcurrent_wait_counter = 0;
-  static unsigned int communication_timeout_counter = 0;
 
   typedef enum {
     sRunning = 0,

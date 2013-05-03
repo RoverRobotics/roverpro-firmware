@@ -477,7 +477,7 @@ static unsigned char check_delta_v(unsigned char reset)
   
   //1V per hour = 310 ADC counts per hour = 5.17 ADC counts per minute
   //.5V per hour = 155 counts per hour = 2.58 counts per minute
-  static int rise_threshold = 1;
+  //static int rise_threshold = 1;
   static int fall_threshold = 5;
   static int voltage_latch_threshold = 2;
 
@@ -493,7 +493,7 @@ static unsigned char check_delta_v(unsigned char reset)
     flat_voltage_counter = 0;
     last_average_voltage = 0;
     average_voltage = 0;
-    return;
+    return 0;
   }
 
   //return 0;
@@ -560,7 +560,7 @@ static void update_battery_meter(void)
 {
 
   static unsigned int current_voltage = 0;
-  static unsigned char last_battery_meter = 0;
+  //static unsigned char last_battery_meter = 0;
   static unsigned int battery_levels[5] = {BATTERY_METER_0, BATTERY_METER_25, BATTERY_METER_50, BATTERY_METER_75, BATTERY_METER_100};
   static unsigned int battery_meter_hysteresis = 10;
   static unsigned int motors_stopped_counter = 0;
