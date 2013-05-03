@@ -209,7 +209,7 @@ void battery_FSM(void)
       }
 
       charging_restart_counter++;
-      if(charging_restart_counter > _4_HOURS)
+      if(charging_restart_counter > _24_HOURS)
       {
         state = sLowBatteryOnCharger;
         did_charge_timeout(1);
