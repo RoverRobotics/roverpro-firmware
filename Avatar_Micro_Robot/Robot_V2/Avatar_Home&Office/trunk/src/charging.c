@@ -78,6 +78,8 @@ static unsigned char check_delta_v(unsigned char reset);
 
 static unsigned char did_charge_timeout(unsigned char reset);
 
+static void handle_turnoff(void);
+
 
 static void update_battery_meter(void);
 
@@ -112,7 +114,7 @@ void battery_FSM(void)
 
   static unsigned long charging_restart_counter = 0;
 
-
+  handle_turnoff();
 
   if(BQ24745_ACOK())
   {
@@ -620,6 +622,23 @@ static unsigned char did_charge_timeout(unsigned char reset)
 
 }
 
+static void handle_turnoff(void)
+{
+  static unsigned int turnoff_counter = 0;
+
+  if(PWR_BUTTON())
+    turnoff_counter++;
+  else
+    turnoff_counter = 0;
+
+  if(turnoff_counter > 100)
+  {
+    SYS_BUS_ON(0);
+  }
+
+
+
+}
 
 unsigned char return_battery_meter(void) {return battery_meter;}
 unsigned char return_charging_state(void) {return charging_state;}
