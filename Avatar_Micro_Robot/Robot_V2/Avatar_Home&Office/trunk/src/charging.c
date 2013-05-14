@@ -634,11 +634,15 @@ static void handle_turnoff(void)
   if(turnoff_counter > 100)
   {
     V5_ON(0);
+    SYS_BUS_ON(0);
     while(PWR_BUTTON())
     {
       ClrWdt();
     }
-    SYS_BUS_ON(0);
+    while(BQ24745_ACOK()==0)
+    {
+      ClrWdt();
+    }
   }
 
 
