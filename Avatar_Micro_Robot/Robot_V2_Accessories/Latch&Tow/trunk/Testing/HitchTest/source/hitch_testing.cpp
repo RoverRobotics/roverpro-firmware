@@ -41,8 +41,8 @@
 #define PRINT_ALL_USB
 
 // from the perspective of software
-typedef uint8_t IN_PACKET[980];
-typedef uint8_t OUT_PACKET[100];
+typedef uint8_t IN_PACKET[0xA0];
+typedef uint8_t OUT_PACKET[0xA0];
 
 
 /**********Function Prototypes******/
