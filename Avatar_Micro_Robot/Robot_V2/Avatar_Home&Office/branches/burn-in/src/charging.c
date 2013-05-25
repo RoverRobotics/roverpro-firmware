@@ -114,7 +114,7 @@ void battery_FSM(void)
 
   static unsigned long charging_restart_counter = 0;
 
-  handle_turnoff();
+  //handle_turnoff();
 
   if(BQ24745_ACOK())
   {
