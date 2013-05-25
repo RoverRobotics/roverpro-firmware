@@ -429,11 +429,11 @@ void motor_control_FSM(void)
     case sRunning:
 
 
-      if(check_communication_timeout())  {
+      /*if(check_communication_timeout())  {
         set_motor_pwm(0,0);
         state = sCommunicationTimeout;
         break;
-      }
+      }*/
 
       if(check_overcurrent())   
       {
@@ -444,12 +444,12 @@ void motor_control_FSM(void)
 
       set_motor_pwm(last_motor_commands[0],last_motor_commands[1]);
 
-      if(BQ24745_ACOK())
+      /*if(BQ24745_ACOK())
       {
         set_motor_pwm(0,0);
         state = sOnDock;
         break;
-      }
+      }*/
 
 
     break;

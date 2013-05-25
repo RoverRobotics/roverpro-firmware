@@ -4,10 +4,21 @@
 #include "motor_control.h"
 #include "uart.h"
 
+#define WAIT0_S     30
+#define FORWARD_S   60
+#define WAIT1_S     30
+#define REVERSE_S   60
+#define WAIT2_S     30
+#define TURN_S      5
+#define WAIT3_S     60
 
+
+static int desired_motor_commands[2] = {0,0};
+static void motor_accel_FSM(void);
 static void InitPins(void);
 static void start_up(void);
 static void ADC_Init(void);
+static void robot_burn_in(void);
 
 
 static void InitTimer(void);
@@ -20,6 +31,9 @@ static unsigned int second_counter = 0;
 
 int main(void)
 {
+
+  static unsigned int start_burn_in = 0;
+
   InitPins();
   start_up();
   InitTimer();
@@ -28,24 +42,33 @@ int main(void)
   init_uart();
   i2c3_init();
 
+  while(PWR_BUTTON())
+  {
+    ClrWdt();
+  }
+
   //motor_control_test_function();
 
   while(1)
   {
-  if(ten_millisecond_counter)
-  {  
-    motor_control_FSM();
-    //parse_UART_message();
-    messaging_FSM();
-    battery_FSM();
-    ten_millisecond_counter = 0;
-  }
-  if(hundred_millisecond_counter >= 10)
-  {
-    hundred_millisecond_counter = 0;
-    //send_battery_message();
-
-  }
+    if(ten_millisecond_counter)
+    {  
+      motor_accel_FSM();
+      motor_control_FSM();
+      battery_FSM();
+      ten_millisecond_counter = 0;
+    }
+    if(hundred_millisecond_counter >= 10)
+    {
+      if(PWR_BUTTON())
+        start_burn_in = 1;
+      hundred_millisecond_counter = 0;
+      if(start_burn_in)
+      {
+        robot_burn_in();
+      }
+  
+    }
     ClrWdt();
 
   }
@@ -184,4 +207,142 @@ static void InitTimer(void)
 
 }
 
+static void robot_burn_in(void)
+{
 
+    typedef enum {
+    sWait0 = 0,
+    sForward,
+    sWait1,
+    sReverse,
+    sWait2,
+    sRightTurn,
+    sLeftTurn,
+    sWait3,
+  } sBurninState;
+
+  static sBurninState state = sWait0;
+
+  static unsigned int state_timer = 0;
+  static unsigned int cycle_counter = 0;
+
+  state_timer++;
+
+  if(cycle_counter > 10)
+  {
+    last_motor_commands[0] = 0;
+    last_motor_commands[1] = 0;
+    return;
+  }
+
+  switch(state)
+  {
+    case sWait0:
+      desired_motor_commands[0] = 0;
+      desired_motor_commands[1] = 0;
+      if(state_timer >= WAIT0_S)
+      {
+        state_timer = 0;
+        state = sForward;
+      }
+    break;
+    case sForward:
+      desired_motor_commands[0] = 100;
+      desired_motor_commands[1] = 100;
+      if(state_timer >= FORWARD_S)
+      {
+        state_timer = 0;
+        state = sWait1;
+      }
+    break;
+    case sWait1:
+      desired_motor_commands[0] = 0;
+      desired_motor_commands[1] = 0;
+      if(state_timer >= WAIT1_S)
+      {
+        state_timer = 0;
+        state = sReverse;
+      }
+    break;
+    case sReverse:
+      desired_motor_commands[0] = -100;
+      desired_motor_commands[1] = -100;
+      if(state_timer >= REVERSE_S)
+      {
+        state_timer = 0;
+        state = sWait2;
+      }
+    break;
+    case sWait2:
+      desired_motor_commands[0] = 0;
+      desired_motor_commands[1] = 0;
+      if(state_timer >= WAIT2_S)
+      {
+        state_timer = 0;
+        state = sRightTurn;
+      }
+    break;
+    case sRightTurn:
+      desired_motor_commands[0] = 100;
+      desired_motor_commands[1] = -100;
+      if(state_timer >= TURN_S)
+      {
+        state_timer = 0;
+        state = sLeftTurn;
+      }
+    break;
+    case sLeftTurn:
+      desired_motor_commands[0] = -100;
+      desired_motor_commands[1] = 100;
+      if(state_timer >= TURN_S)
+      {
+        state_timer = 0;
+        state = sWait3;
+      }
+    break;
+    case sWait3:
+      desired_motor_commands[0] = 0;
+      desired_motor_commands[1] = 0;
+      if(state_timer >= WAIT3_S)
+      {
+        cycle_counter++;
+        state_timer = 0;
+        state = sForward;
+      }
+    break;
+
+
+  }
+
+
+}
+
+
+static void motor_accel_FSM(void)
+{
+  unsigned int i;
+
+  static int last_motor_commands_temp[2] = {0,0};
+
+  for(i=0;i<2;i++)
+  {
+
+    if(last_motor_commands_temp[i] < desired_motor_commands[i])
+      last_motor_commands_temp[i]+=1;
+    else if(last_motor_commands_temp[i] > desired_motor_commands[i])
+      last_motor_commands_temp[i]-=1;
+
+
+      if(desired_motor_commands[i] == 0)
+        last_motor_commands_temp[i] = 0;
+  
+    if( (last_motor_commands_temp[i] > 40) || (last_motor_commands_temp[i] < -40) )
+      last_motor_commands[i] = last_motor_commands_temp[i];
+    else
+      last_motor_commands[i] = 0;
+  }
+
+
+
+
+}
