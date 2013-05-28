@@ -61,7 +61,13 @@ static void InitPins(void)
   TRISE = 0xffff;
   TRISF = 0xffff;
 
- 
+  //If power button isn't pressed and robot isn't on the dock, don't continue.
+  //This case happens if the robot is pushed on the ground, and the power from the motors
+  //wakes up the robot
+  if( (BQ24745_ACOK()==0) && (PWR_BUTTON()==0) )
+  {
+    while(1);
+  }
 
 
   V5_ON(0);
@@ -79,6 +85,8 @@ static void start_up(void)
 {
 
   unsigned int i = 0;
+
+  
 
   //if battery is too low and not on the dock, this will shut down the robot
   for(i=0;i<20;i++)

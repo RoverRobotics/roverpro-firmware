@@ -133,8 +133,9 @@ void battery_FSM(void)
   {
     case sLowBatteryOnCharger:
 
-    battery_fully_charged = 0;
+      battery_fully_charged = 0;
       charging_state = 0x80;
+      charging_restart_counter = 0;
 
       if(BQ24745_ACOK()==0)
       {
@@ -213,6 +214,7 @@ void battery_FSM(void)
       charging_restart_counter++;
       if(charging_restart_counter > _24_HOURS)
       {
+        charging_restart_counter = 0;
         state = sLowBatteryOnCharger;
         did_charge_timeout(1);
       }
