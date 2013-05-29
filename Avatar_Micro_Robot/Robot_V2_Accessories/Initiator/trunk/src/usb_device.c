@@ -111,9 +111,9 @@
 ********************************************************************/
 
 /** INCLUDES *******************************************************/
-#include "GenericTypeDefs.h"
-#include "Compiler.h"
-#include "./USB/USB.h"
+#include "microchip/GenericTypeDefs.h"
+#include "microchip/Compiler.h"
+#include "microchip/USB/USB.h"
 #include "HardwareProfile.h"
 
 
@@ -685,6 +685,13 @@ void USBDeviceInit(void)
     USBClearInterruptRegister(U1IR); 
 
     SetConfigurationOptions();
+	
+	//found this in the forums - if we don't have +5V on VBUS:
+	//disable VBUS Comparator
+    U1CNFG2bits.UVCMPDIS = 1;
+	//Add pull-ups to VBUS comparator pins:
+	CNPU5bits.CN68PUE = 1;
+	CNPU5bits.CN69PUE = 1; 
 
     //power up the module
     USBPowerModule();
