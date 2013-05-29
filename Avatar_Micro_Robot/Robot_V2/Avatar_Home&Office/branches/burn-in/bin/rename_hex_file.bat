@@ -62,7 +62,7 @@ REM set /P svn_revision="Enter SVN revision number: "
 	mkdir releases\"%date_name%_%time_name%"\
 
 
-	copy firmware.hex releases\"%date_name%_%time_name%"\Home_Office_compiled_!year_string!_!month_string!_!day_string!_time_!hour_string!_!minute_string!_(%date_name_short%.%time_name_short%).hex
+	copy firmware.hex releases\"%date_name%_%time_name%"\Home_Office_Burn-in_compiled_!year_string!_!month_string!_!day_string!_time_!hour_string!_!minute_string!_(%date_name_short%.%time_name_short%).hex
 
 
 )

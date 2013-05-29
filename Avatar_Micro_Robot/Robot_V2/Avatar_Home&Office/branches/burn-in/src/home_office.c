@@ -4,12 +4,13 @@
 #include "motor_control.h"
 #include "uart.h"
 
-#define WAIT0_S     30
-#define FORWARD_S   60
-#define WAIT1_S     30
-#define REVERSE_S   60
-#define WAIT2_S     30
+#define WAIT0_S     10
 #define TURN_S      5
+#define WAIT1_S     5
+#define FORWARD_S   30
+#define WAIT2_S     30
+#define REVERSE_S   30
+
 #define WAIT3_S     60
 
 
@@ -19,6 +20,7 @@ static void InitPins(void);
 static void start_up(void);
 static void ADC_Init(void);
 static void robot_burn_in(void);
+static void wait_ten_ms(unsigned int ten_ms);
 
 
 static void InitTimer(void);
@@ -32,7 +34,10 @@ static unsigned int second_counter = 0;
 int main(void)
 {
 
-  static unsigned int start_burn_in = 0;
+  static unsigned int start_burn_in_counter = 0;
+  static unsigned int turn_off_counter = 0;
+
+  //static unsigned int stop_burn_in = 0;
 
   InitPins();
   start_up();
@@ -42,10 +47,15 @@ int main(void)
   init_uart();
   i2c3_init();
 
+
+  wait_ten_ms(10);
   while(PWR_BUTTON())
   {
     ClrWdt();
   }
+  wait_ten_ms(10);
+
+  hundred_millisecond_counter = 0;
 
   //motor_control_test_function();
 
@@ -53,6 +63,28 @@ int main(void)
   {
     if(ten_millisecond_counter)
     {  
+
+      if(PWR_BUTTON())
+      {
+        turn_off_counter++;
+      }
+      else
+      {
+        turn_off_counter = 0;
+      }
+      if(turn_off_counter > 200)
+      {
+          SYS_BUS_ON(0);
+          V5_ON(0);
+          while(PWR_BUTTON())
+            ClrWdt();
+          while(1)
+          {
+            ClrWdt();
+          }
+      }
+
+
       motor_accel_FSM();
       motor_control_FSM();
       battery_FSM();
@@ -61,9 +93,21 @@ int main(void)
     if(hundred_millisecond_counter >= 10)
     {
       if(PWR_BUTTON())
-        start_burn_in = 1;
+      {
+        //only proceed if button was previously released
+        if(start_burn_in_counter == 0)
+        {
+          //block until button is released
+          wait_ten_ms(10);
+          while(PWR_BUTTON())
+            ClrWdt();
+          //change state
+          start_burn_in_counter = 1;
+        }
+      }
+
       hundred_millisecond_counter = 0;
-      if(start_burn_in)
+      if(start_burn_in_counter)
       {
         robot_burn_in();
       }
@@ -85,7 +129,13 @@ static void InitPins(void)
   TRISF = 0xffff;
 
  
-
+  //If power button isn't pressed and robot isn't on the dock, don't continue.
+  //This case happens if the robot is pushed on the ground, and the power from the motors
+  //wakes up the robot
+  if( (BQ24745_ACOK()==0) && (PWR_BUTTON()==0) )
+  {
+    while(1);
+  }
 
   V5_ON(0);
   SYS_BUS_ON(0);
@@ -243,42 +293,6 @@ static void robot_burn_in(void)
       if(state_timer >= WAIT0_S)
       {
         state_timer = 0;
-        state = sForward;
-      }
-    break;
-    case sForward:
-      desired_motor_commands[0] = 100;
-      desired_motor_commands[1] = 100;
-      if(state_timer >= FORWARD_S)
-      {
-        state_timer = 0;
-        state = sWait1;
-      }
-    break;
-    case sWait1:
-      desired_motor_commands[0] = 0;
-      desired_motor_commands[1] = 0;
-      if(state_timer >= WAIT1_S)
-      {
-        state_timer = 0;
-        state = sReverse;
-      }
-    break;
-    case sReverse:
-      desired_motor_commands[0] = -100;
-      desired_motor_commands[1] = -100;
-      if(state_timer >= REVERSE_S)
-      {
-        state_timer = 0;
-        state = sWait2;
-      }
-    break;
-    case sWait2:
-      desired_motor_commands[0] = 0;
-      desired_motor_commands[1] = 0;
-      if(state_timer >= WAIT2_S)
-      {
-        state_timer = 0;
         state = sRightTurn;
       }
     break;
@@ -297,6 +311,42 @@ static void robot_burn_in(void)
       if(state_timer >= TURN_S)
       {
         state_timer = 0;
+        state = sWait1;
+      }
+    break;
+    case sWait1:
+      desired_motor_commands[0] = 0;
+      desired_motor_commands[1] = 0;
+      if(state_timer >= WAIT1_S)
+      {
+        state_timer = 0;
+        state = sForward;
+      }
+    break;
+    case sForward:
+      desired_motor_commands[0] = 100;
+      desired_motor_commands[1] = 100;
+      if(state_timer >= FORWARD_S)
+      {
+        state_timer = 0;
+        state = sWait2;
+      }
+    break;
+    case sWait2:
+      desired_motor_commands[0] = 0;
+      desired_motor_commands[1] = 0;
+      if(state_timer >= WAIT2_S)
+      {
+        state_timer = 0;
+        state = sReverse;
+      }
+    break;
+    case sReverse:
+      desired_motor_commands[0] = -100;
+      desired_motor_commands[1] = -100;
+      if(state_timer >= REVERSE_S)
+      {
+        state_timer = 0;
         state = sWait3;
       }
     break;
@@ -307,7 +357,7 @@ static void robot_burn_in(void)
       {
         cycle_counter++;
         state_timer = 0;
-        state = sForward;
+        state = sRightTurn;
       }
     break;
 
@@ -344,5 +394,15 @@ static void motor_accel_FSM(void)
 
 
 
+
+}
+
+static void wait_ten_ms(unsigned int ten_ms)
+{
+  ten_millisecond_counter = 0;
+  while(ten_millisecond_counter < ten_ms)
+  {
+    ClrWdt();
+  }
 
 }
