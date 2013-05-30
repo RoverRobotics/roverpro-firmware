@@ -21,6 +21,7 @@ static void start_up(void);
 static void ADC_Init(void);
 static void robot_burn_in(void);
 static void wait_ten_ms(unsigned int ten_ms);
+static int test_individual_motors(void);
 
 
 static void InitTimer(void);
@@ -292,8 +293,11 @@ static void robot_burn_in(void)
       desired_motor_commands[1] = 0;
       if(state_timer >= WAIT0_S)
       {
-        state_timer = 0;
-        state = sRightTurn;
+        if(test_individual_motors())
+        {
+          state_timer = 0;
+          state = sRightTurn;
+        }
       }
     break;
     case sRightTurn:
@@ -405,4 +409,63 @@ static void wait_ten_ms(unsigned int ten_ms)
     ClrWdt();
   }
 
+}
+
+static int test_individual_motors(void)
+{
+  static unsigned int state_timer = 0;
+
+    typedef enum {
+    sLeftForward = 0,
+    sIndWait1,
+    sRightForward,
+    sIndWait2,
+  } sMotorTestState;
+
+  static sMotorTestState state = sLeftForward;
+
+  state_timer++;
+
+  switch(state)
+  {
+    case sLeftForward:
+      desired_motor_commands[0] = 100;
+      desired_motor_commands[1] = 0;
+      if(state_timer >= TURN_S)
+      {
+        state_timer = 0;
+        state = sIndWait1;
+      }
+    break;
+    case sIndWait1:
+      desired_motor_commands[0] = 0;
+      desired_motor_commands[1] = 0;
+      if(state_timer >= TURN_S)
+      {
+        state_timer = 0;
+        state = sRightForward;
+      }
+    break;
+    case sRightForward:
+      desired_motor_commands[0] = 0;
+      desired_motor_commands[1] = 100;
+      if(state_timer >= TURN_S)
+      {
+        state_timer = 0;
+        state = sIndWait2;
+      }
+    break;
+    case sIndWait2:
+      desired_motor_commands[0] = 0;
+      desired_motor_commands[1] = 0;
+      if(state_timer >= TURN_S)
+      {
+        state_timer = 0;
+        return 1;
+      }
+    break;
+  }
+
+  return 0;
+  
 }
