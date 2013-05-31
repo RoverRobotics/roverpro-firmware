@@ -133,6 +133,8 @@ static void Initiator_FSM(void)
   static unsigned int firing_pulse_counter = 0;
   static unsigned int charged_counter = 0;
 
+  static unsigned int capacitor_charge_flag = 0;
+
   typedef enum {
     sWaiting = 0,
     sCharging,
@@ -166,9 +168,15 @@ static void Initiator_FSM(void)
     }
   }
 
+  if(capacitor_charge_flag)
+    charge_capacitor(1);
+  else
+    charge_capacitor(0);
+
   switch(state)
   {
     case sWaiting:
+      capacitor_charge_flag = 0;
       thermal_recovery_counter = 0;
       charge_timeout_counter = 0;
       firing_pulse_counter = 0;
@@ -181,13 +189,13 @@ static void Initiator_FSM(void)
     case sCharging:
       DISCHARGE(0);
       REG_INITIATOR_STATE &= ~(INITIATOR_CHARGE_TIMEOUT);
-      charge_capacitor(1);
+      capacitor_charge_flag = 1;
       charge_timeout_counter++;
       if(UNDERVOLTAGE==0)
       {
         charged_counter++;
       }
-      if(charged_counter > 3)
+      if(charged_counter > 30)
       {
         charged_counter = 0;
         state = sCharged;
@@ -204,7 +212,7 @@ static void Initiator_FSM(void)
     break;
 
     case sCharged:
-      charge_capacitor(1);
+      capacitor_charge_flag = 1;
       if(REG_INITIATOR_FIRE==0x01)
         state = sFiring;
       /*if(OC1R == 0)
@@ -218,6 +226,7 @@ static void Initiator_FSM(void)
     break;
 
     case sFiring:
+      capacitor_charge_flag = 0;
       GATE_XFRMR_ON(1);
       firing_pulse_counter++;
       if(firing_pulse_counter > 50)
@@ -229,13 +238,13 @@ static void Initiator_FSM(void)
     break;
 
     case sDischarging:
-      charge_capacitor(0);
+      capacitor_charge_flag = 0;
       DISCHARGE(1);
       state = sThermalRecovery;
     break;
 
     case sThermalRecovery:
-      charge_capacitor(0);
+      capacitor_charge_flag = 0;
       DISCHARGE(1);
       thermal_recovery_counter++;
       if(thermal_recovery_counter > 500)
