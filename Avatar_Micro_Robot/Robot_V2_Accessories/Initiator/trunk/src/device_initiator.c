@@ -7,7 +7,7 @@ File: device_arm_link2.c
 #include "debug_uart.h"
 
 
-//#define USB_TIMEOUT_ENABLED
+#define USB_TIMEOUT_ENABLED
 /*---------------------------Macros-------------------------------------------*/
 
 #define DISCHARGE_EN(a)     _TRISF3 = (!a)
