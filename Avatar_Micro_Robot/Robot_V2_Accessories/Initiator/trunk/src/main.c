@@ -123,8 +123,8 @@ static void InitializeSystem(void)
 	switch (gpio_id)
 	{
 
-		case DEVICE_ARM_LINK2:
-			Arm_Link2_Init();
+		case DEVICE_INITIATOR:
+			Initiator_Init();
 			break;
 
 		case DEVICE_GENERIC:
@@ -157,9 +157,9 @@ void ProcessIO(void)
 	{
 
 
-		case DEVICE_ARM_LINK2:
+		case DEVICE_INITIATOR:
       ClrWdt();
-			Link2_Process_IO();
+			Initiator_Process_IO();
 		break;
 
 		case DEVICE_GENERIC:
