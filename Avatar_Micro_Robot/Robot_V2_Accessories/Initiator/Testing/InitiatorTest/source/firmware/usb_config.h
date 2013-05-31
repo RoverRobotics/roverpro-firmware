@@ -47,6 +47,9 @@ typedef int16_t DEVICE_NUMBER;
 #define DEVICE_HITCH        0x0f
 #define OCU_FRONT_CAM		0x10
 #define OCU_REAR_CAM		0x11
+#define DEVICE_BOOM_CAM		0x12
+#define BOOM_CAM_EMPIA		0x13
+#define DEVICE_INITIATOR  	0x14
 
 
 // -------- PROGRAM DEFINES --------
@@ -57,8 +60,8 @@ typedef int16_t DEVICE_NUMBER;
 #define SYNC    1
 #define NO_SYNC 0
 
-#define OUT_PACKET_LENGTH 255
-#define IN_PACKET_LENGTH  255
+#define OUT_PACKET_LENGTH 0xA0
+#define IN_PACKET_LENGTH  0xA0
 
 #define PACKET_TERMINATOR 0xFFFF
 
