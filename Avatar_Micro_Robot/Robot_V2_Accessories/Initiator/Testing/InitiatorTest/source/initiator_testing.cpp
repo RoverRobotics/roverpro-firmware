@@ -115,6 +115,7 @@ void outgoing_callback(struct libusb_transfer *transfer);
 
 void ArmInitiator(void);
 void FireInitiator(void);
+void InitiatorOneShot(void);
 
 
 int main(int argn, char *argc[]) {
@@ -131,6 +132,10 @@ int main(int argn, char *argc[]) {
   else if(input_argument[0] == 'f')
   {
     FireInitiator();
+  }
+  else if(input_argument[0] == 'o')
+  {
+    InitiatorOneShot();
   }
  
   return EXIT_SUCCESS;
@@ -219,6 +224,7 @@ static int InitUSBDevice(void) {
 	      case 0x0a: printf("PTZ Rotation Board\r\n"); break;
 	      case 0x0d: printf("Arm\r\n"); break;
 	      case 0x0f: printf("Hitch\r\n"); break;
+	      case 0x14: printf("Initiator\r\n"); break;
         default:
           printf("unsupported device\n");
 		      is_unsupported_device = 1;
@@ -425,7 +431,8 @@ void PressEnterToContinue(void) {
 void ArmInitiator(void)  {
   
   int i;
-	int camera_power_index = GetRegisterIndex(&telemetry::REG_OCU_CAMERA_POWER_ON);
+	int initiator_charge_index = GetRegisterIndex(&telemetry::REG_INITIATOR_CHARGE);
+	int initiator_state_index = GetRegisterIndex(&telemetry::REG_INITIATOR_STATE);
   unsigned int checksum;
 	
 	        InitRoboteXDevice();
@@ -434,27 +441,33 @@ void ArmInitiator(void)  {
 
 	for(i=0;i<30;i++)
 	{
-		out_packet[0] = camera_power_index;
+		out_packet[0] = initiator_charge_index;
 		out_packet[1] = 0x00;
 		out_packet[2] = 0x01;
-		out_packet[3] = 0xff;
-		out_packet[4] = 0xff;
+		out_packet[3] = initiator_state_index;
+		out_packet[4] = 0x80;
+		out_packet[5] = 0xff;
+		out_packet[6] = 0xff;
 		
 		//hard code checksum -- 107+1+255+255 = 618 = 0x026a
 		//out_packet[5] = 0x6a;
 		//out_packet[6] = 0x02;
 
-         checksum = return_checksum(out_packet,5);
+         /*checksum = return_checksum(out_packet,5);
     out_packet[5] = checksum&0xff;
-    out_packet[6] = checksum>>8;
+    out_packet[6] = checksum>>8;*/
 
 		if (!HandleUSBCommunication())
 			return;
+		printf("%x %x %x %x %x %x\r\n",in_packet[0],in_packet[1],in_packet[2],in_packet[3]);
+		printf("REG_INITIATOR_STATE: %x\r\n",(in_packet[3]<<8)+in_packet[2]);
+
+		
 
             usleep(100000);
 
 	}
-	  printf("Cameras powered.\r\n");
+
   
   
   }
@@ -462,7 +475,7 @@ void ArmInitiator(void)  {
   void FireInitiator(void)  {
   
   int i;
-	int camera_power_index = GetRegisterIndex(&telemetry::REG_OCU_CAMERA_POWER_ON);
+	int initiator_fire_index = GetRegisterIndex(&telemetry::REG_INITIATOR_FIRE);
   unsigned int checksum;
 	
 	        InitRoboteXDevice();
@@ -471,7 +484,7 @@ void ArmInitiator(void)  {
 
 	for(i=0;i<30;i++)
 	{
-		out_packet[0] = camera_power_index;
+		out_packet[0] = initiator_fire_index;
 		out_packet[1] = 0x00;
 		out_packet[2] = 0x01;
 		out_packet[3] = 0xff;
@@ -481,9 +494,9 @@ void ArmInitiator(void)  {
 		//out_packet[5] = 0x6a;
 		//out_packet[6] = 0x02;
 
-         checksum = return_checksum(out_packet,5);
+         /*checksum = return_checksum(out_packet,5);
     out_packet[5] = checksum&0xff;
-    out_packet[6] = checksum>>8;
+    out_packet[6] = checksum>>8;*/
 
 		if (!HandleUSBCommunication())
 			return;
@@ -491,9 +504,78 @@ void ArmInitiator(void)  {
             usleep(100000);
 
 	}
-	  printf("Cameras powered.\r\n");
+
   
   
+  }
+
+  void InitiatorOneShot(void)
+  {
+
+  int i;
+	int initiator_charge_index = GetRegisterIndex(&telemetry::REG_INITIATOR_CHARGE);
+	int initiator_fire_index = GetRegisterIndex(&telemetry::REG_INITIATOR_FIRE);	
+	int initiator_state_index = GetRegisterIndex(&telemetry::REG_INITIATOR_STATE);
+	unsigned int REG_INITIATOR_STATE = 0;
+	unsigned char REG_INITIATOR_CHARGE = 0;
+	unsigned char REG_INTIATOR_FIRE = 0;
+  unsigned int checksum;
+	unsigned char thermal_recovery_started = 0;
+	
+	        InitRoboteXDevice();
+
+	REG_INITIATOR_CHARGE = 0x01;
+
+
+	for(i=0;i<100;i++)
+	{
+		out_packet[0] = initiator_charge_index;
+		out_packet[1] = 0x00;
+		out_packet[2] = REG_INITIATOR_CHARGE;
+		out_packet[3] = initiator_fire_index;
+		out_packet[4] = 0x00;
+		out_packet[5] = REG_INITIATOR_FIRE;
+		out_packet[6] = initiator_state_index;
+		out_packet[7] = 0x80;
+		out_packet[8] = 0xff;
+		out_packet[9] = 0xff;
+
+		if( (REG_INITIATOR_STATE&0xff) == 0x02)
+		{
+			printf("Firing\r\n");
+			REG_INITIATOR_FIRE = 0x01;
+		}
+		if( (REG_INITIATOR_STATE&0xff) == 0x05)
+		{
+			printf("Resetting\r\n");
+			REG_INITIATOR_FIRE = 0;
+			REG_INITIATOR_CHARGE = 0;			
+		} 
+		if( ((REG_INITIATOR_STATE&0xff) == 0x00) && (i>5) )
+		{
+			printf("Ready; exiting\r\n");
+			return;
+		}
+		
+		//hard code checksum -- 107+1+255+255 = 618 = 0x026a
+		//out_packet[5] = 0x6a;
+		//out_packet[6] = 0x02;
+
+         /*checksum = return_checksum(out_packet,5);
+    out_packet[5] = checksum&0xff;
+    out_packet[6] = checksum>>8;*/
+
+		if (!HandleUSBCommunication())
+			return;
+		REG_INITIATOR_STATE = (in_packet[3]<<8)+in_packet[2];
+		printf("REG_INITIATOR_STATE: %x\r\n",REG_INITIATOR_STATE);
+
+		
+
+            usleep(100000);
+
+	}
+
   }
   
   void print_gps_data(void)

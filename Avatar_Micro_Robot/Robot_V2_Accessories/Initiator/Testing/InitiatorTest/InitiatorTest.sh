@@ -10,8 +10,8 @@ current_folder=`dirname $shell_script`
 cd $current_folder/source
 sudo make
 
-current_folder=`dirname $shell_script`
-cd $current_folder/source
+#current_folder=`dirname $shell_script`
+#cd $current_folder/source
 
 # allow FS PIC to work through hub.  This will break HS device functionality.
 # cd /sys/bus/pci/drivers/ehci_hcd/
@@ -28,7 +28,7 @@ for device in *; do
   fi
 done
 current_folder=`dirname $shell_script`
-
+cd $current_folder/source
 
 
 
@@ -39,6 +39,7 @@ user_input=""
 echo "\r\n\r\n\r\n"
 echo "[a]rm Initiator"
 echo "[f]ire Initiator"
+echo "[o]ne shot"
 echo "fi[r]mware version"
 echo "[u]sb device check"
 echo "[q]uit"
@@ -50,19 +51,24 @@ read user_input
 if [ "$user_input" = "a" ]; then
 sudo ./initiator_testing a
 
-if [ "$user_input" = "f" ]; then
+elif [ "$user_input" = "f" ]; then
 	echo "Ready to fire? [y/n]"
 	read user_input
 	if [ "$user_input" = "y" ]; then
 		sudo ./initiator_testing f
+	fi
+
+
+elif [ "$user_input" = "o" ]; then
+sudo ./initiator_testing o
 
 elif [ "$user_input" = "r" ]; then
 echo "\r\n\r\nFirmware Version:\r\n\r\n"
 sudo lsusb -v -d 2694:0014 | grep "RoboteX" -A 2
 
 elif [ "$user_input" = "u" ]; then
-hitch_pic_id=`lsusb | grep -o "2694:0014"`
-if test -n "hitch_pic_id"; then
+initiator_pic_id=`lsusb | grep -o "2694:0014"`
+if test -n $initiator_pic_id; then
 echo "Initiator PIC is found"
 else
 echo "Initiator PIC is not found"; 

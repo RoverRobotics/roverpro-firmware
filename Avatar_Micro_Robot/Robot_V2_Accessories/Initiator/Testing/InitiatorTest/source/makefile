@@ -11,9 +11,9 @@ DEPS += common/assert
 
 default:
 
-	g++ -c hitch_testing.cpp -o hitch_testing.o
+	g++ -c initiator_testing.cpp -o initiator_testing.o
 	g++ -c firmware/usb_config.c -o firmware/usb_config.o	
-	g++ -o hitch_testing hitch_testing.o firmware/usb_config.o `sdl-config --libs` -lusb-1.0 -lncurses
+	g++ -o initiator_testing initiator_testing.o firmware/usb_config.o `sdl-config --libs` -lusb-1.0 -lncurses
 
 
 
