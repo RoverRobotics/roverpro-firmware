@@ -116,6 +116,8 @@ void outgoing_callback(struct libusb_transfer *transfer);
 void ArmInitiator(void);
 void FireInitiator(void);
 void InitiatorOneShot(void);
+unsigned int handle_initiator_message(unsigned char REG_INITIATOR_CHARGE, unsigned char REG_INITIATOR_FIRE);
+  void fire_n_times(unsigned int n);
 
 
 int main(int argn, char *argc[]) {
@@ -124,6 +126,7 @@ int main(int argn, char *argc[]) {
   char* input_argument = argc[1];
 
   //PressEnterToContinue();
+
 
   if(input_argument[0] == 'a')
   {
@@ -136,6 +139,12 @@ int main(int argn, char *argc[]) {
   else if(input_argument[0] == 'o')
   {
     InitiatorOneShot();
+  }
+  else if(input_argument[0] == 'c')
+  {
+    char *endptr;
+    long int n = strtol(argc[2], &endptr, 10);
+    fire_n_times((unsigned int)n);
   }
  
   return EXIT_SUCCESS;
@@ -459,7 +468,7 @@ void ArmInitiator(void)  {
 
 		if (!HandleUSBCommunication())
 			return;
-		printf("%x %x %x %x %x %x\r\n",in_packet[0],in_packet[1],in_packet[2],in_packet[3]);
+		//printf("%x %x %x %x %x %x\r\n",in_packet[0],in_packet[1],in_packet[2],in_packet[3]);
 		printf("REG_INITIATOR_STATE: %x\r\n",(in_packet[3]<<8)+in_packet[2]);
 
 		
@@ -507,6 +516,110 @@ void ArmInitiator(void)  {
 
   
   
+  }
+
+  void fire_n_times(unsigned int n)
+  {
+	unsigned int REG_INITIATOR_STATE = 0;
+  unsigned int last_initiator_state = 0;
+  unsigned int i;
+
+    typedef enum {
+      sCharging,
+      sFiring,
+      sCoolDown,
+      sError,
+      sDone,
+    } sInitiatorState;
+
+
+    sInitiatorState state = sCharging;
+
+    InitRoboteXDevice();
+
+    for(i=0;i<300;i++)
+    {
+      if(handle_initiator_message(0,0) == 0)
+        break;
+      usleep(100000);
+    }
+
+    for(i=0;i<n;i++)
+    {
+
+      while(1)
+      {
+
+        switch(state)
+        {
+          case sCharging:
+            REG_INITIATOR_STATE = handle_initiator_message(1,0);
+            if(REG_INITIATOR_STATE == 0x02)
+              state = sFiring;
+            if(REG_INITIATOR_STATE > 0x02)
+              state = sError;
+            
+          break;
+          case sFiring:
+            REG_INITIATOR_STATE = handle_initiator_message(1,1);
+            if(REG_INITIATOR_STATE == 0x05)
+              state = sCoolDown;
+          break;
+          case sCoolDown:
+            REG_INITIATOR_STATE = handle_initiator_message(0,0);
+            if(REG_INITIATOR_STATE == 0x00)
+              state = sDone;
+          break;
+          case sDone:
+          break;
+          case sError:
+            printf("Error: %x\r\n",REG_INITIATOR_STATE);
+            return;
+          break;
+
+        }
+        usleep(100000);
+        if(state == sDone)
+        {
+          printf("%i cycles completed\r\n",i+1);
+          sleep(5);
+          state = sCharging;
+          break;
+        }
+          if(REG_INITIATOR_STATE != last_initiator_state)
+          {
+            printf("REG_INITIATOR_STATE: %x \r\n",REG_INITIATOR_STATE);
+          }
+          last_initiator_state = REG_INITIATOR_STATE;
+      }
+
+    }
+    
+    
+  }
+
+  unsigned int handle_initiator_message(unsigned char REG_INITIATOR_CHARGE, unsigned char REG_INITIATOR_FIRE)
+  {
+	int initiator_charge_index = GetRegisterIndex(&telemetry::REG_INITIATOR_CHARGE);
+	int initiator_fire_index = GetRegisterIndex(&telemetry::REG_INITIATOR_FIRE);	
+	int initiator_state_index = GetRegisterIndex(&telemetry::REG_INITIATOR_STATE);
+
+		out_packet[0] = initiator_charge_index;
+		out_packet[1] = 0x00;
+		out_packet[2] = REG_INITIATOR_CHARGE;
+		out_packet[3] = initiator_fire_index;
+		out_packet[4] = 0x00;
+		out_packet[5] = REG_INITIATOR_FIRE;
+		out_packet[6] = initiator_state_index;
+		out_packet[7] = 0x80;
+		out_packet[8] = 0xff;
+		out_packet[9] = 0xff;
+
+		if (!HandleUSBCommunication())
+			return 0xffff;
+		return ((in_packet[3]<<8)+in_packet[2]);
+
+
   }
 
   void InitiatorOneShot(void)

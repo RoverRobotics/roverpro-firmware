@@ -39,6 +39,7 @@ user_input=""
 echo "\r\n\r\n\r\n"
 echo "[a]rm Initiator"
 echo "[f]ire Initiator"
+echo "[c]ycle a number of times"
 echo "[o]ne shot"
 echo "fi[r]mware version"
 echo "[u]sb device check"
@@ -61,6 +62,12 @@ elif [ "$user_input" = "f" ]; then
 
 elif [ "$user_input" = "o" ]; then
 sudo ./initiator_testing o
+
+
+elif [ "$user_input" = "c" ]; then
+	echo "Enter number of times to fire:"
+	read user_input
+	sudo ./initiator_testing c $user_input
 
 elif [ "$user_input" = "r" ]; then
 echo "\r\n\r\nFirmware Version:\r\n\r\n"
