@@ -75,7 +75,7 @@ sudo lsusb -v -d 2694:0014 | grep "RoboteX" -A 2
 
 elif [ "$user_input" = "u" ]; then
 initiator_pic_id=`lsusb | grep -o "2694:0014"`
-if test -n $initiator_pic_id; then
+if test -n "$initiator_pic_id"; then
 echo "Initiator PIC is found"
 else
 echo "Initiator PIC is not found"; 
