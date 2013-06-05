@@ -394,6 +394,10 @@ static void motor_accel_FSM(void)
       last_motor_commands[i] = last_motor_commands_temp[i];
     else
       last_motor_commands[i] = 0;
+
+    //reverse left motor
+    if(i==0)
+      last_motor_commands[i]*=-1;
   }
 
 
