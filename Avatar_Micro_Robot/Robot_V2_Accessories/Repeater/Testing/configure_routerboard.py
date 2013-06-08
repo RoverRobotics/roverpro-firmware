@@ -31,6 +31,7 @@ def main():
     print "[s]et router configuration"
     print "[c]heck MAC addresses"
     print "[d]isplay configuration"
+    print "[t]est all repeaters"
     print "[r]eset router to default"
 
     user_input=raw_input("")
@@ -44,6 +45,10 @@ def main():
       reset_router_configuration()
     elif(user_input=="c"):
       check_MAC_addresses()
+    elif(user_input=="d"):
+      display_configuration()
+    elif(user_input=="t"):
+      test_repeaters()
 
 def set_router_configuration():
 
@@ -103,6 +108,15 @@ def set_router_configuration():
   file_write_line(process_output)
   f.write("------------------------------------\r\n\r\n\r\n")
 
+
+def display_configuration():
+  file_write_line("Display configuration")
+  process = subprocess.Popen(["./display_configuration.sh"], stdout=subprocess.PIPE,shell=True)  
+  process_output=process.communicate()[0]
+  print process_output
+  file_write_line(process_output)
+  f.write("------------------------------------\r\n\r\n\r\n")
+
 def manually_enter_MAC2():
   i=0
   while(True):
@@ -151,7 +165,7 @@ def check_MAC_addresses():
     #MAC_list_raw=MAC_string.split()
 
 def reset_router_configuration():
-  subprocess.call(['sudo sh reset_routerboard.sh'],shell=True)
+  subprocess.call(['sudo bash reset_routerboard.sh'],shell=True)
 
 #returns a list of MAC addresses for routers with the given SSID
 def return_MAC_list(SSID):
@@ -187,6 +201,14 @@ def auto_find_MAC():
   file_write_list("Found MAC addresses: ",MAC)
 
   print "MAC addresses: ",MAC
+
+
+def test_repeaters():
+  print "Enter SSID: "
+  SSID=raw_input()
+  process = subprocess.Popen(["./check_mesh.sh "+SSID], stdout=subprocess.PIPE,shell=True)
+  test_results=process.communicate()[0]
+  print test_results
 
 def file_timestamp():
   f.write(str(int(time.time()-time_start))+": ")
