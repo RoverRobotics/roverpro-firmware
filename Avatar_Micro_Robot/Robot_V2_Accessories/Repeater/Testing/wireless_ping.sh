@@ -16,7 +16,7 @@ sudo ifconfig wlan0 $source_IP
 #disconnect from existing APs
 sudo iwconfig wlan0 essid "dummyessidhopefullydoesn'texist"
 
-for i in `seq 0 $num_seconds`; do
+for i in `seq 1 $num_seconds`; do
 
   echo "‎i is $i"
   up_line=$(iwconfig wlan0 | grep "Not-Associated")
@@ -34,7 +34,7 @@ for i in `seq 0 $num_seconds`; do
 
   #iwconfig
 
-  ping_string=$(ping -c 1 -W 3 $destination_IP)
+  ping_string=$(ping -c 1 -W 1 $destination_IP)
   ping_string_grep=$(echo $ping_string | grep "bytes from")
  
   echo $ping_string
