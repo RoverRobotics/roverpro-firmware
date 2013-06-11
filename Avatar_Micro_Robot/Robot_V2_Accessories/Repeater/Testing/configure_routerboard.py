@@ -25,7 +25,7 @@ time_start = time.time()
 def main():
 
 
-  process = subprocess.Popen(["sudo ifconfig wlan0 up"], stdout=subprocess.PIPE,shell=True)
+  initial_setup()
 
   while(True):
     print"\r\n\r\n\r\n"
@@ -36,6 +36,7 @@ def main():
     print "[d]isplay configuration"
     print "[t]est all repeaters"
     print "[r]eset router to default"
+    print "[q]uit"
 
     user_input=raw_input("")
     if(user_input=="a"):
@@ -52,6 +53,9 @@ def main():
       display_configuration()
     elif(user_input=="t"):
       test_repeaters()
+    elif(user_input=="q"):
+      clean_up()
+      break
 
 def set_router_configuration():
 
@@ -189,7 +193,6 @@ def reset_router_configuration():
 
 #returns a list of MAC addresses for routers with the given SSID
 def return_MAC_list(SSID):
-  process = subprocess.Popen(["sudo ifconfig wlan0 up"], stdout=subprocess.PIPE,shell=True)
   process = subprocess.Popen(["sudo iwlist wlan0 scan | grep '"+SSID+"' -B5 | grep 'Address'"], stdout=subprocess.PIPE,shell=True)
   MAC_string=process.communicate()[0]
   MAC_list_raw=MAC_string.split()
@@ -251,10 +254,9 @@ def test_repeaters():
   print test_results
 
 def ping_test_side_2(SSID,MAC_list):
-  print "Press [ENTER] on both netbooks at the same time"
-  raw_input()
+
   for i in range(0,len(MAC_list)):
-    print "Press [ENTER] again on both netbooks at the same time"
+    print "Press [ENTER] on both netbooks at the same time"
     raw_input()
     #source_IP = "10.1.123."+str(i+2)
     source_IP = "10.1.123.4"
@@ -264,15 +266,14 @@ def ping_test_side_2(SSID,MAC_list):
     while( (time.time() - test_1_start_time) < 30):
       process = subprocess.Popen(["./connect_to_AP.sh "+SSID+" "+MAC_list[i]+" "+source_IP], stdout=subprocess.PIPE,shell=True)
       test_results=process.communicate()[0]
-    #print test_results
+      #print test_results
 
 def ping_test_side_1(SSID,MAC_list):
   source_IP = "10.1.123.3"
   destination_IP = "10.1.123.4"
-  print "Press [ENTER] on both netbooks at the same time"
-  raw_input()
+
   for i in range(0,len(MAC_list)):
-    print "Press [ENTER] again on both netbooks at the same time"
+    print "Press [ENTER] on both netbooks at the same time"
     raw_input()
     for j in range(0,len(MAC_list)):
       if(i!=j):
@@ -285,6 +286,22 @@ def ping_test_side_1(SSID,MAC_list):
           print "Connection succeeded:",MAC_list[j]
       
 
+def initial_setup():
+  #turning off network
+  process = subprocess.Popen(["sudo stop network-manager"], stdout=subprocess.PIPE,shell=True)
+  #subprocess.call(['sudo stop network-manager'],shell=True)
+  
+  #make sure the network manager module goes down before re-enabling eth0 and wlan0  
+  time.sleep(1)
+
+  #making sure eth0 and wlan0 are up
+  process = subprocess.Popen(["sudo ifconfig eth0 up"], stdout=subprocess.PIPE,shell=True)
+
+  process = subprocess.Popen(["sudo ifconfig wlan0 up"], stdout=subprocess.PIPE,shell=True)
+
+def clean_up():
+  #start network manager again
+  process = subprocess.Popen(["sudo start network-manager"], stdout=subprocess.PIPE,shell=True)
 
 def file_timestamp():
   f.write(str(int(time.time()-time_start))+": ")

@@ -13,15 +13,13 @@ echo "Parameters: " $SSID $MAC $source_IP $destination_IP $num_seconds
 sudo ifconfig wlan0 up
 sudo ifconfig wlan0 $source_IP
 
-#disconnect from existing APs
-sudo iwconfig wlan0 essid "dummyessidhopefullydoesn'texist"
-
 for i in `seq 1 $num_seconds`; do
 
   echo "‎i is $i"
-  up_line=$(iwconfig wlan0 | grep "Not-Associated")
 
-  if [ "$up_line" = "" ]; then
+  up_line=$(iwconfig wlan0 | grep "$MAC")
+
+  if test -n "$up_line"; then
   echo "Connected"
   else
   echo "Not connected.  Connecting now."

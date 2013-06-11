@@ -15,7 +15,7 @@ for i in 0 1; do
   echo "‎i is $i"
   up_line=$(iwconfig wlan0 | grep "$MAC")
 
-  if [ "$up_line" = "" ]; then
+  if test -n "$up_line"; then
   echo "Connected"
   else
   echo "Not connected.  Connecting now."
