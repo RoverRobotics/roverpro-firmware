@@ -258,13 +258,11 @@ def ping_test_side_1(SSID,MAC_list):
     #source_IP = "10.1.123."+str(i+2)
     source_IP = "10.1.123.3"
     destination_IP = "10.1.123.4"
-
-    process = subprocess.Popen(["./wireless_ping.sh "+SSID+" "+MAC_list[i]+" "+source_IP+" "+destination_IP], stdout=subprocess.PIPE,shell=True)
-    test_results=process.communicate()[0]
-    if(string.find(test_results,"bytes from") == -1):
-      print "Connection failed:",MAC_list[i]
-    else:
-      print "Connection succeeded:",MAC_list[i]
+    print "Trying repeater",MAC_list[i]
+    test_1_start_time = time.time()
+    while( (time.time() - test_1_start_time) < 30):
+      process = subprocess.Popen(["./connect_to_AP.sh "+SSID+" "+MAC_list[i]+" "+source_IP], stdout=subprocess.PIPE,shell=True)
+      test_results=process.communicate()[0]
     #print test_results
 
 def ping_test_side_2(SSID,MAC_list):
@@ -277,7 +275,7 @@ def ping_test_side_2(SSID,MAC_list):
     raw_input()
     for j in range(0,len(MAC_list)):
       if(i!=j):
-        process = subprocess.Popen(["./wireless_ping.sh "+SSID+" "+MAC_list[j]+" "+source_IP+" "+destination_IP], stdout=subprocess.PIPE,shell=True)
+        process = subprocess.Popen(["./wireless_ping.sh "+SSID+" "+MAC_list[j]+" "+source_IP+" "+destination_IP+" 3"], stdout=subprocess.PIPE,shell=True)
         test_results=process.communicate()[0]
         if(string.find(test_results,"bytes from") == -1):
           print "Connection failed:",MAC_list[j]

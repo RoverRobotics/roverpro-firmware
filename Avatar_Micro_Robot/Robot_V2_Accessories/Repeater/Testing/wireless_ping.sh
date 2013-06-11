@@ -4,16 +4,48 @@ SSID=$1
 MAC=$2
 source_IP=$3
 destination_IP=$4
+num_seconds=$5
 
-echo $SSID $MAC $source_IP $destination_IP
+echo "Parameters: " $SSID $MAC $source_IP $destination_IP $num_seconds
 
 #while [ 1 ]; do
-  sudo ifconfig wlan0 up
-  sudo iwconfig wlan0 essid "$SSID" ap "$MAC"
-  sudo ifconfig wlan0 $source_IP
+
+sudo ifconfig wlan0 up
+sudo ifconfig wlan0 $source_IP
+
+#disconnect from existing APs
+sudo iwconfig wlan0 essid "dummyessidhopefullydoesn'texist"
+
+for i in `seq 0 $num_seconds`; do
+
+  echo "‎i is $i"
+  up_line=$(iwconfig wlan0 | grep "Not-Associated")
+
+  if [ "$up_line" = "" ]; then
+  echo "Connected"
+  else
+  echo "Not connected.  Connecting now."
+
+  sudo iwconfig wlan0 essid "$SSID" ap $MAC
+  fi
+  sleep 1
+
+
+
   #iwconfig
-  ping -c 1 -W 3 $destination_IP
+
+  ping_string=$(ping -c 1 -W 3 $destination_IP)
+  ping_string_grep=$(echo $ping_string | grep "bytes from")
+ 
+  echo $ping_string
+  if test -n "$ping_string_grep"; then
+    echo "Ping succeeded.  Exiting"
+    break
+  else
+    echo "Ping failed.  Trying again."
+  fi
   
+done
 
 #possible_IPs[0]="10.1.123.3"
 #possible_IPs[1]="10.1.123.4"
