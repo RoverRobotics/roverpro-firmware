@@ -279,12 +279,20 @@ def ping_test_side_1(SSID,MAC_list):
   source_IP = "10.1.123.3"
   destination_IP = "10.1.123.4"
 
+
+
   for i in range(0,len(MAC_list)):
+    error_output_string = "No errors"
+
     print "\r\n\r\nPress [ENTER] on both netbooks at the same time"
-    raw_input()
+    user_input = raw_input()
+
+    if(user_input == "d"):
+      print error_output_string
     
     #wait for other side to change APs
     time.sleep(3)
+
     for j in range(0,len(MAC_list)):
       if(i!=j):
         process = subprocess.Popen(["./wireless_ping.sh "+SSID+" "+MAC_list[j]+" "+source_IP+" "+destination_IP+" 10"], stdout=subprocess.PIPE,shell=True)
@@ -292,8 +300,15 @@ def ping_test_side_1(SSID,MAC_list):
         #print test_results
         if(string.find(test_results,"bytes from") == -1):
           print "Connection failed:",MAC_list[j],"->",MAC_list[i]
+          error_output_string=error_output_string+test_results
         else:
           print "Connection succeeded:",MAC_list[j],"->",MAC_list[i]
+
+  print "\r\n\r\nPress [ENTER]"
+  user_input = raw_input()
+
+  if(user_input == "d"):
+    print error_output_string
       
 
 def initial_setup():
