@@ -1,9 +1,19 @@
 #!/bin/bash
 
 SSID=$1
+MAC=$2
+source_IP=$3
+destination_IP=$4
 
+echo $SSID $MAC $source_IP $destination_IP
 
-
+#while [ 1 ]; do
+  sudo ifconfig wlan0 up
+  sudo iwconfig wlan0 essid "$SSID" ap "$MAC"
+  sudo ifconfig wlan0 $source_IP
+  #iwconfig
+  ping -c 1 -W 3 $destination_IP
+  
 
 #possible_IPs[0]="10.1.123.3"
 #possible_IPs[1]="10.1.123.4"

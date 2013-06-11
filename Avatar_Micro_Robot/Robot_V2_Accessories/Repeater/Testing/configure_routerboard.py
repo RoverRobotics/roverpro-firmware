@@ -1,5 +1,6 @@
 import subprocess
 import time
+import string
 from datetime import datetime
 
 #MAC={}
@@ -23,6 +24,8 @@ time_start = time.time()
 
 def main():
 
+
+  process = subprocess.Popen(["sudo ifconfig wlan0 up"], stdout=subprocess.PIPE,shell=True)
 
   while(True):
     print"\r\n\r\n\r\n"
@@ -60,21 +63,38 @@ def set_router_configuration():
 
   file_write_line("Set router configuration")
 
+  #MAC_list = return_MAC_list("MikroTik")
+
+  #file_write_list("Current MACs on: ",MAC_list)
+
   MAC_list = return_MAC_list("MikroTik")
+  while(len(MAC_list) > 1):
+    print "Power down all repeaters except one wired to netbook, and hit Enter."
+    raw_input()
+    MAC_list = return_MAC_list("MikroTik")
 
-  file_write_list("Current MACs on: ",MAC_list)
+#  print "Select MAC address of router:"
+#  for i in range(0,len(MAC)):
+#    print "[",i,"]: ",MAC[i]
+#  user_input=raw_input()
 
+#  index = int(float(user_input))
   
+  index = -1
 
-  print "Select MAC address of router:"
-  for i in range(0,len(MAC)):
-    print "[",i,"]: ",MAC[i]
-  user_input=raw_input()
+  for i in range (0,len(MAC_temp)):
+    if(MAC_temp[i] == MAC_list[0]):
+      index = i
+      break
 
-  index = int(float(user_input))
+
+  if(index < 0):
+    print "Error: MAC",MAC_list[0],"not in list"
+    return
 
   MAC_temp[index] = "0"
-  IP_address = "10.1.123."+str(index+3)
+#  IP_address = "10.1.123."+str(index+3)
+  IP_address="10.1.123.250"
   
 
 #  if(user_input=="0"):
@@ -91,7 +111,7 @@ def set_router_configuration():
 #    IP_address="10.1.123.6"
 
   file_write_line("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-  file_write_line("@Option"+user_input+" selected: "+MAC[index])
+  file_write_line("@MAC of router: "+MAC_list[0])
   file_write_list("@Mesh MAC list: ",MAC_temp) 
   file_write_line("@SSID: "+SSID)
   file_write_line("@Frequency: "+str(frequency))
@@ -202,13 +222,69 @@ def auto_find_MAC():
 
   print "MAC addresses: ",MAC
 
+  MAC_string=""
+  for i in range(0,len(MAC_list)):
+    MAC_string=MAC_string+" "+MAC_list[i]
+
+  print "Copy the following line to the clipboard in case the program crashes:"
+  print MAC_string
+
+  file_write_line("Better formatted MAC list: "+MAC_string)
+
 
 def test_repeaters():
   print "Enter SSID: "
-  SSID=raw_input()
+  #SSID=raw_input()\
+  SSID="RX-99999005"
+  MAC_list = return_MAC_list(SSID)
+  print len(MAC_list),"repeaters found"
+  print "\r\n\r\nSelect netbook number ([1] or [2]):"
+  Number=raw_input()
+  if(Number=="1"):
+    ping_test_side_1(SSID,MAC_list)
+  elif(Number=="2"):
+    ping_test_side_2(SSID,MAC_list) 
+  
   process = subprocess.Popen(["./check_mesh.sh "+SSID], stdout=subprocess.PIPE,shell=True)
   test_results=process.communicate()[0]
   print test_results
+
+def ping_test_side_1(SSID,MAC_list):
+  print "Press [ENTER] on both netbooks at the same time"
+  raw_input()
+  for i in range(0,len(MAC_list)):
+    print "Press [ENTER] again on both netbooks at the same time"
+    raw_input()
+    #source_IP = "10.1.123."+str(i+2)
+    source_IP = "10.1.123.3"
+    destination_IP = "10.1.123.4"
+
+    process = subprocess.Popen(["./wireless_ping.sh "+SSID+" "+MAC_list[i]+" "+source_IP+" "+destination_IP], stdout=subprocess.PIPE,shell=True)
+    test_results=process.communicate()[0]
+    if(string.find(test_results,"bytes from") == -1):
+      print "Connection failed:",MAC_list[i]
+    else:
+      print "Connection succeeded:",MAC_list[i]
+    #print test_results
+
+def ping_test_side_2(SSID,MAC_list):
+  source_IP = "10.1.123.4"
+  destination_IP = "10.1.123.3"
+  print "Press [ENTER] on both netbooks at the same time"
+  raw_input()
+  for i in range(0,len(MAC_list)):
+    print "Press [ENTER] again on both netbooks at the same time"
+    raw_input()
+    for j in range(0,len(MAC_list)):
+      if(i!=j):
+        process = subprocess.Popen(["./wireless_ping.sh "+SSID+" "+MAC_list[j]+" "+source_IP+" "+destination_IP], stdout=subprocess.PIPE,shell=True)
+        test_results=process.communicate()[0]
+        if(string.find(test_results,"bytes from") == -1):
+          print "Connection failed:",MAC_list[j]
+        else:
+          print "Connection succeeded:",MAC_list[j]
+      
+
 
 def file_timestamp():
   f.write(str(int(time.time()-time_start))+": ")

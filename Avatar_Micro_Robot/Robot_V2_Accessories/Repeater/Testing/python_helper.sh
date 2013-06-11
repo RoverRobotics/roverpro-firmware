@@ -37,7 +37,6 @@ do
 
 ssh -t admin@192.168.88.1 << ENDSSH
 /beep
-/ip address add address $incoming_IP netmask 255.255.255.0 interface wlan1
 /interface bridge port remove 1
 /beep
 /interface mesh add disabled=no
@@ -53,7 +52,7 @@ ${mesh_string[3]}
 /interface wireless print
 /system reboot
 ENDSSH
-
+#
 #/ip address add address $incoming_IP netmask 255.255.255.0 interface wlan1
 #/ip address remove 0
 
