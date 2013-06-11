@@ -280,9 +280,12 @@ def ping_test_side_1(SSID,MAC_list):
   for i in range(0,len(MAC_list)):
     print "Press [ENTER] on both netbooks at the same time"
     raw_input()
+    
+    #wait for other side to change APs
+    time.sleep(3)
     for j in range(0,len(MAC_list)):
       if(i!=j):
-        process = subprocess.Popen(["./wireless_ping.sh "+SSID+" "+MAC_list[j]+" "+source_IP+" "+destination_IP+" 5"], stdout=subprocess.PIPE,shell=True)
+        process = subprocess.Popen(["./wireless_ping.sh "+SSID+" "+MAC_list[j]+" "+source_IP+" "+destination_IP+" 6"], stdout=subprocess.PIPE,shell=True)
         test_results=process.communicate()[0]
         #print test_results
         if(string.find(test_results,"bytes from") == -1):
