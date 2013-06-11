@@ -299,13 +299,21 @@ def initial_setup():
   process = subprocess.Popen(["sudo stop network-manager"], stdout=subprocess.PIPE,shell=True)
   #subprocess.call(['sudo stop network-manager'],shell=True)
   
-  #make sure the network manager module goes down before re-enabling eth0 and wlan0  
-  time.sleep(1)
 
-  #making sure eth0 and wlan0 are up
+  time.sleep(1)
+  is_wlan0_up=""
+
+  #make sure wlan0 is brought up before continuing
+  while(is_wlan0_up==""):
+    process = subprocess.Popen(["sudo ifconfig | grep 'wlan0'"], stdout=subprocess.PIPE,shell=True)
+    is_wlan0_up = process.communicate()[0]
+    process = subprocess.Popen(["sudo ifconfig wlan0 up"], stdout=subprocess.PIPE,shell=True)
+
+
+  #making sure eth0 is up
   process = subprocess.Popen(["sudo ifconfig eth0 up"], stdout=subprocess.PIPE,shell=True)
 
-  process = subprocess.Popen(["sudo ifconfig wlan0 up"], stdout=subprocess.PIPE,shell=True)
+
 
 def clean_up():
   #start network manager again
