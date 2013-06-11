@@ -40,6 +40,7 @@ for i in `seq 1 $num_seconds`; do
     echo "Ping succeeded.  Exiting"
     break
   else
+    iwconfig wlan0 | grep "ESSID" -A 1
     echo "Ping failed.  Trying again."
   fi
   

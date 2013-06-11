@@ -200,7 +200,7 @@ def return_MAC_list(SSID):
   for i in range(0,len(MAC_list_raw)):
     if(((i+1)%5)==0):
       MAC_list.append(MAC_list_raw[i])
-  print MAC_list
+  #print MAC_list
   MAC_list.sort()
   return MAC_list
 
@@ -237,16 +237,18 @@ def auto_find_MAC():
 
 
 def test_repeaters():
-  print "Enter SSID: "
+  print "\r\nEnter SSID: "
   #SSID=raw_input()\
   SSID="RX-99999005"
   MAC_list = return_MAC_list(SSID)
-  print len(MAC_list),"repeaters found"
+  print "\r\n",len(MAC_list),"repeaters found"
 
   print "\r\n\r\n[1]st Side"
   print "[2]nd Side"
   print "[s]low 2nd Side"
   Number=raw_input()
+ 
+
   if(Number=="1"):
     ping_test_side_1(SSID,MAC_list)
   elif(Number=="2"):
@@ -254,19 +256,19 @@ def test_repeaters():
   elif(Number=="s"): 
     ping_test_side_2(SSID,MAC_list,45)
   
-  process = subprocess.Popen(["./check_mesh.sh "+SSID], stdout=subprocess.PIPE,shell=True)
-  test_results=process.communicate()[0]
-  print test_results
+  #process = subprocess.Popen(["./check_mesh.sh "+SSID], stdout=subprocess.PIPE,shell=True)
+  #test_results=process.communicate()[0]
+  #print test_results
 
 def ping_test_side_2(SSID,MAC_list,seconds):
 
   for i in range(0,len(MAC_list)):
-    print "Press [ENTER] on both netbooks at the same time"
+    print "\r\n\r\nPress [ENTER] on both netbooks at the same time"
     raw_input()
     #source_IP = "10.1.123."+str(i+2)
     source_IP = "10.1.123.4"
     destination_IP = "10.1.123.3"
-    print "Trying repeater",MAC_list[i]
+    print "Connecting to repeater",MAC_list[i]
     test_1_start_time = time.time()
     while( (time.time() - test_1_start_time) < seconds):
       process = subprocess.Popen(["./connect_to_AP.sh "+SSID+" "+MAC_list[i]+" "+source_IP], stdout=subprocess.PIPE,shell=True)
@@ -278,20 +280,20 @@ def ping_test_side_1(SSID,MAC_list):
   destination_IP = "10.1.123.4"
 
   for i in range(0,len(MAC_list)):
-    print "Press [ENTER] on both netbooks at the same time"
+    print "\r\n\r\nPress [ENTER] on both netbooks at the same time"
     raw_input()
     
     #wait for other side to change APs
     time.sleep(3)
     for j in range(0,len(MAC_list)):
       if(i!=j):
-        process = subprocess.Popen(["./wireless_ping.sh "+SSID+" "+MAC_list[j]+" "+source_IP+" "+destination_IP+" 6"], stdout=subprocess.PIPE,shell=True)
+        process = subprocess.Popen(["./wireless_ping.sh "+SSID+" "+MAC_list[j]+" "+source_IP+" "+destination_IP+" 10"], stdout=subprocess.PIPE,shell=True)
         test_results=process.communicate()[0]
         #print test_results
         if(string.find(test_results,"bytes from") == -1):
-          print "Connection failed:",MAC_list[j]
+          print "Connection failed:",MAC_list[j],"->",MAC_list[i]
         else:
-          print "Connection succeeded:",MAC_list[j]
+          print "Connection succeeded:",MAC_list[j],"->",MAC_list[i]
       
 
 def initial_setup():
