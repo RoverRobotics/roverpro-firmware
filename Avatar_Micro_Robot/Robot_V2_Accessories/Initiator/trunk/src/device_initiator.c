@@ -162,7 +162,7 @@ static void Initiator_FSM(void)
 
   if(REG_INITIATOR_CHARGE == 0)
   {
-    if( (state != sWaiting) && (state != sDischarging) && (state != sThermalRecovery) )
+    if( (state != sWaiting) && (state != sDischarging) && (state != sThermalRecovery) && (state != sFiring) )
     {  
       state = sDischarging;
     }
