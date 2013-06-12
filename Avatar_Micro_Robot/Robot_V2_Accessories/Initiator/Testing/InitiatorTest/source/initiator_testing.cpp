@@ -63,8 +63,8 @@ FOOTER_H
 
 /*---------------------------Type Definitions---------------------------------*/
 // from the perspective of software
-typedef uint8_t in_packet_t[240];
-typedef uint8_t out_packet_t[240];
+typedef uint8_t in_packet_t[0xA0];
+typedef uint8_t out_packet_t[0xA0];
 
 using namespace std;
 using namespace rbx;
