@@ -247,7 +247,7 @@ static void Initiator_FSM(void)
       capacitor_charge_flag = 0;
       DISCHARGE(1);
       thermal_recovery_counter++;
-      if(thermal_recovery_counter > 500)
+      if( (thermal_recovery_counter > 500) && (REG_INITIATOR_FIRE==0) && (REG_INITIATOR_CHARGE==0))
       {
         thermal_recovery_counter = 0;
         state = sWaiting;
