@@ -243,8 +243,8 @@ def auto_find_MAC():
 
 def test_repeaters():
   print "\r\nEnter SSID: "
-  #SSID=raw_input()\
-  SSID="RX-99999005"
+  SSID=raw_input()\
+  #SSID="RX-99999005"
   MAC_list = return_MAC_list(SSID)
   print "\r\n",len(MAC_list),"repeaters found"
 
