@@ -59,9 +59,10 @@ def main():
 
 def set_router_configuration():
 
-  MAC_temp = MAC
+  #use list() so both variables don't reference the same list
+  MAC_temp = list(MAC)
   IP_address=""
-  SSID="RX-99999005"
+  SSID="RX-99999002"
   frequency=2422
 
 
@@ -85,16 +86,20 @@ def set_router_configuration():
 #  index = int(float(user_input))
   
   index = -1
-
-  for i in range (0,len(MAC_temp)):
-    if(MAC_temp[i] == MAC_list[0]):
-      index = i
-      break
-
-
-  if(index < 0):
-    print "Error: MAC",MAC_list[0],"not in list"
+  if(len(MAC_list) > 0):
+    for i in range (0,len(MAC_temp)):
+      if(MAC_temp[i] == MAC_list[0]):
+        index = i
+        break
+    if(index < 0):
+      print "Error: MAC",MAC_list[0],"not in list"
+      return
+  else:
+    print "Make sure router is reset to default first"
     return
+
+
+
 
   MAC_temp[index] = "0"
 #  IP_address = "10.1.123."+str(index+3)

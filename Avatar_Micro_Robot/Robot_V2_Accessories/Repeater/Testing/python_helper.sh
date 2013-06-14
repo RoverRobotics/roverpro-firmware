@@ -15,6 +15,8 @@ echo $frequency
 
 new_computer_IP=$incoming_IP9 
 
+ssh-keygen -R 192.168.88.1
+
 
 IP[0]=3
 IP[1]=4

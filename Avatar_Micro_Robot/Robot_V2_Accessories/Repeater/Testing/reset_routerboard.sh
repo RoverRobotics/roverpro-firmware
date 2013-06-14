@@ -3,6 +3,7 @@
 sudo ifconfig wlan0 down
 sudo ifconfig eth0 192.168.88.2
 
+ssh-keygen -R 192.168.88.1
 
 #possible_IPs[0]="192.168.88.1"
 #possible_IPs[1]="10.1.123.3"
