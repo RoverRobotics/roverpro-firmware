@@ -50,6 +50,8 @@ unsigned char are_motors_stopped(void);
 //ADC counts = .01*i*.001*11k*1023/3.3
 //ADC counts = i*34.1
 //set overcurrent to be 10A
-#define OVERCURRENT_ADC 341
+//#define OVERCURRENT_ADC 341
+//#define OVERCURRENT_ADC 682
+#define OVERCURRENT_ADC 512
 
 #endif
