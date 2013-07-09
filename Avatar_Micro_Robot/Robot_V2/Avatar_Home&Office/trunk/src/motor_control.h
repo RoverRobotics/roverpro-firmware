@@ -47,6 +47,8 @@ void motor_control_FSM(void);
 
 unsigned char are_motors_stopped(void);
 
+void disable_motors(unsigned char disabled);
+
 //ADC counts = .01*i*.001*11k*1023/3.3
 //ADC counts = i*34.1
 //set overcurrent to be 10A

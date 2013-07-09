@@ -29,6 +29,12 @@ Notes:
 static void UpdateLDutyCycle(const uint16_t duty_cycle);
 static void UpdateRDutyCycle(const uint16_t duty_cycle);
 
+static unsigned char are_motors_disabled(void);
+static unsigned char disable_motors_flag = 0;
+
+static void motor_accel_loop(unsigned char reset);
+static int filtered_motor_commands[2] = {0,0};
+
 
 // TODO: ensure these do NOT change
 //#define DEFAULT_DC              500//956   // [ticks]
@@ -186,6 +192,12 @@ int16_t ESC_speed(void) {
 static void set_motor_pwm(int left_speed, int right_speed)
 {
   
+  if(are_motors_disabled())
+  {
+    left_speed = 0;
+    right_speed = 0;
+  }
+
   UpdateLDutyCycle(abs(left_speed)*8);
   UpdateRDutyCycle(abs(right_speed)*8);
 
@@ -424,6 +436,8 @@ void motor_control_FSM(void)
 
   static sOvercurrentState state = 0;
 
+  motor_accel_loop(0);
+
   switch(state)
   {
     case sRunning:
@@ -442,7 +456,7 @@ void motor_control_FSM(void)
         break;
       }
 
-      set_motor_pwm(last_motor_commands[0],last_motor_commands[1]);
+      set_motor_pwm(filtered_motor_commands[0],filtered_motor_commands[1]);
 
       if(BQ24745_ACOK())
       {
@@ -456,6 +470,7 @@ void motor_control_FSM(void)
     case sWaitingAfterOvercurrent:
 
       set_motor_pwm(0,0);
+      motor_accel_loop(1);
       overcurrent_wait_counter++;
       if(overcurrent_wait_counter > 200)
       {
@@ -469,6 +484,7 @@ void motor_control_FSM(void)
     break;
     case sCommunicationTimeout:
       set_motor_pwm(0,0);
+      motor_accel_loop(1);
       if(new_motor_control_message_flag)
       {
         state = sRunning;
@@ -495,9 +511,9 @@ void motor_control_FSM(void)
       }
 
       //if on the dock, only allow backward motion
-      if( (last_motor_commands[0] > 0) && (last_motor_commands[1] < 0) )
+      if( (filtered_motor_commands[0] > 0) && (filtered_motor_commands[1] < 0) )
       {
-        set_motor_pwm(last_motor_commands[0],last_motor_commands[1]);
+        set_motor_pwm(filtered_motor_commands[0],filtered_motor_commands[1]);
       }
       else
       {
@@ -539,6 +555,16 @@ static unsigned char check_overcurrent(void)
 
 }
 
+void disable_motors(unsigned char disabled)
+{
+  disable_motors_flag = disabled;
+}
+
+static unsigned char are_motors_disabled(void)
+{
+  return disable_motors_flag;
+}
+
 static unsigned char check_communication_timeout(void)
 {
   static unsigned int communication_timeout_counter = 0;
@@ -547,7 +573,6 @@ static unsigned char check_communication_timeout(void)
   {
     new_motor_control_message_flag = 0;
     communication_timeout_counter = 0;
-    set_motor_pwm(last_motor_commands[0],last_motor_commands[1]);
   }
   else
   {
@@ -562,5 +587,46 @@ static unsigned char check_communication_timeout(void)
   }
 
   return 0;
+
+}
+
+static void motor_accel_loop(unsigned char reset)
+{
+  unsigned int i;
+
+  static int last_motor_commands_temp[2] = {0,0};
+
+  if(reset)
+  {
+    last_motor_commands_temp[0] = 0;
+    last_motor_commands_temp[1] = 0;
+    return;
+  }
+
+  for(i=0;i<2;i++)
+  {
+
+    if(last_motor_commands_temp[i] < last_motor_commands[i])
+      last_motor_commands_temp[i]+=1;
+    else if(last_motor_commands_temp[i] > last_motor_commands[i])
+      last_motor_commands_temp[i]-=1;
+
+      if(last_motor_commands[i] == 0)
+        last_motor_commands_temp[i] = 0;
+
+    if( (last_motor_commands_temp[i] > 0) && (last_motor_commands_temp[i] < 30) && (last_motor_commands[i] > 30) )
+      last_motor_commands_temp[i] = 30;
+    else if( (last_motor_commands_temp[i] < 0) && (last_motor_commands_temp[i] > -30) && (last_motor_commands[i] < -30) )
+      last_motor_commands_temp[i] = -30;
+  
+    if( (last_motor_commands_temp[i] > 40) || (last_motor_commands_temp[i] < -40) )
+      filtered_motor_commands[i] = last_motor_commands_temp[i];
+    else
+      filtered_motor_commands[i] = 0;
+
+    //reverse left motor
+    /*if(i==0)
+      filtered_motor_commands[i]*=-1;*/
+  }
 
 }

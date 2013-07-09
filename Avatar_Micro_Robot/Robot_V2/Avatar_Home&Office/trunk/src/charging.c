@@ -106,9 +106,12 @@ void battery_FSM(void)
     sLowBatteryOffCharger,
     sFullBatteryOffCharger,
     sTrickleCharging,
+    sLowBattShutoff1,
+    sLowBattShutoff2,
   } sBatteryState;
 
   static unsigned int low_battery_counter = 0;
+  static unsigned int motor_shutoff_counter = 0;
 
   static sBatteryState state = sLowBatteryOffCharger;
 
@@ -136,6 +139,8 @@ void battery_FSM(void)
       battery_fully_charged = 0;
       charging_state = 0x80;
       charging_restart_counter = 0;
+
+      disable_motors(0);
 
       if(BQ24745_ACOK()==0)
       {
@@ -241,12 +246,7 @@ void battery_FSM(void)
 
       if(return_battery_voltage() < MIN_LOW_BATT_ADC_COUNTS)
       {
-
-        low_battery_counter++;
-        if(low_battery_counter > 1000)
-        {
-          SYS_BUS_ON(0);
-        }
+        state = sLowBattShutoff1;
       }
       else
       {
@@ -256,6 +256,11 @@ void battery_FSM(void)
     break;
     case sFullBatteryOffCharger:
       low_battery_counter = 0;
+      disable_motors(0);
+
+      SYS_BUS_ON(1);
+      V5_ON(1);
+
       if(return_battery_voltage() < MIN_LOW_BATT_ADC_COUNTS)
       {
         state = sLowBatteryOffCharger;
@@ -265,6 +270,49 @@ void battery_FSM(void)
 
         state = sLowBatteryOnCharger;
       }
+    break;
+
+    case sLowBattShutoff1:
+      motor_shutoff_counter = 0;
+      low_battery_counter++;
+      V5_ON(0);
+      if(low_battery_counter > 500)
+      {
+        disable_motors(1);
+        state = sLowBattShutoff2;
+      }
+
+      if(BQ24745_ACOK())
+      {
+        state = sLowBatteryOnCharger;
+      }
+      else if (return_battery_voltage() > MIN_LOW_BATT_ADC_COUNTS)
+      {
+        state = sFullBatteryOffCharger;
+      }
+
+    break;
+    case sLowBattShutoff2:
+  
+      low_battery_counter++;
+      motor_shutoff_counter++;
+
+      if(low_battery_counter > 1000)
+      {
+        SYS_BUS_ON(0);
+      }
+
+      if(BQ24745_ACOK())
+      {
+        state = sLowBatteryOnCharger;
+      }
+      else if (return_battery_voltage() > MIN_LOW_BATT_ADC_COUNTS)
+      {
+        low_battery_counter = 0;
+        if(motor_shutoff_counter > 500)
+          state = sFullBatteryOffCharger;
+      }
+
     break;
 
 

@@ -373,6 +373,8 @@ static unsigned long return_robot_id(void)
     Nop();
   }
 
+  return 3198;
+
   if(Is_CRC_valid(bytes_for_CRC,8))
   {
     return robot_id;
@@ -381,7 +383,6 @@ static unsigned long return_robot_id(void)
   {
     return 0xffffffff;
   }
-  //return 0xabcdef99;
 }
 
 void __attribute__((__interrupt__, auto_psv)) _U1TXInterrupt(void) {
