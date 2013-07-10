@@ -595,6 +595,7 @@ static void motor_accel_loop(unsigned char reset)
   unsigned int i;
 
   static int last_motor_commands_temp[2] = {0,0};
+  static int last_motor_commands_scaled[2] = {0,0};
 
   if(reset)
   {
@@ -606,17 +607,23 @@ static void motor_accel_loop(unsigned char reset)
   for(i=0;i<2;i++)
   {
 
-    if(last_motor_commands_temp[i] < last_motor_commands[i])
+    //if robot is turning, don't scale motor speeds
+    if( ((last_motor_commands[0] > 0) && (last_motor_commands[1] > 0)) || ((last_motor_commands[0] < 0) && (last_motor_commands[1] < 0)) )
+      last_motor_commands_scaled[i] = last_motor_commands[i];    
+    else
+      last_motor_commands_scaled[i] = last_motor_commands[i]*0.9;
+
+    if(last_motor_commands_temp[i] < last_motor_commands_scaled[i])
       last_motor_commands_temp[i]+=1;
-    else if(last_motor_commands_temp[i] > last_motor_commands[i])
+    else if(last_motor_commands_temp[i] > last_motor_commands_scaled[i])
       last_motor_commands_temp[i]-=1;
 
       if(last_motor_commands[i] == 0)
         last_motor_commands_temp[i] = 0;
 
-    if( (last_motor_commands_temp[i] > 0) && (last_motor_commands_temp[i] < 30) && (last_motor_commands[i] > 30) )
+    if( (last_motor_commands_temp[i] > 0) && (last_motor_commands_temp[i] < 30) && (last_motor_commands_scaled[i] > 30) )
       last_motor_commands_temp[i] = 30;
-    else if( (last_motor_commands_temp[i] < 0) && (last_motor_commands_temp[i] > -30) && (last_motor_commands[i] < -30) )
+    else if( (last_motor_commands_temp[i] < 0) && (last_motor_commands_temp[i] > -30) && (last_motor_commands_scaled[i] < -30) )
       last_motor_commands_temp[i] = -30;
   
     if( (last_motor_commands_temp[i] > 40) || (last_motor_commands_temp[i] < -40) )
