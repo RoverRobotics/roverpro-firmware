@@ -61,8 +61,11 @@ Notes:
 #define C_LO_EN(a)          (_TRISD5 = !(a))
 
 #define A_LO                (_LATD1)
+#define A_LO_MASK           0b10
 #define B_LO                (_LATD3)
+#define B_LO_MASK           0b1000
 #define C_LO                (_LATD5)
+#define C_LO_MASK           0b100000
 
 
 // TODO: ensure these do NOT change
@@ -146,6 +149,8 @@ static void handle_filtering();
 
 static void Brake();
 
+static void test_MOSFETs(void);
+
 //---------------------------Test Harness---------------------------------------
 #ifdef TEST_ESC
 #include "./core/ConfigurationBits.h"
@@ -176,7 +181,15 @@ int main(void) {
   //Energize(1);
   //Energize(1);
   
-  //_CNIE = 0;
+  _CNIE = 0;
+  Brake();
+  test_MOSFETs();
+  while(1)
+  {
+    //Coast();
+
+    ClrWdt();
+  }
 
   while (1) {
 
@@ -749,19 +762,33 @@ static unsigned int return_speed_command(void)
 
 }
 
+
+//brake isn't working like I think it should -- need to investigate later
 static void Brake(void)
 {
-  // turn everything off
-  LATD = 0;
-  A_HI_RPN_PIN = FN_NULL; A_LO_RPN_PIN = FN_NULL;
-  B_HI_RPN_PIN = FN_NULL; B_LO_RPN_PIN = FN_NULL;
-  C_HI_RPN_PIN = FN_NULL; C_LO_RPN_PIN = FN_NULL;
-  LATD = 0; // to really ensure everything is off
+  // turn everything off, except low side
+  LATD = 0 | A_LO_MASK | B_LO_MASK | C_LO_MASK;
+  B_HI_RPN_PIN = FN_NULL; C_HI_RPN_PIN = FN_NULL; C_LO_RPN_PIN = FN_NULL;
+  A_HI_RPN_PIN = FN_NULL; A_LO_RPN_PIN = FN_NULL; B_LO_RPN_PIN = FN_NULL;
+  LATD = 0 | A_LO_MASK | B_LO_MASK | C_LO_MASK; // to really ensure everything is off
 
-  //turn on low side MOSFETs
-  A_LO = 1;
-  B_LO = 1;
-  C_LO = 1;
+}
+
+static void test_MOSFETs(void)
+{
+  unsigned int i;
+  Brake();
+  UpdateDutyCycle(400);
+  while(1)
+  {
+  for(i=1;i<7;i++)
+  {
+    Energize(i);
+    Delay(2000);
+  }
+  }
+  
+
 
 }
 
