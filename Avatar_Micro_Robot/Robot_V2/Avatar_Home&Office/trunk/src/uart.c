@@ -373,7 +373,7 @@ static unsigned long return_robot_id(void)
     Nop();
   }
 
-  return 3198;
+//  return 3198;
 
   if(Is_CRC_valid(bytes_for_CRC,8))
   {
