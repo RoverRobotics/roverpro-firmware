@@ -35,6 +35,7 @@ def main():
     print "[c]heck MAC addresses"
     print "[d]isplay configuration"
     print "[t]est all repeaters"
+    print "set router configuration with [l]ocal MAC"
     print "[r]eset router to default"
     print "[q]uit"
 
@@ -53,9 +54,97 @@ def main():
       display_configuration()
     elif(user_input=="t"):
       test_repeaters()
+    elif(user_input=="l"):
+      local_MAC()
     elif(user_input=="q"):
       clean_up()
       break
+
+def local_MAC():
+
+  while True:
+    print "Enter 8 digit SSID number"
+    user_input=raw_input()
+    if(len(user_input)==8):
+      break
+    else:
+      print "Incorrect length.  Try again"
+  SSID_number = user_input
+  SSID_number_int = int(float(user_input))
+  SSID_number_hex = hex(SSID_number_int)
+  
+  #Generate SSID
+  SSID = "RXR-"+SSID_number
+
+  while(True):
+    print "Enter channel number"
+    user_input=raw_input()
+    if((int(user_input) >= 1) & (int(user_input) <= 14)):
+      break
+    print "Enter a number between 1 and 14"
+
+  if(user_input=="1"):
+    frequency="2412"
+  elif(user_input=="2"):
+    frequency="2417"
+  elif(user_input=="3"):
+    frequency = "2422"
+  elif(user_input=="4"):
+    frequency = "2427"
+  elif(user_input=="5"):
+    frequency = "2432"
+  elif(user_input=="6"):
+    frequency = "2437"
+  elif(user_input=="7"):
+    frequency = "2442"
+  elif(user_input=="8"):
+    frequency = "2447"
+  elif(user_input=="9"):
+    frequency = "2452"
+  elif(user_input=="10"):
+    frequency = "2457"
+  elif(user_input=="11"):
+    frequency = "2462"
+  elif(user_input=="12"):
+    frequency = "2467"
+  elif(user_input=="13"):
+    frequency = "2472"
+  elif(user_input=="14"):
+    frequency = "2484"
+  
+  
+  #MAC addresses that start with x2, x6, xA or xE are locally administered
+  MAC_range = ""
+  for i in range (0,4):
+
+    MAC_range = hex(SSID_number_int%256).lstrip("0x")+MAC_range
+
+    if((SSID_number_int%256) < 0x10):
+      MAC_range = ":0"+MAC_range
+    else:
+      MAC_range = ":"+MAC_range
+
+    SSID_number_int=int(SSID_number_int/256)
+  MAC_range = "02"+MAC_range
+
+
+
+  while(True):
+    print "Enter repeater number (0 to exit):"
+    user_input=raw_input()
+    repeater_number=int(user_input)
+
+    print SSID
+    print repeater_number
+    print MAC_range
+
+
+    argument_string =  MAC_range+" "+str(repeater_number)+" 10.1.123 "+SSID+" "+frequency
+
+    process = subprocess.Popen(["./custom_mac.sh "+argument_string], stdout=subprocess.PIPE,shell=True)
+    process_output=process.communicate()[0]
+    print process_output
+  
 
 def set_router_configuration():
 
