@@ -1,5 +1,5 @@
 #include "usb_communication.h"
-#include "microchip/USB/usb.h"
+#include "../microchip/USB/usb.h"
 
 unsigned int i, j, n = 0;
 unsigned int  cur_word, reg_index, checksum;
