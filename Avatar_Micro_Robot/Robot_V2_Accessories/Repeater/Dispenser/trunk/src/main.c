@@ -15,7 +15,7 @@
 
 #include "stdhdr.h"
 #include "device_repeater.h"
-
+#include "usb_communication.h"
 
 // -------------------------------------------------------------------------
 // PIC24FJ256GB106 FLASH CONFIGURATION
@@ -37,13 +37,13 @@ _CONFIG2( IESO_OFF & FCKSM_CSDCMD & OSCIOFNC_ON & POSCMOD_HS &
 
 #pragma udata
 
-int gNewData;
+//int gNewData;
 int gpio_id = 0;
-int gRegisterCount = 0;
+/*int gRegisterCount = 0;
 uint8_t OutPacket[OUT_PACKET_LENGTH];
 uint8_t InPacket[IN_PACKET_LENGTH];
 USB_HANDLE USBGenericOutHandle = 0;
-USB_HANDLE USBGenericInHandle = 0;
+USB_HANDLE USBGenericInHandle = 0;*/
 
 
 // -------------------------------------------------------------------------
@@ -107,11 +107,12 @@ static void InitializeSystem(void)
 {
 	gpio_id = PORTE & 0x001F; ///< 5-bit board ID (RE0 to RE4)
 
-	// get number of registers
+  Initialize_USB_Message();
+	/*// get number of registers
     while( registers[gRegisterCount].ptr != 0 )
 	{
 		gRegisterCount++;
-	}
+	}*/
 
 
 	// ---------------------------------------------------------------------
@@ -255,9 +256,9 @@ OutPacket[70] = 0x2d;
 OutPacket[71] = 0x19;*/
 
 
-
-
-
+  Handle_USB_Message();
+}  
+  /*
 
 	if((USBDeviceState < CONFIGURED_STATE)||(USBSuspendControl==1)) return;
     
@@ -397,3 +398,4 @@ BOOL USER_USB_CALLBACK_EVENT_HANDLER(USB_EVENT event, void *pdata, WORD size)
     }      
     return TRUE; 
 }
+*/
