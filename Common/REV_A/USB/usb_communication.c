@@ -5,6 +5,8 @@ unsigned int i, j, n = 0;
 unsigned int  cur_word, reg_index, checksum;
 unsigned int  reg_size;
 
+
+unsigned char USB_timeout_counter = 0;
 int gNewData;
 int gRegisterCount = 0;
 uint8_t OutPacket[OUT_PACKET_LENGTH];
@@ -112,6 +114,7 @@ void Handle_USB_Message(void)
 			}
 			else
 			{
+        USB_timeout_counter = 0;
 			    if( (n + reg_size) > OUT_PACKET_LENGTH ) break; // overflow
 				memcpy(registers[reg_index].ptr, OutPacket + n, reg_size);
 				n += reg_size; // move OUT packet pointer
