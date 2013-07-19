@@ -134,6 +134,9 @@ def local_MAC():
     user_input=raw_input()
     repeater_number=int(user_input)
 
+    if(repeater_number==0):
+      break;
+
     print SSID
     print repeater_number
     print MAC_range

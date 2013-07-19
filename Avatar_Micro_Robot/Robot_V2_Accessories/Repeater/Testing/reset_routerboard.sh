@@ -36,7 +36,7 @@ ssh-keygen -R 192.168.88.1
 
   
 
-ssh -t admin@192.168.88.1 << ENDSSH
+ssh -o "StrictHostKeyChecking no" -t admin@192.168.88.1 << ENDSSH
 echo Starting
 /system reset-configuration
 /system reboot

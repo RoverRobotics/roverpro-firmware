@@ -13,8 +13,10 @@ echo $frequency
 
 new_computer_IP=$incoming_IP9 
 
-lowest_MAC_byte=test=`printf "%02x" $repeater_number`
-MAC=MAC_range+":"+$lowest_MAC_byte
+lowest_MAC_byte=`printf "%02x" $repeater_number`
+MAC=$MAC_range":"$lowest_MAC_byte
+
+echo "MAC is " $MAC
 
 IP[0]=3
 IP[1]=4
@@ -37,7 +39,7 @@ do
   fi
  done			
 
-ssh -t admin@192.168.88.1 << ENDSSH
+ssh -o "StrictHostKeyChecking no" -t admin@192.168.88.1 << ENDSSH
 /beep
 /interface bridge port remove 1
 /beep
@@ -46,10 +48,10 @@ ssh -t admin@192.168.88.1 << ENDSSH
 /interface wireless set wlan1 mac-address=$MAC
 /interface wireless set wlan1 disabled=no ssid=$SSID frequency=$frequency band="2ghz-b/g" mode=ap-bridge wds-mode=static-mesh wds-default-bridge=mesh1
 /beep
-${mesh_string[0]}
 ${mesh_string[1]}
 ${mesh_string[2]}
 ${mesh_string[3]}
+${mesh_string[4]}
 /ip address print
 /interface wireless wds print
 /interface wireless print
