@@ -3,6 +3,5 @@
 
 sudo python configure_routerboard.py
 
-while [ True ]; do
-sleep 1
-done
+echo "\r\n\r\n\r\nPress [ENTER] to exit"
+read user_input
