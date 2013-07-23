@@ -181,15 +181,18 @@ int main(void) {
   //Energize(1);
   //Energize(1);
   
-  _CNIE = 0;
-  Brake();
-  test_MOSFETs();
+  //_CNIE = 0;
+  /*Brake();
+  //test_MOSFETs();
   while(1)
   {
-    //Coast();
+    Coast();
+    Delay(1000);
+    Brake();
+    Delay(1000);
 
     ClrWdt();
-  }
+  }*/
 
   while (1) {
 
@@ -762,8 +765,6 @@ static unsigned int return_speed_command(void)
 
 }
 
-
-//brake isn't working like I think it should -- need to investigate later
 static void Brake(void)
 {
   // turn everything off, except low side
