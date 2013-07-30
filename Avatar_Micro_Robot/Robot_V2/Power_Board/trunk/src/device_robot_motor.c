@@ -3233,6 +3233,7 @@ void handle_power_bus(void)
   unsigned char battery_data1[20], battery_data2[20];
   unsigned char old_battery[7] = {'B','B','-','2','5','9','0'};
   unsigned char new_battery[9] = {'B','T','-','7','0','7','9','1','B'};
+  unsigned char BT70791_CK[9] = {'B','T','-','7','0','7','9','1','C'};
   unsigned char custom_matthews_battery[7] = {'R','O','B','O','T','E','X'};
   unsigned int j;
 
@@ -3265,6 +3266,15 @@ void handle_power_bus(void)
     if(check_string_match(new_battery,battery_data1,9) || check_string_match(new_battery,battery_data2,9))
     {
       send_debug_uart_string("BATTERY:  BT-70791B\r\n",21);
+      block_ms(10);
+      turn_on_power_bus_new_method();
+      return;
+    }
+	
+    //If we're using Bren-Tronics BT-70791C
+    if(check_string_match(BT70791_CK,battery_data1,9) || check_string_match(BT70791_CK,battery_data2,9))
+    {
+      send_debug_uart_string("BATTERY:  BT-70791C\r\n",21);
       block_ms(10);
       turn_on_power_bus_new_method();
       return;
