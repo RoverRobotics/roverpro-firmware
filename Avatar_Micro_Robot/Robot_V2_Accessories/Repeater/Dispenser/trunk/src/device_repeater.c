@@ -360,12 +360,21 @@ static void test_servo_positions(void)
   state_counter++;
 
 
-  if (state_counter > 1000)
+  if(REG_REPEATER_POSITIONS&0b1000)
+  {
+    REG_REPEATER_RELEASE = 1;
+  }
+  else
+  {
+    REG_REPEATER_RELEASE = 0;
+  }
+
+  /*if (state_counter > 1000)
   {
    REG_REPEATER_RELEASE = 0;
     state_counter = 0;
   }
   else if(state_counter > 500)
-   REG_REPEATER_RELEASE = 1;
+   REG_REPEATER_RELEASE = 1;*/
 
 }
