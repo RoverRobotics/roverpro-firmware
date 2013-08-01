@@ -113,7 +113,8 @@ static int HandleUSBCommunication(void);
 void incoming_callback(struct libusb_transfer *transfer);
 void outgoing_callback(struct libusb_transfer *transfer);
 
-void PrintRepeaterPositions(void);
+void PrintRepeaterPositions(unsigned char positions);
+void ReadRepeaterPositions(void);
 void OpenDispenser(void);
 void CloseDispenser(void);
 unsigned char handle_dispenser_message(unsigned char REG_REPEATER_RELEASE);
@@ -125,10 +126,11 @@ int main(int argn, char *argc[]) {
 
   //PressEnterToContinue();
 
+  InitRoboteXDevice();
 
   if(input_argument[0] == 'd')
   {
-    PrintRepeaterPositions();
+    ReadRepeaterPositions();
   }
   else if(input_argument[0] == 'o')
   {
@@ -429,28 +431,36 @@ void PressEnterToContinue(void) {
   cin.ignore();
 }
 
-void PrintRepeaterPositions(void){
+void ReadRepeaterPositions(void){
 
-  unsigned char positions = handle_repeater_message(0xff);
+  unsigned char positions = handle_dispenser_message(0xff);
+
+  PrintRepeaterPositions(positions);
   
-  printf("REG_REPEATER_POSITIONS: %x\r\n",positions);
-
-
+}
+void PrintRepeaterPositions(unsigned char positions)
+{
+  int i;
+  printf("\r\n\r\n\r\n");
+  for(i=3;i>=0;i--)
+  {
+    printf("REPEATER %i: %i \r\n",i+1,((positions >> i)&0x01));
+  }
 }
 
 void OpenDispenser(void)
 {
-  unsigned char positions = handle_repeater_message(0x01);
+  unsigned char positions = handle_dispenser_message(0x01);
   
-  printf("REG_REPEATER_POSITIONS: %x\r\n",positions);
+  PrintRepeaterPositions(positions);
 
 }
 void CloseDispenser(void)
 {
 
-  unsigned char positions = handle_repeater_message(0x00);
+  unsigned char positions = handle_dispenser_message(0x00);
   
-  printf("REG_REPEATER_POSITIONS: %x\r\n",positions);
+  PrintRepeaterPositions(positions);
 
 }
 
@@ -476,8 +486,8 @@ unsigned char handle_dispenser_message(unsigned char REG_REPEATER_RELEASE)
       out_packet[2] = REG_REPEATER_RELEASE;
       out_packet[3] = repeater_positions_index;
       out_packet[4] = 0x80;
-      out_packet[8] = 0xff;
-      out_packet[9] = 0xff;
+      out_packet[5] = 0xff;
+      out_packet[6] = 0xff;
     }
 
 		if (!HandleUSBCommunication())
