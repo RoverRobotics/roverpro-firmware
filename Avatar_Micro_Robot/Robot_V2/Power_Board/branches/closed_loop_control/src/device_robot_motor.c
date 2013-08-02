@@ -1689,11 +1689,11 @@ void PinRemap(void)
 	// Configure Input Functions
 	//function=pin
 	// Assign IC1 To L_Encoder_A
-	RPINR7bits.IC1R = M1_TACHO_RPn; 
+	//RPINR7bits.IC1R = M1_TACHO_RPn; 
 	
 
 	// Assign IC3 To Encoder_R1A
-	RPINR8bits.IC3R = M2_TACHO_RPn;
+	//RPINR8bits.IC3R = M2_TACHO_RPn;
 	
 
  	#ifdef XbeeTest
@@ -1872,10 +1872,10 @@ void MC_Ini(void)//initialzation for the whole program
  	//initialize AD
  	IniAD();
 	//initialize timer
-	IniTimer2();
+//	IniTimer2();
 	IniTimer3();
 	IniTimer1();
- 	IniTimer4();
+// 	IniTimer4();
  	IniTimer5();
 	//initialize PWM sub module
  	PWM1Ini();
@@ -1889,8 +1889,8 @@ void MC_Ini(void)//initialzation for the whole program
 	PWM9Ini();*/
 
 	//initialize input capture
-	IniIC1();
-	IniIC3();
+	//IniIC1();
+	//IniIC3();
 
  	I2C1Ini();
  	I2C2Ini();
@@ -1914,7 +1914,7 @@ void InterruptIni()
  	//remap all the interrupt routines
  	T2InterruptUserFunction=Motor_T2Interrupt;
  	T3InterruptUserFunction=Motor_T3Interrupt;
- 	T4InterruptUserFunction=Motor_T4Interrupt;
+// 	T4InterruptUserFunction=Motor_T4Interrupt;
  	T5InterruptUserFunction=Motor_T5Interrupt;
  	IC1InterruptUserFunction=Motor_IC1Interrupt;
  	IC3InterruptUserFunction=Motor_IC3Interrupt;
