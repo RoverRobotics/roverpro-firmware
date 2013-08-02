@@ -333,10 +333,32 @@ def auto_find_MAC():
   file_write_line("Better formatted MAC list: "+MAC_string)
 
 
+def return_SSIDs():
+  process = subprocess.Popen(["sudo iwlist wlan0 scan | grep 'ESSID' | grep 'RXR-'"], stdout=subprocess.PIPE,shell=True)
+  SSID_string=process.communicate()[0]
+  SSID_list_raw=SSID_string.split()
+  SSID_list=[]
+  for el in SSID_list_raw:
+    new_SSID = el[7:len(el)-1]
+    unique_SSID = 1
+    for el2 in SSID_list:
+      if(new_SSID == el2):
+        unique_SSID = 0
+    if(unique_SSID):
+      SSID_list.append(el[7:len(el)-1])
+    
+  return SSID_list
+
 def test_repeaters():
-  print "\r\nEnter SSID: "
-  SSID=raw_input()\
+  print "Select SSID: \r\n"
+  SSIDs =  return_SSIDs()
+  for i,el in enumerate(SSIDs):
+    print i,": ",el
+  SSID_index=int(raw_input())
+  #print "\r\nEnter SSID: "
+  #SSID=raw_input()\
   #SSID="RX-99999005"
+  SSID = SSIDs[SSID_index]
   MAC_list = return_MAC_list(SSID)
   print "\r\n",len(MAC_list),"repeaters found"
 
