@@ -7,6 +7,8 @@ File: InputCapture.c
 #include "./PPS.h"
 #include <limits.h>           // for UINT_MAX macro
 #include <stdbool.h>      // for 'bool' boolean data type
+#include "stdhdr.h"
+#include "p24FJ256GB106.h"
 
 #define NO                    0
 #define YES                   (!NO)
@@ -38,6 +40,9 @@ static void InitIC7(const uint8_t RPn);
 static void InitIC8(const uint8_t RPn);
 static void InitIC9(const uint8_t RPn);
 
+void IC1_ISR(void);
+void IC2_ISR(void);
+
 /*---------------------------Module Variables---------------------------------*/
 static volatile bool is_timer3_running = NO;
 static volatile uint8_t RPns[MAX_NUM_IC_PINS] = {0};
@@ -67,13 +72,13 @@ int main(void) {
 #endif
 
 /*---------------------------Interrupt Service Routines (ISRs)----------------*/
-/*void __attribute__((__interrupt__, auto_psv)) _T4Interrupt(void) {
+void T4_ISR(void) {
   _T4IF = 0;  // clear the source of the interrupt
   time++;
 }
 
 
-void __attribute__((__interrupt__, auto_psv)) _IC1Interrupt(void) {
+void IC1_ISR(void) {
   _IC1IF = 0;                      // clear the source of the interrupt
   elapsed_times[0] = 0;
   
@@ -88,7 +93,7 @@ void __attribute__((__interrupt__, auto_psv)) _IC1Interrupt(void) {
 }
 
 
-void __attribute__((__interrupt__, auto_psv)) _IC2Interrupt(void) {
+void IC2_ISR(void) {
   _IC2IF = 0;
   elapsed_times[1] = 0;
   
@@ -101,7 +106,7 @@ void __attribute__((__interrupt__, auto_psv)) _IC2Interrupt(void) {
 }
 
 
-void __attribute__((__interrupt__, auto_psv)) _IC3Interrupt(void) {
+/*void __attribute__((__interrupt__, auto_psv)) _IC3Interrupt(void) {
   _IC3IF = 0;
   elapsed_times[2] = 0;
 
@@ -199,7 +204,7 @@ void IC_Init(const kICModule module,
   RPns[module] = RPn;
   
   // turn on the timing base if it not on already
-  if (!is_timer3_running) {
+  /*if (!is_timer3_running) {
     T3CONbits.TCKPS = 0b11;   // configure prescaler to divide-by-256
     _T3IF = 0;
     //_T3IE = 1;
@@ -207,8 +212,21 @@ void IC_Init(const kICModule module,
     is_timer3_running = YES;
     
     InitTimer4();
+  }*/
+
+  // Switched timer3 to timer2 (timer 2 not used in regular power board firmware)
+  //Timer 4 used in regular power board firmware, but only in IC interrupts.
+  if (!is_timer3_running) {
+    T2CONbits.TCKPS = 0b11;   // configure prescaler to divide-by-256
+    _T2IF = 0;
+    //_T3IE = 1;
+    T2CONbits.TON = 1;        // turn on the timer
+    is_timer3_running = YES;
+    
+    InitTimer4();
   }
-  
+
+
   // initialize the given input capture hardware module
   switch (module) {
     case kIC01: InitIC1(RPn); break;
@@ -272,6 +290,7 @@ void IC_Deinit(void) {
 
 /*---------------------------Private Function Definitions---------------------*/
 static void InitTimer4(void) {
+  T4InterruptUserFunction=T4_ISR;
   T4CONbits.TON = 0;        // turn off the timer while we configure it
   T4CONbits.TCS = 0;        // use the internal, system clock
   PR4 = 0x0fd0;
@@ -288,12 +307,15 @@ static void InitIC1(const uint8_t RPn) {
 	while (IC1CON1bits.ICBNE) {temp = IC1BUF;};
   
   // configure the input capture
-  IC1CON1bits.ICTSEL = 0;   // use Timer3 as the time base
+  //IC1CON1bits.ICTSEL = 0;   // use Timer3 as the time base
+  IC1CON1bits.ICTSEL = 0b010;   // use Timer4 as the time base
   IC1CON1bits.ICI = 0b00;   // fire the interrupt every capture event
   IC1CON1bits.ICM = 0b011;  // capture event on every rising edge
   
   //PPS_MapPeripheral(RPn, INPUT, FN_IC1);
   _IC1R = RPn;
+
+  IC1InterruptUserFunction=IC1_ISR;
 
   _IC1IF = 0;               // begin with the interrupt flag cleared
   _IC1IE = 1;               // enable this interrupt
@@ -307,6 +329,8 @@ static void InitIC2(const uint8_t RPn) {
   IC2CON1bits.ICTSEL = 0;
   IC2CON1bits.ICI = 0b00;
   IC2CON1bits.ICM = 0b011;
+
+  IC2InterruptUserFunction=IC2_ISR;
   
   //PPS_MapPeripheral(RPn, INPUT, FN_IC2);
   _IC2R = RPn; 
@@ -316,7 +340,7 @@ static void InitIC2(const uint8_t RPn) {
 
 
 static void InitIC3(const uint8_t RPn) {
-  uint16_t temp;
+/*  uint16_t temp;
 	while (IC3CON1bits.ICBNE) {temp = IC3BUF;};
 
   IC3CON1bits.ICTSEL = 0;
@@ -327,7 +351,7 @@ static void InitIC3(const uint8_t RPn) {
   _IC3R = RPn;
   
   _IC3IF = 0;
-  _IC3IE = 1;
+  _IC3IE = 1;*/
 }
 
 
