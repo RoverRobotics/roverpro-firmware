@@ -217,10 +217,10 @@ void IC_Init(const kICModule module,
   // Switched timer3 to timer2 (timer 2 not used in regular power board firmware)
   //Timer 4 used in regular power board firmware, but only in IC interrupts.
   if (!is_timer3_running) {
-    T2CONbits.TCKPS = 0b11;   // configure prescaler to divide-by-256
-    _T2IF = 0;
+    T5CONbits.TCKPS = 0b11;   // configure prescaler to divide-by-256
+    _T5IF = 0;
     //_T3IE = 1;
-    T2CONbits.TON = 1;        // turn on the timer
+    T5CONbits.TON = 1;        // turn on the timer
     is_timer3_running = YES;
     
     InitTimer4();
