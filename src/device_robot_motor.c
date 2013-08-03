@@ -566,6 +566,8 @@ void Device_MotorController_Process()
     calibrate_flipper_angle_sensor();
   }
 
+  IC_UpdatePeriods();
+
 
 // 	I2C2Update();
 //	I2C3Update();
@@ -1581,9 +1583,9 @@ void USBInput()
 {
   	int i;
 	static int USB_New_Data_Received;
-	/*static unsigned int control_loop_counter = 0;
+/*	static unsigned int control_loop_counter = 0;
 	static unsigned int flipper_control_loop_counter = 0;
-
+  REG_MOTOR_VELOCITY.left = 300;
 	control_loop_counter++;
 	flipper_control_loop_counter++;
 
@@ -1602,7 +1604,7 @@ void USBInput()
 	 	Robot_Motor_TargetSpeedUSB[0]=return_closed_loop_control_effort(0);
 	 	Robot_Motor_TargetSpeedUSB[1]=return_closed_loop_control_effort(1);
     Robot_Motor_TargetSpeedUSB[2]=return_closed_loop_control_effort(2);
-
+gNewData=!gNewData;
 	//long time no data, clear everything
  	if(USBTimeOutTimerExpired==True)
  	{
@@ -1872,11 +1874,11 @@ void MC_Ini(void)//initialzation for the whole program
  	//initialize AD
  	IniAD();
 	//initialize timer
-//	IniTimer2();
+	IniTimer2();
 	IniTimer3();
 	IniTimer1();
 // 	IniTimer4();
- 	IniTimer5();
+// 	IniTimer5();
 	//initialize PWM sub module
  	PWM1Ini();
 	PWM2Ini();
@@ -1912,7 +1914,7 @@ void MC_Ini(void)//initialzation for the whole program
 void InterruptIni()
 {
  	//remap all the interrupt routines
- 	T2InterruptUserFunction=Motor_T2Interrupt;
+// 	T2InterruptUserFunction=Motor_T2Interrupt;
  	T3InterruptUserFunction=Motor_T3Interrupt;
 // 	T4InterruptUserFunction=Motor_T4Interrupt;
  	T5InterruptUserFunction=Motor_T5Interrupt;
@@ -2277,7 +2279,7 @@ void IniTimer2()
 	TMR2=0;//clear timer1 register
  	PR2=Period30000Hz;
  	IFS0bits.T2IF=CLEAR;//clear the flag
- 	IEC0bits.T2IE=SET;// enable the interrupt
+ 	//IEC0bits.T2IE=SET;// enable the interrupt
 	T2CONbits.TON=SET;
 }
 void IniTimer3()
@@ -2298,11 +2300,11 @@ void IniTimer3()
 
 void IniTimer4()
 {
-	T4CON=0x0010;//stops timer4,1:8 prescale,16 bit timer,internal clock (Fosc/2)
+/*	T4CON=0x0010;//stops timer4,1:8 prescale,16 bit timer,internal clock (Fosc/2)
 	TMR4=0;//clear timer1 register
  	IFS1bits.T4IF = 0;	//clear interrupt flag
  	//IEC1bits.T4IE=SET;
-	T4CONbits.TON=SET;
+	T4CONbits.TON=SET;*/
 
 }
 

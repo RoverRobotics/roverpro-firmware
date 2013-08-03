@@ -218,7 +218,7 @@ void ProcessIO(void)
 	// GENERIC I/O PROCESS HERE
 	// ---------------------------------------------------------------------
 
-
+  return;
 	if((USBDeviceState < CONFIGURED_STATE)||(USBSuspendControl==1)) return;
     
     if(!USBHandleBusy(USBGenericOutHandle))

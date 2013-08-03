@@ -60,7 +60,7 @@ static float GetNominalDriveEffort(const float desired_speed);
 static int16_t GetDesiredSpeed(const kMotor motor);
 
 
-static int desired_speed[3] = {0};
+static float closed_loop_effort[3] = {0,0,0};
 
 void closed_loop_control_init(void)
 {
@@ -78,6 +78,8 @@ IC_Init(kIC02, M2_TACHO_RPN, 5);
 
 void handle_closed_loop_control(unsigned int OverCurrent)
 {
+  static int i = 0;
+  static float actual_speed_array[100] = {0};
   _TRISB6 = 0;
   _TRISB7 = 0;
 
@@ -90,12 +92,12 @@ void handle_closed_loop_control(unsigned int OverCurrent)
   if(OverCurrent)
     return;
 
-  IC_UpdatePeriods();
+  
 
   // update the flipper
   float desired_flipper_speed = REG_MOTOR_VELOCITY.flipper / 1200.0;
   //DT_set_speed(kMotorFlipper, desired_flipper_speed);
-  desired_speed[kMotorFlipper] = desired_flipper_speed;
+  closed_loop_effort[kMotorFlipper] = desired_flipper_speed;
  
   // update the left drive motor
   float desired_speed_left = IIRFilter(LMOTOR_FILTER, GetDesiredSpeed(kMotorLeft), ALPHA, NO);
@@ -103,7 +105,7 @@ void handle_closed_loop_control(unsigned int OverCurrent)
   float actual_speed_left = DT_speed(kMotorLeft);
   float effort_left = PID_ComputeEffort(LEFT_CONTROLLER, desired_speed_left, actual_speed_left, nominal_effort_left);
   //DT_set_speed(kMotorLeft, effort_left);
-  desired_speed[kMotorLeft] = effort_left;
+  closed_loop_effort[kMotorLeft] = effort_left;
   //DT_set_speed(kMotorLeft, nominal_effort_left);
   
   // update the right drive motor
@@ -112,14 +114,23 @@ void handle_closed_loop_control(unsigned int OverCurrent)
   float actual_speed_right = DT_speed(kMotorRight);
   float effort_right = PID_ComputeEffort(RIGHT_CONTROLLER, desired_speed_right, actual_speed_right, nominal_effort_right);
   //DT_set_speed(kMotorRight, effort_right);
-  desired_speed[kMotorRight] = effort_right;
+  closed_loop_effort[kMotorRight] = effort_right;
   //DT_set_speed(kMotorRight, nominal_effort_right);
+
+  i++;
+  if(i>=100)
+  {
+    i=0;
+  }
+  actual_speed_array[i] = actual_speed_left;
 
 }
 
 int return_closed_loop_control_effort(unsigned char motor)
 {
-  return desired_speed[motor];
+  //if(motor==1) return 300;
+  return (int)(closed_loop_effort[motor]*1000.0);
+  //return 0;
 }
 
 float DT_speed(const kMotor motor) {
