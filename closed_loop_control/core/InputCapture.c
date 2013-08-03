@@ -308,7 +308,7 @@ static void InitIC1(const uint8_t RPn) {
   
   // configure the input capture
   //IC1CON1bits.ICTSEL = 0;   // use Timer3 as the time base
-  IC1CON1bits.ICTSEL = 0b010;   // use Timer4 as the time base
+  IC1CON1bits.ICTSEL = 0b011;   // use Timer5 as the time base
   IC1CON1bits.ICI = 0b00;   // fire the interrupt every capture event
   IC1CON1bits.ICM = 0b011;  // capture event on every rising edge
   
@@ -326,7 +326,8 @@ static void InitIC2(const uint8_t RPn) {
   uint16_t temp;
 	while (IC2CON1bits.ICBNE) {temp = IC2BUF;};
 
-  IC2CON1bits.ICTSEL = 0;
+//  IC2CON1bits.ICTSEL = 0;
+  IC1CON1bits.ICTSEL = 0b011;   // use Timer5 as the time base
   IC2CON1bits.ICI = 0b00;
   IC2CON1bits.ICM = 0b011;
 
