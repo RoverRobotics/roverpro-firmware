@@ -1601,10 +1601,14 @@ void USBInput()
 		flipper_control_loop_counter  = 0;
 		Robot_Motor_TargetSpeedUSB[2]=speed_control_loop(2,REG_MOTOR_VELOCITY.flipper);
 	}*/
+    REG_MOTOR_VELOCITY.left = 100;
+    REG_MOTOR_VELOCITY.right = 0;
+
 	 	Robot_Motor_TargetSpeedUSB[0]=return_closed_loop_control_effort(0);
 	 	Robot_Motor_TargetSpeedUSB[1]=return_closed_loop_control_effort(1);
     Robot_Motor_TargetSpeedUSB[2]=return_closed_loop_control_effort(2);
 gNewData=!gNewData;
+
 	//long time no data, clear everything
  	if(USBTimeOutTimerExpired==True)
  	{
@@ -1918,8 +1922,8 @@ void InterruptIni()
  	T3InterruptUserFunction=Motor_T3Interrupt;
 // 	T4InterruptUserFunction=Motor_T4Interrupt;
  	T5InterruptUserFunction=Motor_T5Interrupt;
- 	IC1InterruptUserFunction=Motor_IC1Interrupt;
- 	IC3InterruptUserFunction=Motor_IC3Interrupt;
+// 	IC1InterruptUserFunction=Motor_IC1Interrupt;
+// 	IC3InterruptUserFunction=Motor_IC3Interrupt;
  	ADC1InterruptUserFunction=Motor_ADC1Interrupt;
  	#ifdef XbeeTest
  		U1TXInterruptUserFunction=Motor_U1TXInterrupt;
