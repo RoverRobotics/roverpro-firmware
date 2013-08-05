@@ -25,8 +25,10 @@ unsigned int cur_word, reg_index, checksum;
 unsigned int reg_size;
 int gNewData;
 int numRegisters = 0;
-uint8_t OutPacket[OUT_PACKET_LENGTH];
-uint8_t InPacket[IN_PACKET_LENGTH];
+//uint8_t OutPacket[OUT_PACKET_LENGTH];
+//uint8_t InPacket[IN_PACKET_LENGTH];
+uint8_t OutPacket[0xff];
+uint8_t InPacket[0xff];
 USB_HANDLE USBGenericOutHandle = 0;
 USB_HANDLE USBGenericInHandle = 0;
 
