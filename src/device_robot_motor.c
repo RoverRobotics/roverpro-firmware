@@ -1601,13 +1601,13 @@ void USBInput()
 		flipper_control_loop_counter  = 0;
 		Robot_Motor_TargetSpeedUSB[2]=speed_control_loop(2,REG_MOTOR_VELOCITY.flipper);
 	}*/
-    REG_MOTOR_VELOCITY.left = 100;
-    REG_MOTOR_VELOCITY.right = 0;
+    //REG_MOTOR_VELOCITY.left = 0;
+    //REG_MOTOR_VELOCITY.right = 100;
 
 	 	Robot_Motor_TargetSpeedUSB[0]=return_closed_loop_control_effort(0);
 	 	Robot_Motor_TargetSpeedUSB[1]=return_closed_loop_control_effort(1);
     Robot_Motor_TargetSpeedUSB[2]=return_closed_loop_control_effort(2);
-gNewData=!gNewData;
+    //gNewData=!gNewData;
 
 	//long time no data, clear everything
  	if(USBTimeOutTimerExpired==True)

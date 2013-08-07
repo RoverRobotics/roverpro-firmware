@@ -79,7 +79,7 @@ IC_Init(kIC02, M2_TACHO_RPN, 5);
 void handle_closed_loop_control(unsigned int OverCurrent)
 {
   static int i = 0;
-  static float actual_speed_array[100] = {0};
+  //static float actual_speed_array[100] = {0};
   _TRISB6 = 0;
   _TRISB7 = 0;
 
@@ -117,12 +117,12 @@ void handle_closed_loop_control(unsigned int OverCurrent)
   closed_loop_effort[kMotorRight] = effort_right;
   //DT_set_speed(kMotorRight, nominal_effort_right);
 
-  i++;
+  /*i++;
   if(i>=100)
   {
     i=0;
   }
-  actual_speed_array[i] = actual_speed_left;
+  actual_speed_array[i] = actual_speed_right;*/
 
 }
 
