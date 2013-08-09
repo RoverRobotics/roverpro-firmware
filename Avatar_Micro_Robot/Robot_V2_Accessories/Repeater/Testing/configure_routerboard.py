@@ -12,7 +12,9 @@ current_router = 0
 
 #
 
-
+#for local MAC function
+SSID_number=""
+channel_number=0
 
 output_file_name = datetime.now().strftime("logs/log_%Y_%m_%d_%H_%M_%S.txt")
 
@@ -62,54 +64,81 @@ def main():
 
 def local_MAC():
 
+  global SSID_number
+  global channel_number
+  use_stored_values = 0
+  stored_values_valid = 0
+
+  if(len(SSID_number) == 8):
+    if(int(channel_number) >= 1) & (int(channel_number) <= 14):
+      stored_values_valid=1
+
+
   while True:
-    print "Enter 8 digit SSID number"
+    if(stored_values_valid):
+        print "\r\n\r\nEnter 8 digit SSID number or 'r' to recall last values"
+    else:
+      print "\r\n\r\nEnter 8 digit SSID number"
     user_input=raw_input()
     if(len(user_input)==8):
       break
     else:
+      if(user_input=='r'):
+        print "Press [ENTER] to use these stored values:"
+        print "SSID: RXR-"+str(SSID_number)
+        print "Channel: "+str(channel_number)
+        use_stored_values=1
+        break
       print "Incorrect length.  Try again"
-  SSID_number = user_input
-  SSID_number_int = int(float(user_input))
+
+  if(use_stored_values==0):
+    SSID_number = user_input
+
+  SSID_number_int = int(float(SSID_number))
   SSID_number_hex = hex(SSID_number_int)
   
   #Generate SSID
   SSID = "RXR-"+SSID_number
 
   while(True):
-    print "Enter channel number"
+    if(stored_values_valid & use_stored_values):
+      break
+    print "\r\n\r\nEnter channel number"
     user_input=raw_input()
     if((int(user_input) >= 1) & (int(user_input) <= 14)):
       break
     print "Enter a number between 1 and 14"
+  
+  if(use_stored_values==0):
+    channel_number = user_input
 
-  if(user_input=="1"):
+  if(channel_number=="1"):
     frequency="2412"
-  elif(user_input=="2"):
+  elif(channel_number=="2"):
     frequency="2417"
-  elif(user_input=="3"):
+  elif(channel_number=="3"):
     frequency = "2422"
-  elif(user_input=="4"):
+  elif(channel_number=="4"):
     frequency = "2427"
-  elif(user_input=="5"):
+  elif(channel_number=="5"):
     frequency = "2432"
-  elif(user_input=="6"):
+  elif(channel_number=="6"):
     frequency = "2437"
-  elif(user_input=="7"):
+  elif(channel_number=="7"):
     frequency = "2442"
-  elif(user_input=="8"):
+  elif(channel_number=="8"):
     frequency = "2447"
-  elif(user_input=="9"):
+  elif(channel_number=="9"):
     frequency = "2452"
-  elif(user_input=="10"):
+  elif(channel_number=="10"):
     frequency = "2457"
-  elif(user_input=="11"):
+  elif(channel_number=="11"):
     frequency = "2462"
-  elif(user_input=="12"):
+  elif(channel_number=="12"):
     frequency = "2467"
-  elif(user_input=="13"):
+  elif(channel_number=="13"):
     frequency = "2472"
-  elif(user_input=="14"):
+  elif(channel_number=="14"):
     frequency = "2484"
   
   
@@ -130,7 +159,7 @@ def local_MAC():
 
 
   while(True):
-    print "Enter repeater number (0 to exit):"
+    print "\r\n\r\nEnter repeater number (0 to exit):"
     user_input=raw_input()
     repeater_number=int(user_input)
 
