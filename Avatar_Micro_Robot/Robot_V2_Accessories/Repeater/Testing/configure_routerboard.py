@@ -140,9 +140,9 @@ def local_MAC():
     print SSID
     print repeater_number
     print MAC_range
+    num_repeaters = 20
 
-
-    argument_string =  MAC_range+" "+str(repeater_number)+" 10.1.123 "+SSID+" "+frequency
+    argument_string =  MAC_range+" "+str(repeater_number)+" 10.1.123 "+SSID+" "+frequency+" "+str(num_repeaters)
 
     process = subprocess.Popen(["./custom_mac.sh "+argument_string], stdout=subprocess.PIPE,shell=True)
     process_output=process.communicate()[0]
