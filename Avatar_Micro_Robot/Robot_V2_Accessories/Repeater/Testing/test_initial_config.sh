@@ -10,7 +10,7 @@ function set_dsa_key {
 echo -e "\r\n\r\nSetting up DSA key on repeater"
 ssh-keygen -q -R 192.168.88.1 > /dev/null 2>&1
 sftp -o "StrictHostKeyChecking no" -q admin@192.168.88.1 << ENDSFTP
-put /home/taylor/Desktop/keys/id_dsa.pub /
+put DSA/id_dsa.pub /
 ENDSFTP
 ssh -o "StrictHostKeyChecking no" -q -t admin@192.168.88.1 << ENDSSH
 /put Starting
@@ -39,7 +39,7 @@ function reset_config {
 old_password="abc"
 echo -e "\r\n\r\nResetting repeater configuration"
 ssh-keygen -q -R 192.168.88.1 > /dev/null 2>&1
-sshpass -p $old_password ssh -o "StrictHostKeyChecking no" -q -i /home/taylor/Desktop/keys/id_dsa admin@192.168.88.1 << ENDSSH
+sshpass -p $old_password ssh -o "StrictHostKeyChecking no" -q -i DSA/id_dsa admin@192.168.88.1 << ENDSSH
 /system reset-configuration
 ENDSSH
 }
@@ -55,7 +55,7 @@ MAC_range=02:00:00:00:00
 incoming_IP=5.5.5.1
 repeater_number=1
 MAC=$MAC_range:$repeater_number
-sshpass -p $old_password ssh -o "StrictHostKeyChecking no" -q -i /home/taylor/Desktop/keys/id_dsa admin@192.168.88.1 << ENDSSH
+sshpass -p $old_password ssh -o "StrictHostKeyChecking no" -q -i DSA/id_dsa admin@192.168.88.1 << ENDSSH
 /put Starting
 /password old-password="" new-password=$new_password confirm-new-password=$new_password
 /user ssh-keys import public-key-file=id_dsa.pub user=admin 
@@ -136,7 +136,7 @@ MAC=$MAC_range:01
 #/put 
 mac_string[0]="/interface wireless wds add disabled=no master-interface=wlan1 name=remote_end_2 wds-address=$MAC_range:02"
 mac_string[1]="/interface wireless wds add disabled=no master-interface=wlan1 name=remote_end_3 wds-address=$MAC_range:03"
-sshpass -p $old_password ssh -o "StrictHostKeyChecking no" -o "ServerAliveInterval=5" -o "ServerAliveCountMax=1" -q -i /home/taylor/Desktop/keys/id_dsa admin@$old_repeater_IP << ENDSSH
+sshpass -p $old_password ssh -o "StrictHostKeyChecking no" -o "ServerAliveInterval=5" -o "ServerAliveCountMax=1" -q -i DSA/id_dsa admin@$old_repeater_IP << ENDSSH
 /put Starting
 #Change password
 /password old-password=$old_password new-password=$new_password confirm-new-password=$new_password
