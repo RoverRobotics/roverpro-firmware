@@ -1,5 +1,6 @@
 #!/bin/bash
 
+#debug="YES"
 
 ssh-keygen -q -R 192.168.88.1 > /dev/null 2>&1
 sudo ifconfig eth0 up
@@ -92,39 +93,101 @@ wireless_config "RXR-00000001" "RXR-00000001" "02:00:00:00:00" 1 \
 "5.5.5.100" "5.5.5.1" "5.5.5.1" 2422
 }
 
+parse_network_number () {
+local network_number=$1
+local MAC_range=$network_number
+local raw_MAC_string=`printf "%08x" $network_number`
+echo $raw_MAC_string
+MAC_range="02"
+for i in  0 2 4 6
+do
+MAC_range=$MAC_range:${raw_MAC_string:i:2}
+done
+echo $MAC_range
+
+}
+
+parse_MAC () {
+local MAC=$1
+
+local i=0
+
+local network_number_hex=""
+for i in 3 6 9 12
+do
+network_number_hex=$network_number_hex${MAC:$i:2}
+done
+
+network_number_hex_caps=${network_number_hex^^} 
+
+#echo $MAC
+network_number_decimal=`echo "ibase=16; $network_number_hex_caps" | bc`
+network_number_parsed=`printf "%08d" $network_number_decimal`
+repeater_number_hex=${MAC:15:2}
+repeater_number_hex_caps=${repeater_number_hex^^}
+repeater_number_parsed=`echo "ibase=16; $repeater_number_hex_caps" | bc`
+#echo $network_number
+#echo $repeater_number_hex
+
+#if [ "$debug" = "YES" ]; then
+#echo "Function: parse_MAC"
+#echo "Input: $MAC"
+#echo "network_number_hex: " $network_number_hex
+#echo "Output: $network_number"
+#fi
+
+}
+
+
+select_then_configure_repeater () {
+echo "test"
+
+}
+
+check_MAC_and_SSID () {
+local MAC=$1
+local SSID=$2
+
+parse_network_number $MAC
+
+
+}
+
 wireless_config () {
 #SSID of repeater to connect to
 old_SSID=$1
 #SSID of repeater after configuration
 new_SSID=$2
 #Partial MAC address of repeater to connect to (assuming that $MAC_range:xx will all be in same network)
-MAC_range=$3
+#MAC_range=$3
+$old_MAC=$4
+$new_MAC=$5
 #Number of repeater (current supported: 1-20)
-repeater_number=$4
+repeater_number=$6
 #IP of computer on which this script is running
-computer_IP=$5
+computer_IP=$7
 #Wireless IP of repeater to connect to
-old_repeater_IP=$6
+old_repeater_IP=$8
 #Wireless IP after configuration
-new_repeater_IP=$7
+new_repeater_IP=$9
 #Frequency of repeater
 frequency=$8
 old_password="abc"
 new_password="abc"
 sudo ifconfig eth0 down
 sudo ifconfig wlan0 up
-check_MAC_range $MAC_range
-if [ "$num_AP" = "0" ]; then
-echo "Repeater not found.  Please turn on repeater."
-return
-elif [ "$num_AP" = "1" ]; then
-echo "Repeater found!  Connecting to $old_SSID ($repeater_MAC) at $old_repeater_IP"
-else
-echo "More than one production test repeater found.  Please turn off all testing repeaters"
-return
-fi
+#check_MAC_range $MAC_range
+#if [ "$num_AP" = "0" ]; then
+#echo "Repeater not found.  Please turn on repeater."
+#return
+#elif [ "$num_AP" = "1" ]; then
+#echo "Repeater found!  Connecting to $old_SSID ($repeater_MAC) at $old_repeater_IP"
+#else
+#echo "More than one production test repeater found.  Please turn off all testing repeaters"
+#return
+#fi
 sudo ifconfig wlan0 $computer_IP
-sudo iwconfig wlan0 essid "$old_SSID" ap "$repeater_MAC"
+sudo iwconfig wlan0 essid "$old_SSID" ap "$old_MAC"
 #MAC_range=02:00:00:00:00
 #repeater_number=1
 #incoming_IP=10.1.123.1
@@ -132,7 +195,8 @@ sudo iwconfig wlan0 essid "$old_SSID" ap "$repeater_MAC"
 #frequency=2422
 #num_repeaters=$6
 max_repeaters=20
-MAC=$MAC_range:01
+#MAC=$MAC_range:01
+MAC=$new_MAC
 #/put 
 mac_string[0]="/interface wireless wds add disabled=no master-interface=wlan1 name=remote_end_2 wds-address=$MAC_range:02"
 mac_string[1]="/interface wireless wds add disabled=no master-interface=wlan1 name=remote_end_3 wds-address=$MAC_range:03"
@@ -221,11 +285,53 @@ sshpass -p abc ssh -o "StrictHostKeyChecking no" -i /home/taylor/Desktop/keys/id
 ENDSSH
 }
 
+wireless_recovery () {
 
+MAC_range=$1
+sudo ifconfig wlan0 up
+sleep 1
+repeater_list=`sudo iwlist wlan0 scan | grep "02:0"`
+#num_AP=`echo $repeater_list | wc -l`
+#repeater_MAC=${repeater_list:29:17}
+#echo $repeater_list
+#IFS=\n
+#IFS=a
+local i=0
+#for line in $repeater_list
+echo -e "\r\nSelect network number:"
+while read -r line
+do
+
+
+repeater[$i]=${line:19:17}
+parse_MAC "${repeater[$i]}"
+
+#network[$i]=`parse_MAC "${repeater[$i]}"`
+network[$i]=$network_number_parsed
+repeater_number[$i]=$repeater_number_parsed
+echo "[$i]: ${network[$i]} (${repeater[$i]})"
+i=$((i+1))
+done <<< "$repeater_list"
+
+read selection
+
+SSID="RXR-${network[$selection]}"
+MAC="${repeater[$selection]}"
+
+echo "SSID is $SSID"
+echo "MAC is $MAC"
+
+wireless_config $SSID "RXR-00000001" $MAC "02:00:00:00:00" 1 \
+"5.5.5.100" "5.5.5.1" "5.5.5.1" 2422
+
+}
 
 
 #full_reset_and_wired_config
 #initial_wireless_config
-subsequent_wireless_config
+#subsequent_wireless_config
 #display_configuration
 #initial_config_after_reset
+#parse_network_number 99999999
+#parse_MAC "02:05:f5:e0:ff:01"
+wireless_recovery
