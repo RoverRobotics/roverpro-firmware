@@ -1,9 +1,16 @@
 import subprocess
+import time
+import sys
 
+computer_IP = "5.5.5.100"
+wired_repeater_IP="192.168.88.1"
+new_repeater_IP = "5.5.5.1"
 
 def call_linux_command(command):
   process = subprocess.Popen([command], stdout=subprocess.PIPE,shell=True)
+  #process = subprocess.call([command], stdout=subprocess.PIPE,shell=True)
   process_output=process.communicate()[0]
+  #process.terminate()
   return process_output
   
 def main_menu():
@@ -29,6 +36,15 @@ def main_menu():
       clean_up()
       break
       
+
+def return_MAC_list():
+  MAC_string = call_linux_command("sudo iwlist wlan0 scan | grep '02:0' ")
+  MAC_list = []
+  MAC_list_raw = MAC_string.split()
+  for i,el in enumerate(MAC_list_raw):
+    if((i+1)%5==0):    
+      MAC_list.append(el)
+  return MAC_list
 
 def return_MAC(network_number,repeater_number):
   #MAC addresses that start with x2, x6, xA or xE are locally administered
@@ -57,6 +73,14 @@ def return_MAC(network_number,repeater_number):
   else:
     MAC = MAC_range+":"+hex(repeater_number_int).lstrip("0x")
   return MAC
+  
+def return_network_number(MAC):
+  MAC_hex = ""
+  split_MAC =  MAC.split(":") 
+  for i in range(1,5):
+    MAC_hex=MAC_hex+split_MAC[i]
+  MAC_int = str(int(MAC_hex,16)).zfill(8)
+  return MAC_int
   
 
 def return_WLAN_frequency(channel_number):
@@ -96,54 +120,118 @@ def return_WLAN_frequency(channel_number):
  
 def ping_wait(IP):
 
+  time.sleep(5)
+  print "Waiting for reboot..."
   command_string = "ping -W 1 -c 1 "+IP+" | grep 'bytes from'"
   while(True):
     if(call_linux_command(command_string) == ""):
-      print ".",
+      pass
     else:
+      print "Reboot finished!"
+      time.sleep(2)
       print ""
       return
 
 def reset_configuration():
+  print "Resetting configuration..."
   wired_setup()
   print call_linux_command("sudo bash reset_configuration.sh")
   
 def wired_setup():
   print call_linux_command("sudo bash wired_setup.sh")
   
-def wireless_setup(old_SSID,old_MAC):
-  print call_linux_command("sudo bash wireless_setup.sh '"+old_SSID+"' '"+old_MAC+"'")
+def wireless_setup(SSID,MAC):
+  #print "Connecting to"+SSID+" ("+MAC+")"
+  call_linux_command("sudo bash wireless_setup.sh '"+SSID+"' '"+MAC+"'")
+
+def wireless_config(old_SSID, new_SSID, old_MAC, new_MAC, repeater_number, frequency,old_repeater_IP,new_repeater_IP):
+  wireless_setup(old_SSID, old_MAC)
+  time.sleep(2)
+  check_wireless_connection(old_SSID,old_MAC)
+  general_config(new_SSID,new_MAC, repeater_number, frequency,old_repeater_IP,new_repeater_IP)
+
+def check_wireless_connection(SSID, MAC):
+  output = call_linux_command("sudo iwconfig wlan0 | grep 'Not-Associated'")
+  if(output == "" ):
+    print "Wireless connection successful!"
+    return 1
+  else:
+    print "Wireless connection to "+SSID+" ("+MAC+") failed!"
+    return 0
+
   
 def send_DSA_key():
   print call_linux_command("sudo bash send_DSA_key.sh")
 
-def general_config(new_SSID, new_MAC, frequency):
-  print call_linux_command("sudo bash general_config.sh '"+new_SSID+"' '"+new_MAC+"' '"+frequency+"'")
+def general_config(new_SSID, new_MAC, repeater_number, frequency, old_IP, new_IP):
+  print "Configuring repeater"
+  return call_linux_command("sudo bash configure.sh '"+new_SSID+"' '"+new_MAC+"' '"+repeater_number+"' '"+frequency+"' '"+old_IP+"' '"+new_IP+"'")
       
 def initial_builder_setup():
   print "Make sure that Ethernet cable is wired to repeater and repeater is powered up"
-  wired_repeater_IP="192.168.88.1"
-  old_SSID="NA"
+
   new_SSID="RXR-00000000"
-  old_MAC="NA"
   repeater_number="1"
   new_MAC=return_MAC(new_SSID.lstrip("RXR-"),repeater_number)
-  computer_IP = "5.5.5.100"
-  old_repeater_IP = "5.5.5.1"
-  new_repeater_IP = "5.5.5.1"
+
+  old_repeater_IP = "192.168.88.1"
+
   frequency = return_WLAN_frequency("3")
-  
+ 
   wired_setup()
   reset_configuration()
   ping_wait(wired_repeater_IP)
   send_DSA_key()
-  general_config(new_SSID, new_MAC, frequency)
+  print general_config(new_SSID, new_MAC, repeater_number,frequency,old_repeater_IP,new_repeater_IP)
   ping_wait(wired_repeater_IP)
-  wireless_setup()
+  
+  old_SSID=new_SSID
+  old_MAC=new_MAC
+
+  new_SSID="RXR-00000001"
+  new_MAC=return_MAC(new_SSID.lstrip("RXR-"),repeater_number)
+  old_repeater_IP = "5.5.5.1"
+
+  wireless_config(old_SSID, new_SSID, old_MAC, new_MAC, repeater_number, frequency,old_repeater_IP,new_repeater_IP)
+
+  #general_config(new_SSID,new_MAC, repeater_number, frequency,old_repeater_IP,new_repeater_IP)
+  
+  
+def reconfigure():
+  old_repeater_IP="5.5.5.1"
+
+  wireless_setup("none","00:00:00:00:00:00")
   time.sleep(2)
-  general_config(new_SSID,new_MAC, frequency)
+
+  MAC_list = return_MAC_list()
   
-  
+  Network_list = []
+  print "Choose repeater:"
+  for i, el in enumerate(MAC_list):
+    Network_list.append(return_network_number(el))
+    print "["+str(i)+"] "+Network_list[i]+" ("+el+")"
+    
+  repeater_index=int(raw_input())
+
+  old_network_number=Network_list[repeater_index]
+  old_SSID="RXR-"+old_network_number
+  old_MAC=MAC_list[repeater_index]
+
+  print "Enter new network number: "
+  new_network_number=raw_input()
+  print "Enter new repeater number: "
+  new_repeater_number = raw_input()
+  print "Enter channel: "
+  channel = raw_input()
+
+  new_MAC = return_MAC(new_network_number,new_repeater_number)
+  new_SSID = "RXR-"+new_network_number
+  frequency = return_WLAN_frequency(channel)
+
+
+
+
+  wireless_config(old_SSID, new_SSID, old_MAC, new_MAC, new_repeater_number, frequency,old_repeater_IP,new_repeater_IP)
   
   
 def initial_setup():
