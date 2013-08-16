@@ -22,6 +22,7 @@ def main_menu():
     print "[0] Initial Builder Setup"
     print "[1] Initial Tester Setup"
     print "[2] Reconfigure"
+    print "[3] Display settings"
     print "[q] Quit"
     
     user_input=raw_input("")
@@ -32,6 +33,8 @@ def main_menu():
       initial_tester_setup()
     elif(user_input=="2"):
       reconfigure()
+    elif(user_input=="3"):
+      display_settings()
     elif(user_input=="q"):
       clean_up()
       break
@@ -195,9 +198,8 @@ def initial_builder_setup():
   wireless_config(old_SSID, new_SSID, old_MAC, new_MAC, repeater_number, frequency,old_repeater_IP,new_repeater_IP)
 
   #general_config(new_SSID,new_MAC, repeater_number, frequency,old_repeater_IP,new_repeater_IP)
-  
-  
-def reconfigure():
+
+def connect_to_repeater_from_list():
   old_repeater_IP="5.5.5.1"
 
   wireless_setup("none","00:00:00:00:00:00")
@@ -210,12 +212,23 @@ def reconfigure():
   for i, el in enumerate(MAC_list):
     Network_list.append(return_network_number(el))
     print "["+str(i)+"] "+Network_list[i]+" ("+el+")"
-    
   repeater_index=int(raw_input())
 
-  old_network_number=Network_list[repeater_index]
-  old_SSID="RXR-"+old_network_number
-  old_MAC=MAC_list[repeater_index]
+  network_number=Network_list[repeater_index]
+  SSID="RXR-"+network_number
+  MAC=MAC_list[repeater_index]
+
+  wireless_setup(SSID,MAC)
+
+  return SSID,MAC
+
+def display_settings():  
+  connect_to_repeater_from_list()
+  print call_linux_command("sudo bash display_configuration.sh '5.5.5.1'")
+  
+def reconfigure():
+
+  (old_SSID,old_MAC) = connect_to_repeater_from_list()
 
   print "Enter new network number: "
   new_network_number=raw_input()
