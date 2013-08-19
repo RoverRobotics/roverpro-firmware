@@ -1,6 +1,8 @@
 import subprocess
 import time
 import sys
+import ConfigParser
+import os
 
 computer_IP = "5.5.5.100"
 wired_repeater_IP="192.168.88.1"
@@ -18,11 +20,12 @@ def main_menu():
   initial_setup()
   
   while(True):
-    print "Select option:"
+    print "\r\n\r\nSelect option:"
     print "[0] Initial Builder Setup"
     print "[1] Initial Tester Setup"
-    print "[2] Reconfigure"
+    print "[2] Reconfigure from file"
     print "[3] Display settings"
+    print "[4] Manual reconfigure"
     print "[q] Quit"
     
     user_input=raw_input("")
@@ -35,6 +38,8 @@ def main_menu():
       reconfigure()
     elif(user_input=="3"):
       display_settings()
+    elif(user_input=="4"):
+      reconfigure_manual()
     elif(user_input=="q"):
       clean_up()
       break
@@ -147,11 +152,73 @@ def wireless_setup(SSID,MAC):
   #print "Connecting to"+SSID+" ("+MAC+")"
   call_linux_command("sudo bash wireless_setup.sh '"+SSID+"' '"+MAC+"'")
 
+def parse_config_file():
+  config_file_list = []
+  os.chdir("..")
+  for files in os.listdir("."):
+    if(files.endswith(".cfg")):
+      config_file_list.append(files)
+
+  if(len(config_file_list) == 0):
+    print "Error.  No config file found."
+    return 1, 0, 0, 0, 0
+  elif(len(config_file_list) > 1):
+    print "Error.  Multiple config files found."
+    return 1, 0, 0, 0, 0
+  
+  config = ConfigParser.RawConfigParser()
+  config.read(config_file_list[0])
+
+  new_SSID = config.get('RepeaterConfig','SSID')
+  new_MAC = config.get('RepeaterConfig','MAC')
+  repeater_number = config.get('RepeaterConfig','repeater_number')
+  channel = config.get('RepeaterConfig','channel')
+
+  os.chdir("source")
+
+  if(validate_repeater_config(new_SSID, new_MAC, repeater_number, channel) == 0): 
+    return 1, 0, 0, 0, 0
+
+  return 0, new_SSID, new_MAC, repeater_number, channel
+
+def validate_repeater_config(SSID, MAC, repeater_number, channel):
+  if(len(SSID) != 12):
+    print "Incorrect SSID length!"
+    return 0
+  
+  if(SSID[0:4] != "RXR-"):
+    print "SSID must start with 'RXR-'"
+    return 0
+
+  if(return_MAC(SSID.lstrip("RXR-"),repeater_number) != MAC):
+    print "MAC does not match SSID!"
+    return 0
+
+  if((float(channel) < 0) | (float(channel) > 11)):
+    print "Channel out of bounds"
+    return 0
+
+  return 1
+
+def initial_tester_setup():
+
+  old_repeater_IP = "5.5.5.1"
+  new_repeater_IP = "5.5.5.1"
+
+  [return_state, new_SSID, new_MAC, repeater_number, channel] = parse_config_file()
+
+  if(return_state == 1): return  
+
+  frequency = return_WLAN_frequency(channel)
+
+  wireless_config("RXR-00000001", new_SSID, "02:00:00:00:01:01", new_MAC, repeater_number, frequency, old_repeater_IP, new_repeater_IP)
+  
+
 def wireless_config(old_SSID, new_SSID, old_MAC, new_MAC, repeater_number, frequency,old_repeater_IP,new_repeater_IP):
   wireless_setup(old_SSID, old_MAC)
   time.sleep(2)
   check_wireless_connection(old_SSID,old_MAC)
-  general_config(new_SSID,new_MAC, repeater_number, frequency,old_repeater_IP,new_repeater_IP)
+  print general_config(new_SSID,new_MAC, repeater_number, frequency,old_repeater_IP,new_repeater_IP)
 
 def check_wireless_connection(SSID, MAC):
   output = call_linux_command("sudo iwconfig wlan0 | grep 'Not-Associated'")
@@ -167,7 +234,10 @@ def send_DSA_key():
   print call_linux_command("sudo bash send_DSA_key.sh")
 
 def general_config(new_SSID, new_MAC, repeater_number, frequency, old_IP, new_IP):
-  print "Configuring repeater"
+  #print "Configuring repeater"
+  #print "new SSID:",new_SSID
+  #print "new MAC:",new_MAC
+  #print "repeater number",repeater_number
   return call_linux_command("sudo bash configure.sh '"+new_SSID+"' '"+new_MAC+"' '"+repeater_number+"' '"+frequency+"' '"+old_IP+"' '"+new_IP+"'")
       
 def initial_builder_setup():
@@ -226,8 +296,29 @@ def display_settings():
   connect_to_repeater_from_list()
   print call_linux_command("sudo bash display_configuration.sh '5.5.5.1'")
   
-def reconfigure():
 
+def reconfigure():
+  old_repeater_IP = "5.5.5.1"
+  new_repeater_IP = "5.5.5.1"
+
+  [return_state, new_SSID, new_MAC, repeater_number, channel] = parse_config_file()
+
+  if(return_state == 1): return 
+
+  (old_SSID,old_MAC) = connect_to_repeater_from_list()
+
+  if(return_state == 1): return  
+
+  if(validate_repeater_config(new_SSID, new_MAC, repeater_number, channel) == 0): return
+
+  frequency = return_WLAN_frequency(channel)
+
+  wireless_config(old_SSID, new_SSID, old_MAC, new_MAC, repeater_number, frequency, old_repeater_IP, new_repeater_IP)
+
+def reconfigure_manual():
+
+  old_repeater_IP = "5.5.5.1"
+  new_repeater_IP = "5.5.5.1"
   (old_SSID,old_MAC) = connect_to_repeater_from_list()
 
   print "Enter new network number: "
@@ -253,6 +344,8 @@ def initial_setup():
 def clean_up():
   call_linux_command("sudo start network-manager")
   
+
+
 main_menu()
   
   
