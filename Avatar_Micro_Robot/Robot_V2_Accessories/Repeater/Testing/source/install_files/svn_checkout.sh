@@ -5,5 +5,5 @@ sudo svn co http://192.168.180.210:8080/svn/RoboteX_SVN/Firmware/Avatar/Avatar_M
 
 #Change ownership of files
 sudo chown -hR taylor ~/Desktop/Repeater_Test
-sudo chmod -x ~/Desktop/configure_repeater.sh
+sudo chmod +x ~/Desktop/Repeater_Test/configure_repeater.sh
 
