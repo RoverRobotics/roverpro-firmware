@@ -15,14 +15,18 @@ setup_flash_drive () {
     return
   fi
 
-  sudo umount /dev/$drive
+  sudo umount /dev/$drive > /dev/null 2>&1
   #sudo mkdir /mnt/repeater_flash
   #sudo mount 
   
   #sudo sfdisk 
   echo "Removing paritions"
 
-  dd if=/dev/zero of=/dev/$drive bs=512 count=1 conv=notrunc
+  #remove partitions
+  dd if=/dev/zero of=/dev/$drive bs=512 count=1 conv=notrunc > /dev/null 2>&1
+
+  #remove old data (if any)
+  dd if=/dev/zero of=/dev/$drive bs=512 count=10 seek=100 > /dev/null 2>&1
   
 }
 
@@ -116,7 +120,7 @@ fi
 
 
 
-#setup_flash_drive
+setup_flash_drive $drive
 
 
 remove_old_files
