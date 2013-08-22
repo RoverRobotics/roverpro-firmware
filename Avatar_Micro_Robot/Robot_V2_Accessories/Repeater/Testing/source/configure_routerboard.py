@@ -278,10 +278,13 @@ def connect_to_repeater_from_list():
   MAC_list = return_MAC_list()
   
   Network_list = []
+  repeater_number_list = []
+
   print "Choose repeater:"
   for i, el in enumerate(MAC_list):
     Network_list.append(return_network_number(el))
-    print "["+str(i)+"] "+Network_list[i]+" ("+el+")"
+    repeater_number_list.append(str(int(el[15:18],16)))
+    print "["+str(i)+"] Network: "+Network_list[i]+" Repeater: "+repeater_number_list[i]+" ("+el+")"
   repeater_index=int(raw_input())
 
   network_number=Network_list[repeater_index]
