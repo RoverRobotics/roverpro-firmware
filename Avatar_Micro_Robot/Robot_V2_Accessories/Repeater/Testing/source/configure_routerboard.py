@@ -43,7 +43,19 @@ def main_menu():
     elif(user_input=="q"):
       clean_up()
       break
+    elif(user_input=="admin"):
+      admin_menu()
+    else:
+      print "\r\nInvalid option.  Try again.\r\n"
       
+
+
+def admin_menu():
+#  while(True):
+    print "[0] Very manual configuration"
+    user_input = raw_input()
+    if(user_input == "0"):
+      very_manual_configuration()
 
 def return_MAC_list():
   MAC_string = call_linux_command("sudo iwlist wlan0 scan | grep '02:0' ")
@@ -269,23 +281,66 @@ def initial_builder_setup():
 
   #general_config(new_SSID,new_MAC, repeater_number, frequency,old_repeater_IP,new_repeater_IP)
 
+def very_manual_configuration():
+  
+  old_repeater_IP = "5.5.5.1"
+  new_repeater_IP = "5.5.5.1"
+  
+
+
+  new_SSID = raw_input("Enter new SSID: ")
+  new_MAC_range = raw_input("Enter new MAC range: ")
+  frequency = return_WLAN_frequency(raw_input("Enter channel: "))
+  
+  while(True):
+
+    dummy,old_MAC = connect_to_repeater_from_list()
+
+    old_SSID_temp = raw_input("\r\nEnter old SSID (blank for previous entered value): ")
+    if(len(old_SSID_temp) > 0):
+      old_SSID = old_SSID_temp
+
+    wireless_setup(old_SSID,old_MAC)
+
+    repeater_number = raw_input("Enter repeater number (must be under 10, 'q' to quit, 'r' to rescan): ")
+    if(repeater_number=="q"):
+      return
+    elif(repeater_number=='r'):
+      pass
+    else:
+      new_MAC = new_MAC_range+":"+repeater_number
+      general_config(new_SSID,new_MAC, repeater_number, frequency,old_repeater_IP,new_repeater_IP)
+
+  
+
+  
+
 def connect_to_repeater_from_list():
   old_repeater_IP="5.5.5.1"
 
   wireless_setup("none","00:00:00:00:00:00")
   time.sleep(2)
 
-  MAC_list = return_MAC_list()
-  
-  Network_list = []
-  repeater_number_list = []
+  while(True):
+    MAC_list = return_MAC_list()
+    
+    Network_list = []
+    repeater_number_list = []
 
-  print "Choose repeater:"
-  for i, el in enumerate(MAC_list):
-    Network_list.append(return_network_number(el))
-    repeater_number_list.append(str(int(el[15:18],16)))
-    print "["+str(i)+"] Network: "+Network_list[i]+" Repeater: "+repeater_number_list[i]+" ("+el+")"
-  repeater_index=int(raw_input())
+    print "Choose repeater (q to exit, r to rescan):"
+    for i, el in enumerate(MAC_list):
+      Network_list.append(return_network_number(el))
+      repeater_number_list.append(str(int(el[15:18],16)))
+      print "["+str(i)+"] Network: "+Network_list[i]+" Repeater: "+repeater_number_list[i]+" ("+el+")"
+    selection = raw_input()
+    if(selection == "q"):
+      return
+    elif(selection == "r"):
+      pass
+    else:
+      break
+
+  repeater_index=int(selection)
 
   network_number=Network_list[repeater_index]
   SSID="RXR-"+network_number
