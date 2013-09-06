@@ -182,8 +182,8 @@ static float GetNominalDriveEffort(const float desired_speed) {
 //   - special-cases turning in place to higher values to overcome
 //     the additional torque b/c software change has too much overhead right now
 static int16_t GetDesiredSpeed(const kMotor motor) {
-  int16_t temp_left = REG_MOTOR_VELOCITY.left;
-  int16_t temp_right = REG_MOTOR_VELOCITY.right;
+  int16_t temp_left = REG_MOTOR_VELOCITY.left/4;
+  int16_t temp_right = REG_MOTOR_VELOCITY.right/4;
   
   switch (motor) {
     case kMotorLeft:
