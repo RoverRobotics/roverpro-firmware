@@ -131,6 +131,7 @@ typedef enum {
 	kInvestigatingOvercurrent,
 	kWaiting,
 	kHanging,
+  kPlugging, //waiting for user to plug in the battery fully
 } kChargerState;
 
 //---------------------------Public Function Prototypes (if we had a header)----
@@ -188,7 +189,7 @@ int main(void) {
 //---------------------------Public Function Definitions------------------------
 void RunChargerSM(void) {
   static volatile uint16_t I_ch_max = I_REVIVE_MAX;
-  
+
   UI_Run();
   
   // ensure the charger does NOT stay powered while
@@ -238,7 +239,7 @@ void RunChargerSM(void) {
         I_ch_max = I_CHARGE_MAX;
         ConfigureChargingIC(I_IN_MAX, V_OUT_MAX, I_ch_max);
         Delay(50); // BUG ALERT: give some time to get new A/D reading and to begin regulating for sufficient current to battery?
-        state = kCharging;
+        state = kPlugging;
         return;
       }
       
@@ -249,6 +250,24 @@ void RunChargerSM(void) {
         ResetCharger();
       }
       break;
+    case kPlugging:
+
+      //wait for 3 seconds so that user can plug in battery
+      Delay(3000);
+
+      //Battery shouldn't be charged, so this is an error plugging in the battery
+      //Stop charging and set the red LED to blink
+      if ( (ADC_value(SIDEA_I_PIN) < kChargeTerminationCurrent) && (ADC_value(SIDEB_I_PIN) < kChargeTerminationCurrent))
+      {
+        UI_set_state(kUIStateErring);
+        BQ24745_EN = 0;
+        state = kWaiting;
+      }
+      //Charging has been going well, so keep charging
+      else
+        state = kCharging;
+
+    break;
     case kCharging:
 	  /*
       /*
