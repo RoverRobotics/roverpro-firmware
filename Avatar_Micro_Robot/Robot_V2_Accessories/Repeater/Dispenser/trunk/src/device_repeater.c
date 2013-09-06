@@ -83,7 +83,7 @@ void Repeater_Process_IO()
   {  
     ten_millisecond_counter = 0;
     USB_timeout_counter++;
-    test_servo_positions();
+    //test_servo_positions();
     if(REG_REPEATER_RELEASE)
     {
       //servos_on();
