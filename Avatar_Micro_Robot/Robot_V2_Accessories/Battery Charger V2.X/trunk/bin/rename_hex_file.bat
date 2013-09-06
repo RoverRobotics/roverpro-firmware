@@ -57,7 +57,7 @@ REM set /P svn_revision="Enter SVN revision number: "
 	mkdir releases\"%date_name%_%time_name%"\
 
 
-	copy BatteryCharger.hex releases\"%date_name%_%time_name%"\firmware_compiled_!year_string!_!month_string!_!day_string!_time_!hour_string!_!minute_string!_!am_pm!_(%date_name_short%.%time_name_short%).hex
+	copy BatteryCharger.hex releases\"%date_name%_%time_name%"\Battery_charger_compiled_!year_string!_!month_string!_!day_string!_time_!hour_string!_!minute_string!_!am_pm!_(%date_name_short%.%time_name_short%).hex
 
 
 )
