@@ -13,6 +13,8 @@ Notes:
 #include "./core/StandardHeader.h"  // for CCW, CW macros
 #include "./core/PPS.h"             // for OC function name macros
 #include <stdlib.h>             // for abs()
+#include "Testing.h"
+
 
 //---------------------------Macros---------------------------------------------
 // analog sensing pins (ANx)
@@ -74,11 +76,13 @@ Notes:
 
 #define DEFAULT_DC                250
 #define PWM_PERIOD                500
+//#define PWM_PERIOD                1000
 
 // The time before the end of the period to schedule the falling edge of the
 // recharge pulse.
 //#define CROSSOVER_TOLERANCE     4     // [ticks], 28 leaves ~200ns before drive pulse begins
-#define CROSSOVER_TOLERANCE     8
+//#define CROSSOVER_TOLERANCE     8
+#define CROSSOVER_TOLERANCE     24
 
 // Time consumed in the interrupt to reinitialize the single-shot pulse.
 #define REPULSE_INTERRUPT_DELAY 24    // [ticks]
@@ -182,9 +186,9 @@ int main(void) {
   //Energize(1);
   
   //_CNIE = 0;
-  /*Brake();
+  Brake();
   //test_MOSFETs();
-  while(1)
+  /*while(1)
   {
     Coast();
     Delay(1000);
@@ -193,6 +197,15 @@ int main(void) {
 
     ClrWdt();
   }*/
+
+  while(1)
+  {
+    if(ten_millisecond_counter)
+    {
+      ten_millisecond_counter = 0;
+      motor_temperature_test();
+    }
+  }
 
   while (1) {
 
@@ -378,6 +391,7 @@ static void UpdateDutyCycle(const uint16_t duty_cycle) {
   // shadow the other variable
   OC2R = OC1R;
   OC3R = OC1R;
+  OC3RS = OC1R+RECHARGE_DURATION; 
 }
 
 static void InitPins(void) {
@@ -460,7 +474,8 @@ static void InitRechargePulser(void) {
   OC3CON2bits.SYNCSEL = OC1CON2bits.SYNCSEL;
   // consume the remainder of the period with the recharge pulse
   OC3R = OC1R;  // NB: start as close as we can to when the interrupt fires
-  OC3RS = PWM_PERIOD - CROSSOVER_TOLERANCE - REPULSE_INTERRUPT_DELAY;
+  //OC3RS = PWM_PERIOD - CROSSOVER_TOLERANCE - REPULSE_INTERRUPT_DELAY;
+  OC3RS = OC1R+RECHARGE_DURATION; //try to get minimum recharge pulse
 }
 
 static void InitTimer(void)
