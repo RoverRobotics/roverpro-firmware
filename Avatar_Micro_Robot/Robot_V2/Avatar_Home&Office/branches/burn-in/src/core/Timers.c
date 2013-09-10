@@ -1,0 +1,123 @@
+/*==============================================================================
+File: Timers.c
+==============================================================================*/
+//#define TEST_TIMERS
+//---------------------------Dependencies---------------------------------------
+#include "./Timers.h"
+
+//---------------------------Macros and Type Definitions------------------------
+// Description: A timer is comprised of a duration and a start time.
+typedef struct {
+	uint32_t duration;        // the duration of the timer
+	uint32_t start_time;      // time at which the timer was started
+} timer_t;
+
+#define INTERRUPTS_PER_TICK 	8
+#define TIMER_PERIOD 					250
+
+//---------------------------Module Variables-----------------------------------
+static timer_t timers[MAX_NUM_TIMERS];
+static uint32_t time;       // the current time in units of ticks
+
+//---------------------------Test Harness---------------------------------------
+#ifdef TEST_TIMERS
+#include "./ConfigurationBits.h"
+
+//---Times
+#define _500ms            500  // ticks ~= 500ms/(1.000ms/timer_tick)
+//---Timers
+#define HEARTBEAT_TIMER   1
+#define HEARTBEAT_TIME    _500ms
+
+int main(void) {
+	TMRS_Init();
+	TMRS_StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME); // prime any timers that require it
+	
+	_TRISE5 = 0; _RE5 = 0;
+  
+	while (1) {
+  	// toggle a pin on timer expirations
+		if (TMRS_IsTimerExpired(HEARTBEAT_TIMER)) {
+			TMRS_StartTimer(HEARTBEAT_TIMER, HEARTBEAT_TIME);
+			_RE5 ^= 1;
+		}
+	}
+	
+	return 0;
+}
+#endif
+
+//---------------------------Public Function Definitions------------------------
+void __attribute__((__interrupt__, auto_psv)) _T1Interrupt(void) {
+  IFS0bits.T1IF = 0;  // clear the source of the interrupt
+  
+  static uint8_t num_times_called = 0;
+  if (INTERRUPTS_PER_TICK <= ++num_times_called) {
+    num_times_called = 0;
+	  time++;
+	}
+}
+
+// Notes:
+// 	- see p.143 of datasheet for initialization sequence
+// 	- ms_per_tick = ((f_osc/2)/prescaler)^-1*timer_period*interrupts_per_tick
+//                 = ((32MHz/2)/8)^-1*250*8
+// 		            = 1ms
+void TMRS_Init(void) {
+  // initialize any potential timer so they all begin expired
+  uint8_t i;
+  for (i = 0; i < MAX_NUM_TIMERS; i++) {
+    timers[i].duration = 0;
+    timers[i].start_time = 0;
+  }
+  
+  T1CONbits.TCKPS = 0b01;           // configure the timer prescaler to 
+	                                  // divide-by-8 (see p.162 of datasheet)
+  T1CONbits.TCS = 0;                // do NOT use the external clock
+  if (T1CONbits.TCS == 0) T1CONbits.TGATE = 0;// DISABLE gated time accumulation
+  if (T1CONbits.TCS == 1) T1CONbits.TSYNC = 1;// synchronize external clock input
+  PR1 = TIMER_PERIOD;               // configure the timer period
+	
+	// configure the Timer1 interrupt
+  _T1IP = 7;                        // configure interrupt priority (7 = highest, almost always executes on queue)
+  _T1IF = 0;	                      // begin with the interrupt flag cleared
+  _T1IE = 1;	                      // enable the interrupt
+	
+	T1CONbits.TON = 1;                // turn on timer1
+}
+
+
+void TMRS_StartTimer(uint8_t timer_number, uint32_t new_time) {
+	// schedule when the timer expires
+	timers[timer_number].duration = new_time;
+	timers[timer_number].start_time = TMRS_time();
+}
+
+
+bool TMRS_IsTimerExpired(uint8_t timer_number) {
+  // BUG ALERT: stop interrupts!  This line takes several clock cylces to execute
+  bool result;
+  asm volatile ("disi #0x3FFF"); // disable interrupts
+  result = (timers[timer_number].duration < 
+	         (TMRS_time() - timers[timer_number].start_time));
+  asm volatile ("disi #0");      // enable interrupts
+  
+  return result;
+}
+
+
+uint32_t TMRS_time(void) {
+	return time;
+}
+
+
+void TMRS_Deinit(void) {
+	T1CONbits.TON = 0;  // turn off timer1
+	_T1IE = 0;          // disable the interrupt
+}
+
+
+void TMRS_Pause(uint32_t milliseconds) {
+  uint32_t start_time = TMRS_time();
+  while ((TMRS_time() - start_time) < milliseconds) {}
+}
