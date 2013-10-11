@@ -4,3 +4,6 @@
 *.o
 *.mcs
 *.mcw
+
+#hex file before it is renamed
+firmware.hex
