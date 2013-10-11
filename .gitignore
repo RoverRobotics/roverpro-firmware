@@ -2,3 +2,5 @@
 *.cof
 *.map
 *.o
+*.mcs
+*.mcw
