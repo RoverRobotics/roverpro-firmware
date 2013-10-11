@@ -1,0 +1,4 @@
+#firmware compilation files
+*.cof
+*.map
+*.o

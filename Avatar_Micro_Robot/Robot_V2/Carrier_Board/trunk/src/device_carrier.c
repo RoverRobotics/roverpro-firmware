@@ -106,6 +106,9 @@
 #define WHITE_LED_OR			_RP25R
 #define IR_LED_OR				_RP22R
 
+#define WHITE_LED_EN(a)  _TRISD4 = !a
+#define WHITE_LED_ON(a)  _LATD4 = a
+
 #define POWER_BUTTON()			!_RB4
 
 #define GPS_TX_OR				_RP12R
@@ -216,9 +219,6 @@ void DeviceCarrierInit()
 
 	de_init_io();
 
- 
-
-
 	//enable software watchdog if power button is not held down.  Otherwise, sleep forever.
 	if(POWER_BUTTON())
 	{
@@ -256,6 +256,11 @@ void DeviceCarrierInit()
 	init_io();
 
 	WDT_PIN_EN(1);
+
+  //Enable white LED as a digital pin and turn it off
+  //(since there is no pull-down on the line)
+  WHITE_LED_EN(1);
+  WHITE_LED_ON(0);
 
 	const unsigned char build_date[12] = __DATE__; 
 	const unsigned char build_time[12] = __TIME__;
@@ -500,13 +505,13 @@ void blink_led(unsigned int n, unsigned int ms)
 
 	for(i=0;i<n;i++)
 	{
-		set_led_brightness(WHITE_LED,50);
+		set_led_brightness(IR_LED,50);
 		for(j=0;j<max_j;j++)
 		{
 			block_ms(10);
 			handle_watchdogs();
 		}
-		set_led_brightness(WHITE_LED,0);
+		set_led_brightness(IR_LED,0);
 		for(j=0;j<max_j;j++)
 		{
 			block_ms(10);
