@@ -1583,30 +1583,39 @@ void USBInput()
 {
   	int i;
 	static int USB_New_Data_Received;
-/*	static unsigned int control_loop_counter = 0;
+	static unsigned int control_loop_counter = 0;
 	static unsigned int flipper_control_loop_counter = 0;
-  REG_MOTOR_VELOCITY.left = 300;
+
 	control_loop_counter++;
 	flipper_control_loop_counter++;
 
-	if(control_loop_counter > 5)
-	{
-		control_loop_counter = 0;
-	 	Robot_Motor_TargetSpeedUSB[0]=speed_control_loop(0,REG_MOTOR_VELOCITY.left);
-	 	Robot_Motor_TargetSpeedUSB[1]=speed_control_loop(1,REG_MOTOR_VELOCITY.right);
-	}
+  if(REG_MOTOR_SLOW_SPEED == 0)
+  {
 
-	if(flipper_control_loop_counter > 15)
-	{
-		flipper_control_loop_counter  = 0;
-		Robot_Motor_TargetSpeedUSB[2]=speed_control_loop(2,REG_MOTOR_VELOCITY.flipper);
-	}*/
-    //REG_MOTOR_VELOCITY.left = 0;
-    //REG_MOTOR_VELOCITY.right = 100;
+  	if(control_loop_counter > 5)
+  	{
+  		control_loop_counter = 0;
+  	 	Robot_Motor_TargetSpeedUSB[0]=speed_control_loop(0,REG_MOTOR_VELOCITY.left);
+  	 	Robot_Motor_TargetSpeedUSB[1]=speed_control_loop(1,REG_MOTOR_VELOCITY.right);
+  	}
+  
+  	if(flipper_control_loop_counter > 15)
+  	{
+  		flipper_control_loop_counter  = 0;
+  		Robot_Motor_TargetSpeedUSB[2]=speed_control_loop(2,REG_MOTOR_VELOCITY.flipper);
+  	}
+  }
+  else if(REG_MOTOR_SLOW_SPEED == 1)
+  {
 
 	 	Robot_Motor_TargetSpeedUSB[0]=return_closed_loop_control_effort(0);
 	 	Robot_Motor_TargetSpeedUSB[1]=return_closed_loop_control_effort(1);
     Robot_Motor_TargetSpeedUSB[2]=return_closed_loop_control_effort(2);
+
+    control_loop_counter = 0;
+    flipper_control_loop_counter = 0;
+
+  }
     //gNewData=!gNewData;
 
 	//long time no data, clear everything
