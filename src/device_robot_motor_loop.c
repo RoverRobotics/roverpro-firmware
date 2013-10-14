@@ -62,6 +62,10 @@ static int16_t GetDesiredSpeed(const kMotor motor);
 
 static float closed_loop_effort[3] = {0,0,0};
 
+static int desired_velocity_left = 0;
+static int desired_velocity_right = 0;
+static int desired_velocity_flipper = 0;
+
 void closed_loop_control_init(void)
 {
   Nop();
@@ -95,7 +99,7 @@ void handle_closed_loop_control(unsigned int OverCurrent)
   
 
   // update the flipper
-  float desired_flipper_speed = REG_MOTOR_VELOCITY.flipper / 1200.0;
+  float desired_flipper_speed = desired_velocity_flipper / 1200.0;
   //DT_set_speed(kMotorFlipper, desired_flipper_speed);
   closed_loop_effort[kMotorFlipper] = desired_flipper_speed;
  
@@ -182,8 +186,8 @@ static float GetNominalDriveEffort(const float desired_speed) {
 //   - special-cases turning in place to higher values to overcome
 //     the additional torque b/c software change has too much overhead right now
 static int16_t GetDesiredSpeed(const kMotor motor) {
-  int16_t temp_left = REG_MOTOR_VELOCITY.left/4;
-  int16_t temp_right = REG_MOTOR_VELOCITY.right/4;
+  int16_t temp_left = desired_velocity_left/4;
+  int16_t temp_right = desired_velocity_right/4;
   
   switch (motor) {
     case kMotorLeft:
@@ -222,4 +226,12 @@ static int16_t GetDesiredSpeed(const kMotor motor) {
   }
   
   return 0;
+}
+
+void set_desired_velocities(int left, int right, int flipper)
+{
+  desired_velocity_left = left;
+  desired_velocity_right = right;
+  desired_velocity_flipper = flipper;
+
 }
