@@ -107,7 +107,7 @@
 #define IR_LED_OR				_RP22R
 
 #define WHITE_LED_EN(a)  _TRISD4 = !a
-#define WHITE_LED_ON(a)  _LATD4 = a
+#define WHITE_LED_ON(a)  _LATD4 = !a
 
 #define POWER_BUTTON()			!_RB4
 
@@ -476,8 +476,8 @@ void init_pwm(void)
 	//Choose 400Hz (2.5ms period)
 	//2.5ms = [PR2 + 1]*62.5ns*1
 	PR2 = 40000;	
-	OC1RS = 39999;
-	OC2RS = 39999;
+	OC1RS = 39990;
+	OC2RS = 39990;
 
 	OC1CON2bits.SYNCSEL = 0x1f;	
 	OC2CON2bits.SYNCSEL = 0x1f;	
@@ -492,6 +492,10 @@ void init_pwm(void)
 	
 	//turn on timer 2
 	T2CONbits.TON = 1;
+
+  //make sure LEDs are turned off
+  set_led_brightness(WHITE_LED, 0);
+  set_led_brightness(IR_LED, 0);
 
 }
 
