@@ -80,10 +80,16 @@ IC_Init(kIC02, M2_TACHO_RPN, 5);
 
 }
 
+//this runs every 10ms
 void handle_closed_loop_control(unsigned int OverCurrent)
 {
 
+  static unsigned int stop_counter = 0;
+
   //static float actual_speed_array[100] = {0};
+  
+  /*
+  //toggle pin to test loop rate
   _TRISB6 = 0;
   _TRISB7 = 0;
 
@@ -91,6 +97,7 @@ void handle_closed_loop_control(unsigned int OverCurrent)
     _LATB6 = 0;
   else
     _LATB6 = 1;
+  */
 
   //If we have stopped the motors due to overcurrent, don't update speeds
   if(OverCurrent)
@@ -131,6 +138,21 @@ void handle_closed_loop_control(unsigned int OverCurrent)
     i=0;
   }
   actual_speed_array[i] = actual_speed_right;*/
+
+  //if the speed inputs are 0, reset controller after 1 second
+  //TODO: fix controller so that we don't get these small offsets
+  if( (desired_velocity_left == 0) && (desired_velocity_right == 0) )
+  {
+    stop_counter++;
+    if(stop_counter > 100)
+    {
+      PID_Reset(kMotorLeft);
+      PID_Reset(kMotorRight);
+      stop_counter = 0;
+    }
+  }
+  else
+    stop_counter = 0;
 
 }
 
