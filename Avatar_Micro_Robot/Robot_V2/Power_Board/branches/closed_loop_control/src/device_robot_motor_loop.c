@@ -82,7 +82,7 @@ IC_Init(kIC02, M2_TACHO_RPN, 5);
 
 void handle_closed_loop_control(unsigned int OverCurrent)
 {
-  static int i = 0;
+
   //static float actual_speed_array[100] = {0};
   _TRISB6 = 0;
   _TRISB7 = 0;
@@ -94,7 +94,11 @@ void handle_closed_loop_control(unsigned int OverCurrent)
 
   //If we have stopped the motors due to overcurrent, don't update speeds
   if(OverCurrent)
+  {
+    PID_Reset(kMotorLeft);
+    PID_Reset(kMotorRight);
     return;
+  }
 
   
 
@@ -230,6 +234,7 @@ static int16_t GetDesiredSpeed(const kMotor motor) {
 
 void set_desired_velocities(int left, int right, int flipper)
 {
+
   desired_velocity_left = left;
   desired_velocity_right = right;
   desired_velocity_flipper = flipper;
