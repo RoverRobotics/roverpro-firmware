@@ -18,7 +18,7 @@ extern "C" {
 // -------- INSTANTIATE TELEMETRY VARIABLES --------
 
 #define REGISTER_START()
-#define REGISTER( a, b, c, d, e )    e a __attribute__((VAR_ATTRIBS));
+#define REGISTER( a, b, c, d, e )    e a;
 #define REGISTER_END()
 #define MESSAGE_START( a )
 #define MEMBER( a )

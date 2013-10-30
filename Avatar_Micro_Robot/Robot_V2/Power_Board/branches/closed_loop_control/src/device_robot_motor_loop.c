@@ -62,6 +62,10 @@ static int16_t GetDesiredSpeed(const kMotor motor);
 
 static float closed_loop_effort[3] = {0,0,0};
 
+static int desired_velocity_left = 0;
+static int desired_velocity_right = 0;
+static int desired_velocity_flipper = 0;
+
 void closed_loop_control_init(void)
 {
   Nop();
@@ -76,10 +80,16 @@ IC_Init(kIC02, M2_TACHO_RPN, 5);
 
 }
 
+//this runs every 10ms
 void handle_closed_loop_control(unsigned int OverCurrent)
 {
-  static int i = 0;
+
+  static unsigned int stop_counter = 0;
+
   //static float actual_speed_array[100] = {0};
+  
+  /*
+  //toggle pin to test loop rate
   _TRISB6 = 0;
   _TRISB7 = 0;
 
@@ -87,15 +97,20 @@ void handle_closed_loop_control(unsigned int OverCurrent)
     _LATB6 = 0;
   else
     _LATB6 = 1;
+  */
 
   //If we have stopped the motors due to overcurrent, don't update speeds
   if(OverCurrent)
+  {
+    PID_Reset(kMotorLeft);
+    PID_Reset(kMotorRight);
     return;
+  }
 
   
 
   // update the flipper
-  float desired_flipper_speed = REG_MOTOR_VELOCITY.flipper / 1200.0;
+  float desired_flipper_speed = desired_velocity_flipper / 1200.0;
   //DT_set_speed(kMotorFlipper, desired_flipper_speed);
   closed_loop_effort[kMotorFlipper] = desired_flipper_speed;
  
@@ -123,6 +138,21 @@ void handle_closed_loop_control(unsigned int OverCurrent)
     i=0;
   }
   actual_speed_array[i] = actual_speed_right;*/
+
+  //if the speed inputs are 0, reset controller after 1 second
+  //TODO: fix controller so that we don't get these small offsets
+  if( (desired_velocity_left == 0) && (desired_velocity_right == 0) )
+  {
+    stop_counter++;
+    if(stop_counter > 100)
+    {
+      PID_Reset(kMotorLeft);
+      PID_Reset(kMotorRight);
+      stop_counter = 0;
+    }
+  }
+  else
+    stop_counter = 0;
 
 }
 
@@ -182,8 +212,8 @@ static float GetNominalDriveEffort(const float desired_speed) {
 //   - special-cases turning in place to higher values to overcome
 //     the additional torque b/c software change has too much overhead right now
 static int16_t GetDesiredSpeed(const kMotor motor) {
-  int16_t temp_left = REG_MOTOR_VELOCITY.left/4;
-  int16_t temp_right = REG_MOTOR_VELOCITY.right/4;
+  int16_t temp_left = desired_velocity_left/4;
+  int16_t temp_right = desired_velocity_right/4;
   
   switch (motor) {
     case kMotorLeft:
@@ -222,4 +252,13 @@ static int16_t GetDesiredSpeed(const kMotor motor) {
   }
   
   return 0;
+}
+
+void set_desired_velocities(int left, int right, int flipper)
+{
+
+  desired_velocity_left = left;
+  desired_velocity_right = right;
+  desired_velocity_flipper = flipper;
+
 }
