@@ -67,8 +67,10 @@ void PF FIRST_PROGRAMMABLE_FUNC callFunc(COMMAND command, void *params)
 int gNewData;
 int gpio_id = 0;
 int gRegisterCount = 0;
-uint8_t OutPacket[OUT_PACKET_LENGTH];
-uint8_t InPacket[IN_PACKET_LENGTH];
+//uint8_t OutPacket[OUT_PACKET_LENGTH];
+//uint8_t InPacket[IN_PACKET_LENGTH];
+uint8_t OutPacket[0xff];
+uint8_t InPacket[0xff];
 USB_HANDLE USBGenericOutHandle = 0;
 USB_HANDLE USBGenericInHandle = 0;
 
