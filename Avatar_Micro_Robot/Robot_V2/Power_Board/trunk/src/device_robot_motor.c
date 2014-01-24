@@ -1,102 +1,3 @@
-//////////////////////////////////////////////////////////////////////
-//Program Description: This program is for motor controller board for 2011 Robot
-// -it reads servo input signal/USB messages and controls H-bridge for brushed DC motor
-//Author: 	Eric Zheng
-//Starting Date:		October 15th, 2010
-//Last modify:			Jan 20th, 2011
-//Version info:	2.10
-//Pin config:
-/*
-	Pin Name							Pin #	Description			Funtion	Input/Output	Digital/Analog	Comment
-1	RP20/PMRD/CN14/RD5					53		L_Encoder_A			IC		Input			Digital			IC1
-2	RP25/PMWR/CN13/RD4					52		L_Encoder_B			IC		Input			Digital			IC2
-3	AN14/CTPLS/RP14/PMA1/CN32/RB14		29		M1_AHI				IO		Output			Digital	
-4	RP16/USBID/CN71/RF3					33		M1_ALO				PWM		Output			Digital			OC1
-5	RTCC/DMLN/RP2/CN53/RD8				42		M1_BHI				IO		Output			Digital	
-6	AN15/RP29/REFO/PMA0/CN12/RB15		30		M1_BLO				PWM		Output			Digital			OC2
-7	VCPCON/RP24/CN50/RD1				49		M1_Fault			IO		Input			Digital	
-8	TMS/CVREF/AN10/PMA13/CN28/RB10		23		M1_LeftBackEMF		A/D		Input			Analog	
-9	TDO/AN11/PMA12/CN29/RB11			24		M1_RightBackEMF		A/D		Input			Analog	
-10	TCK/AN12/PMA11/CTED2/CN30/RB12		27		M1_Current			A/D		Input			Analog	
-11	RP22/PMBE/CN52/RD3					51		R_Encoder_A			IC		Input			Digital			IC3
-12	DPH/RP23/CN51/RD2					50		R_Encoder_B			IC		Input			Digital			IC4
-13	C1IND/RP21/PMA5/CN8/RG6				4		M2_AHI				IO		Output			Digital	
-14	C1INC/RP26/PMA4/CN9/RG7				5		M2_ALO				PWM		Output			Digital			OC3
-15	C2IND/RP19/PMA3/CN10/RG8			6		M2_BHI				IO		Output			Digital	
-16	RP27/PMA2/C2INC/CN11/RG9			8		M2_BLO				PWM		Output			Digital			OC4
-17	PMD5/CN63/RE5						1		M2_Fault			IO		Input			Digital	
-18	PGEC3/AN5/C1INA/VBUSON/RP18/CN7/RB5	11		M2_LeftBackEMF		A/D		Input		
-19	PGED3/AN4/C1INB/USBOEN/RP28/CN6/RB4	12		M2_RightBackEMF		A/D		Input		
-20	AN3/C2INA/VPIO/CN5/RB3				13		M2_Current			A/D		Input		
-21	SOSCI/C3IND/CN1/RC13				47		M3_AHI				IO		Output			Digital	
-22	DMH/RP11/INT0/CN49/RD0				46		M3_ALO				PWM		Output			Digital			OC5
-23	SOSCO/T1CK/C3INC/RPI37/CN0/RC14		48		M3_BHI				IO		Output			Digital	
-24	RP12/PMCS1/CN56/RD11				45		M3_BLO				PWM		Output			Digital			OC6
-25	AN8/RP8/CN26/RB8					21		M3_Current			A/D		Input			Analog	
-26	AN9/RP9/PMA7/CN27/RB9				22		M3_POSFB_1			A/D		Input			Analog	
-27	TDI/AN13/PMA10/CTED1/CN31/RB13		28		M3_POSFB_2			A/D		Input			Analog	
-28	C3INA/CN16/RD7						55		Fan1_Fail			IO		Input			Digital	
-29	C3INB/CN15/RD6						54		Fan2_Fail			IO		Input			Digital	
-30	SCL3/PMD6/CN64/RE6					2		FAN_I2C_SCL			I2C		Output			Digital	
-31	SDA3/PMD7/CN65/RE7					3		FAN_I2C_SDA			I2C		Output			Digital	
-32	VCMPST2/CN69/RF1					59		Cell_A_MOS			IO		Output			Digital	
-33	VBUSST/VCMPST1/CN68/RF0				58		Cell_B_MOS			IO		Output			Digital	
-34	AN2/C2INB/VMIO/RP13/CN4/RB2			14		Total_Cell_Current	AD		Input			Analog	
-35	PGEC1/AN1/VREF-/RP1/CN3/RB1			15		V_Cell_A			AD		Input			Analog	
-36	PGED1/AN0/VREF+/RP0/PMA6/CN2/RB0	16		V_Cell_B			AD		Input			Analog	
-37	SDA2/RP10/PMA9/CN17/RF4				31		SMBUS_A_DA			I2C		Output			Digital	
-38	SCL2/RP17/PMA8/CN18/RF5				32		SMBUS_A_CL			I2C		Output			Digital	
-39	DPLN/SDA1/RP4/CN54/RD9				43		SMBUS_B_DA			I2C		Output			Digital	
-40	SCL1/RP3/PMCS2/CN55/RD10			44		SMBUS_B_CL			I2C		Output			Digital	
-
-							
-
-PMD0/CN58/RE0 	 							Chip ID 			I/O 		Input			Digital
-PMD1/CN59/RE1	 							Chip ID 			I/O 		Input			Digital
-PMD2/CN60/RE2		 						Chip ID 			I/O 		Input			Digital
-PMD3/CN61/RE3			 					Chip ID 			I/O 		Input			Digital
-PMD4/CN62/RE4				 				Chip ID 			I/O 		Input			Digital
-
-*/
-
-/*
-Timer Distribution:
-
-Timer1: software running timer
-Timer2: Output Compare-PWM
-Timer3: A/D Triger
-Timer4:	Input Capture
-Timer5:	SurgeProtection
-*/
-
-
-/* USB communication:
-Commend from Host to Device:
-1-set speed for three motors
-	ID: CMD_SET_ROBOT_MOTOR_VELOCITY
- 	 	
-2-set speed for two fans
- 	ID: CMD_SET_ROBOT_FAN_VELOCITY
-3-set control mode
- 	ID: CMD_SET_ROBOT_CTRLMODE
-
-Response from Device to Host:
-1- current of three motors
- 	ID: RSP_ROBOT_MOTOR_CURRENT
-2- speed of three motors
- 	ID: RSP_ROBOT_MOTOR_SPEED
-3- encoder count of two motors
- 	ID: RSP_ROBOT_MOTOR_ENCODERCOUNT
-4- data of battery through SMBUS
- 	ID: RSP_ROBOT_BATTERY
-
-
-
-
-*/
-//////////////////////////////////////////////////////////////////////
-
-
 #include "p24FJ256GB106.h"
 #include "stdhdr.h"
 #include "device_robot_motor.h"
@@ -106,6 +7,7 @@ Response from Device to Host:
 #include "debug_uart.h"
 #include "device_robot_motor_i2c.h"
 #include "DEE Emulation 16-bit.h"
+#include "device_robot_motor_loop.h"
 
 //#define XbeeTest
 #define BATProtectionON
@@ -178,6 +80,8 @@ int BATVolCheckingTimerCount=0;
 int BATRecoveryTimerEnabled=False;
 int BATRecoveryTimerExpired=True;	//for initial powering of the power bus
 int BATRecoveryTimerCount=0;
+int closed_loop_control_timer_count = 0;
+int closed_loop_control_timer = 10;
 
 unsigned int ICLMotorOverFlowCount=0;
 unsigned int ICRMotorOverFlowCount=0;
@@ -402,6 +306,9 @@ void DeviceRobotMotorInit()
 
   //read flipper position from flash, and put it into a module variable
   read_stored_angle_offset();
+
+  //init variables for closed loop control
+  closed_loop_control_init();
 
 }
 
@@ -657,6 +564,8 @@ void Device_MotorController_Process()
     calibrate_flipper_angle_sensor();
   }
 
+  IC_UpdatePeriods();
+
 
 // 	I2C2Update();
 //	I2C3Update();
@@ -731,8 +640,9 @@ void Device_MotorController_Process()
  			BATRecoveryTimerCount++;
  		}
 
-    //this should run every 1ms
 
+    //this should run every 1ms
+    closed_loop_control_timer_count++;
     alternate_power_bus();
 
 	}
@@ -740,6 +650,11 @@ void Device_MotorController_Process()
 
 
 	//check if any timers are expired
+  if(closed_loop_control_timer_count >= closed_loop_control_timer)
+  {
+    closed_loop_control_timer_count = 0;
+    handle_closed_loop_control(OverCurrent);
+  }
  	if(CurrentProtectionTimerCount>=CurrentProtectionTimer)
  	{
  		CurrentProtectionTimerExpired=True;
@@ -1672,19 +1587,36 @@ void USBInput()
 	control_loop_counter++;
 	flipper_control_loop_counter++;
 
-	if(control_loop_counter > 5)
-	{
-		control_loop_counter = 0;
-	 	Robot_Motor_TargetSpeedUSB[0]=speed_control_loop(0,REG_MOTOR_VELOCITY.left);
-	 	Robot_Motor_TargetSpeedUSB[1]=speed_control_loop(1,REG_MOTOR_VELOCITY.right);
-	}
+  if(REG_MOTOR_SLOW_SPEED == 0)
+  {
 
-	if(flipper_control_loop_counter > 15)
-	{
-		flipper_control_loop_counter  = 0;
-		Robot_Motor_TargetSpeedUSB[2]=speed_control_loop(2,REG_MOTOR_VELOCITY.flipper);
-	}
+  	if(control_loop_counter > 5)
+  	{
+  		control_loop_counter = 0;
+  	 	Robot_Motor_TargetSpeedUSB[0]=speed_control_loop(0,REG_MOTOR_VELOCITY.left);
+  	 	Robot_Motor_TargetSpeedUSB[1]=speed_control_loop(1,REG_MOTOR_VELOCITY.right);
+  	}
+  
+  	if(flipper_control_loop_counter > 15)
+  	{
+  		flipper_control_loop_counter  = 0;
+  		Robot_Motor_TargetSpeedUSB[2]=speed_control_loop(2,REG_MOTOR_VELOCITY.flipper);
+  	}
+  }
+  else if(REG_MOTOR_SLOW_SPEED == 1)
+  {
 
+    set_desired_velocities(REG_MOTOR_VELOCITY.left,REG_MOTOR_VELOCITY.right,REG_MOTOR_VELOCITY.flipper);
+
+	 	Robot_Motor_TargetSpeedUSB[0]=return_closed_loop_control_effort(0);
+	 	Robot_Motor_TargetSpeedUSB[1]=return_closed_loop_control_effort(1);
+    Robot_Motor_TargetSpeedUSB[2]=return_closed_loop_control_effort(2);
+
+    control_loop_counter = 0;
+    flipper_control_loop_counter = 0;
+
+  }
+    //gNewData=!gNewData;
 
 	//long time no data, clear everything
  	if(USBTimeOutTimerExpired==True)
@@ -1772,11 +1704,11 @@ void PinRemap(void)
 	// Configure Input Functions
 	//function=pin
 	// Assign IC1 To L_Encoder_A
-	RPINR7bits.IC1R = M1_TACHO_RPn; 
+	//RPINR7bits.IC1R = M1_TACHO_RPn; 
 	
 
 	// Assign IC3 To Encoder_R1A
-	RPINR8bits.IC3R = M2_TACHO_RPn;
+	//RPINR8bits.IC3R = M2_TACHO_RPn;
 	
 
  	#ifdef XbeeTest
@@ -1958,8 +1890,8 @@ void MC_Ini(void)//initialzation for the whole program
 	IniTimer2();
 	IniTimer3();
 	IniTimer1();
- 	IniTimer4();
- 	IniTimer5();
+// 	IniTimer4();
+// 	IniTimer5();
 	//initialize PWM sub module
  	PWM1Ini();
 	PWM2Ini();
@@ -1972,8 +1904,8 @@ void MC_Ini(void)//initialzation for the whole program
 	PWM9Ini();*/
 
 	//initialize input capture
-	IniIC1();
-	IniIC3();
+	//IniIC1();
+	//IniIC3();
 
  	I2C1Ini();
  	I2C2Ini();
@@ -1995,12 +1927,12 @@ void MC_Ini(void)//initialzation for the whole program
 void InterruptIni()
 {
  	//remap all the interrupt routines
- 	T2InterruptUserFunction=Motor_T2Interrupt;
+// 	T2InterruptUserFunction=Motor_T2Interrupt;
  	T3InterruptUserFunction=Motor_T3Interrupt;
- 	T4InterruptUserFunction=Motor_T4Interrupt;
+// 	T4InterruptUserFunction=Motor_T4Interrupt;
  	T5InterruptUserFunction=Motor_T5Interrupt;
- 	IC1InterruptUserFunction=Motor_IC1Interrupt;
- 	IC3InterruptUserFunction=Motor_IC3Interrupt;
+// 	IC1InterruptUserFunction=Motor_IC1Interrupt;
+// 	IC3InterruptUserFunction=Motor_IC3Interrupt;
  	ADC1InterruptUserFunction=Motor_ADC1Interrupt;
  	#ifdef XbeeTest
  		U1TXInterruptUserFunction=Motor_U1TXInterrupt;
@@ -2360,7 +2292,7 @@ void IniTimer2()
 	TMR2=0;//clear timer1 register
  	PR2=Period30000Hz;
  	IFS0bits.T2IF=CLEAR;//clear the flag
- 	IEC0bits.T2IE=SET;// enable the interrupt
+ 	//IEC0bits.T2IE=SET;// enable the interrupt
 	T2CONbits.TON=SET;
 }
 void IniTimer3()
@@ -2381,11 +2313,11 @@ void IniTimer3()
 
 void IniTimer4()
 {
-	T4CON=0x0010;//stops timer4,1:8 prescale,16 bit timer,internal clock (Fosc/2)
+/*	T4CON=0x0010;//stops timer4,1:8 prescale,16 bit timer,internal clock (Fosc/2)
 	TMR4=0;//clear timer1 register
  	IFS1bits.T4IF = 0;	//clear interrupt flag
  	//IEC1bits.T4IE=SET;
-	T4CONbits.TON=SET;
+	T4CONbits.TON=SET;*/
 
 }
 
@@ -3378,3 +3310,5 @@ static void alternate_power_bus(void)
 
 
 }
+
+
