@@ -107,15 +107,33 @@ void handle_closed_loop_control(unsigned int OverCurrent)
     return;
   }
 
+  //Filter drive motor speeds
+  float desired_speed_left = IIRFilter(LMOTOR_FILTER, GetDesiredSpeed(kMotorLeft), ALPHA, NO);
+  float desired_speed_right = IIRFilter(RMOTOR_FILTER, GetDesiredSpeed(kMotorRight), ALPHA, NO);
+
+  //if the user releases the joystick, come to a relatively quick stop by clearing the integral term
+  if( (abs(REG_MOTOR_VELOCITY.left) < 50) && (abs(REG_MOTOR_VELOCITY.right) < 50 ) )
+  {
+    PID_Reset_Integral(kMotorLeft);
+    PID_Reset_Integral(kMotorRight);
+
+    //If user releases joystick, reset the IIR filter
+    IIRFilter(LMOTOR_FILTER, 0, ALPHA, YES);
+    IIRFilter(RMOTOR_FILTER, 0, ALPHA, YES);
+    desired_speed_left = 0;
+    desired_speed_right = 0;
+
+  }
+
   
 
   // update the flipper
   float desired_flipper_speed = desired_velocity_flipper / 1200.0;
   //DT_set_speed(kMotorFlipper, desired_flipper_speed);
   closed_loop_effort[kMotorFlipper] = desired_flipper_speed;
+
  
   // update the left drive motor
-  float desired_speed_left = IIRFilter(LMOTOR_FILTER, GetDesiredSpeed(kMotorLeft), ALPHA, NO);
   float nominal_effort_left = GetNominalDriveEffort(desired_speed_left);
   float actual_speed_left = DT_speed(kMotorLeft);
   float effort_left = PID_ComputeEffort(LEFT_CONTROLLER, desired_speed_left, actual_speed_left, nominal_effort_left);
@@ -124,7 +142,6 @@ void handle_closed_loop_control(unsigned int OverCurrent)
   //DT_set_speed(kMotorLeft, nominal_effort_left);
   
   // update the right drive motor
-  float desired_speed_right = IIRFilter(RMOTOR_FILTER, GetDesiredSpeed(kMotorRight), ALPHA, NO);
   float nominal_effort_right = GetNominalDriveEffort(desired_speed_right);
   float actual_speed_right = DT_speed(kMotorRight);
   float effort_right = PID_ComputeEffort(RIGHT_CONTROLLER, desired_speed_right, actual_speed_right, nominal_effort_right);

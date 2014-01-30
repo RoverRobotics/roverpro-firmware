@@ -97,3 +97,14 @@ void PID_Reset(const uint8_t i) {
   y_actual_lasts[i] = 0;
   integral_terms[i] = 0;
 }
+
+void PID_Reset_Integral(const uint8_t i) {
+  integral_terms[i] = 0;
+
+  //if the controller is going too fast, cut the speed so that robot will stop quicker
+  //May not want to put this in, as it could decrease the deceleration
+  /*if(y_actual_lasts[i] > 250)
+    y_actual_lasts[i] = 250
+  else if(y_actual_lasts[i] < -250)
+    y_actual_lasts[i] = -250*/
+}

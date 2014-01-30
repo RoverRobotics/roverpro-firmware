@@ -81,4 +81,6 @@ float PID_ComputeEffort(const uint8_t controller_index,
 //                             on which to operate
 void PID_Reset(const uint8_t controller_index);
 
+void PID_Reset_Integral(const uint8_t controller_index);
+
 #endif

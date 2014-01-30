@@ -1930,7 +1930,7 @@ void InterruptIni()
 // 	T2InterruptUserFunction=Motor_T2Interrupt;
  	T3InterruptUserFunction=Motor_T3Interrupt;
 // 	T4InterruptUserFunction=Motor_T4Interrupt;
- 	T5InterruptUserFunction=Motor_T5Interrupt;
+// 	T5InterruptUserFunction=Motor_T5Interrupt;
 // 	IC1InterruptUserFunction=Motor_IC1Interrupt;
 // 	IC3InterruptUserFunction=Motor_IC3Interrupt;
  	ADC1InterruptUserFunction=Motor_ADC1Interrupt;
@@ -2664,13 +2664,13 @@ void  Motor_ADC1Interrupt(void)
  	CellVoltageArray[Cell_B][CellVoltageArrayPointer]=ADC1BUF7;
  	TotalCurrent=MotorCurrentAD[LMotor][MotorCurrentADPointer]+MotorCurrentAD[RMotor][MotorCurrentADPointer]+MotorCurrentAD[Flipper][MotorCurrentADPointer];
 
- 	if(TotalCurrent>=CurrentLimit)
+/* 	if(TotalCurrent>=CurrentLimit)
  	{
  		//start protection timer
 		T5CONbits.TON=SET;//start clock
  		IEC1bits.T5IE=SET;//enable the interrupt
 		CurrentTooHigh=True;
- 	}
+ 	}*/
  
  	//increase array pointer, prevent over flow
  	CellVoltageArrayPointer++;
