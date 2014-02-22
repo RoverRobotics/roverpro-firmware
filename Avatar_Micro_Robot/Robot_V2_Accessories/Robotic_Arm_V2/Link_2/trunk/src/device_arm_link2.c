@@ -119,6 +119,9 @@ File: device_arm_link2.c
 #define POT_LOW_THRESHOLD 15
 #define POT_HIGH_THRESHOLD 1008
 
+#define ARM_TYPE_ORIGINAL           0
+#define ARM_TYPE_WIDE_ANGLE_TURRET  1
+
 int return_adjusted_wrist_speed(void);
 int return_angle_difference(unsigned int angle_1, unsigned int angle_2);
 
@@ -245,10 +248,11 @@ static unsigned int volatile wristInterval = 0xffff;
 
 static Joint wrist = {0, 0, NO_DIRECTION};
 
-#define REG_ARM_TYPE 1
-
 /*---------------------------Public Function Definitions----------------------*/
 void Arm_Link2_Init(void) {
+
+  REG_ARM_TYPE = ARM_TYPE_WIDE_ANGLE_TURRET;
+
   AD1CON1 = 0x0000;
 	AD1CON2 = 0x0000;
 	AD1CON3 = 0x0000;
@@ -373,6 +377,7 @@ void Arm_Link2_Init(void) {
   StartTimer(TAYLORS_TIMER, TAYLORS_TIMER_TIME);
   StartTimer(JOINT_UPDATE_TIMER, JOINT_UPDATE_TIME);
   StartTimer(CONTROL_TIMER, CONTROL_LOOP_RATE);
+
 }
 
 
