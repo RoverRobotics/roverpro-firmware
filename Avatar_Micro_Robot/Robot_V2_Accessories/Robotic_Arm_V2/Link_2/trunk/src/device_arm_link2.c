@@ -245,6 +245,8 @@ static unsigned int volatile wristInterval = 0xffff;
 
 static Joint wrist = {0, 0, NO_DIRECTION};
 
+#define REG_ARM_TYPE 1
+
 /*---------------------------Public Function Definitions----------------------*/
 void Arm_Link2_Init(void) {
   AD1CON1 = 0x0000;
@@ -1575,8 +1577,20 @@ static void update_joint_angles(void) {
   //parse message from base, and populate uncalibrated_X_angle variables
   read_rs485_angle_values();
 
+  switch( REG_ARM_TYPE )
+  {
+    //original arm
+    case 0:
+      REG_ARM_JOINT_POSITIONS.turret = return_calibrated_angle(uncalibrated_turret_angle,turret_angle_offset,1);
+    break;
+    //wider angle arm
+    case 1:
+      REG_ARM_JOINT_POSITIONS.turret = return_calibrated_angle(uncalibrated_turret_angle,turret_angle_offset,-1);
+    break;
+  }
+
   REG_ARM_JOINT_POSITIONS.wrist = return_calibrated_angle(return_combined_pot_angle(WRIST_POT_1_CH, WRIST_POT_2_CH),wrist_angle_offset,1);
-  REG_ARM_JOINT_POSITIONS.turret = return_calibrated_angle(uncalibrated_turret_angle,turret_angle_offset,1);
+
   REG_ARM_JOINT_POSITIONS.shoulder = return_calibrated_angle(uncalibrated_shoulder_angle,shoulder_angle_offset,-1);
   REG_ARM_JOINT_POSITIONS.elbow = return_calibrated_angle(return_combined_pot_angle(ELBOW_POT_1_CH, ELBOW_POT_2_CH),elbow_angle_offset,-1);
 }
