@@ -23,6 +23,9 @@
 #define LEFT_SERVO          1
 #define RIGHT_SERVO         2
 
+#define OPEN_POSITION       70
+#define CLOSED_POSITION     100
+
 //1A
 #define STALL_CURRENT       155  //0.01S*(1A*0.05Ohm)*1k * (1023/3.3) = 155
 
@@ -84,17 +87,18 @@ void Repeater_Process_IO()
     ten_millisecond_counter = 0;
     USB_timeout_counter++;
     //test_servo_positions();
-    if(REG_REPEATER_RELEASE)
+    if(REG_REPEATER_RELEASE == 1)
     {
       //servos_on();
-      //POWER_BUS_ON(1);
+      POWER_BUS_ON(1);
       dispenser_open();
       close_counter = 0;
 
     }
-    else
+    else if (REG_REPEATER_RELEASE == 0)
     {
       close_counter++;
+      POWER_BUS_ON(1);
       dispenser_close();
 
       if(close_counter > 200)
@@ -102,6 +106,10 @@ void Repeater_Process_IO()
         close_counter = 300;
         //POWER_BUS_ON(0);
       }
+    }
+    else if (REG_REPEATER_RELEASE == 2)
+    {
+      POWER_BUS_ON(0);
     }
     read_repeater_positions();
     handle_overcurrent();
@@ -271,14 +279,14 @@ static void update_repeater_positions(void)
 
 static void dispenser_close(void)
 {
-  set_servo_position(LEFT_SERVO,-100);
-  set_servo_position(RIGHT_SERVO,100);
+  set_servo_position(LEFT_SERVO,CLOSED_POSITION);
+  set_servo_position(RIGHT_SERVO,-CLOSED_POSITION);
 }
 
 static void dispenser_open(void)
 {
-  set_servo_position(LEFT_SERVO,100);
-  set_servo_position(RIGHT_SERVO,-100);
+  set_servo_position(LEFT_SERVO,-OPEN_POSITION);
+  set_servo_position(RIGHT_SERVO,OPEN_POSITION);
 }
 
 static void handle_overcurrent(void)
