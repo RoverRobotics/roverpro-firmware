@@ -2962,8 +2962,10 @@ static unsigned int return_combined_pot_angle(unsigned int pot_1_value, unsigned
 
     pot_angle_1 = temp_pot1_value*.326+13.35;
     pot_angle_2 = pot_2_value*.326+13.35;
-  
 
+    if(pot_angle_1 < 0) pot_angle_1+=360;
+    if(pot_angle_2 < 0) pot_angle_2+=360;
+  
     //if pot1 is closer to the end of range
     if(abs(temp1) > abs(temp2) )
     {
