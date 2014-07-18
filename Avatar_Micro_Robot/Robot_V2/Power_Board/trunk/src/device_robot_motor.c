@@ -1584,38 +1584,96 @@ void USBInput()
 	static unsigned int control_loop_counter = 0;
 	static unsigned int flipper_control_loop_counter = 0;
 
-	control_loop_counter++;
-	flipper_control_loop_counter++;
+  typedef enum {
+    HIGH_SPEED = 0,
+    DECEL_AFTER_HIGH_SPEED,
+    LOW_SPEED,
+    DECEL_AFTER_LOW_SPEED
+  } motor_speed_state;
 
-  if(REG_MOTOR_SLOW_SPEED == 0)
+  static motor_speed_state state = HIGH_SPEED;
+    
+
+//Motors must decelerate upon switching speeds (if they're not already stopped.
+//Failure to do so could cause large current spikes which will trigger the 
+//protection circuitry in the battery, cutting power to the robot
+  switch (state)
   {
+    case HIGH_SPEED:
 
-  	if(control_loop_counter > 5)
-  	{
-  		control_loop_counter = 0;
-  	 	Robot_Motor_TargetSpeedUSB[0]=speed_control_loop(0,REG_MOTOR_VELOCITY.left);
-  	 	Robot_Motor_TargetSpeedUSB[1]=speed_control_loop(1,REG_MOTOR_VELOCITY.right);
-  	}
+    	control_loop_counter++;
+    	flipper_control_loop_counter++;
+
+    	if(control_loop_counter > 5)
+    	{
+    		control_loop_counter = 0;
+    	 	Robot_Motor_TargetSpeedUSB[0]=speed_control_loop(0,REG_MOTOR_VELOCITY.left);
+    	 	Robot_Motor_TargetSpeedUSB[1]=speed_control_loop(1,REG_MOTOR_VELOCITY.right);
+    	}
+    
+    	if(flipper_control_loop_counter > 15)
+    	{
+    		flipper_control_loop_counter  = 0;
+    		Robot_Motor_TargetSpeedUSB[2]=speed_control_loop(2,REG_MOTOR_VELOCITY.flipper);
+    	}
+
+      if(REG_MOTOR_SLOW_SPEED == 1)
+        state = DECEL_AFTER_HIGH_SPEED;
+
+    break;
   
-  	if(flipper_control_loop_counter > 15)
-  	{
-  		flipper_control_loop_counter  = 0;
-  		Robot_Motor_TargetSpeedUSB[2]=speed_control_loop(2,REG_MOTOR_VELOCITY.flipper);
-  	}
+    case DECEL_AFTER_HIGH_SPEED:
+
+    	control_loop_counter++;
+
+    	if(control_loop_counter > 3)
+    	{
+    		control_loop_counter = 0;
+
+        //set speed to 1 (speed of 0 immediately stops motors)
+    	 	Robot_Motor_TargetSpeedUSB[0]=speed_control_loop(0,1);
+    	 	Robot_Motor_TargetSpeedUSB[1]=speed_control_loop(1,1);
+    		Robot_Motor_TargetSpeedUSB[2]=speed_control_loop(2,1);
+    	}
+
+      //motors are stopped if speed falls below 1%
+      if ( (abs(Robot_Motor_TargetSpeedUSB[0])<10) && (abs(Robot_Motor_TargetSpeedUSB[1])<10) && (abs(Robot_Motor_TargetSpeedUSB[2])<10) )
+        state = LOW_SPEED;
+
+    break;
+
+    case LOW_SPEED:
+
+      set_desired_velocities(REG_MOTOR_VELOCITY.left,REG_MOTOR_VELOCITY.right,REG_MOTOR_VELOCITY.flipper);
+  
+  	 	Robot_Motor_TargetSpeedUSB[0]=return_closed_loop_control_effort(0);
+  	 	Robot_Motor_TargetSpeedUSB[1]=return_closed_loop_control_effort(1);
+      Robot_Motor_TargetSpeedUSB[2]=return_closed_loop_control_effort(2);
+  
+      control_loop_counter = 0;
+      flipper_control_loop_counter = 0;
+
+      if(REG_MOTOR_SLOW_SPEED == 0)
+        state = DECEL_AFTER_LOW_SPEED;
+
+    break;
+
+    case DECEL_AFTER_LOW_SPEED:
+
+      set_desired_velocities(0,0,0);
+  
+  	 	Robot_Motor_TargetSpeedUSB[0]=return_closed_loop_control_effort(0);
+  	 	Robot_Motor_TargetSpeedUSB[1]=return_closed_loop_control_effort(1);
+      Robot_Motor_TargetSpeedUSB[2]=return_closed_loop_control_effort(2);
+
+      //motors are stopped if speed falls below 1%
+      if ( (abs(Robot_Motor_TargetSpeedUSB[0])<10) && (abs(Robot_Motor_TargetSpeedUSB[1])<10) && (abs(Robot_Motor_TargetSpeedUSB[2])<10) )
+        state = HIGH_SPEED;
+
+    break;
+
   }
-  else if(REG_MOTOR_SLOW_SPEED == 1)
-  {
 
-    set_desired_velocities(REG_MOTOR_VELOCITY.left,REG_MOTOR_VELOCITY.right,REG_MOTOR_VELOCITY.flipper);
-
-	 	Robot_Motor_TargetSpeedUSB[0]=return_closed_loop_control_effort(0);
-	 	Robot_Motor_TargetSpeedUSB[1]=return_closed_loop_control_effort(1);
-    Robot_Motor_TargetSpeedUSB[2]=return_closed_loop_control_effort(2);
-
-    control_loop_counter = 0;
-    flipper_control_loop_counter = 0;
-
-  }
     //gNewData=!gNewData;
 
 	//long time no data, clear everything
