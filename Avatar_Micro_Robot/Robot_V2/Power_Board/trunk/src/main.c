@@ -173,6 +173,7 @@ void ProcessIO(void)
 	uint16_t cur_word, reg_index;
 	uint16_t reg_size;
 	uint16_t i = 0;
+  static unsigned int message_counter = 0;
 
 	ClrWdt();
 
@@ -278,6 +279,51 @@ crapout5:
 		// Arm USB hardware to receive next packet.
         USBGenericOutHandle = USBRxOnePacket((BYTE)USBGEN_EP_NUM,
                                   (BYTE*)&OutPacket,(WORD)(OUT_PACKET_LENGTH));
+
+    //check first few messages for invalid motor velocities
+    if(message_counter < 3)
+    {
+      message_counter++;
+
+      //if any of the first few motor velocity values are out of bounds, stop responding and print message
+      if( (abs(REG_MOTOR_VELOCITY.left ) > 1000) || (abs(REG_MOTOR_VELOCITY.right ) > 1000) || (abs(REG_MOTOR_VELOCITY.flipper ) > 1000) )
+      {
+        
+        //Stop motors
+     		//coast left motor
+     		M1_COAST=Set_ActiveLO;
+     		PWM1Duty(0);
+     		M1_BRAKE=Clear_ActiveLO;
+     		//coast right motor
+     		M2_COAST=Set_ActiveLO;
+     		PWM2Duty(0);
+     		M2_BRAKE=Clear_ActiveLO;
+     		//coast flipper
+     		M3_COAST=Set_ActiveLO;
+     		PWM1Duty(0);
+     		M3_BRAKE=Clear_ActiveLO;
+
+        send_debug_uart_string("Initial motor velocities out of bounds!\r\n",41);
+        ClrWdt();
+        block_ms(100);
+        ClrWdt();
+        send_debug_uart_string("Stopping motors forever.\r\n",26);
+
+        while(1)
+        {
+          ClrWdt();
+        }
+      }
+    }
+
+    //if any motor velocities are out of bounds, set all motor velocities to zero
+    if( (abs(REG_MOTOR_VELOCITY.left ) > 1000) || (abs(REG_MOTOR_VELOCITY.right ) > 1000) || (abs(REG_MOTOR_VELOCITY.flipper ) > 1000) )
+    {
+      REG_MOTOR_VELOCITY.left = 0;
+      REG_MOTOR_VELOCITY.right = 0;
+      REG_MOTOR_VELOCITY.flipper = 0;
+    }
+
     }
 }
 
