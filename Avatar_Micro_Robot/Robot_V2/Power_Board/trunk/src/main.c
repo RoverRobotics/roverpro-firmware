@@ -316,13 +316,16 @@ crapout5:
       }
     }
 
+    //motor velocities coming from software can actually be higher than 1000 (highest I saw was 1200), so
+    //this is commented out
+
     //if any motor velocities are out of bounds, set all motor velocities to zero
-    if( (abs(REG_MOTOR_VELOCITY.left ) > 1000) || (abs(REG_MOTOR_VELOCITY.right ) > 1000) || (abs(REG_MOTOR_VELOCITY.flipper ) > 1000) )
+    /*if( (abs(REG_MOTOR_VELOCITY.left ) > 1000) || (abs(REG_MOTOR_VELOCITY.right ) > 1000) || (abs(REG_MOTOR_VELOCITY.flipper ) > 1000) )
     {
       REG_MOTOR_VELOCITY.left = 0;
       REG_MOTOR_VELOCITY.right = 0;
       REG_MOTOR_VELOCITY.flipper = 0;
-    }
+    }*/
 
     }
 }
