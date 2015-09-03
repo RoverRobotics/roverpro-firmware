@@ -503,7 +503,17 @@ void DeviceOcuInit()
 void DeviceOcuProcessIO()
 {
   static unsigned int initial_backlight_counter = 0;
+  static unsigned int computer_shutdown_counter = 0;
+  unsigned int i;
 	main_loop_counter++;
+
+  /*while(1)
+  {
+    V12V_ON(1);
+    V5V_ON(1);
+    V3V3_ON(1);
+    ClrWdt();
+  }*/
 
 	handle_power_button();
 	update_button_states();
@@ -537,9 +547,9 @@ void DeviceOcuProcessIO()
   }
 
 
-	if( (computer_on_flag) && (NC_THERM_TRIP==0) )
+	/*if( (computer_on_flag) && (NC_THERM_TRIP==0) )
 	{
-		while(1)
+		for(i=0;i<10;i++)
 		{
 			ClrWdt();
 			GREEN_LED_ON(1);
@@ -549,14 +559,32 @@ void DeviceOcuProcessIO()
 			block_ms(200);
 			RED_LED_ON(0);
 		}
-	}
+	}*/
 
 	//computer has shut down.  turn off power supplies
+  //NanoCOM-BT seems to bring SUS_S3 and SUS_S5 low briefly
+  //try not to shut down when this happens
 	if( (SUS_S3()==0) && (SUS_S5() == 0) && (computer_on_flag == 1))
 	{
           block_ms(50);
           if(PWR_BUTTON() == 0)
           {
+            computer_shutdown_counter++;
+  					/*computer_on_flag = 0;
+  					GREEN_LED_ON(0);
+  					V3V3_ON(0);
+  					V5V_ON(0);
+  					V12V_ON(0);
+  					COMPUTER_PWR_OK(0);
+  					PWR_KILL_ON(1);
+  					block_ms(100);*/
+          }
+	}
+  else
+    computer_shutdown_counter = 0;
+
+  if(computer_shutdown_counter > 500)
+  {
   					computer_on_flag = 0;
   					GREEN_LED_ON(0);
   					V3V3_ON(0);
@@ -565,8 +593,7 @@ void DeviceOcuProcessIO()
   					COMPUTER_PWR_OK(0);
   					PWR_KILL_ON(1);
   					block_ms(100);
-          }
-	}
+  }  
 
   //implement a timeout on the black screen
   //if software doesn't start, or BIOS needs to be changed
@@ -582,6 +609,8 @@ void DeviceOcuProcessIO()
       }
       else
       {
+        if(TALK_BUTTON() && LIGHT_BUTTON())
+          REG_OCU_BACKLIGHT_BRIGHTNESS = 50;
         initial_backlight_counter++;
         block_ms(100);
       }
@@ -592,6 +621,7 @@ void DeviceOcuProcessIO()
   //the AC adapter is plugged in
   else
   {
+      //TODO: uncomment his line and remove the next
       REG_OCU_BACKLIGHT_BRIGHTNESS = 0;
       initial_backlight_counter = 0;
   }
@@ -783,6 +813,11 @@ void handle_power_button(void)
 						V12V_ON(1);
 						init_fan_controller();
 					}
+          else
+          {
+            Nop();
+            Nop();
+          }
 					
 
 				
@@ -1101,6 +1136,8 @@ int DeviceControllerBoot(void)
 	i=0;
 	ClrWdt();
 	block_ms(100);
+
+  COMPUTER_PWR_OK(1);
 
 	while(!SUS_S5())
 	{
