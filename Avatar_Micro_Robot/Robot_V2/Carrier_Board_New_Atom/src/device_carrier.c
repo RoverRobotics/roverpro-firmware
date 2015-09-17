@@ -881,6 +881,9 @@ int DeviceCarrierBoot()
 
 	send_lcd_string("Boot 1  \r\n",10);
 
+  //Conga-MA3 E3845 seems to require PGOOD here
+  COM_EXPRESS_PGOOD_ON(1);
+
 /*	for(i=0;i<400;i++)
 	{
 		block_ms(10);
