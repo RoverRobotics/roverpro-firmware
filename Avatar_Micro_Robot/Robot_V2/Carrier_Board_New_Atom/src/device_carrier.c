@@ -1231,12 +1231,12 @@ static void handle_reset(void)
 	{
     computer_shutdown_counter++;
     //if computer has been shut down for several cycles
-    if(computer_shutdown_counter > 10)
+    if(computer_shutdown_counter > 500)
     {
       computer_shutdown_counter = 0;
       
       //if the computer shut down within 5 seconds of booting up, next boot should take longer
-      if(usb_timeout_counter < 500)
+      if(usb_timeout_counter < 50)
         extended_boot_counter++;
 
       if(NC_THERM_TRIP()==0)
