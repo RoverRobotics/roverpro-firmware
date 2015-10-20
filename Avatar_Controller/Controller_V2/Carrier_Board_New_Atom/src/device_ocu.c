@@ -183,6 +183,8 @@ int DeviceControllerBoot(void);
 
 void set_backlight_brightness(unsigned char percentage);
 
+void handle_audio_state(void);
+
 #pragma code
 
 void read_touchscreen(void)
@@ -528,6 +530,7 @@ void DeviceOcuProcessIO()
 
 	handle_gas_gauge();
 	handle_charging();
+  handle_audio_state();
 
   //I need to check if the computer is on, since these buttons are "pressed" when the power supply
   //if soff
@@ -1044,6 +1047,9 @@ void init_io(void)
 
 	//I2C1CONbits.I2CEN = 1;
 
+  REG_OCU_SPEAKER_ON = 1;
+  REG_OCU_MIC_ON = 1;
+
 
 }
 
@@ -1300,6 +1306,27 @@ void handle_charging(void)
 
 }
 
+void handle_audio_state(void)
+{
+  if(REG_OCU_SPEAKER_ON)
+  {
+    AMP_PWR_ON(1);
+  }
+  else
+  {
+    AMP_PWR_ON(0);
+  }
+
+  if(REG_OCU_MIC_ON)
+  {
+    MIC_PWR_ON(1);
+  }
+  else
+  {
+    MIC_PWR_ON(0);
+  }
+
+}
 
 void read_all_bq2060a_registers(void)
 {
