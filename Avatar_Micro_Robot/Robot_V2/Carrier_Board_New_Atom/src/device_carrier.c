@@ -864,7 +864,7 @@ int DeviceCarrierBoot()
   //if extended boot is required, wait a multiple of 5 seconds before proceding.
   else
   {
-    for(i=0;i<(30*extended_boot_counter);i++)
+    for(i=0;i<(50*extended_boot_counter);i++)
     {
       handle_watchdogs();
       block_ms(100);
@@ -1144,7 +1144,7 @@ void hard_reset_robot(void)
   COM_EXPRESS_PGOOD_ON(0);
 
   //wait some time for power supplies to decay
-  for(i=0;i<5;i++)
+  for(i=0;i<100;i++)
   {
     handle_watchdogs();
     block_ms(50);
@@ -1202,7 +1202,9 @@ static void handle_reset(void)
   //able to debug or push software on a clean boot.
   //Also, if software starts and then stops, no reset will occur, since
   //first_usb_message_received will be true
-  if( (usb_timeout_counter > 2000) && (number_of_resets > 0) && (first_usb_message_received == 0) )
+  //USB timeout counter of 2000 equates to roughly 39.5 seconds before triggering another reboot
+  //3000 equates to about 55 seconds
+  if( (usb_timeout_counter > 3000) && (number_of_resets > 0) && (first_usb_message_received == 0) )
   {
     REG_ROBOT_RESET_CODE = RST_SOFTWARE_FAIL;
     blink_led(4,300);
@@ -1213,7 +1215,7 @@ static void handle_reset(void)
 
   //In case there is a USB failure or COM Express failure after the 
   //radio module is reinitialized, reset robot
-  if( (usb_timeout_counter > 2000) && robot_radio_reset_triggered )
+  if( (usb_timeout_counter > 3000) && robot_radio_reset_triggered )
   {
     REG_ROBOT_RESET_CODE = RST_RADIO_RESET_FAIL;
     blink_led(5,300);
