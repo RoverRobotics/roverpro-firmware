@@ -51,6 +51,7 @@ typedef int16_t DEVICE_NUMBER;
 #define BOOM_CAM_EMPIA		0x13
 #define DEVICE_INITIATOR  	0x14
 #define DEVICE_REPEATER     0x15
+#define REAR_CAMERA_EMPIA  0x16
 
 
 // -------- PROGRAM DEFINES --------
