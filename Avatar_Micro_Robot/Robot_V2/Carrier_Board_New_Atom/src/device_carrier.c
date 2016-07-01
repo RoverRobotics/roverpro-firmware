@@ -845,7 +845,6 @@ int DeviceCarrierBoot()
 	block_ms(100);
 
 	V5_ON(1);
-	V3V3_ON(1);
 
 
   if(extended_boot_counter == 0)
@@ -913,6 +912,8 @@ int DeviceCarrierBoot()
 		handle_watchdogs();
 		block_ms(100);
 	}
+
+	V3V3_ON(1);
 
 	//turn on rear payload power (if necessary) now,
 	//in case we need power to a keyboard to control the BIOS
