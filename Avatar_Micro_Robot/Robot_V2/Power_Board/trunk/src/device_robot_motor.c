@@ -9,8 +9,9 @@
 #include "DEE Emulation 16-bit.h"
 #include "device_robot_motor_loop.h"
 
-//#define XbeeTest
+#define XbeeTest
 #define BATProtectionON
+//#define XbeeTest_TX_Enable
 
 //variables
 //sub system variables
@@ -199,6 +200,8 @@ unsigned int adc_test_reg = 0;
  	uint8_t XbeeTest_UART_Buffer[XbeeTest_UART_Buffer_Length];
  	uint8_t XbeeTest_UART_BufferPointer=0;
  	uint8_t XbeeTest_UART_DataNO=0;
+	int16_t Xbee_MOTOR_VELOCITY[3];
+	int Xbee_gNewData=0;
 #endif
 
 
@@ -273,7 +276,8 @@ void DeviceRobotMotorInit()
 	MC_Ini();
 
 	#ifndef XbeeTest
-		init_debug_uart();
+// this will disable the Xbee Uart TX and RX setting, skip this.
+		//init_debug_uart();
 	#endif
 
   handle_power_bus();
@@ -563,6 +567,7 @@ void Device_MotorController_Process()
   {
     calibrate_flipper_angle_sensor();
   }
+	
 
   IC_UpdatePeriods();
 
@@ -1551,9 +1556,9 @@ int speed_control_loop(unsigned char i, int desired_speed)
 	
 		if(motor_speed[i] < desired_speed)
 		{
-		motor_speed[i]++;
-		if(motor_speed[i] >= desired_speed)
-			motor_speed[i] = desired_speed;
+			motor_speed[i]++;
+			if(motor_speed[i] >= desired_speed)
+				motor_speed[i] = desired_speed;
 		}
 		else if (motor_speed[i] > desired_speed)
 		{
@@ -1607,14 +1612,27 @@ void USBInput()
     	if(control_loop_counter > 5)
     	{
     		control_loop_counter = 0;
-    	 	Robot_Motor_TargetSpeedUSB[0]=speed_control_loop(0,REG_MOTOR_VELOCITY.left);
-    	 	Robot_Motor_TargetSpeedUSB[1]=speed_control_loop(1,REG_MOTOR_VELOCITY.right);
+			#ifndef XbeeTest
+    	 		Robot_Motor_TargetSpeedUSB[0]=speed_control_loop(0,REG_MOTOR_VELOCITY.left);
+    	 		Robot_Motor_TargetSpeedUSB[1]=speed_control_loop(1,REG_MOTOR_VELOCITY.right);
+			#endif
+			#ifdef XbeeTest
+				//printf("XL%d,XR,%d",Xbee_MOTOR_VELOCITY[0],Robot_Motor_TargetSpeedUSB[1]);
+				Robot_Motor_TargetSpeedUSB[0]=speed_control_loop(0,Xbee_MOTOR_VELOCITY[0]);
+				Robot_Motor_TargetSpeedUSB[1]=speed_control_loop(1,Xbee_MOTOR_VELOCITY[1]);
+				//printf("L%d,R%d\n",Robot_Motor_TargetSpeedUSB[0],Robot_Motor_TargetSpeedUSB[1]);
+			#endif
     	}
     
     	if(flipper_control_loop_counter > 15)
     	{
     		flipper_control_loop_counter  = 0;
-    		Robot_Motor_TargetSpeedUSB[2]=speed_control_loop(2,REG_MOTOR_VELOCITY.flipper);
+			#ifndef XbeeTest
+    			Robot_Motor_TargetSpeedUSB[2]=speed_control_loop(2,REG_MOTOR_VELOCITY.flipper);
+			#endif
+			#ifdef XbeeTest
+				Robot_Motor_TargetSpeedUSB[2]=speed_control_loop(2,Xbee_MOTOR_VELOCITY[2]);
+			#endif
     	}
 
       if(REG_MOTOR_SLOW_SPEED == 1)
@@ -1645,6 +1663,9 @@ void USBInput()
     case LOW_SPEED:
 
       set_desired_velocities(REG_MOTOR_VELOCITY.left,REG_MOTOR_VELOCITY.right,REG_MOTOR_VELOCITY.flipper);
+		#ifdef XbeeTest
+			set_desired_velocities(Xbee_MOTOR_VELOCITY[0],Xbee_MOTOR_VELOCITY[1],Xbee_MOTOR_VELOCITY[2]);
+		#endif
   
   	 	Robot_Motor_TargetSpeedUSB[0]=return_closed_loop_control_effort(0);
   	 	Robot_Motor_TargetSpeedUSB[1]=return_closed_loop_control_effort(1);
@@ -1679,12 +1700,18 @@ void USBInput()
 	//long time no data, clear everything
  	if(USBTimeOutTimerExpired==True)
  	{
+		printf("USB Timer Expired!");
  		USBTimeOutTimerExpired=False;
  		USBTimeOutTimerEnabled=False;
  		USBTimeOutTimerCount=0;
  		REG_MOTOR_VELOCITY.left=0;
  		REG_MOTOR_VELOCITY.right=0;
  		REG_MOTOR_VELOCITY.flipper=0;
+		#ifdef XbeeTest
+			Xbee_MOTOR_VELOCITY[0]=0;
+			Xbee_MOTOR_VELOCITY[1]=0;
+			Xbee_MOTOR_VELOCITY[2]=0;
+		#endif
  		for(i=0;i<3;i++)
  		{
  			Robot_Motor_TargetSpeedUSB[i]=0;
@@ -1694,9 +1721,11 @@ void USBInput()
  			//ClearCurrentCtrlData(i);
  		}
 		#ifndef XbeeTest
-			send_debug_uart_string("USB Timeout Detected \r\n",23);
+			//send_debug_uart_string("USB Timeout Detected \r\n",23);
 		#endif
  	}
+	//printf("!\n");
+#ifndef XbeeTest
 	// if there is new data comming in, update all the data
  	if(USB_New_Data_Received!=gNewData)
  	{
@@ -1704,7 +1733,8 @@ void USBInput()
  		USBTimeOutTimerCount=0;
  		USBTimeOutTimerEnabled=True;
  		USBTimeOutTimerExpired=False;
-
+		//printf("1");
+ 		//printf("Lmotor:%d",Robot_Motor_TargetSpeedUSB[0]);
 		for(i=0;i<3;i++)
 		{	
 			//Robot_Motor_TargetSpeedUSB[i]==0 ->Stop
@@ -1712,21 +1742,61 @@ void USBInput()
 			{
 				Event[i]=Stop;//Get the event
  				TargetParameter[i]=Robot_Motor_TargetSpeedUSB[i];
+				//printf("2");
 			}
 			//-1024<Robot_Motor_TargetSpeedUSB[i]<0 ->Back
 			else if(Robot_Motor_TargetSpeedUSB[i]>-1024 && Robot_Motor_TargetSpeedUSB[i]<0)
 			{
 				Event[i]=Back;//Get the event
 				TargetParameter[i]=Robot_Motor_TargetSpeedUSB[i];
+				//printf("3");
 			}		
 			//0<Robot_Motor_TargetSpeedUSB[i]<1024 ->Go
 			else if(Robot_Motor_TargetSpeedUSB[i]>0 && Robot_Motor_TargetSpeedUSB[i]<1024)
 			{
 				Event[i]=Go;//Get the event
 				TargetParameter[i]=Robot_Motor_TargetSpeedUSB[i];//Save the speed
+				//printf("4");
 			}
   		}
  	}
+#endif
+
+#ifdef XbeeTest
+ 	if(USB_New_Data_Received!=Xbee_gNewData)
+ 	{
+ 		USB_New_Data_Received=Xbee_gNewData;
+ 		USBTimeOutTimerCount=0;
+ 		USBTimeOutTimerEnabled=True;
+ 		USBTimeOutTimerExpired=False;
+		printf("1");
+ 		printf("LM:%d",Robot_Motor_TargetSpeedUSB[0]);
+		for(i=0;i<3;i++)
+		{	
+			//Robot_Motor_TargetSpeedUSB[i]==0 ->Stop
+			if(Robot_Motor_TargetSpeedUSB[i]==0)
+			{
+				Event[i]=Stop;//Get the event
+ 				TargetParameter[i]=Robot_Motor_TargetSpeedUSB[i];
+				//printf("2");
+			}
+			//-1024<Robot_Motor_TargetSpeedUSB[i]<0 ->Back
+			else if(Robot_Motor_TargetSpeedUSB[i]>-1024 && Robot_Motor_TargetSpeedUSB[i]<0)
+			{
+				Event[i]=Back;//Get the event
+				TargetParameter[i]=Robot_Motor_TargetSpeedUSB[i];
+				//printf("3");
+			}		
+			//0<Robot_Motor_TargetSpeedUSB[i]<1024 ->Go
+			else if(Robot_Motor_TargetSpeedUSB[i]>0 && Robot_Motor_TargetSpeedUSB[i]<1024)
+			{
+				Event[i]=Go;//Get the event
+				TargetParameter[i]=Robot_Motor_TargetSpeedUSB[i];//Save the speed
+				//printf("4");
+			}
+  		}
+ 	}
+#endif
 }
 
 int EventChecker()
@@ -2415,7 +2485,7 @@ void IniIC1()
 //interrupt frequency
 	IC1CON1bits.ICI=0b00; 	//interrupt on every capture event
 //7. Select Synchronous or Trigger mode operation:
-//a) Check that the SYNCSEL bits are not set to‘00000’.
+//a) Check that the SYNCSEL bits are not set to?0000?
 /*
  	if(IC5CON2bits.SYNCSEL==CLEAR)
 	{
@@ -2464,7 +2534,7 @@ void IniIC3()
 //interrupt frequency
 	IC3CON1bits.ICI=0b00; 	//interrupt on every capture event
 //7. Select Synchronous or Trigger mode operation:
-//a) Check that the SYNCSEL bits are not set to‘00000’.
+//a) Check that the SYNCSEL bits are not set to?0000?
 /*
  	if(IC5CON2bits.SYNCSEL==CLEAR)
 	{
@@ -2743,7 +2813,7 @@ void  Motor_ADC1Interrupt(void)
  	MotorCurrentADPointer&=(SampleLength-1);
 
  	#ifdef XbeeTest
- 	if(U1STAbits.UTXBF==0 && XbeeTest_UART_BufferPointer==0 && (REG_MOTOR_VELOCITY.left||REG_MOTOR_VELOCITY.right||REG_MOTOR_VELOCITY.flipper)!=0)//if transmit reg is empty and last packet is sent
+ 	if(U1STAbits.UTXBF==0 && XbeeTest_UART_BufferPointer==0 && (Xbee_MOTOR_VELOCITY[0]||Xbee_MOTOR_VELOCITY[1]||Xbee_MOTOR_VELOCITY[2])!=0)//if transmit reg is empty and last packet is sent
  	{
  		U1TXREG=255;//send out the index
  		//XbeeTest_Temp_u16=REG_PWR_TOTAL_CURRENT;
@@ -2855,7 +2925,7 @@ void  Motor_ADC1Interrupt(void)
 	
  		}
  	}
- 	if((REG_MOTOR_VELOCITY.left||REG_MOTOR_VELOCITY.right||REG_MOTOR_VELOCITY.flipper)!=0)
+ 	if((Xbee_MOTOR_VELOCITY[0]||Xbee_MOTOR_VELOCITY[1]||Xbee_MOTOR_VELOCITY[2])!=0)
  	{
  		XbeeTest_UART_DataNO++;//index++, if transmit reg is full, skip this
  		if(XbeeTest_UART_DataNO==201)
@@ -2876,7 +2946,9 @@ void  Motor_U1TXInterrupt(void)
  	//transmit data
  	if(XbeeTest_UART_BufferPointer<XbeeTest_UART_Buffer_Length)
  	{
- 	 	U1TXREG=XbeeTest_UART_Buffer[XbeeTest_UART_BufferPointer];
+ 	 	#ifdef XbeeTest_TX_Enable
+			U1TXREG=XbeeTest_UART_Buffer[XbeeTest_UART_BufferPointer];
+		#endif
  		XbeeTest_UART_BufferPointer++;
  	}else
  	{
@@ -2897,7 +2969,6 @@ void Motor_U1RXInterrupt(void)
  	{
 		if(XbeeTest_Temp==255)
 		{
-			gNewData = !gNewData;
 			XbeeTest_State=XbeeTest_StateProcessing;
 		}
  	}
@@ -2910,10 +2981,17 @@ void Motor_U1RXInterrupt(void)
  		//input data range 0~250, 125 is stop, 0 is backwards full speed, 250 is forward full speed
  			//for Marge, the right and left is flipped, so left and right need to be flipped
  			//gNewData = !gNewData;//low speed commend
- 		 	REG_MOTOR_VELOCITY.left=-(XbeeTest_Buffer[0]*8-1000); 
- 			REG_MOTOR_VELOCITY.right=-(XbeeTest_Buffer[1]*8-1000);
-			REG_MOTOR_VELOCITY.flipper=-(XbeeTest_Buffer[2]*8-1000);	
- 			//clear all the local buffer
+ 		 	Xbee_MOTOR_VELOCITY[0]=-(XbeeTest_Buffer[0]*8-1000); 
+ 			Xbee_MOTOR_VELOCITY[1]=-(XbeeTest_Buffer[1]*8-1000);
+			Xbee_MOTOR_VELOCITY[2]=-(XbeeTest_Buffer[2]*8-1000);	
+			//REG_MOTOR_VELOCITY.left=300; 
+ 			//REG_MOTOR_VELOCITY.right=800;
+			//REG_MOTOR_VELOCITY.flipper=400;
+			//printf("Motor Speed Set!!\n");
+			printf("Receive New Package! Xbee_gNewData=%d",Xbee_gNewData);
+			printf("L:%d,R:%d,F:%d/n",Xbee_MOTOR_VELOCITY[0],Xbee_MOTOR_VELOCITY[1],Xbee_MOTOR_VELOCITY[2]);
+			Xbee_gNewData = !Xbee_gNewData;
+			//clear all the local buffer
  			XbeeTest_BufferArrayPointer=0;
  			XbeeTest_State=XbeeTest_StateIdle;
  		}
