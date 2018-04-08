@@ -188,11 +188,11 @@ unsigned int adc_test_reg = 0;
 
 
 #ifdef XbeeTest
- 	#define XbeeTest_BufferLength 3
+ 	#define XbeeTest_BufferLength 6
  	#define XbeeTest_StateIdle 0
  	#define XbeeTest_StateProcessing 1
 	int XbeeTest_State=XbeeTest_StateIdle;
- 	int16_t XbeeTest_Buffer[3];
+ 	int16_t XbeeTest_Buffer[6];
  	int XbeeTest_BufferArrayPointer=0;
  	int XbeeTest_Temp;
  	uint16_t XbeeTest_Temp_u16;
@@ -201,7 +201,9 @@ unsigned int adc_test_reg = 0;
  	uint8_t XbeeTest_UART_BufferPointer=0;
  	uint8_t XbeeTest_UART_DataNO=0;
 	int16_t Xbee_MOTOR_VELOCITY[3];
+	uint8_t Xbee_Incoming_Cmd[3];
 	int Xbee_gNewData=0;
+	uint8_t Xbee_StartBit=253;
 #endif
 
 
@@ -1613,6 +1615,7 @@ void USBInput()
     	{
     		control_loop_counter = 0;
 			#ifndef XbeeTest
+				//printf("wrong loop");
     	 		Robot_Motor_TargetSpeedUSB[0]=speed_control_loop(0,REG_MOTOR_VELOCITY.left);
     	 		Robot_Motor_TargetSpeedUSB[1]=speed_control_loop(1,REG_MOTOR_VELOCITY.right);
 			#endif
@@ -1632,6 +1635,7 @@ void USBInput()
 			#endif
 			#ifdef XbeeTest
 				Robot_Motor_TargetSpeedUSB[2]=speed_control_loop(2,Xbee_MOTOR_VELOCITY[2]);
+				//printf();
 			#endif
     	}
 
@@ -1700,7 +1704,7 @@ void USBInput()
 	//long time no data, clear everything
  	if(USBTimeOutTimerExpired==True)
  	{
-		printf("USB Timer Expired!");
+		//printf("USB Timer Expired!");
  		USBTimeOutTimerExpired=False;
  		USBTimeOutTimerEnabled=False;
  		USBTimeOutTimerCount=0;
@@ -1769,8 +1773,8 @@ void USBInput()
  		USBTimeOutTimerCount=0;
  		USBTimeOutTimerEnabled=True;
  		USBTimeOutTimerExpired=False;
-		printf("1");
- 		printf("LM:%d",Robot_Motor_TargetSpeedUSB[0]);
+		//printf("1");
+ 		//printf("LM:%d",Robot_Motor_TargetSpeedUSB[0]);
 		for(i=0;i<3;i++)
 		{	
 			//Robot_Motor_TargetSpeedUSB[i]==0 ->Stop
@@ -2815,7 +2819,7 @@ void  Motor_ADC1Interrupt(void)
  	#ifdef XbeeTest
  	if(U1STAbits.UTXBF==0 && XbeeTest_UART_BufferPointer==0 && (Xbee_MOTOR_VELOCITY[0]||Xbee_MOTOR_VELOCITY[1]||Xbee_MOTOR_VELOCITY[2])!=0)//if transmit reg is empty and last packet is sent
  	{
- 		U1TXREG=255;//send out the index
+ 		U1TXREG=Xbee_StartBit;//send out the index
  		//XbeeTest_Temp_u16=REG_PWR_TOTAL_CURRENT;
  		//XbeeTest_Temp_u16=REG_MOTOR_FB_RPM.left;
  		//XbeeTest_Temp_u16=REG_MOTOR_FB_RPM.right;
@@ -2832,10 +2836,12 @@ void  Motor_ADC1Interrupt(void)
  		//XbeeTest_Temp_u16=REG_PWR_BAT_VOLTAGE.a;
  		//XbeeTest_Temp_u16=REG_PWR_BAT_VOLTAGE.b;
  		//XbeeTest_Temp_u16=REG_PWR_TOTAL_CURRENT;
- 		XbeeTest_Temp_u16=TotalCurrent;
+ 		//XbeeTest_Temp_u16=TotalCurrent;
 		XbeeTest_UART_Buffer[0]=XbeeTest_UART_DataNO;
- 		XbeeTest_UART_Buffer[1]=(XbeeTest_Temp_u16>>8);//load the buffer
- 		XbeeTest_UART_Buffer[2]=XbeeTest_Temp_u16;
+ 		//XbeeTest_UART_Buffer[1]=(XbeeTest_Temp_u16>>8);//load the buffer
+ 		//XbeeTest_UART_Buffer[2]=XbeeTest_Temp_u16;
+		XbeeTest_UART_Buffer[1]=REG_MOTOR_ENCODER_COUNT.left;//load the buffer
+ 		XbeeTest_UART_Buffer[2]=REG_MOTOR_ENCODER_COUNT.right;
  		switch (XbeeTest_UART_DataNO%40)
  		{ 
  		 	case 0:		//0-REG_PWR_TOTAL_CURRENT HI
@@ -2963,11 +2969,12 @@ void Motor_U1RXInterrupt(void)
  	IFS0bits.U1RXIF=0;
 //XbeeTest code only
 	#ifdef XbeeTest
-
+	int i=0;
+	int SumBytes=0;
  	XbeeTest_Temp=U1RXREG;
   	if(XbeeTest_State==XbeeTest_StateIdle)
  	{
-		if(XbeeTest_Temp==255)
+		if(XbeeTest_Temp==Xbee_StartBit)
 		{
 			XbeeTest_State=XbeeTest_StateProcessing;
 		}
@@ -2978,22 +2985,32 @@ void Motor_U1RXInterrupt(void)
  		XbeeTest_BufferArrayPointer++;
  		if(XbeeTest_BufferArrayPointer>=XbeeTest_BufferLength)//end of the package
  		{
- 		//input data range 0~250, 125 is stop, 0 is backwards full speed, 250 is forward full speed
- 			//for Marge, the right and left is flipped, so left and right need to be flipped
- 			//gNewData = !gNewData;//low speed commend
- 		 	Xbee_MOTOR_VELOCITY[0]=-(XbeeTest_Buffer[0]*8-1000); 
- 			Xbee_MOTOR_VELOCITY[1]=-(XbeeTest_Buffer[1]*8-1000);
-			Xbee_MOTOR_VELOCITY[2]=-(XbeeTest_Buffer[2]*8-1000);	
-			//REG_MOTOR_VELOCITY.left=300; 
- 			//REG_MOTOR_VELOCITY.right=800;
-			//REG_MOTOR_VELOCITY.flipper=400;
-			//printf("Motor Speed Set!!\n");
-			printf("Receive New Package! Xbee_gNewData=%d",Xbee_gNewData);
-			printf("L:%d,R:%d,F:%d/n",Xbee_MOTOR_VELOCITY[0],Xbee_MOTOR_VELOCITY[1],Xbee_MOTOR_VELOCITY[2]);
-			Xbee_gNewData = !Xbee_gNewData;
+			//if all bytes add up together equals 255, it is a good pack, then process
+			SumBytes=0;
+			for (i=0;i<XbeeTest_BufferLength;i++)
+			{
+				printf("%d:%d  ",i,XbeeTest_Buffer[i]);
+				SumBytes+=XbeeTest_Buffer[i];
+			}
+			printf("Sum:%d\n",SumBytes);
+			if(SumBytes%255==0)
+			{
+				//input data range 0~250, 125 is stop, 0 is backwards full speed, 250 is forward full speed
+ 				//for Marge, the right and left is flipped, so left and right need to be flipped 	
+		 		Xbee_MOTOR_VELOCITY[0]=-(XbeeTest_Buffer[0]*8-1000); 
+ 				Xbee_MOTOR_VELOCITY[1]=-(XbeeTest_Buffer[1]*8-1000);
+				Xbee_MOTOR_VELOCITY[2]=-(XbeeTest_Buffer[2]*8-1000);
+				//REG_MOTOR_VELOCITY.left=300; 
+ 				//REG_MOTOR_VELOCITY.right=800;
+				//REG_MOTOR_VELOCITY.flipper=400;
+				//printf("Motor Speed Set!!\n");
+				//printf("Receive New Package! Xbee_gNewData=%d",Xbee_gNewData);
+				//printf("L:%d,R:%d,F:%d/n",Xbee_MOTOR_VELOCITY[0],Xbee_MOTOR_VELOCITY[1],Xbee_MOTOR_VELOCITY[2]);
+				Xbee_gNewData = !Xbee_gNewData;
+			}
 			//clear all the local buffer
- 			XbeeTest_BufferArrayPointer=0;
- 			XbeeTest_State=XbeeTest_StateIdle;
+			XbeeTest_BufferArrayPointer=0;
+			XbeeTest_State=XbeeTest_StateIdle;
  		}
  	}		
 	#endif
