@@ -3032,7 +3032,7 @@ void Motor_U1RXInterrupt(void)
 			SumBytes=0;
 			for (i=0;i<XbeeTest_BufferLength;i++)
 			{
-				printf("%d:%d  ",i,XbeeTest_Buffer[i]);
+				//printf("%d:%d  ",i,XbeeTest_Buffer[i]);
 				SumBytes+=XbeeTest_Buffer[i];
 			}
 			printf("Sum:%d\n",SumBytes);
@@ -3040,9 +3040,9 @@ void Motor_U1RXInterrupt(void)
 			{
 				//input data range 0~250, 125 is stop, 0 is backwards full speed, 250 is forward full speed
  				//for Marge, the right and left is flipped, so left and right need to be flipped 	
-		 		Xbee_MOTOR_VELOCITY[0]=-(XbeeTest_Buffer[0]*8-1000); 
- 				Xbee_MOTOR_VELOCITY[1]=-(XbeeTest_Buffer[1]*8-1000);
-				Xbee_MOTOR_VELOCITY[2]=-(XbeeTest_Buffer[2]*8-1000);
+		 		Xbee_MOTOR_VELOCITY[0]=(XbeeTest_Buffer[0]*8-1000); 
+ 				Xbee_MOTOR_VELOCITY[1]=(XbeeTest_Buffer[1]*8-1000);
+				Xbee_MOTOR_VELOCITY[2]=(XbeeTest_Buffer[2]*8-1000);
 				Xbee_Incoming_Cmd[0]=XbeeTest_Buffer[3];
 				Xbee_Incoming_Cmd[1]=XbeeTest_Buffer[4];
 				//REG_MOTOR_VELOCITY.left=300; 
