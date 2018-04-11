@@ -58,7 +58,7 @@
  *
  */
 
-//#define NO_COMPUTER_INSTALLED
+#define NO_COMPUTER_INSTALLED
 
 #include "stdhdr.h"
 #include "device_carrier.h"
@@ -126,7 +126,7 @@
 
 void toggle_wdt_loop(void);
 
-
+//#define Firmware_Sdk
 
 
 
@@ -941,9 +941,11 @@ void DeviceCarrierProcessIO()
 	i++;
 
   usb_timeout_counter++;
-  
+	//printf("1");
   //see if a reset is required for any reason
-  handle_reset();
+	#ifndef NO_COMPUTER_INSTALLED
+  		handle_reset();
+	#endif
 
 /*
 	//if computer has shut down, flash white LED forever
