@@ -420,3 +420,4 @@ void TestOC();
 
 extern int Cell_A_Current[SampleLength];
 extern int Cell_B_Current[SampleLength];
+extern int16_t Xbee_MOTOR_VELOCITY[3];
