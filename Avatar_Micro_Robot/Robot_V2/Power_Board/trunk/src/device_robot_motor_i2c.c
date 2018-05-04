@@ -391,7 +391,7 @@ void I2C2Update(void)
 //			I2C2TRN=REG_MOTOR_SIDE_FAN_SPEED;//transmit register address data
 //			I2C2TRN=240;//transmit register address data
 			// as long as the motor speed is not 0, turn side fan on full speed
-			if((abs(Xbee_MOTOR_VELOCITY[0])+abs(Xbee_MOTOR_VELOCITY[0]))>10)
+			if((abs(Xbee_MOTOR_VELOCITY[0])+abs(Xbee_MOTOR_VELOCITY[1]))>10)
 			{
 				I2C2TRN=240;
 			} else
