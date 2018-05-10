@@ -84,6 +84,10 @@ int BATRecoveryTimerExpired=True;	//for initial powering of the power bus
 int BATRecoveryTimerCount=0;
 int closed_loop_control_timer_count = 0;
 int closed_loop_control_timer = 10;
+int Xbee_FanSpeedTimerEnabled=False;
+int Xbee_FanSpeedTimerExipred=False;
+int Xbee_FanSpeedTimerCount=0;
+
 
 unsigned int ICLMotorOverFlowCount=0;
 unsigned int ICRMotorOverFlowCount=0;
@@ -205,8 +209,16 @@ unsigned int adc_test_reg = 0;
 	uint8_t Xbee_Incoming_Cmd[2];
 	int Xbee_gNewData=0;
 	uint8_t Xbee_StartBit=253;
-	uint16_t EncoderInterval[3];// Encoder time interval 
-#define P1_Read_Register 10
+	uint16_t EncoderInterval[3];// Encoder time interval
+	uint16_t BuildNO=40509;
+	uint8_t Xbee_SIDE_FAN_SPEED=0;
+	uint8_t Xbee_SIDE_FAN_NEW=0; // if there is a cmd or no
+	#define P1_Read_Register 10
+	#define P1_Fan_Command 20
+	#define P1_Low_Speed_Set 240
+	#define P1_Calibration_Flipper 250
+	uint8_t Xbee_Low_Speed_mode=0;
+	uint8_t Xbee_Calibration=0;
 #endif
 
 
@@ -566,17 +578,28 @@ void Device_MotorController_Process()
  	int i;
  	long temp1,temp2;
 	static int overcurrent_counter = 0;
-
   //check if software wants to calibrate flipper position
+	#ifndef XbeeTest
   if(REG_MOTOR_VELOCITY.flipper == 12345)
   {
     calibrate_flipper_angle_sensor();
   }
-	
+	#endif
+
+	#ifdef XbeeTest
+  if(Xbee_Calibration==1)
+  {
+    calibrate_flipper_angle_sensor();
+	//clear the flag just for safe
+	Xbee_Calibration=0;
+	Xbee_SIDE_FAN_SPEED=240;
+	Xbee_SIDE_FAN_NEW=1; 
+	Xbee_FanSpeedTimerEnabled=True;
+	Xbee_FanSpeedTimerCount=0;
+  }
+	#endif
 
   IC_UpdatePeriods();
-
-
 // 	I2C2Update();
 //	I2C3Update();
  	//Check Timer
@@ -649,6 +672,13 @@ void Device_MotorController_Process()
  		{
  			BATRecoveryTimerCount++;
  		}
+		#ifdef XbeeTest
+			if(Xbee_FanSpeedTimerEnabled==True)
+			{
+				Xbee_FanSpeedTimerCount++;
+				//printf("%d",Xbee_FanSpeedTimerCount);
+			}
+		#endif
 
 
     //this should run every 1ms
@@ -750,6 +780,15 @@ void Device_MotorController_Process()
  		BATRecoveryTimerExpired=True;
  		BATRecoveryTimerCount=0;
  	}
+	#ifdef XbeeTest
+		if(Xbee_FanSpeedTimerCount>=Xbee_FanSpeedTimer)
+		{
+			Xbee_FanSpeedTimerExipred=True;
+			Xbee_FanSpeedTimerCount=0;
+			Xbee_FanSpeedTimerEnabled=False;
+			//printf("fan speed timer expired!");
+		}
+	#endif
 
  	//if any of the timers expired, excute relative codes
  	//Control timer expired
@@ -938,6 +977,19 @@ void Device_MotorController_Process()
  		BATRecoveryTimerCount=0;
  		BATRecoveryTimerEnabled=False;
  	}
+	//xbee fan timer
+	#ifdef XbeeTest
+		if(Xbee_FanSpeedTimerExipred==True)
+		{
+			Xbee_FanSpeedTimerExipred=False;
+			Xbee_FanSpeedTimerEnabled=False;
+			Xbee_FanSpeedTimerCount=0;
+			// clear all the fan command
+			Xbee_SIDE_FAN_SPEED=0;
+			Xbee_SIDE_FAN_NEW=0;
+			//printf("clear side fan speed!");
+		}
+	#endif
  	
 //T5
 
@@ -1641,9 +1693,14 @@ void USBInput()
 				//printf();
 			#endif
     	}
-
-      if(REG_MOTOR_SLOW_SPEED == 1)
+	#ifdef XbeeTest
+      if(REG_MOTOR_SLOW_SPEED == 1 )
         state = DECEL_AFTER_HIGH_SPEED;
+	#endif
+	#ifdef XbeeTest
+      if( Xbee_Low_Speed_mode==1)
+        state = DECEL_AFTER_HIGH_SPEED;
+	#endif
 
     break;
   
@@ -1668,21 +1725,28 @@ void USBInput()
     break;
 
     case LOW_SPEED:
-
-      set_desired_velocities(REG_MOTOR_VELOCITY.left,REG_MOTOR_VELOCITY.right,REG_MOTOR_VELOCITY.flipper);
+		#ifndef XbeeTest
+			set_desired_velocities(REG_MOTOR_VELOCITY.left,REG_MOTOR_VELOCITY.right,REG_MOTOR_VELOCITY.flipper);
+		#endif
 		#ifdef XbeeTest
 			set_desired_velocities(Xbee_MOTOR_VELOCITY[0],Xbee_MOTOR_VELOCITY[1],Xbee_MOTOR_VELOCITY[2]);
 		#endif
-  
+		//printf("low speed loop!");
   	 	Robot_Motor_TargetSpeedUSB[0]=return_closed_loop_control_effort(0);
   	 	Robot_Motor_TargetSpeedUSB[1]=return_closed_loop_control_effort(1);
-      Robot_Motor_TargetSpeedUSB[2]=return_closed_loop_control_effort(2);
-  
+      	Robot_Motor_TargetSpeedUSB[2]=return_closed_loop_control_effort(2);
+  		//printf("AA:%d,%d,%d",Robot_Motor_TargetSpeedUSB[0],Robot_Motor_TargetSpeedUSB[1],Robot_Motor_TargetSpeedUSB[2]);
       control_loop_counter = 0;
       flipper_control_loop_counter = 0;
-
+	#ifndef XbeeTest
       if(REG_MOTOR_SLOW_SPEED == 0)
         state = DECEL_AFTER_LOW_SPEED;
+	#endif
+	#ifdef XbeeTest
+      if(Xbee_Low_Speed_mode==0)
+        state = DECEL_AFTER_LOW_SPEED;
+	#endif
+
 
     break;
 
@@ -2824,7 +2888,8 @@ void  Motor_ADC1Interrupt(void)
 	EncoderInterval[0]=IC_period(kIC01); //left motor encoder time interval
 	EncoderInterval[1]=IC_period(kIC02); //right motor encoder time interval
 	EncoderInterval[3]=IC_period(kIC03); //Encoder motor encoder time interval
- 	if(Xbee_Incoming_Cmd[0]== P1_Read_Register && U1STAbits.UTXBF==0 && XbeeTest_UART_BufferPointer==0 && (Xbee_MOTOR_VELOCITY[0]||Xbee_MOTOR_VELOCITY[1]||Xbee_MOTOR_VELOCITY[2])!=0)//if transmit reg is empty and last packet is sent
+ 	//if(Xbee_Incoming_Cmd[0]== P1_Read_Register && U1STAbits.UTXBF==0 && XbeeTest_UART_BufferPointer==0 && (Xbee_MOTOR_VELOCITY[0]||Xbee_MOTOR_VELOCITY[1]||Xbee_MOTOR_VELOCITY[2])!=0)//if transmit reg is empty and last packet is sent
+ 	if(Xbee_Incoming_Cmd[0]== P1_Read_Register && U1STAbits.UTXBF==0 && XbeeTest_UART_BufferPointer==0)//if transmit reg is empty and last packet is sent
  	{
  		U1TXREG=Xbee_StartBit;//send out the index
  		//XbeeTest_Temp_u16=REG_PWR_TOTAL_CURRENT;
@@ -2850,7 +2915,7 @@ void  Motor_ADC1Interrupt(void)
  		//XbeeTest_UART_Buffer[2]=XbeeTest_Temp_u16;
 		//XbeeTest_UART_Buffer[1]=REG_MOTOR_ENCODER_COUNT.left;//load the buffer
  		//XbeeTest_UART_Buffer[2]=REG_MOTOR_ENCODER_COUNT.right;
- 		switch (XbeeTest_UART_DataNO%40)
+ 		switch (XbeeTest_UART_DataNO%60)
  		{ 
  		 	case 0:		//0-REG_PWR_TOTAL_CURRENT HI
  		 		XbeeTest_UART_Buffer[1]=REG_PWR_TOTAL_CURRENT>>8;
@@ -2954,16 +3019,42 @@ void  Motor_ADC1Interrupt(void)
  				XbeeTest_UART_Buffer[1]=EncoderInterval[0]>>8;
 				XbeeTest_UART_Buffer[2]=EncoderInterval[0];
  				break;
- 			case 29:	//29-EncoderInterval[1]
+ 			case 30:	//30-EncoderInterval[1]
  				XbeeTest_UART_Buffer[1]=EncoderInterval[1]>>8;
 				XbeeTest_UART_Buffer[2]=EncoderInterval[1];
  				break;
- 			case 30:	//30-EncoderInterval[2]
+ 			case 32:	//32-EncoderInterval[2]
  				XbeeTest_UART_Buffer[1]=EncoderInterval[2]>>8;
 				XbeeTest_UART_Buffer[2]=EncoderInterval[2];
  				break;
-
-
+ 			case 34:	//34-REG_ROBOT_REL_SOC_A
+ 				XbeeTest_UART_Buffer[1]=REG_ROBOT_REL_SOC_A>>8;
+				XbeeTest_UART_Buffer[2]=REG_ROBOT_REL_SOC_A;
+ 				break;
+ 			case 36:	//36-REG_ROBOT_REL_SOC_B
+ 				XbeeTest_UART_Buffer[1]=REG_ROBOT_REL_SOC_B>>8;
+				XbeeTest_UART_Buffer[2]=REG_ROBOT_REL_SOC_B;
+ 				break;
+ 			case 38:	//38-REG_MOTOR_CHARGER_STATE
+ 				XbeeTest_UART_Buffer[1]=REG_MOTOR_CHARGER_STATE>>8;
+				XbeeTest_UART_Buffer[2]=REG_MOTOR_CHARGER_STATE;
+ 				break;
+ 			case 40:	//40-BuildNO
+ 				XbeeTest_UART_Buffer[1]=BuildNO>>8;
+				XbeeTest_UART_Buffer[2]=BuildNO;
+ 				break;
+ 			case 42:	//42-REG_PWR_A_CURRENT
+ 				XbeeTest_UART_Buffer[1]=REG_PWR_A_CURRENT>>8;
+				XbeeTest_UART_Buffer[2]=REG_PWR_A_CURRENT;
+ 				break;
+ 			case 44:	//44-REG_PWR_B_CURRENT
+ 				XbeeTest_UART_Buffer[1]=REG_PWR_B_CURRENT>>8;
+				XbeeTest_UART_Buffer[2]=REG_PWR_B_CURRENT;
+ 				break;
+ 			case 46:	//46-REG_MOTOR_FLIPPER_ANGLE
+ 				XbeeTest_UART_Buffer[1]=REG_MOTOR_FLIPPER_ANGLE>>8;
+				XbeeTest_UART_Buffer[2]=REG_MOTOR_FLIPPER_ANGLE;
+ 				break;
  		}
 		//add checksum of the package
 		XbeeTest_UART_Buffer[3]=255-(XbeeTest_UART_Buffer[0]+XbeeTest_UART_Buffer[1]+XbeeTest_UART_Buffer[2])%255;
@@ -3035,7 +3126,7 @@ void Motor_U1RXInterrupt(void)
 				//printf("%d:%d  ",i,XbeeTest_Buffer[i]);
 				SumBytes+=XbeeTest_Buffer[i];
 			}
-			printf("Sum:%d\n",SumBytes);
+			//printf("Sum:%d\n",SumBytes);
 			if(SumBytes%255==0)
 			{
 				//input data range 0~250, 125 is stop, 0 is backwards full speed, 250 is forward full speed
@@ -3045,6 +3136,27 @@ void Motor_U1RXInterrupt(void)
 				Xbee_MOTOR_VELOCITY[2]=(XbeeTest_Buffer[2]*8-1000);
 				Xbee_Incoming_Cmd[0]=XbeeTest_Buffer[3];
 				Xbee_Incoming_Cmd[1]=XbeeTest_Buffer[4];
+				//see if this is a fan cmd
+				switch (Xbee_Incoming_Cmd[0])
+ 				{ 
+ 		 			case P1_Fan_Command: //new fan command coming in
+ 		 				Xbee_SIDE_FAN_SPEED=Xbee_Incoming_Cmd[1];
+						Xbee_SIDE_FAN_NEW=1;
+						//Enable fan speed timer
+						Xbee_FanSpeedTimerEnabled=True;
+						Xbee_FanSpeedTimerCount=0;
+						//printf("fan data received!");
+ 						break;
+					case P1_Low_Speed_Set:
+						Xbee_Low_Speed_mode=Xbee_Incoming_Cmd[1];
+						break;
+					case P1_Calibration_Flipper:
+						if(Xbee_Incoming_Cmd[1]==P1_Calibration_Flipper)
+						{
+							Xbee_Calibration=1;
+						}
+						break;
+				}
 				//REG_MOTOR_VELOCITY.left=300; 
  				//REG_MOTOR_VELOCITY.right=800;
 				//REG_MOTOR_VELOCITY.flipper=400;
@@ -3251,7 +3363,6 @@ void calibrate_flipper_angle_sensor(void)
     ClrWdt();
 
   }
-
 }
 
 void turn_on_power_bus_new_method(void)
