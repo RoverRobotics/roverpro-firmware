@@ -145,6 +145,8 @@ unsigned int usb_timeout_counter = 0;
 unsigned char first_usb_message_received = 0;
 
 unsigned char robot_radio_reset_triggered = 0;
+unsigned int power_button_timer_counter=0;
+#define power_button_timer 150
 
 //this is set if the COM Express shuts down within a few seconds of booting
 //(probably due to noise from switching the power bus).  When this happens,
@@ -937,6 +939,7 @@ void DeviceCarrierProcessIO()
 {
 
 	static unsigned int i = 0;
+	static payload_pwr_flag = 1; // use this to toggle the power button control
 
 	i++;
 
@@ -945,6 +948,29 @@ void DeviceCarrierProcessIO()
   //see if a reset is required for any reason
 	#ifndef NO_COMPUTER_INSTALLED
   		handle_reset();
+	#endif
+	#ifdef NO_COMPUTER_INSTALLED
+		if(POWER_BUTTON())
+		{
+			power_button_timer_counter++;
+			if(power_button_timer_counter>=power_button_timer)
+			{
+				payload_pwr_flag=!payload_pwr_flag;
+				VBAT_DIGI_ON(payload_pwr_flag);
+				//V3V3_ON(payload_pwr_flag);
+				V5_ON(payload_pwr_flag);
+				V12_ON(payload_pwr_flag);
+				//AMP_PWR_ON(payload_pwr_flag);
+				//CODEC_PWR_ON(payload_pwr_flag);
+				//COM_EXPRESS_PGOOD_ON(payload_pwr_flag);
+				REAR_PL_PWR_ON(payload_pwr_flag);
+				power_button_timer_counter=0;
+			}
+		}
+		else
+		{
+			power_button_timer_counter=0;
+		}	
 	#endif
 
 /*
@@ -1026,7 +1052,7 @@ void DeviceCarrierProcessIO()
 
 	}
 
-	if(REAR_PL_PRESENT() == 0)
+	if(REAR_PL_PRESENT() == 0 && payload_pwr_flag==1)
 	{
 		REAR_PL_PWR_ON(1);
 	}

@@ -220,8 +220,9 @@ void I2C2Update(void)
  			if(I2C2STATbits.IWCOL==1)//write collision occurs, go to the first step
  			{
  			 	//REG_MOTOR_TEMP_STATUS.left=0;
+				I2C2STATbits.IWCOL = 0;
 				//StepNumber = 0;
-				StepNumber++;
+				//StepNumber++;
  			}
  			if(I2C2STATbits.TRSTAT==0)// wait for the transmitting to complete
  			{
@@ -250,7 +251,7 @@ void I2C2Update(void)
  			{
 				I2C2STATbits.IWCOL = 0;
  			 	//REG_MOTOR_TEMP_STATUS.left==0;
-				StepNumber++;
+				//StepNumber++;
  			}
  			if(I2C2STATbits.TRSTAT==0)// wait for the transmitting to complete
  			{
