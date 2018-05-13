@@ -210,7 +210,7 @@ unsigned int adc_test_reg = 0;
 	int Xbee_gNewData=0;
 	uint8_t Xbee_StartBit=253;
 	uint16_t EncoderInterval[3];// Encoder time interval
-	uint16_t BuildNO=40511;
+	uint16_t BuildNO=40512;
 	uint8_t Xbee_SIDE_FAN_SPEED=0;
 	uint8_t Xbee_SIDE_FAN_NEW=0; // if there is a cmd or no
 	#define P1_Read_Register 10
@@ -3054,6 +3054,14 @@ void  Motor_ADC1Interrupt(void)
  			case 46:	//46-REG_MOTOR_FLIPPER_ANGLE
  				XbeeTest_UART_Buffer[1]=REG_MOTOR_FLIPPER_ANGLE>>8;
 				XbeeTest_UART_Buffer[2]=REG_MOTOR_FLIPPER_ANGLE;
+ 				break;
+ 			case 48:	//46-REG_MOTOR_FLIPPER_ANGLE
+ 				XbeeTest_UART_Buffer[1]=Xbee_SIDE_FAN_SPEED>>8;
+				XbeeTest_UART_Buffer[2]=Xbee_SIDE_FAN_SPEED;
+ 				break;
+ 			case 50:	//46-REG_MOTOR_FLIPPER_ANGLE
+ 				XbeeTest_UART_Buffer[1]=Xbee_Low_Speed_mode>>8;
+				XbeeTest_UART_Buffer[2]=Xbee_Low_Speed_mode;
  				break;
  		}
 		//add checksum of the package

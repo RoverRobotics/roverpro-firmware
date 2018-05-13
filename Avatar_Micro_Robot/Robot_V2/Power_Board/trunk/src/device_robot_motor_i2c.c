@@ -400,10 +400,12 @@ void I2C2Update(void)
 				// as long as the motor speed is not 0, turn side fan on full speed
 				if((abs(Xbee_MOTOR_VELOCITY[0])+abs(Xbee_MOTOR_VELOCITY[1]))>10)
 				{
-					I2C2TRN=240;
+					Xbee_SIDE_FAN_SPEED=240;
+					I2C2TRN=Xbee_SIDE_FAN_SPEED;
 				} else
 				{
-					I2C2TRN=0;
+					Xbee_SIDE_FAN_SPEED=0;
+					I2C2TRN=Xbee_SIDE_FAN_SPEED;
 				}
 			}
 			StepNumber++;
