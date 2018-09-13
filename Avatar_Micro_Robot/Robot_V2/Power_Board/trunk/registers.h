@@ -37,6 +37,7 @@ typedef struct { int32_t left, right, flipper; } MOTOR_DATA_3EL_32BI;
 typedef struct { int8_t  left, right, flipper; } MOTOR_DATA_3EL_8BI;
 typedef struct { float   data[4][3]; } MOTOR_DATA_CTRL;
 typedef struct { int16_t a,b; } BATTERY_DATA_2EL_16BI;
+typedef struct { int16_t status, mode; } BATTERY_HEALTH;
 typedef struct { uint16_t deg, min, sec; } GPS_VECT;
 typedef struct { GPS_VECT lat, lon; } GPS_DATA;
 typedef struct {uint8_t data[100]; } GPS_MESSAGE;
@@ -114,6 +115,8 @@ REGISTER( REG_MOTOR_TEMP,          DEVICE_READ,  DEVICE_MOTOR,   SYNC,    TMP_3E
 
 REGISTER( REG_MOTOR_TEMP_STATUS,   DEVICE_READ,  DEVICE_MOTOR,   SYNC,    TMP_3EL_16BI)//0-data is bad, 1-data is good
 REGISTER( REG_PWR_BAT_VOLTAGE,     DEVICE_READ,  DEVICE_MOTOR,   SYNC,    BATTERY_DATA_2EL_16BI)
+REGISTER( REG_BATTERY_A_HEALTH,    DEVICE_READ,  DEVICE_MOTOR,   SYNC,    BATTERY_HEALTH)
+REGISTER( REG_BATTERY_B_HEALTH,    DEVICE_READ,  DEVICE_MOTOR,   SYNC,    BATTERY_HEALTH)
 REGISTER( REG_PWR_TOTAL_CURRENT,   DEVICE_READ,  DEVICE_MOTOR,   SYNC,    uint16_t)
 
 

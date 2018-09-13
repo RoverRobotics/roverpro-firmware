@@ -16,7 +16,6 @@ int I2C3TimerExpired = 0;
 //fan controller, TMP112, battery, EEPROM
 void I2C2Update(void)
 {
-
  	static int StepNumber=1; 
 	static unsigned char a,b;
  	//static int TMPHigh,TMPLow;
@@ -29,10 +28,10 @@ void I2C2Update(void)
  		REG_MOTOR_TEMP_STATUS.left=1;
  		REG_MOTOR_TEMP_STATUS.right=1;
  		REG_MOTOR_TEMP_STATUS.board=1;
-
  	}
  	switch(StepNumber)
  	{
+	// REG_MOTOR_TEMP.left = FanControl ReadByte 0x00
  	 	case 1://make sure the module is idle
  			if(CheckI2C2Idle()==True)
  			{
@@ -118,6 +117,8 @@ void I2C2Update(void)
  			I2C2CONbits.PEN=1;	// initiate Stop on SDA and SCL pins
  			StepNumber++;
  			break;
+ 				
+ 	// REG_MOTOR_TEMP_STATUS.right = FanControl ReadByte 0x01
  	 	case 13://make sure the module is idle
  			if(CheckI2C2Idle()==True)
  			{
@@ -202,6 +203,8 @@ void I2C2Update(void)
  			I2C2CONbits.PEN=1;	// initiate Stop on SDA and SCL pins
  			StepNumber++;
  			break;
+ 			
+ 	// REG_ROBOT_REL_SOC_A = Battery ReadWord 0x0d [="RelativeStateOfCharge"]
 	 	case 25://make sure the module is idle
  			if(CheckI2C2Idle()==True)
  			{
@@ -305,7 +308,7 @@ void I2C2Update(void)
 				I2C2CONbits.ACKDT = 1; //NACK
 				I2C2CONbits.ACKEN = 1;
  			}
-		break;		
+			break;		
  		case 38://stop the module
 			I2C2CONbits.ACKDT = 0; //ACK
  			I2C2CONbits.PEN=1;	// initiate Stop on SDA and SCL pins
@@ -320,13 +323,14 @@ void I2C2Update(void)
  			}
  			break;
 
+	// FanControl WriteByte 0x0b REG_MOTOR_SIDE_FAN_SPEED
 		case 40://make sure the module is idle
-					if(CheckI2C2Idle()==True)
-					{
-						StepNumber++;//run second step
-						I2C2CONbits.SEN=1;	// initiate Start on SDA and SCL pins
-					}
-				 	break;
+			if(CheckI2C2Idle()==True)
+			{
+				StepNumber++;//run second step
+				I2C2CONbits.SEN=1;	// initiate Start on SDA and SCL pins
+			}
+			break;
 		case 41://wait until start is complete, then transmit data
 			if(I2C2CONbits.SEN==0)
 			{
@@ -406,20 +410,168 @@ void I2C2Update(void)
 			{
 				StepNumber++;//run next step
 				I2C2CONbits.PEN=1;	// initiate Stop on SDA and SCL pins
+			}	
+			
+	// Battery ReadWord 0x16 [="BatteryStatus"]
+		case 52:
+			if (CheckI2C2Idle()){
+				I2C2CONbits.SEN = 1; // Set start bit
+				StepNumber++;
 			}
-		case 52://check ACK from slave
+			break;
+		case 53:
+			if(!I2C2CONbits.SEN) // Ready to write
+			{
+				I2C2TRN = BATTERY_ADDRESS<<1; // Read From Battery
+				StepNumber++;
+			}	
+			break;			
+		case 54:
+			if (!I2C2STATbits.TRSTAT) // Done writing
+			{
+				I2C2TRN = 0x16; // Command Code. See SBData specification
+				StepNumber++;
+			}
+			break;
+		case 55:
+			if (!I2C2STATbits.TRSTAT) {
+				 I2C2CONbits.SEN=1;
+				 StepNumber++;
+			} 
+			break;
+		case 56:
+			if(!I2C2CONbits.SEN) {
+				I2C2TRN = (BATTERY_ADDRESS<<1) + 1;
+				StepNumber++;
+			}
+			break;
+		case 57:
+			if (!I2C2STATbits.TRSTAT)
+			{
+				I2C2CONbits.RCEN = 1;
+				StepNumber++;
+			}
+			break;
+		case 58:
+			if (!I2C2CONbits.RCEN) {
+				a = I2C2RCV;
+				I2C2CONbits.ACKDT=0; // ACK
+				I2C2CONbits.ACKEN=1; // send the ACK.
+				StepNumber++;
+			}	
+			break;
+		case 59:
+			if (!I2C2CONbits.ACKEN) {
+				I2C2CONbits.RCEN = 1;
+				StepNumber++;
+			}
+			break;
+		case 60:
+			if (!I2C2CONbits.RCEN) {
+				b = I2C2RCV;
+				REG_BATTERY_A_HEALTH.status = a + (b<<8);
+				if (REG_BATTERY_A_HEALTH.status & 0xFF0F)
+				{
+					printf(__LINE__); // something is wrong breakpoint here to investigate
+				}	
+				I2C2CONbits.ACKDT=0; // ACK
+				I2C2CONbits.ACKEN=1; // send the ACK.
+				StepNumber++;
+			}
+			break;
+		case 61:
+			if (!I2C2CONbits.ACKEN) {
+				I2C2CONbits.PEN = 1;
+				StepNumber++;
+			}
+			break;
+		case 62:
+			if (!I2C2CONbits.PEN) {
+				StepNumber++;
+			}
+			break;
+			
+		// Battery ReadWord 0x03 [="BatteryMode"]
+		case 63:
+			if (CheckI2C2Idle()){
+				I2C2CONbits.SEN = 1; // Set start bit
+				StepNumber++;
+			}
+			break;
+		case 64:
+			if(!I2C2CONbits.SEN) // Ready to write
+			{
+				I2C2TRN = BATTERY_ADDRESS<<1;
+				StepNumber++;
+			}	
+			break;			
+		case 65:
+			if (!I2C2STATbits.TRSTAT)
+			{
+				I2C2TRN = 0x03;
+				StepNumber++;
+			}
+			break;
+		case 66:
+			if (!I2C2STATbits.TRSTAT) {
+				 I2C2CONbits.SEN=1;
+				 StepNumber++;
+			} 
+			break;
+		case 67:
+			if(!I2C2CONbits.SEN) {
+				I2C2TRN = (BATTERY_ADDRESS<<1) + 1;
+				StepNumber++;
+			}
+			break;
+		case 68:
+			if (!I2C2STATbits.TRSTAT)
+			{
+				I2C2CONbits.RCEN = 1;
+				StepNumber++;
+			}
+			break;
+		case 69:
+			if (!I2C2CONbits.RCEN) {
+				a = I2C2RCV;
+				I2C2CONbits.ACKDT=0; // ACK
+				I2C2CONbits.ACKEN=1; // send the ACK.
+				StepNumber++;
+			}	
+			break;
+		case 70:
+			if (!I2C2CONbits.ACKEN) {
+				I2C2CONbits.RCEN = 1;
+				StepNumber++;
+			}
+			break;
+		case 71:
+			if (!I2C2CONbits.RCEN) {
+				b = I2C2RCV;
+				REG_BATTERY_A_HEALTH.mode = a + (b<<8);
+				I2C2CONbits.ACKDT=0; // ACK
+				I2C2CONbits.ACKEN=1; // send the ACK.
+				StepNumber++;
+			}
+			break;
+		case 72:
+			if (!I2C2CONbits.ACKEN) {
+				I2C2CONbits.PEN = 1;
+				StepNumber++;
+			}
+			break;
+			
+		case 73:
  			if(CheckI2C2Idle()==True)
  			{
  				StepNumber++;//move to nonexistant step
  				//StepNumber=1;//cycle ends, go to the first step
  				I2C2TimerExpired=False;//reset the I2C2 update timer
-
  			}
-			break;
-
+			break; 
  	}
-
 }
+
 
 
 
@@ -439,6 +591,7 @@ void I2C3Update(void)
  	}
  	switch(StepNumber)
  	{
+	 // Battery ReadWord 0x0d [="RelativeStateOfCharge"]
 	 	case 1://make sure the module is idle
  			if(CheckI2C3Idle()==True)
  			{
@@ -550,12 +703,12 @@ void I2C3Update(void)
 	 			StepNumber++;
 			}
  			break;
+ 			
+ 	// REG_MOTOR_CHARGER_STATE = BatteryCharger ReadWord 0xca
 		case 15:
  			if(CheckI2C3Idle()==True)
  			{
  				StepNumber++;//run second step
- 				//StepNumber=1;//cycle ends, go to the first step
-
  			}
 		break;
 	 	case 16://make sure the module is idle
@@ -650,7 +803,7 @@ void I2C3Update(void)
  				StepNumber++;//run second step
  				I2C3CONbits.RCEN=1;//enable receive model
  			}
-		break;
+			break;
 		case 28:
 		 	if(I2C3CONbits.RCEN==0)
  			{
@@ -662,7 +815,7 @@ void I2C3Update(void)
 				I2C3CONbits.ACKDT = 1; //NACK
 				I2C3CONbits.ACKEN = 1;
  			}
-		break;		
+ 			break;		
  		case 29://stop the module
 		 	if(CheckI2C3Idle()==True)
  			{
@@ -670,7 +823,156 @@ void I2C3Update(void)
 	 			StepNumber++;
 			}
  			break;
+ 			
+ 	// Battery ReadWord 0x16 [="BatteryStatus"]
 		case 30:
+			if (CheckI2C3Idle()){
+				I2C3CONbits.SEN = 1; // Set start bit
+				StepNumber++;
+			}
+			break;
+		case 31:
+			if(!I2C3CONbits.SEN) // Ready to write
+			{
+				I2C3TRN = BATTERY_ADDRESS<<1; // Read From Battery
+				StepNumber++;
+			}	
+			break;			
+		case 32:
+			if (!I2C3STATbits.TRSTAT) // Done writing
+			{
+				I2C3TRN = 0x16;
+				StepNumber++;
+			}
+			break;
+		case 33:
+			if (!I2C3STATbits.TRSTAT) {
+				 I2C3CONbits.SEN=1;
+				 StepNumber++;
+			} 
+			break;
+		case 34:
+			if(!I2C3CONbits.SEN) {
+				I2C3TRN = (BATTERY_ADDRESS<<1) + 1;
+				StepNumber++;
+			}
+			break;
+		case 35:
+			if (!I2C3STATbits.TRSTAT)
+			{
+				I2C3CONbits.RCEN = 1;
+				StepNumber++;
+			}
+			break;
+		case 36:
+			if (!I2C3CONbits.RCEN) {
+				a = I2C3RCV;
+				I2C3CONbits.ACKDT=0; // ACK
+				I2C3CONbits.ACKEN=1; // send the ACK.
+				StepNumber++;
+			}	
+			break;
+		case 37:
+			if (!I2C3CONbits.ACKEN) {
+				I2C3CONbits.RCEN = 1;
+				StepNumber++;
+			}
+			break;
+		case 38:
+			if (!I2C3CONbits.RCEN) {
+				b = I2C3RCV;
+				REG_BATTERY_B_HEALTH.status = a + (b<<8);
+				if (REG_BATTERY_B_HEALTH.status & 0xFF0F)
+				{
+					printf(__LINE__); // Something is wrong. Breakpoint here to investigate	
+				}	
+				I2C3CONbits.ACKDT=0; // ACK
+				I2C3CONbits.ACKEN=1; // send the ACK.
+				StepNumber++;
+			}
+			break;
+		case 39:
+			if (!I2C3CONbits.ACKEN) {
+				I2C3CONbits.PEN = 1;
+				StepNumber++;
+			}
+			break;
+		case 40:
+			if (!I2C3CONbits.PEN) {
+				StepNumber++;
+			}
+			break;
+			
+		// Battery ReadWord 0x03 [="BatteryMode"]
+		case 41:
+			if (CheckI2C3Idle()){
+				I2C3CONbits.SEN = 1; // Set start bit
+				StepNumber++;
+			}
+			break;
+		case 42:
+			if(!I2C3CONbits.SEN) // Ready to write
+			{
+				I2C3TRN = BATTERY_ADDRESS<<1;
+				StepNumber++;
+			}	
+			break;			
+		case 43:
+			if (!I2C3STATbits.TRSTAT)
+			{
+				I2C3TRN = 0x03;
+				StepNumber++;
+			}
+			break;
+		case 44:
+			if (!I2C3STATbits.TRSTAT) {
+				 I2C3CONbits.SEN=1;
+				 StepNumber++;
+			} 
+			break;
+		case 45:
+			if(!I2C3CONbits.SEN) {
+				I2C3TRN = (BATTERY_ADDRESS<<1) + 1;
+				StepNumber++;
+			}
+			break;
+		case 46:
+			if (!I2C3STATbits.TRSTAT)
+			{
+				I2C3CONbits.RCEN = 1;
+				StepNumber++;
+			}
+			break;
+		case 47:
+			if (!I2C3CONbits.RCEN) {
+				a = I2C3RCV;
+				I2C3CONbits.ACKDT=0; // ACK
+				I2C3CONbits.ACKEN=1; // send the ACK.
+				StepNumber++;
+			}	
+			break;
+		case 48:
+			if (!I2C3CONbits.ACKEN) {
+				I2C3CONbits.RCEN = 1;
+				StepNumber++;
+			}
+			break;
+		case 49:
+			if (!I2C3CONbits.RCEN) {
+				b = I2C3RCV;
+				REG_BATTERY_B_HEALTH.mode = a + (b<<8);
+				I2C3CONbits.ACKDT=0; // ACK
+				I2C3CONbits.ACKEN=1; // send the ACK.
+				StepNumber++;
+			}
+			break;
+		case 50:
+			if (!I2C3CONbits.ACKEN) {
+				I2C3CONbits.PEN = 1;
+				StepNumber++;
+			}
+			break;
+		case 51:
  			if(CheckI2C3Idle()==True)
  			{
  				StepNumber++;//run second step
