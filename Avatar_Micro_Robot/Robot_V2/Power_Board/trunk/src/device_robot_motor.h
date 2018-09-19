@@ -115,7 +115,6 @@
 #define CurrentFBTimer 1 		//1KHz
 #define M3_POSFB_Timer 1 		//1KHz
 #define CurrentProtectionTimer 1  //1KHz
-//#define I2C2Timer 25
 #define I2C2Timer 25
 #define I2C3Timer 25 //4Hz, this is the default sample rate of TMPSensorIC
 #define SFREGUpdateTimer 4 	//250Hz
@@ -270,14 +269,12 @@
 #define ShiftBits 2
 
 //I2C Device Address
-#define TMPSensorICAddressW 0b10010010
-#define TMPSensorICAddressR 0b10010011
-#define FANCtrlAddressW 0b00110000
-#define FANCtrlAddressR 0b00110001
+#define TMPSensorICAddressW         0b10010010
+#define TMPSensorICAddressR         0b10010011
 #define FAN_CONTROLLER_ADDRESS		0x18
-#define	BATTERY_ADDRESS				0x0b
-#define EEPROM_ADDRESS            0x50
-#define BATTERY_CHARGER_ADDRESS 0x0c
+#define	BATTERY_ADDRESS				0x0b // two batteries exist with the same address; one on each of I2C bus 2 and 3
+#define EEPROM_ADDRESS              0x50
+#define BATTERY_CHARGER_ADDRESS     0x0c
 
 #define Fan1LowTemp 45// 45C fan1 start temperature
 #define Fan2LowTemp 45// 45C fan2 start temperature
