@@ -109,10 +109,8 @@ void I2C2Update(void)
 		STEP(i2c_read_byte(BUS, NACK, &b))
 			if(ack == ACK) {
 				unsigned battery_status = a + (b<<8);
-				if ((battery_status & 0x000f) == 0) { // if battery status returns no error code
-					BREAK_IF(battery_status & 0xff00); // 0xff00 are the battery alarm flags
-					REG_BATTERY_STATUS_A = battery_status;
-				}
+				BREAK_IF(battery_status & 0xff00); // 0xff00 are the battery alarm flags
+				REG_BATTERY_STATUS_A = battery_status;
 			}
 			
 	// Battery ReadWord 0x03 [="BatteryMode"]
@@ -127,8 +125,23 @@ void I2C2Update(void)
 		STEP(i2c_receive(BUS))
 		STEP(i2c_read_byte(BUS, NACK, &b))
 			if(ack == ACK) {
-				REG_BATTERY_MODE_B = a + (b<<8);
+				REG_BATTERY_MODE_A = a + (b<<8);
 			}
+				
+	// Battery ReadWord 0x08 [="Temperature"]
+		STEP(i2c_restart(BUS))
+		STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_WRITE))
+		STEP(i2c_write_byte(BUS, 0x08))
+		STEP(i2c_start(BUS))
+		STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_READ))
+		STEP(i2c_check_ack(BUS, &ack))
+		STEP(i2c_receive(BUS))
+		STEP(i2c_read_byte(BUS, ACK, &a))
+		STEP(i2c_receive(BUS))
+		STEP(i2c_read_byte(BUS, NACK, &b))
+			if(ack == ACK) {
+				REG_BATTERY_TEMP_A = a + (b<<8);
+			}	
 			
 		STEP(i2c_stop(BUS))
  			I2C2TimerExpired=False;//reset the I2C2 update timer
@@ -141,6 +154,7 @@ void I2C3Update(void)
 	static const i2c_bus_t BUS = (&I2C3_meta);
  	static int resume_at=0;
 	static unsigned char a,b;
+	static i2c_ack_t ack;
 	i2c_result_t i2c_result;
 	
  	if(I2C3XmitReset==True)
@@ -165,30 +179,19 @@ void I2C3Update(void)
  		STEP(i2c_read_byte(BUS, NACK, &b))
 			REG_ROBOT_REL_SOC_B = a + (b<<8);
  			
- 	// REG_MOTOR_CHARGER_STATE = BatteryCharger ReadWord 0xca
- 		STEP(i2c_restart(BUS))
- 		STEP(i2c_write_addr(BUS, BATTERY_CHARGER_ADDRESS, I2C_WRITE))
- 		STEP(i2c_write_byte(BUS, 0xca))
- 		STEP(i2c_start(BUS))
- 		STEP(i2c_write_addr(BUS, BATTERY_CHARGER_ADDRESS, I2C_READ))
- 		STEP(i2c_receive(BUS))
- 		STEP(i2c_read_byte(BUS, ACK, &a))
- 		STEP(i2c_receive(BUS))
- 		STEP(i2c_read_byte(BUS, NACK, &b))
-			REG_MOTOR_CHARGER_STATE = a + (b<<8);
- 			
  	// Battery ReadWord 0x16 [="BatteryStatus"]
  		STEP(i2c_restart(BUS))
  		STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_WRITE))
 		STEP(i2c_write_byte(BUS, 0x16))
 		STEP(i2c_start(BUS))
 		STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_READ))
+		STEP(i2c_check_ack(BUS, &ack))
 		STEP(i2c_receive(BUS))
 		STEP(i2c_read_byte(BUS, ACK, &a))
 		STEP(i2c_receive(BUS))
 		STEP(i2c_read_byte(BUS, NACK, &b))
-			unsigned battery_status = a + (b<<8);
-			if ((battery_status & 0x000f) == 0) { // if battery status returns no error code
+			if(ack == ACK) {
+				unsigned battery_status = a + (b<<8);
 				BREAK_IF(battery_status & 0xff00); // 0xff00 are the battery alarm flags
 				REG_BATTERY_STATUS_B = battery_status;
 			}	
@@ -199,11 +202,29 @@ void I2C3Update(void)
 		STEP(i2c_write_byte(BUS, 0x03))
 		STEP(i2c_start(BUS))
 		STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_READ))
+		STEP(i2c_check_ack(BUS, &ack))
 		STEP(i2c_receive(BUS))
 		STEP(i2c_read_byte(BUS, ACK, &a))
 		STEP(i2c_receive(BUS))
 		STEP(i2c_read_byte(BUS, NACK, &b))
-			REG_BATTERY_MODE_B = a + (b<<8);
+			if(ack == ACK) {
+				REG_BATTERY_MODE_B = a + (b<<8);
+			}
+			
+	// Battery ReadWord 0x08 [="Temperature"]
+		STEP(i2c_restart(BUS))
+		STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_WRITE))
+		STEP(i2c_write_byte(BUS, 0x08))
+		STEP(i2c_start(BUS))
+		STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_READ))
+		STEP(i2c_check_ack(BUS, &ack))
+		STEP(i2c_receive(BUS))
+		STEP(i2c_read_byte(BUS, ACK, &a))
+		STEP(i2c_receive(BUS))
+		STEP(i2c_read_byte(BUS, NACK, &b))
+			if(ack == ACK) {
+				REG_BATTERY_TEMP_B = a + (b<<8);
+			}	
 	
 		STEP(i2c_stop(BUS))
  			I2C3TimerExpired=False; //reset the I2C2 update timer
