@@ -37,7 +37,6 @@ typedef struct { int32_t left, right, flipper; } MOTOR_DATA_3EL_32BI;
 typedef struct { int8_t  left, right, flipper; } MOTOR_DATA_3EL_8BI;
 typedef struct { float   data[4][3]; } MOTOR_DATA_CTRL;
 typedef struct { int16_t a,b; } BATTERY_DATA_2EL_16BI;
-typedef struct { uint16_t status, mode; } BATTERY_HEALTH;
 typedef struct { uint16_t deg, min, sec; } GPS_VECT;
 typedef struct { GPS_VECT lat, lon; } GPS_DATA;
 typedef struct {uint8_t data[100]; } GPS_MESSAGE;
@@ -256,8 +255,11 @@ REGISTER( REG_REPEATER_POSITIONS,	DEVICE_READ,	DEVICE_INITIATOR,	SYNC,	uint8_t )
 //REG_MOTOR_SLOW_SPEED is 0 for normal drive motor operation, and 1 for slow drive motor operation
 REGISTER( REG_MOTOR_SLOW_SPEED,	DEVICE_WRITE,	DEVICE_MOTOR,	SYNC,	uint8_t )
 
-REGISTER( REG_BATTERY_A_HEALTH,    DEVICE_READ,  DEVICE_MOTOR,   SYNC,    BATTERY_HEALTH)
-REGISTER( REG_BATTERY_B_HEALTH,    DEVICE_READ,  DEVICE_MOTOR,   SYNC,    BATTERY_HEALTH)
+REGISTER( REG_BATTERY_STATUS_A, DEVICE_READ,  DEVICE_MOTOR,   SYNC, uint16_t)
+REGISTER( REG_BATTERY_STATUS_B, DEVICE_READ,  DEVICE_MOTOR,   SYNC, uint16_t)
+
+REGISTER( REG_BATTERY_MODE_A,   DEVICE_READ,  DEVICE_MOTOR,   SYNC, uint16_t)
+REGISTER( REG_BATTERY_MODE_B,   DEVICE_READ,  DEVICE_MOTOR,   SYNC, uint16_t)
 
 REGISTER_END()
 

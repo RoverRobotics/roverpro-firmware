@@ -26,7 +26,7 @@ const i2c_busdef_t I2C3_meta = { (i2c_con_t *) &I2C3CON, (i2c_stat_t *) &I2C3STA
 // Or by jumping back to it (every retry)
 // Note an i2c_result of I2C_ILLEGAL probably means there is a coding error, hence the conditional breakpoint
 #define STEP(cmd)                                 \
-	 case (__LINE__): resume_at=__LINE__;        \
+	 case (__LINE__): resume_at=__LINE__;         \
 		 i2c_result = (cmd);                      \
 		 if (i2c_result == I2C_NOTYET) { break; } \
 		 BREAK_IF(i2c_result != I2C_OKAY)         \
@@ -53,7 +53,7 @@ void I2C2Update(void)
 	 	default: BREAKPOINT;
 	 	case 0:
 	 	
-	// REG_MOTOR_TEMP.left = FanControl ReadByte 0x00
+	// REG_MOTOR_TEMP.left = FanControl ReadByte 0x01
 		STEP(i2c_start(BUS))
 		STEP(i2c_write_addr(BUS, FAN_CONTROLLER_ADDRESS, I2C_WRITE))
 		STEP(i2c_check_ack(BUS, &ack))
@@ -66,7 +66,7 @@ void I2C2Update(void)
 			REG_MOTOR_TEMP_STATUS.left = (ack == ACK);
 			REG_MOTOR_TEMP.left = a;
  			
- 	// REG_MOTOR_TEMP_STATUS.right = FanControl ReadByte 0x01
+ 	// REG_MOTOR_TEMP.right = FanControl ReadByte 0x01
  		STEP(i2c_restart(BUS))
  		STEP(i2c_write_addr(BUS, FAN_CONTROLLER_ADDRESS, I2C_WRITE))
 		STEP(i2c_write_byte(BUS, 0x01))
@@ -111,11 +111,11 @@ void I2C2Update(void)
 				unsigned battery_status = a + (b<<8);
 				if ((battery_status & 0x000f) == 0) { // if battery status returns no error code
 					BREAK_IF(battery_status & 0xff00); // 0xff00 are the battery alarm flags
-					REG_BATTERY_A_HEALTH.status = battery_status;
+					REG_BATTERY_STATUS_A = battery_status;
 				}
 			}
 			
-		// Battery ReadWord 0x03 [="BatteryMode"]
+	// Battery ReadWord 0x03 [="BatteryMode"]
 		STEP(i2c_restart(BUS))
 		STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_WRITE))
 		STEP(i2c_write_byte(BUS, 0x03))
@@ -127,7 +127,7 @@ void I2C2Update(void)
 		STEP(i2c_receive(BUS))
 		STEP(i2c_read_byte(BUS, NACK, &b))
 			if(ack == ACK) {
-				REG_BATTERY_A_HEALTH.mode = a + (b<<8);
+				REG_BATTERY_MODE_B = a + (b<<8);
 			}
 			
 		STEP(i2c_stop(BUS))
@@ -190,7 +190,7 @@ void I2C3Update(void)
 			unsigned battery_status = a + (b<<8);
 			if ((battery_status & 0x000f) == 0) { // if battery status returns no error code
 				BREAK_IF(battery_status & 0xff00); // 0xff00 are the battery alarm flags
-				REG_BATTERY_B_HEALTH.status = battery_status;
+				REG_BATTERY_STATUS_B = battery_status;
 			}	
 			
 	// Battery ReadWord 0x03 [="BatteryMode"]
@@ -203,7 +203,7 @@ void I2C3Update(void)
 		STEP(i2c_read_byte(BUS, ACK, &a))
 		STEP(i2c_receive(BUS))
 		STEP(i2c_read_byte(BUS, NACK, &b))
-			REG_BATTERY_B_HEALTH.mode = a + (b<<8);
+			REG_BATTERY_MODE_B = a + (b<<8);
 	
 		STEP(i2c_stop(BUS))
  			I2C3TimerExpired=False; //reset the I2C2 update timer
