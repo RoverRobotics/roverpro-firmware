@@ -25,7 +25,7 @@ i2c_result_t i2c_start(i2c_bus_t bus){
 		case I2C_STARTED:
 		case I2C_STOPPED:
 			break;
-		case I2C_PEN:   // start after stopping
+		case I2C_PEN:          // start after stopping
 		case I2C_TRANSMITTING: // repeated start condition
 			return I2C_NOTYET;
 		default:
@@ -67,8 +67,8 @@ i2c_result_t i2c_receive(i2c_bus_t bus){
 	switch (i2c_state(bus)){
 		case I2C_STARTED:
 			break;
+		case I2C_ACKEN: // still acknowledging the previous byte
 		case I2C_TRANSMITTING: // still sending data
-		case I2C_RCEN: // still receiving the previous byte
 			return I2C_NOTYET;
 		default:
 			return I2C_ILLEGAL;
@@ -96,7 +96,7 @@ i2c_result_t i2c_write_addr(i2c_bus_t bus, unsigned char addr, i2c_readwrite_t r
 	return I2C_OKAY;
 }
 
-i2c_result_t i2c_write_data(i2c_bus_t bus, unsigned char data){
+i2c_result_t i2c_write_byte(i2c_bus_t bus, unsigned char data){
 	switch(i2c_state(bus)){
 		case I2C_STARTED:
 			break;
@@ -140,4 +140,3 @@ i2c_result_t i2c_read_byte(i2c_bus_t bus, i2c_ack_t acknack, unsigned char * dat
 	bus->CON->ACKEN = 1;
 	return I2C_OKAY;
 }
-

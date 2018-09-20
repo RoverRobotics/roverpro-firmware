@@ -36,6 +36,18 @@ typedef struct i2c_stat_t {
 	unsigned ACKSTAT:1;
 } i2c_stat_t;
 
+// I2C bus definition
+typedef struct i2c_busdef_t {
+	// Memory location of Control Register
+	volatile i2c_con_t  *CON;
+	// Memory location of Status Register
+	volatile i2c_stat_t *STAT;
+	// Memory location of Transmit Data Register
+	volatile unsigned int *TRN;
+	// Memory location of Receive Data Register
+	volatile unsigned int *RCV;
+} i2c_busdef_t;
+
 // I2C ACK
 typedef enum i2c_ack_t {
 	ACK = 0,
@@ -48,26 +60,11 @@ typedef enum i2c_readwrite_t {
 	I2C_READ = 1
 } i2c_readwrite_t;
 
-// I2C bus definition
-// These pointers are platform specific
-typedef struct i2c_busdef_t {
-	// Memory location of Control Register
-	volatile i2c_con_t  *CON;
-	// Memory location of Status Register
-	volatile i2c_stat_t *STAT;
-	// Memory location of Transmit Data Register
-	volatile unsigned int *TRN;
-	// Memory location of Receive Data Register
-	volatile unsigned int *RCV;
-} i2c_busdef_t;
-
-// All 
-typedef const i2c_busdef_t * i2c_bus_t;
-
+// The result of an I2C operation.
 typedef enum i2c_result_t {
 	I2C_OKAY,
 	I2C_NOTYET,      // I2C is still busy with the last operation. Try again in a bit.
-	I2C_ILLEGAL,     // Incorrect use of the I2C protocol
+	I2C_ILLEGAL,     // Incorrect use of the I2C protocol, probably by calling functions in the wrong order.
 } i2c_result_t;
 
 typedef enum i2c_state_t {
@@ -82,15 +79,17 @@ typedef enum i2c_state_t {
 	I2C_DISABLED=9 // I2C is not running
 } i2c_state_t;
 
+// Reference to the I2C bus definition.
+typedef const i2c_busdef_t * i2c_bus_t;
+
 i2c_state_t i2c_state(i2c_bus_t bus);
+
 i2c_result_t i2c_enable(i2c_bus_t bus);
 i2c_result_t i2c_start(i2c_bus_t bus);
 i2c_result_t i2c_stop(i2c_bus_t bus);
 i2c_result_t i2c_restart(i2c_bus_t bus);
-
 i2c_result_t i2c_receive(i2c_bus_t bus);
-
 i2c_result_t i2c_write_addr(i2c_bus_t bus, unsigned char addr, i2c_readwrite_t r);
-i2c_result_t i2c_write_data(i2c_bus_t bus, unsigned char data);
+i2c_result_t i2c_write_byte(i2c_bus_t bus, unsigned char data);
 i2c_result_t i2c_check_ack(i2c_bus_t bus, i2c_ack_t * ack);
 i2c_result_t i2c_read_byte(i2c_bus_t bus, i2c_ack_t acknack, unsigned char * data);
