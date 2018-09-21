@@ -58,49 +58,53 @@ void I2C2Update(void)
 		STEP(i2c_write_addr(BUS, FAN_CONTROLLER_ADDRESS, I2C_WRITE))
 		STEP(i2c_check_ack(BUS, &ack))
 		STEP(i2c_write_byte(BUS, 0x01))
-		STEP(i2c_start(BUS))
+		STEP(i2c_restart(BUS))
 		STEP(i2c_write_addr(BUS, FAN_CONTROLLER_ADDRESS, I2C_READ))
-		STEP(i2c_check_ack(BUS, &ack));
+		STEP(i2c_check_ack(BUS, &ack))
 		STEP(i2c_receive(BUS))
 		STEP(i2c_read_byte(BUS, NACK, &a))
 			REG_MOTOR_TEMP_STATUS.left = (ack == ACK);
 			REG_MOTOR_TEMP.left = a;
+		STEP(i2c_stop(BUS))
  			
  	// REG_MOTOR_TEMP.right = FanControl ReadByte 0x01
- 		STEP(i2c_restart(BUS))
+ 		STEP(i2c_start(BUS))
  		STEP(i2c_write_addr(BUS, FAN_CONTROLLER_ADDRESS, I2C_WRITE))
 		STEP(i2c_write_byte(BUS, 0x01))
- 		STEP(i2c_start(BUS))
+ 		STEP(i2c_restart(BUS))
  		STEP(i2c_write_addr(BUS, FAN_CONTROLLER_ADDRESS, I2C_READ))
  		STEP(i2c_check_ack(BUS, &ack))
  		STEP(i2c_receive(BUS))
 		STEP(i2c_read_byte(BUS, NACK, &a))
 			REG_MOTOR_TEMP_STATUS.right = (ack == ACK);
 			REG_MOTOR_TEMP.right = a;
- 			
+ 		STEP(i2c_stop(BUS))
+ 		
  	// REG_ROBOT_REL_SOC_A = Battery ReadWord 0x0d [="RelativeStateOfCharge"]
- 		STEP(i2c_restart(BUS))
+ 		STEP(i2c_start(BUS))
  		STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_WRITE))
  		STEP(i2c_write_byte(BUS, 0x0d))	
- 		STEP(i2c_start(BUS))
+ 		STEP(i2c_restart(BUS))
  		STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_READ))
  		STEP(i2c_receive(BUS))
  		STEP(i2c_read_byte(BUS, ACK, &a))
  		STEP(i2c_receive(BUS))
  		STEP(i2c_read_byte(BUS, NACK, &b))
 			REG_ROBOT_REL_SOC_A = a + (b<<8);
+		STEP(i2c_stop(BUS))
 		
 	// FanControl WriteByte 0x0b REG_MOTOR_SIDE_FAN_SPEED
-		STEP(i2c_restart(BUS))
+		STEP(i2c_start(BUS))
 		STEP(i2c_write_addr(BUS, FAN_CONTROLLER_ADDRESS, I2C_WRITE))
 		STEP(i2c_write_byte(BUS, 0x0b))
 		STEP(i2c_write_byte(BUS, REG_MOTOR_SIDE_FAN_SPEED))
+		STEP(i2c_stop(BUS))
 			
 	// Battery ReadWord 0x16 [="BatteryStatus"]
-		STEP(i2c_restart(BUS))
+		STEP(i2c_start(BUS))
 		STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_WRITE))
 		STEP(i2c_write_byte(BUS, 0x16))
-		STEP(i2c_start(BUS))
+		STEP(i2c_restart(BUS))
 		STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_READ))
 		STEP(i2c_check_ack(BUS, &ack))
 		STEP(i2c_receive(BUS))
@@ -108,16 +112,15 @@ void I2C2Update(void)
 		STEP(i2c_receive(BUS))
 		STEP(i2c_read_byte(BUS, NACK, &b))
 			if(ack == ACK) {
-				unsigned battery_status = a + (b<<8);
-				BREAK_IF(battery_status & 0xff00); // 0xff00 are the battery alarm flags
-				REG_BATTERY_STATUS_A = battery_status;
+				REG_BATTERY_STATUS_A = a + (b<<8);
 			}
+		STEP(i2c_stop(BUS))
 			
 	// Battery ReadWord 0x03 [="BatteryMode"]
-		STEP(i2c_restart(BUS))
+		STEP(i2c_start(BUS))
 		STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_WRITE))
 		STEP(i2c_write_byte(BUS, 0x03))
-		STEP(i2c_start(BUS))
+		STEP(i2c_restart(BUS))
 		STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_READ))
 		STEP(i2c_check_ack(BUS, &ack))
 		STEP(i2c_receive(BUS))
@@ -127,12 +130,13 @@ void I2C2Update(void)
 			if(ack == ACK) {
 				REG_BATTERY_MODE_A = a + (b<<8);
 			}
+		STEP(i2c_stop(BUS))
 				
 	// Battery ReadWord 0x08 [="Temperature"]
-		STEP(i2c_restart(BUS))
+		STEP(i2c_start(BUS))
 		STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_WRITE))
 		STEP(i2c_write_byte(BUS, 0x08))
-		STEP(i2c_start(BUS))
+		STEP(i2c_restart(BUS))
 		STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_READ))
 		STEP(i2c_check_ack(BUS, &ack))
 		STEP(i2c_receive(BUS))
@@ -142,8 +146,9 @@ void I2C2Update(void)
 			if(ack == ACK) {
 				REG_BATTERY_TEMP_A = a + (b<<8);
 			}	
-			
 		STEP(i2c_stop(BUS))
+		
+			BREAK_IF(REG_BATTERY_STATUS_A & 0xFF00) // any alarm flags
  			I2C2TimerExpired=False;//reset the I2C2 update timer
  			resume_at=-1;
  	}
@@ -171,19 +176,20 @@ void I2C3Update(void)
 	 	STEP(i2c_start(BUS))
  		STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_WRITE))
  		STEP(i2c_write_byte(BUS, 0x0d))
- 		STEP(i2c_start(BUS))
+ 		STEP(i2c_restart(BUS))
  		STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_READ))
  		STEP(i2c_receive(BUS))
  		STEP(i2c_read_byte(BUS, ACK, &a))
  		STEP(i2c_receive(BUS))
  		STEP(i2c_read_byte(BUS, NACK, &b))
 			REG_ROBOT_REL_SOC_B = a + (b<<8);
+		STEP(i2c_stop(BUS))
  			
  	// Battery ReadWord 0x16 [="BatteryStatus"]
- 		STEP(i2c_restart(BUS))
+ 		STEP(i2c_start(BUS))
  		STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_WRITE))
 		STEP(i2c_write_byte(BUS, 0x16))
-		STEP(i2c_start(BUS))
+		STEP(i2c_restart(BUS))
 		STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_READ))
 		STEP(i2c_check_ack(BUS, &ack))
 		STEP(i2c_receive(BUS))
@@ -191,16 +197,15 @@ void I2C3Update(void)
 		STEP(i2c_receive(BUS))
 		STEP(i2c_read_byte(BUS, NACK, &b))
 			if(ack == ACK) {
-				unsigned battery_status = a + (b<<8);
-				BREAK_IF(battery_status & 0xff00); // 0xff00 are the battery alarm flags
-				REG_BATTERY_STATUS_B = battery_status;
-			}	
+				REG_BATTERY_STATUS_B = a + (b<<8);
+			}
+		STEP(i2c_stop(BUS))
 			
 	// Battery ReadWord 0x03 [="BatteryMode"]
-		STEP(i2c_restart(BUS))
+		STEP(i2c_start(BUS))
 		STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_WRITE))
 		STEP(i2c_write_byte(BUS, 0x03))
-		STEP(i2c_start(BUS))
+		STEP(i2c_restart(BUS))
 		STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_READ))
 		STEP(i2c_check_ack(BUS, &ack))
 		STEP(i2c_receive(BUS))
@@ -210,12 +215,13 @@ void I2C3Update(void)
 			if(ack == ACK) {
 				REG_BATTERY_MODE_B = a + (b<<8);
 			}
+		STEP(i2c_stop(BUS))
 			
 	// Battery ReadWord 0x08 [="Temperature"]
-		STEP(i2c_restart(BUS))
+		STEP(i2c_start(BUS))
 		STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_WRITE))
 		STEP(i2c_write_byte(BUS, 0x08))
-		STEP(i2c_start(BUS))
+		STEP(i2c_restart(BUS))
 		STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_READ))
 		STEP(i2c_check_ack(BUS, &ack))
 		STEP(i2c_receive(BUS))
@@ -225,9 +231,10 @@ void I2C3Update(void)
 			if(ack == ACK) {
 				REG_BATTERY_TEMP_B = a + (b<<8);
 			}	
-	
 		STEP(i2c_stop(BUS))
- 			I2C3TimerExpired=False; //reset the I2C2 update timer
+			BREAK_IF(REG_BATTERY_STATUS_B & 0xFF00) // any alarm flags
+		
+ 			I2C3TimerExpired=False; //reset the I2C3 update timer
  			resume_at=-1;
 	}
 }
@@ -261,6 +268,7 @@ void re_init_i2c2(void)
 
 void re_init_i2c3(void)
 {
+	I2C3CONbits.I2CEN = 0;
   I2C3CON = 0;
   I2C3STAT = 0;
  

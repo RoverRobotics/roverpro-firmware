@@ -80,6 +80,7 @@ typedef enum i2c_state_t {
 } i2c_state_t;
 
 // Reference to the I2C bus definition.
+// e.g. const i2c_busdef_t I2C2_meta = { (i2c_con_t *) &I2C1CON, (i2c_stat_t *) &I2C1STAT, &I2C1TRN, &I2C1RCV };
 typedef const i2c_busdef_t * i2c_bus_t;
 
 i2c_state_t i2c_state(i2c_bus_t bus);

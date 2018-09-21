@@ -20,13 +20,10 @@ i2c_state_t i2c_state(i2c_bus_t bus) {
 }
 
 i2c_result_t i2c_start(i2c_bus_t bus){
-	i2c_state_t state = i2c_state(bus);
-	switch (state){
-		case I2C_STARTED:
+	switch (i2c_state(bus)){
 		case I2C_STOPPED:
 			break;
-		case I2C_PEN:          // start after stopping
-		case I2C_TRANSMITTING: // repeated start condition
+		case I2C_PEN:
 			return I2C_NOTYET;
 		default:
 			return I2C_ILLEGAL;
@@ -36,14 +33,15 @@ i2c_result_t i2c_start(i2c_bus_t bus){
 }
 
 i2c_result_t i2c_stop(i2c_bus_t bus){
-	switch (i2c_state(bus)){
-		case I2C_TRANSMITTING:
+	i2c_state_t state = i2c_state(bus);
+	switch (state){
 		case I2C_STARTED:
 			break;
-		case I2C_DISABLED:
-			return I2C_ILLEGAL;
-		default:
+		case I2C_ACKEN:
+		case I2C_TRANSMITTING:
 			return I2C_NOTYET;
+		default:
+			return I2C_ILLEGAL;	
 	}
 	bus->CON->PEN = 1;
 	return I2C_OKAY;
@@ -52,12 +50,11 @@ i2c_result_t i2c_stop(i2c_bus_t bus){
 i2c_result_t i2c_restart(i2c_bus_t bus){
 	switch (i2c_state(bus)){
 		case I2C_TRANSMITTING:
+			return I2C_NOTYET;
 		case I2C_STARTED:
 			break;
-		case I2C_DISABLED:
-			return I2C_ILLEGAL;
 		default:
-			return I2C_NOTYET;
+			return I2C_ILLEGAL;
 	}
 	bus->CON->RSEN = 1;
 	return I2C_OKAY;
@@ -125,7 +122,7 @@ i2c_result_t i2c_check_ack(i2c_bus_t bus, i2c_ack_t * ack){
 	*ack = bus->STAT->ACKSTAT;
 	return I2C_OKAY;
 }
-
+#include "p24FJ256GB106.h"
 i2c_result_t i2c_read_byte(i2c_bus_t bus, i2c_ack_t acknack, unsigned char * data){
 	switch(i2c_state(bus)){
 		case I2C_STARTED:
@@ -135,6 +132,10 @@ i2c_result_t i2c_read_byte(i2c_bus_t bus, i2c_ack_t acknack, unsigned char * dat
 		default:
 			return I2C_ILLEGAL;
 	}
+	
+	if (!(bus->STAT->RBF))
+		return I2C_NOTYET;
+	
 	*data = *bus->RCV;
 	bus->CON->ACKDT = acknack;
 	bus->CON->ACKEN = 1;
