@@ -62,8 +62,8 @@ typedef enum i2c_readwrite_t {
 
 // The result of an I2C operation.
 typedef enum i2c_result_t {
-	I2C_OKAY,
-	I2C_NOTYET,      // I2C is still busy with the last operation. Try again in a bit.
+	I2C_OKAY,        // The operation completed successfully
+	I2C_NOTYET,      // Bus is still busy with the last operation. Try again in a bit.
 	I2C_ILLEGAL,     // Incorrect use of the I2C protocol, probably by calling functions in the wrong order.
 } i2c_result_t;
 

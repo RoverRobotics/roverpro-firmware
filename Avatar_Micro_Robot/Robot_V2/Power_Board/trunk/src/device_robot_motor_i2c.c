@@ -14,9 +14,9 @@ int I2C3TimerExpired = 0;
 // PIC24-specific breakpoint command:
 #define BREAKPOINT __asm__ __volatile__ (".pword 0xDA4000")
 #ifdef __DEBUG
-	#define BREAK_IF(condition) if(condition){BREAKPOINT;}
+	#define BREAKPOINT_IF(condition) if(condition){BREAKPOINT;}
 #else
-	#define BREAK_IF(condition)
+	#define BREAKPOINT_IF(condition)
 #endif
 
 const i2c_busdef_t I2C2_meta = { (i2c_con_t *) &I2C2CON, (i2c_stat_t *) &I2C2STAT, &I2C2TRN, &I2C2RCV };
@@ -25,14 +25,13 @@ const i2c_busdef_t I2C3_meta = { (i2c_con_t *) &I2C3CON, (i2c_stat_t *) &I2C3STA
 // A step may be reached by either falling through into it (first try)
 // Or by jumping back to it (every retry)
 // Note an i2c_result of I2C_ILLEGAL probably means there is a coding error, hence the conditional breakpoint
-#define STEP(cmd)                                 \
-	 case (__LINE__): resume_at=__LINE__;         \
-		 i2c_result = (cmd);                      \
-		 if (i2c_result == I2C_NOTYET) { break; } \
-		 BREAK_IF(i2c_result != I2C_OKAY)         \
+#define STEP(cmd)                                \
+	case (__LINE__): resume_at=__LINE__;         \
+		i2c_result = (cmd);                      \
+		if (i2c_result == I2C_NOTYET) { break; } \
+		BREAKPOINT_IF(i2c_result != I2C_OKAY)    \
 	 // fallthrough to next case
 
-//fan controller, TMP112, battery, EEPROM
 void I2C2Update(void)
 {
 	static const i2c_bus_t BUS = (&I2C2_meta);
@@ -53,11 +52,11 @@ void I2C2Update(void)
 	 	default: BREAKPOINT;
 	 	case 0:
 	 	
-	// REG_MOTOR_TEMP.left = FanControl ReadByte 0x01
+	// REG_MOTOR_TEMP.left = FanControl ReadByte 0x00
 		STEP(i2c_start(BUS))
 		STEP(i2c_write_addr(BUS, FAN_CONTROLLER_ADDRESS, I2C_WRITE))
 		STEP(i2c_check_ack(BUS, &ack))
-		STEP(i2c_write_byte(BUS, 0x01))
+		STEP(i2c_write_byte(BUS, 0x00))
 		STEP(i2c_restart(BUS))
 		STEP(i2c_write_addr(BUS, FAN_CONTROLLER_ADDRESS, I2C_READ))
 		STEP(i2c_check_ack(BUS, &ack))
@@ -148,7 +147,7 @@ void I2C2Update(void)
 			}	
 		STEP(i2c_stop(BUS))
 		
-			BREAK_IF(REG_BATTERY_STATUS_A & 0xFF00) // any alarm flags
+			BREAKPOINT_IF(REG_BATTERY_STATUS_A & 0xFF00) // any alarm flags
  			I2C2TimerExpired=False;//reset the I2C2 update timer
  			resume_at=-1;
  	}
@@ -232,7 +231,8 @@ void I2C3Update(void)
 				REG_BATTERY_TEMP_B = a + (b<<8);
 			}	
 		STEP(i2c_stop(BUS))
-			BREAK_IF(REG_BATTERY_STATUS_B & 0xFF00) // any alarm flags
+		
+			BREAKPOINT_IF(REG_BATTERY_STATUS_B & 0xFF00) // any alarm flags
 		
  			I2C3TimerExpired=False; //reset the I2C3 update timer
  			resume_at=-1;

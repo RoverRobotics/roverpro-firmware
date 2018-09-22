@@ -78,9 +78,8 @@ i2c_result_t i2c_write_addr(i2c_bus_t bus, unsigned char addr, i2c_readwrite_t r
 	switch(i2c_state(bus)){
 		case I2C_STARTED:
 			break;
-		case I2C_TRANSMITTING:
-		case I2C_SEN:
-		case I2C_RSEN:
+		case I2C_SEN: // Writing address initially
+		case I2C_RSEN: // Writing address after a repeated start condition
 			return I2C_NOTYET;
 		default:
 			return I2C_ILLEGAL;
