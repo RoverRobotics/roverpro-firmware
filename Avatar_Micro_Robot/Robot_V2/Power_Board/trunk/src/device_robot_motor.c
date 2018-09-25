@@ -711,7 +711,7 @@ void Device_MotorController_Process()
 		{
       re_init_i2c2();
 		}
-  	I2C2TimerExpired=True;
+  		I2C2TimerExpired=True;
  		I2C2TimerCount=0;
  		I2C2XmitReset=True;
  	}
@@ -822,7 +822,7 @@ void Device_MotorController_Process()
  		}
  		REG_FLIPPER_FB_POSITION.pot1=temp1>>ShiftBits;
  		REG_FLIPPER_FB_POSITION.pot2=temp2>>ShiftBits;
-    REG_MOTOR_FLIPPER_ANGLE = return_calibrated_pot_angle(temp1>>ShiftBits, temp2>>ShiftBits);
+ 		REG_MOTOR_FLIPPER_ANGLE = return_calibrated_pot_angle(temp1>>ShiftBits, temp2>>ShiftBits);
  		//update current for all three motors
  		REG_MOTOR_FB_CURRENT.left=ControlCurrent[LMotor];
  		REG_MOTOR_FB_CURRENT.right=ControlCurrent[RMotor];
@@ -2415,7 +2415,7 @@ void IniIC1()
 //interrupt frequency
 	IC1CON1bits.ICI=0b00; 	//interrupt on every capture event
 //7. Select Synchronous or Trigger mode operation:
-//a) Check that the SYNCSEL bits are not set to‘00000’.
+//a) Check that the SYNCSEL bits are not set toï¿½00000ï¿½.
 /*
  	if(IC5CON2bits.SYNCSEL==CLEAR)
 	{
@@ -2464,7 +2464,7 @@ void IniIC3()
 //interrupt frequency
 	IC3CON1bits.ICI=0b00; 	//interrupt on every capture event
 //7. Select Synchronous or Trigger mode operation:
-//a) Check that the SYNCSEL bits are not set to‘00000’.
+//a) Check that the SYNCSEL bits are not set toï¿½00000ï¿½.
 /*
  	if(IC5CON2bits.SYNCSEL==CLEAR)
 	{
@@ -2852,7 +2852,47 @@ void  Motor_ADC1Interrupt(void)
  			case 27:	//27-REG_PWR_BAT_VOLTAGE.b LO
  				XbeeTest_UART_Buffer[3]=REG_PWR_BAT_VOLTAGE.b;
  				break;
-	
+ 				
+ 			case 52:	//52-REG_BATTERY_STATUS_A HI
+ 				XbeeTest_UART_Buffer[3]=REG_BATTERY_STATUS_A;
+ 				break;
+ 			case 53:	//53-REG_BATTERY_STATUS_A LO
+ 				XbeeTest_UART_Buffer[3]=REG_BATTERY_STATUS_A>>8;
+ 				break;
+ 			case 54:	//54-REG_BATTERY_STATUS_B HI
+ 				XbeeTest_UART_Buffer[3]=REG_BATTERY_STATUS_B;
+ 				break;
+ 			case 55:	//55-REG_BATTERY_STATUS_B LO
+ 				XbeeTest_UART_Buffer[3]=REG_BATTERY_STATUS_B>>8;
+ 				break;
+ 			case 56:	//56-REG_BATTERY_MODE_A HI
+ 				XbeeTest_UART_Buffer[3]=REG_BATTERY_MODE_A;
+ 				break;
+ 			case 57:	//57-REG_BATTERY_MODE_A LO
+ 				XbeeTest_UART_Buffer[3]=REG_BATTERY_MODE_A>>8;
+ 				break;
+ 			case 58:	//58-REG_BATTERY_MODE_B HI
+ 				XbeeTest_UART_Buffer[3]=REG_BATTERY_MODE_B;
+ 				break;
+ 			case 59:	//59-REG_BATTERY_MODE_B LO
+ 				XbeeTest_UART_Buffer[3]=REG_BATTERY_MODE_B>>8;
+ 				break;
+ 			case 60:	//60-REG_BATTERY_TEMP_A HI
+ 				XbeeTest_UART_Buffer[3]=REG_BATTERY_TEMP_A;
+ 				break;
+ 			case 61:	//61-REG_BATTERY_TEMP_A LO
+ 				XbeeTest_UART_Buffer[3]=REG_BATTERY_TEMP_A>>8;
+ 				break;
+ 			case 62:	//62-REG_BATTERY_TEMP_B HI
+ 				XbeeTest_UART_Buffer[3]=REG_BATTERY_TEMP_B;
+ 				break;
+ 			case 63:	//63-REG_BATTERY_TEMP_B LO
+ 				XbeeTest_UART_Buffer[3]=REG_BATTERY_TEMP_B>>8;
+ 				break;
+ 				
+ 			default:
+ 				XbeeTest_UART_Buffer[3]=0;
+ 				break;
  		}
  	}
  	if((REG_MOTOR_VELOCITY.left||REG_MOTOR_VELOCITY.right||REG_MOTOR_VELOCITY.flipper)!=0)

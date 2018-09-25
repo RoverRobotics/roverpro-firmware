@@ -25,7 +25,14 @@
 // PIC24FJ256GB106 FLASH CONFIGURATION
 // -------------------------------------------------------------------------
 
-_CONFIG1( JTAGEN_OFF & (__DEBUG?GCP_OFF:GCP_ON) & GWRP_OFF & COE_OFF & FWDTEN_ON & ICS_PGx2 & WDTPS_PS128) 
+_CONFIG1( JTAGEN_OFF &
+#if __DEBUG
+	GCP_OFF
+#else 
+	GCP_ON 
+#endif
+ & GWRP_OFF & COE_OFF & FWDTEN_ON & ICS_PGx2 & WDTPS_PS128)
+
 _CONFIG2( IESO_OFF & FCKSM_CSDCMD & OSCIOFNC_ON & POSCMOD_HS &
           FNOSC_PRIPLL & PLLDIV_DIV5 & IOL1WAY_ON)
 
@@ -126,7 +133,7 @@ static void InitializeSystem(void)
 
 	//we got rid of the ID pins, so force robot motor to init
 	DeviceRobotMotorInit();
-
+	
 /*	switch (gpio_id)
 	{
 		case DEVICE_OCU:

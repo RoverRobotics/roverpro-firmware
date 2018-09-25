@@ -121,7 +121,7 @@ i2c_result_t i2c_check_ack(i2c_bus_t bus, i2c_ack_t * ack){
 	*ack = bus->STAT->ACKSTAT;
 	return I2C_OKAY;
 }
-#include "p24FJ256GB106.h"
+
 i2c_result_t i2c_read_byte(i2c_bus_t bus, i2c_ack_t acknack, unsigned char * data){
 	switch(i2c_state(bus)){
 		case I2C_STARTED:
