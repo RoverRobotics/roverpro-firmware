@@ -109,6 +109,8 @@
 #define CurrentCtrlTimer 1 	//1K
 #define CurrentSurgeRecoverTimer 10 //10ms
 #define USBTimeOutTimer 333 	//3Hz--333ms
+#define Xbee_FanSpeedTimer 333	//3Hz--333ms
+//#define USBTimeOutTimer 3333 	//0.3Hz--3333ms
 #define SwitchDirectionTimer 10 	//10ms
 #define StateMachineTimer 1 	//1KHz
 #define RPMTimer 1 			//1KHz
@@ -285,7 +287,6 @@
 #define FANCtrl 2
 
 
-
 /////variable
 
 extern int16_t Robot_Motor_TargetSpeedUSB[3];
@@ -416,3 +417,6 @@ void TestOC();
 
 extern int Cell_A_Current[SampleLength];
 extern int Cell_B_Current[SampleLength];
+extern int16_t Xbee_MOTOR_VELOCITY[3];
+extern uint8_t Xbee_SIDE_FAN_SPEED;
+extern uint8_t Xbee_SIDE_FAN_NEW;

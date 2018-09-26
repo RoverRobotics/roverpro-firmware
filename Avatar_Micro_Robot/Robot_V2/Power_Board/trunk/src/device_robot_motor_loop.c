@@ -51,6 +51,8 @@ float IIRFilter(const uint8_t i, const float x, const float alpha,
 #define LMOTOR_FILTER       0
 #define RMOTOR_FILTER       1
 
+#define XbeeTest
+
 // OCU speed filter-related values
 #define MAX_DESIRED_SPEED   900         // [au], caps incoming signal from OCU
 #define MIN_ACHEIVABLE_SPEED 50
@@ -66,12 +68,13 @@ static int desired_velocity_left = 0;
 static int desired_velocity_right = 0;
 static int desired_velocity_flipper = 0;
 
+
 void closed_loop_control_init(void)
 {
   Nop();
   Nop();
-IC_Init(kIC01, M1_TACHO_RPN, 5);
-IC_Init(kIC02, M2_TACHO_RPN, 5);
+IC_Init(kIC01, M1_TACHO_RPN, 1000);
+IC_Init(kIC02, M2_TACHO_RPN, 1000);
  	PID_Init(LEFT_CONTROLLER, MAX_EFFORT, MIN_EFFORT, K_P, K_I, K_D);
  	PID_Init(RIGHT_CONTROLLER, MAX_EFFORT, MIN_EFFORT, K_P, K_I, K_D);
 
@@ -109,8 +112,9 @@ void handle_closed_loop_control(unsigned int OverCurrent)
 
   //Filter drive motor speeds
   float desired_speed_left = IIRFilter(LMOTOR_FILTER, GetDesiredSpeed(kMotorLeft), ALPHA, NO);
+	//printf("%f|",desired_speed_left);
   float desired_speed_right = IIRFilter(RMOTOR_FILTER, GetDesiredSpeed(kMotorRight), ALPHA, NO);
-
+	#ifndef XbeeTest
   //if the user releases the joystick, come to a relatively quick stop by clearing the integral term
   if( (abs(REG_MOTOR_VELOCITY.left) < 50) && (abs(REG_MOTOR_VELOCITY.right) < 50 ) )
   {
@@ -124,6 +128,23 @@ void handle_closed_loop_control(unsigned int OverCurrent)
     desired_speed_right = 0;
 
   }
+	#endif
+
+	#ifdef XbeeTest
+  //if the user releases the joystick, come to a relatively quick stop by clearing the integral term
+  if( (abs(Xbee_MOTOR_VELOCITY[0]) < 50) && (abs(Xbee_MOTOR_VELOCITY[1]) < 50 ) )
+  {
+    PID_Reset_Integral(kMotorLeft);
+    PID_Reset_Integral(kMotorRight);
+
+    //If user releases joystick, reset the IIR filter
+    IIRFilter(LMOTOR_FILTER, 0, ALPHA, YES);
+    IIRFilter(RMOTOR_FILTER, 0, ALPHA, YES);
+    desired_speed_left = 0;
+    desired_speed_right = 0;
+
+  }
+	#endif
 
   
 
@@ -137,8 +158,10 @@ void handle_closed_loop_control(unsigned int OverCurrent)
   float nominal_effort_left = GetNominalDriveEffort(desired_speed_left);
   float actual_speed_left = DT_speed(kMotorLeft);
   float effort_left = PID_ComputeEffort(LEFT_CONTROLLER, desired_speed_left, actual_speed_left, nominal_effort_left);
+	//printf("%f",effort_left);
   //DT_set_speed(kMotorLeft, effort_left);
   closed_loop_effort[kMotorLeft] = effort_left;
+	//printf("%d",closed_loop_effort[kMotorLeft]);
   //DT_set_speed(kMotorLeft, nominal_effort_left);
   
   // update the right drive motor
@@ -277,5 +300,6 @@ void set_desired_velocities(int left, int right, int flipper)
   desired_velocity_left = left;
   desired_velocity_right = right;
   desired_velocity_flipper = flipper;
+	//printf("%d,%d,%d",desired_velocity_left,desired_velocity_right,desired_velocity_flipper);
 
 }

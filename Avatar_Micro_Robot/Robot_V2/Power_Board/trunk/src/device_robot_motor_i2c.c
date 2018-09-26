@@ -96,7 +96,13 @@ void I2C2Update(void)
 		STEP(i2c_start(BUS))
 		STEP(i2c_write_addr(BUS, FAN_CONTROLLER_ADDRESS, I2C_WRITE))
 		STEP(i2c_write_byte(BUS, 0x0b))
-		STEP(i2c_write_byte(BUS, REG_MOTOR_SIDE_FAN_SPEED))
+		// STEP(i2c_write_byte(BUS, REG_MOTOR_SIDE_FAN_SPEED))
+		STEP(i2c_write_byte(BUS, 
+			Xbee_SIDE_FAN_NEW!=0 ? Xbee_SIDE_FAN_SPEED
+			// as long as the motor speed is not 0, turn side fan on full speed
+			: (abs(Xbee_MOTOR_VELOCITY[0])+abs(Xbee_MOTOR_VELOCITY[1]))>10 ? (Xbee_SIDE_FAN_SPEED=240) 
+			: (Xbee_SIDE_FAN_SPEED=0)
+			))
 		STEP(i2c_stop(BUS))
 			
 	// Battery ReadWord 0x16 [="BatteryStatus"]
