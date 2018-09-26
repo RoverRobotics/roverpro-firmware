@@ -187,6 +187,18 @@ void I2C3Update(void)
  		STEP(i2c_read_byte(BUS, NACK, &b))
 			REG_ROBOT_REL_SOC_B = a + (b<<8);
 		STEP(i2c_stop(BUS))
+		
+	// BatteryCharger ReadWord 0xca
+		STEP(i2c_start(BUS))
+		STEP(i2c_write_addr(BUS, BATTERY_CHARGER_ADDRESS, I2C_WRITE))
+		STEP(i2c_write_byte(BUS, 0xca))
+		STEP(i2c_restart(BUS))
+		STEP(i2c_receive(BUS))
+		STEP(i2c_read_byte(BUS, ACK, &a))
+ 		STEP(i2c_receive(BUS))
+ 		STEP(i2c_read_byte(BUS, NACK, &b))
+ 			REG_MOTOR_CHARGER_STATE = a  + (b<<8);
+ 		STEP(i2c_stop(BUS)
  			
  	// Battery ReadWord 0x16 [="BatteryStatus"]
  		STEP(i2c_start(BUS))
@@ -233,7 +245,7 @@ void I2C3Update(void)
 		STEP(i2c_read_byte(BUS, NACK, &b))
 			if(ack == ACK) {
 				REG_BATTERY_TEMP_B = a + (b<<8);
-			}	
+			}
 		STEP(i2c_stop(BUS))
 		
 			BREAKPOINT_IF(REG_BATTERY_STATUS_B & 0xFF00) // any alarm flags
