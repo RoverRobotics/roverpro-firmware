@@ -44,8 +44,6 @@ void I2C2Update(void)
  	{
  		I2C2XmitReset=False;//clear the flag
  		resume_at=0; //start from the beginning
- 		//assume all the data is good
- 		REG_MOTOR_TEMP_STATUS.board=1;
  	}
  	switch(resume_at)
  	{
@@ -92,7 +90,7 @@ void I2C2Update(void)
 			REG_ROBOT_REL_SOC_A = a + (b<<8);
 		STEP(i2c_stop(BUS))
 		
-	// FanControl WriteByte 0x0b REG_MOTOR_SIDE_FAN_SPEED
+	// FanControl WriteByte 0x0b
 		STEP(i2c_start(BUS))
 		STEP(i2c_write_addr(BUS, FAN_CONTROLLER_ADDRESS, I2C_WRITE))
 		STEP(i2c_write_byte(BUS, 0x0b))
