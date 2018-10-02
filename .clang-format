@@ -1,0 +1,13 @@
+# Style file for formatting code.
+# For one file:
+#   clang-format -style=file -i my_file.c
+# To do everything in a folder:
+#   clang-format -style=file -i **/*.h **/*.c
+# As a pre-commit step on everything changed:
+#   git diff --name-only -- '*.h' '*.c' | xargs clang-format -style=file -i
+
+BasedOnStyle: LLVM
+IndentWidth: 4
+Standard: Cpp03
+SortIncludes: false
+ColumnLimit: 100

@@ -1,0 +1,26 @@
+# Style file for pre-commit code checks
+# alias clang-tidy=/usr/local/Cellar/llvm/7.0.0/bin/clang-tidy
+# For one file:
+#   clang-tidy device_robot_motor_i2c.c -- -D__PIC24FJ256GB106__
+# As a pre-commit step on everything changed:
+#   git diff --name-only -- '*.h' '*.c' | xargs clang-tidy
+
+---
+Checks:          '-*,readability-*,bugprone-*,clang-portability-*'
+WarningsAsErrors: ''
+HeaderFilterRegex: ''
+CheckOptions:
+  - key:             readability-identifier-naming.GlobalConstantCase
+    value:           UPPER_CASE
+  - key:             readability-identifier-naming.StructCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.EnumCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.TypeDefCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.UnionCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.VariableCase
+    value:           lower_case
+  - key:             readability-identifier-naming.EnumConstantCase
+    value:           UPPER_CASE
