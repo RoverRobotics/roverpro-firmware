@@ -524,10 +524,11 @@ void Device_MotorController_Process() {
         CurrentSurgeRecoverTimerExpired = true;
     }
     if (I2C2TimerCount >= I2C2Timer) {
-
         // i2c2 didn't finish last time -- init variables so that
         // the value doesn't just stay the same
-        if (I2C2TimerExpired == true) {
+        if (I2C2TimerExpired) {
+            BREAKPOINT;
+            I2C2Update();
             re_init_i2c2();
         }
         I2C2TimerExpired = true;
@@ -535,7 +536,8 @@ void Device_MotorController_Process() {
         I2C2XmitReset = true;
     }
     if (I2C3TimerCount >= I2C3Timer) {
-        if (I2C3TimerExpired == true) {
+        if (I2C3TimerExpired) {
+            BREAKPOINT;
             re_init_i2c3();
         }
         I2C3TimerExpired = true;
@@ -610,12 +612,10 @@ void Device_MotorController_Process() {
         CurrentSurgeRecoverTimerExpired = false;
         MotorRecovering = false;
     }
-    if (I2C2TimerExpired == true) {
-        // update data on I2C3, reset the I2C data accquiring sequence
+    if (I2C2TimerExpired) {
         I2C2Update();
     }
-    if (I2C3TimerExpired == true) {
-        // update data on I2C3, reset the I2C data accquiring sequence
+    if (I2C3TimerExpired) {
         I2C3Update();
     }
     if (SFREGUpdateTimerExpired == true) {
@@ -818,6 +818,7 @@ void Device_MotorController_Process() {
             }
         }
     }
+
     // test();//run testing code
 }
 
@@ -2183,7 +2184,7 @@ void Motor_ADC1Interrupt(void) {
 #ifdef XbeeTest
     EncoderInterval[0] = IC_period(kIC01); // left motor encoder time interval
     EncoderInterval[1] = IC_period(kIC02); // right motor encoder time interval
-    EncoderInterval[3] = IC_period(kIC03); // Encoder motor encoder time interval
+    EncoderInterval[2] = IC_period(kIC03); // Encoder motor encoder time interval
     // if(Xbee_Incoming_Cmd[0]== P1_Read_Register && U1STAbits.UTXBF==0 &&
     // XbeeTest_UART_BufferPointer==0 &&
     // (Xbee_MOTOR_VELOCITY[0]||Xbee_MOTOR_VELOCITY[1]||Xbee_MOTOR_VELOCITY[2])!=0)//if transmit reg
@@ -2191,204 +2192,61 @@ void Motor_ADC1Interrupt(void) {
     if (Xbee_Incoming_Cmd[0] == P1_Read_Register && U1STAbits.UTXBF == 0 &&
         XbeeTest_UART_BufferPointer == 0) // if transmit reg is empty and last packet is sent
     {
+        uint16_t out_value;
         U1TXREG = Xbee_StartBit; // send out the index
-        // XbeeTest_Temp_u16=REG_PWR_TOTAL_CURRENT;
-        // XbeeTest_Temp_u16=REG_MOTOR_FB_RPM.left;
-        // XbeeTest_Temp_u16=REG_MOTOR_FB_RPM.right;
-        // XbeeTest_Temp_u16=REG_FLIPPER_FB_POSITION.pot1;
-        // XbeeTest_Temp_u16=REG_FLIPPER_FB_POSITION.pot2;
-        // XbeeTest_Temp_u16=REG_MOTOR_FB_CURRENT.left;
-        // XbeeTest_Temp_u16=REG_MOTOR_FB_CURRENT.right;
-        // XbeeTest_Temp_u16=REG_MOTOR_ENCODER_COUNT.left;
-        // XbeeTest_Temp_u16=REG_MOTOR_ENCODER_COUNT.right;
-        // XbeeTest_Temp_u16=REG_MOTOR_FAULT_FLAG.left;
-        // XbeeTest_Temp_u16=REG_MOTOR_FAULT_FLAG.right;
-        // XbeeTest_Temp_u16=REG_MOTOR_TEMP.left;
-        // XbeeTest_Temp_u16=REG_MOTOR_TEMP.right;
-        // XbeeTest_Temp_u16=REG_PWR_BAT_VOLTAGE.a;
-        // XbeeTest_Temp_u16=REG_PWR_BAT_VOLTAGE.b;
-        // XbeeTest_Temp_u16=REG_PWR_TOTAL_CURRENT;
-        // XbeeTest_Temp_u16=TotalCurrent;
         XbeeTest_UART_DataNO = Xbee_Incoming_Cmd[1];
         XbeeTest_UART_Buffer[0] = XbeeTest_UART_DataNO;
-        // XbeeTest_UART_Buffer[1]=(XbeeTest_Temp_u16>>8);//load the buffer
-        // XbeeTest_UART_Buffer[2]=XbeeTest_Temp_u16;
-        // XbeeTest_UART_Buffer[1]=REG_MOTOR_ENCODER_COUNT.left;//load the buffer
-        // XbeeTest_UART_Buffer[2]=REG_MOTOR_ENCODER_COUNT.right;
         switch (XbeeTest_UART_DataNO) {
-        case 0: // 0-REG_PWR_TOTAL_CURRENT HI
-            XbeeTest_UART_Buffer[1] = REG_PWR_TOTAL_CURRENT >> 8;
-            XbeeTest_UART_Buffer[2] = REG_PWR_TOTAL_CURRENT;
-            break;
-            // 		 	case 1:		//1-REG_PWR_TOTAL_CURRENT LO
-            // 				XbeeTest_UART_Buffer[3]=REG_PWR_TOTAL_CURRENT;
-            // 				break;
-        case 2: // 2-REG_MOTOR_FB_RPM.left HI
-            XbeeTest_UART_Buffer[1] = REG_MOTOR_FB_RPM.left >> 8;
-            XbeeTest_UART_Buffer[2] = REG_MOTOR_FB_RPM.left;
-            break;
-            // 		 	case 3: 	//3-REG_MOTOR_FB_RPM.left LO
-            // 				XbeeTest_UART_Buffer[3]=REG_MOTOR_FB_RPM.left;
-            // 				break;
-        case 4: // 4-REG_MOTOR_FB_RPM.right HI
-            XbeeTest_UART_Buffer[1] = REG_MOTOR_FB_RPM.right >> 8;
-            XbeeTest_UART_Buffer[2] = REG_MOTOR_FB_RPM.right;
-            break;
-            // 		 	case 5: 	//5-REG_MOTOR_FB_RPM.right LO
-            // 				XbeeTest_UART_Buffer[3]=REG_MOTOR_FB_RPM.right;
-            // 				break;
-        case 6: // 6-REG_FLIPPER_FB_POSITION.pot1 HI
-            XbeeTest_UART_Buffer[1] = REG_FLIPPER_FB_POSITION.pot1 >> 8;
-            XbeeTest_UART_Buffer[2] = REG_FLIPPER_FB_POSITION.pot1;
-            break;
-            // 		 	case 7: 	//7-REG_FLIPPER_FB_POSITION.pot1 LO
-            // 				XbeeTest_UART_Buffer[3]=REG_FLIPPER_FB_POSITION.pot1;
-            // 				break;
-        case 8: // 8-REG_FLIPPER_FB_POSITION.pot2 HI
-            XbeeTest_UART_Buffer[1] = REG_FLIPPER_FB_POSITION.pot2 >> 8;
-            XbeeTest_UART_Buffer[2] = REG_FLIPPER_FB_POSITION.pot2;
-            break;
-            // 		 	case 9: 	//9-REG_FLIPPER_FB_POSITION.pot2 LO
-            // 				XbeeTest_UART_Buffer[3]=REG_FLIPPER_FB_POSITION.pot2;
-            // 				break;
-        case 10: // 10-REG_MOTOR_FB_CURRENT.left HI
-            XbeeTest_UART_Buffer[1] = REG_MOTOR_FB_CURRENT.left >> 8;
-            XbeeTest_UART_Buffer[2] = REG_MOTOR_FB_CURRENT.left;
-            break;
-            // 			case 11: 	//11-REG_MOTOR_FB_CURRENT.left LO
-            // 				XbeeTest_UART_Buffer[3]=REG_MOTOR_FB_CURRENT.left;
-            // 				break;
-        case 12: // 12-REG_MOTOR_FB_CURRENT.right HI
-            XbeeTest_UART_Buffer[1] = REG_MOTOR_FB_CURRENT.right >> 8;
-            XbeeTest_UART_Buffer[2] = REG_MOTOR_FB_CURRENT.right;
-            break;
-            // 			case 13:	//13-REG_MOTOR_FB_CURRENT.right LO
-            // 				XbeeTest_UART_Buffer[3]=REG_MOTOR_FB_CURRENT.right;
-            // 				break;
-        case 14: // 14-REG_MOTOR_ENCODER_COUNT.left HI
-            XbeeTest_UART_Buffer[1] = REG_MOTOR_ENCODER_COUNT.left >> 8;
-            XbeeTest_UART_Buffer[2] = REG_MOTOR_ENCODER_COUNT.left;
-            break;
-            // 		 	case 15:	//15-REG_MOTOR_ENCODER_COUNT.left LO
-            // 				XbeeTest_UART_Buffer[3]=REG_MOTOR_ENCODER_COUNT.left;
-            // 				break;
-        case 16: // 16-REG_MOTOR_ENCODER_COUNT.right HI
-            XbeeTest_UART_Buffer[1] = REG_MOTOR_ENCODER_COUNT.right >> 8;
-            XbeeTest_UART_Buffer[2] = REG_MOTOR_ENCODER_COUNT.right;
-            break;
-            // 		 	case 17:	//17-REG_MOTOR_ENCODER_COUNT.right LO
-            // 				XbeeTest_UART_Buffer[3]=REG_MOTOR_ENCODER_COUNT.right;
-            // 				break;
+// CASE(n,REGISTER) populates the UART output buffer with the 16-bit integer value of the given
+// register
+#define CASE(n, REGISTER)                                                                          \
+    case (n):                                                                                      \
+        XbeeTest_UART_Buffer[1] = (uint8_t)((REGISTER) >> 8 & 0xff);                               \
+        XbeeTest_UART_Buffer[2] = (uint8_t)(REGISTER & 0xff);                                      \
+        break;
+            CASE(0, REG_PWR_TOTAL_CURRENT)
+            CASE(2, REG_MOTOR_FB_RPM.left)
+            CASE(4, REG_MOTOR_FB_RPM.right)
+            CASE(6, REG_FLIPPER_FB_POSITION.pot1)
+            CASE(8, REG_FLIPPER_FB_POSITION.pot2)
+            CASE(10, REG_MOTOR_FB_CURRENT.left)
+            CASE(12, REG_MOTOR_FB_CURRENT.right)
+            CASE(14, REG_MOTOR_ENCODER_COUNT.left)
+            CASE(16, REG_MOTOR_ENCODER_COUNT.right)
         case 18: // 18-REG_MOTOR_FAULT_FLAG.left
             XbeeTest_UART_Buffer[1] = REG_MOTOR_FAULT_FLAG.left;
             XbeeTest_UART_Buffer[2] = REG_MOTOR_FAULT_FLAG.right;
             break;
-            // 		 	case 19:	//19-REG_MOTOR_FAULT_FLAG.right
-            // 				XbeeTest_UART_Buffer[3]=REG_MOTOR_FAULT_FLAG.right;
-            // 				break;
-        case 20: // 20-REG_MOTOR_TEMP.left HI
-            XbeeTest_UART_Buffer[1] = REG_MOTOR_TEMP.left >> 8;
-            XbeeTest_UART_Buffer[2] = REG_MOTOR_TEMP.left;
-            break;
-            // 			case 21:	//21-REG_MOTOR_TEMP.left LO
-            // 				XbeeTest_UART_Buffer[3]=REG_MOTOR_TEMP.left;
-            // 				break;
-        case 22: // 22-REG_MOTOR_TEMP.right HI
-            XbeeTest_UART_Buffer[1] = REG_MOTOR_TEMP.right >> 8;
-            XbeeTest_UART_Buffer[2] = REG_MOTOR_TEMP.right;
-            break;
-            // 			case 23:	//23-REG_MOTOR_TEMP.right LO
-            // 				XbeeTest_UART_Buffer[3]=REG_MOTOR_TEMP.right;
-            // 				break;
-        case 24: // 24-REG_PWR_BAT_VOLTAGE.a HI
-            XbeeTest_UART_Buffer[1] = REG_PWR_BAT_VOLTAGE.a >> 8;
-            XbeeTest_UART_Buffer[2] = REG_PWR_BAT_VOLTAGE.a;
-            break;
-            // 			case 25:	//25-REG_PWR_BAT_VOLTAGE.a LO
-            // 				XbeeTest_UART_Buffer[3]=REG_PWR_BAT_VOLTAGE.a;
-            // 				break;
-        case 26: // 26-REG_PWR_BAT_VOLTAGE.b HI
-            XbeeTest_UART_Buffer[1] = REG_PWR_BAT_VOLTAGE.b >> 8;
-            XbeeTest_UART_Buffer[2] = REG_PWR_BAT_VOLTAGE.b;
-            break;
-            // 			case 27:	//27-REG_PWR_BAT_VOLTAGE.b LO
-            // 				XbeeTest_UART_Buffer[3]=REG_PWR_BAT_VOLTAGE.b;
-            // 				break;
-        case 28: // 28-EncoderInterval[0]
-            XbeeTest_UART_Buffer[1] = EncoderInterval[0] >> 8;
-            XbeeTest_UART_Buffer[2] = EncoderInterval[0];
-            break;
-        case 30: // 30-EncoderInterval[1]
-            XbeeTest_UART_Buffer[1] = EncoderInterval[1] >> 8;
-            XbeeTest_UART_Buffer[2] = EncoderInterval[1];
-            break;
-        case 32: // 32-EncoderInterval[2]
-            XbeeTest_UART_Buffer[1] = EncoderInterval[2] >> 8;
-            XbeeTest_UART_Buffer[2] = EncoderInterval[2];
-            break;
-        case 34: // 34-REG_ROBOT_REL_SOC_A
-            XbeeTest_UART_Buffer[1] = REG_ROBOT_REL_SOC_A >> 8;
-            XbeeTest_UART_Buffer[2] = REG_ROBOT_REL_SOC_A;
-            break;
-        case 36: // 36-REG_ROBOT_REL_SOC_B
-            XbeeTest_UART_Buffer[1] = REG_ROBOT_REL_SOC_B >> 8;
-            XbeeTest_UART_Buffer[2] = REG_ROBOT_REL_SOC_B;
-            break;
-        case 38: // 38-REG_MOTOR_CHARGER_STATE
-            XbeeTest_UART_Buffer[1] = REG_MOTOR_CHARGER_STATE >> 8;
-            XbeeTest_UART_Buffer[2] = REG_MOTOR_CHARGER_STATE;
-            break;
-        case 40: // 40-BuildNO
-            XbeeTest_UART_Buffer[1] = BuildNO >> 8;
-            XbeeTest_UART_Buffer[2] = BuildNO;
-            break;
-        case 42: // 42-REG_PWR_A_CURRENT
-            XbeeTest_UART_Buffer[1] = REG_PWR_A_CURRENT >> 8;
-            XbeeTest_UART_Buffer[2] = REG_PWR_A_CURRENT;
-            break;
-        case 44: // 44-REG_PWR_B_CURRENT
-            XbeeTest_UART_Buffer[1] = REG_PWR_B_CURRENT >> 8;
-            XbeeTest_UART_Buffer[2] = REG_PWR_B_CURRENT;
-            break;
-        case 46: // 46-REG_MOTOR_FLIPPER_ANGLE
-            XbeeTest_UART_Buffer[1] = REG_MOTOR_FLIPPER_ANGLE >> 8;
-            XbeeTest_UART_Buffer[2] = REG_MOTOR_FLIPPER_ANGLE;
-            break;
-        case 48: // 46-REG_MOTOR_FLIPPER_ANGLE
-            XbeeTest_UART_Buffer[1] = Xbee_SIDE_FAN_SPEED >> 8;
-            XbeeTest_UART_Buffer[2] = Xbee_SIDE_FAN_SPEED;
-            break;
-        case 50: // 46-REG_MOTOR_FLIPPER_ANGLE
-            XbeeTest_UART_Buffer[1] = Xbee_Low_Speed_mode >> 8;
-            XbeeTest_UART_Buffer[2] = Xbee_Low_Speed_mode;
-            break;
-        case 52: // 52-REG_BATTERY_STATUS_A
-            XbeeTest_UART_Buffer[1] = REG_BATTERY_STATUS_A >> 8;
-            XbeeTest_UART_Buffer[2] = REG_BATTERY_STATUS_A;
-            break;
-        case 54: // 54-REG_BATTERY_STATUS_B
-            XbeeTest_UART_Buffer[1] = REG_BATTERY_STATUS_B >> 8;
-            XbeeTest_UART_Buffer[2] = REG_BATTERY_STATUS_B;
-            break;
-        case 56: // 56-REG_BATTERY_MODE_A
-            XbeeTest_UART_Buffer[1] = REG_BATTERY_MODE_A >> 8;
-            XbeeTest_UART_Buffer[2] = REG_BATTERY_MODE_A;
-            break;
-        case 58: // 58-REG_BATTERY_MODE_B
-            XbeeTest_UART_Buffer[1] = REG_BATTERY_MODE_B >> 8;
-            XbeeTest_UART_Buffer[2] = REG_BATTERY_MODE_B;
-            break;
-        case 60: // 60-REG_BATTERY_TEMP_A
-            XbeeTest_UART_Buffer[1] = REG_BATTERY_TEMP_A >> 8;
-            XbeeTest_UART_Buffer[2] = REG_BATTERY_TEMP_A;
-            break;
-        case 62: // 62-REG_BATTERY_TEMP_B
-            XbeeTest_UART_Buffer[1] = REG_BATTERY_TEMP_B >> 8;
-            XbeeTest_UART_Buffer[2] = REG_BATTERY_TEMP_B;
-            break;
-
+            CASE(20, REG_MOTOR_TEMP.left)
+            CASE(22, REG_MOTOR_TEMP.right)
+            CASE(24, REG_PWR_BAT_VOLTAGE.a)
+            CASE(26, REG_PWR_BAT_VOLTAGE.b)
+            CASE(28, EncoderInterval[0])
+            CASE(30, EncoderInterval[1])
+            CASE(32, EncoderInterval[2])
+            CASE(34, REG_ROBOT_REL_SOC_A)
+            CASE(36, REG_ROBOT_REL_SOC_B)
+            CASE(38, REG_MOTOR_CHARGER_STATE)
+            CASE(40, BuildNO)
+            CASE(42, REG_PWR_A_CURRENT)
+            CASE(44, REG_PWR_B_CURRENT)
+            CASE(46, REG_MOTOR_FLIPPER_ANGLE)
+            CASE(48, Xbee_SIDE_FAN_SPEED)
+            CASE(50, Xbee_Low_Speed_mode)
+            CASE(52, REG_BATTERY_STATUS_A)
+            CASE(54, REG_BATTERY_STATUS_B)
+            CASE(56, REG_BATTERY_MODE_A)
+            CASE(58, REG_BATTERY_MODE_B)
+            CASE(60, REG_BATTERY_TEMP_A)
+            CASE(62, REG_BATTERY_TEMP_B)
+            CASE(64, REG_BATTERY_CURRENT_A)
+            CASE(66, REG_BATTERY_CURRENT_B)
+            CASE(68, REG_BATTERY_VOLTAGE_A)
+            CASE(70, REG_BATTERY_VOLTAGE_B)
+#undef CASE
         default:
-            XbeeTest_UART_Buffer[3] = 0;
+            XbeeTest_UART_Buffer[0] = 0;
+            XbeeTest_UART_Buffer[1] = 0;
             break;
         }
         // add checksum of the package
