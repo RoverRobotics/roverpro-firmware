@@ -2239,10 +2239,10 @@ void Motor_ADC1Interrupt(void) {
             CASE(58, REG_BATTERY_MODE_B)
             CASE(60, REG_BATTERY_TEMP_A)
             CASE(62, REG_BATTERY_TEMP_B)
-            CASE(64, REG_BATTERY_CURRENT_A)
-            CASE(66, REG_BATTERY_CURRENT_B)
-            CASE(68, REG_BATTERY_VOLTAGE_A)
-            CASE(70, REG_BATTERY_VOLTAGE_B)
+            CASE(64, REG_BATTERY_VOLTAGE_A)
+            CASE(66, REG_BATTERY_VOLTAGE_B)
+            CASE(68, REG_BATTERY_CURRENT_A)
+            CASE(70, REG_BATTERY_CURRENT_B)
 #undef CASE
         default:
             XbeeTest_UART_Buffer[0] = 0;
