@@ -80,9 +80,6 @@
 #define BaudRate_57600_HI 68  // BRGH=1
 #define BaudRate_115200_HI 34 // BRGH=1
 
-// clock
-// system clock 20MHz
-#define SystemClock 20000000
 // constant for event
 #define Stop 0xFF01
 #define Go 0xFF02
@@ -100,7 +97,6 @@
 // constant for timer
 #define SpeedUpdateTimer 5 // 200Hz
 //#define SpeedUpdateTimer 2  	//500Hz
-#define CurrentCtrlTimer 1          // 1K
 #define CurrentSurgeRecoverTimer 10 // 10ms
 #define USBTimeOutTimer 333         // 3Hz--333ms
 #define Xbee_FanSpeedTimer 333      // 3Hz--333ms
@@ -247,9 +243,6 @@
 #define SpeedControl 0
 #define CurrentControl 1
 // LMotor RMotor Flipper can never be changed
-#define Plus 1
-#define Minus 0
-#define ThresholdRPM 9600
 /** Number of samples to keep of running metrics, like battery temperature and voltage */
 #define SampleLength 4
 
@@ -268,16 +261,12 @@
 // Subsystem control
 #define Available 0
 #define TMPSensorIC 1
-#define FANCtrl 2
 
 /////variable
 
 extern int16_t Robot_Motor_TargetSpeedUSB[3];
-extern int NEW_ROBOT_MOTOR_SPEED_RECEIVED;
+
 extern int gNewData;
-// PulseWidth[0]-unknown
-// PulseWidth[1]-Serov1
-// PulseWidth[2]-Serov2
 
 /////function
 void PWM1Ini(void);

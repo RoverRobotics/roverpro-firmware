@@ -63,9 +63,6 @@ int CurrentProtectionTimerCount = 0;
 int MotorOffTimerEnabled = false;
 int MotorOffTimerExpired = false;
 int MotorOffTimerCount = 0;
-int CurrentCtrlTimerEnabled = true;
-int CurrentCtrlTimerExpired = false;
-int CurrentCtrlTimerCount = 0;
 int CurrentSurgeRecoverTimerEnabled = false;
 int CurrentSurgeRecoverTimerExpired = false;
 int CurrentSurgeRecoverTimerCount = 0;
@@ -129,7 +126,7 @@ int EncoderICClock = 10000;
 long EnCount[3] = {0, 0, 0};
 // int Robot_Motor_TargetSpeedUSB[3];
 int16_t Robot_Motor_TargetSpeedUSB[3] = {0, 0, 0};
-int NEW_ROBOT_MOTOR_SPEED_RECEIVED = false;
+
 int Timer3Count = 0;
 // int BackEMFSampleEnabled=false;
 int M3_POSFB = 0;
@@ -737,148 +734,86 @@ void Device_MotorController_Process() {
         // printf("State Machine Updated!\n");
         StateMachineTimerExpired = false;
         StateMachineTimerCount = 0;
-        for (i = 0; i <= 2; i++) {
+        for (i = 0; i < 3; i++) {
             // update state machine
-            // Switch (StateLevel01)
             switch (StateLevel01[i]) {
-            // Case Brake:
             case Brake:
                 // brake motor
                 Braking(i);
-                // Switch (Event)
                 switch (Event[i]) {
-                // Case Go:
                 case Go:
-                    // Call StartHBProtection
                     ProtectHB(i);
-                    // StateLevel01=Protection
                     StateLevel01[i] = Protection;
-                    // StateLevel02=Locked
                     StateLevel02[i] = Locked;
-                    // break
                     break;
-                // Case Back:
                 case Back:
-                    // Call StartHBProtection
                     ProtectHB(i);
-                    // StateLevel01=Protection
                     StateLevel01[i] = Protection;
-                    // StateLevel02=Locked
                     StateLevel02[i] = Locked;
-                    // break
                     break;
-                // Case Stop:
                 case Stop:
-                    // Event=NoEvent
                     Event[i] = NoEvent;
-                    // break
                     break;
                 }
-                // break
                 break;
-            // Case Forward:
             case Forward:
-                // Switch(Event)
                 switch (Event[i]) {
-                // Case Go:
                 case Go:
                     SpeedUpdateTimerEnabled[i] = true;
                     break;
-                // Case Back:
                 case Back:
-                    // Call StartHBProtection
                     ProtectHB(i);
-                    // StateLevel01=Protection
                     StateLevel01[i] = Protection;
-                    // StateLevel02=Locked
                     StateLevel02[i] = Locked;
-                    // break
                     break;
-                // Case Stop:
                 case Stop:
-                    // Call StartHBProtection
                     ProtectHB(i);
-                    // StateLevel01=Protection
                     StateLevel01[i] = Protection;
-                    // StateLevel02=Locked
                     StateLevel02[i] = Locked;
-                    // break
                     break;
                 }
-                // break
                 break;
-            // Case Backwards:
             case Backwards:
-                // Switch (Event)
                 switch (Event[i]) {
-                // Case Go:
                 case Go:
-                    // Call StartHBProtection
                     ProtectHB(i);
-                    // StateLevel01=Protection
                     StateLevel01[i] = Protection;
-                    // StateLevel02=Locked
                     StateLevel02[i] = Locked;
-                    // break
                     break;
-                // Case Back:
                 case Back:
                     SpeedUpdateTimerEnabled[i] = true;
-                    // break
                     break;
-                // Case Stop:
                 case Stop:
-                    // Call StartHBProtection
                     ProtectHB(i);
-                    // StateLevel01=Protection
                     StateLevel01[i] = Protection;
-                    // StateLevel02=Locked
                     StateLevel02[i] = Locked;
-                    // break
                     break;
                 }
-                // break
                 break;
-            // Case Protection
             case Protection:
-                // if StateLevel02==Locked
                 if (StateLevel02[i] == Locked) {
                     if (SwitchDirectionTimerExpired[i] == true) {
-                        // StateLevel02=Unlocked
                         StateLevel02[i] = Unlocked;
                         SwitchDirectionTimerExpired[i] = false;
                         SwitchDirectionTimerCount[i] = 0;
                     }
                 }
-                // if StateLevel02==Unlocked
                 if (StateLevel02[i] == Unlocked) {
-                    // switch (Event)
                     switch (Event[i]) {
-                    // Case Stop
                     case Stop:
-                        // Stop motor
                         Braking(i);
-                        // StateLevel01=Brake
                         StateLevel01[i] = Brake;
-                        // break
                         break;
-                    // Case Go
                     case Go:
                         SpeedUpdateTimerEnabled[i] = true;
-                        // StateLevel01=Forward
                         StateLevel01[i] = Forward;
-                        // break
                         break;
-                    // Case Back
                     case Back:
                         SpeedUpdateTimerEnabled[i] = true;
-                        // StateLevel01=Backwards
                         StateLevel01[i] = Backwards;
-                        // break
                         break;
                     }
                 }
-                // break
                 break;
             }
         }
@@ -1530,7 +1465,7 @@ void set_firmware_build_time(void) {
     unsigned int i;
 
     for (i = 0; i < 12; i++) {
-        if ((build_date[i] == 0)) {
+        if (build_date[i] == 0) {
             REG_MOTOR_FIRMWARE_BUILD.data[i] = ' ';
         } else {
             REG_MOTOR_FIRMWARE_BUILD.data[i] = build_date[i];
@@ -1687,7 +1622,7 @@ void FANCtrlIni() {
     // auto fan speed control mode
     // writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x11,0b00111100);
 
-    // manufal fan speed control mode
+    // manual fan speed control mode
     writeI2C2Reg(FAN_CONTROLLER_ADDRESS, 0x11, 0x00);
 
     block_ms(20);
