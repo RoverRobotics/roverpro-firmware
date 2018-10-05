@@ -987,31 +987,24 @@ void UpdateSpeed(int Channel, int State) {
     switch (Channel) {
     case LMotor:
         if (State == Forward) {
-            if (OverCurrent == true) {
+            if (OverCurrent) {
                 Dutycycle = 0;
+                M1_COAST = Set_ActiveLO;
             } else {
                 Dutycycle = GetDuty(ControlRPM[Channel], TargetParameter[Channel],
                                     ControlCurrent[Channel], Channel, SpeedCtrlMode[Channel]);
-            }
-            // printf("PWM2 %d\n",Dutycycle);
-            if (OverCurrent == true) {
-                M1_COAST = Set_ActiveLO;
-            } else {
                 M1_COAST = Clear_ActiveLO;
             }
             M1_BRAKE = Clear_ActiveLO;
             M1_DIR = HI;
             PWM1Duty(Dutycycle);
         } else if (State == Backwards) {
-            if (OverCurrent == true) {
+            if (OverCurrent) {
                 Dutycycle = 0;
+                M1_COAST = Set_ActiveLO;
             } else {
                 Dutycycle = GetDuty(ControlRPM[Channel], TargetParameter[Channel],
                                     ControlCurrent[Channel], Channel, SpeedCtrlMode[Channel]);
-            }
-            if (OverCurrent == true) {
-                M1_COAST = Set_ActiveLO;
-            } else {
                 M1_COAST = Clear_ActiveLO;
             }
             M1_BRAKE = Clear_ActiveLO;
@@ -1021,30 +1014,24 @@ void UpdateSpeed(int Channel, int State) {
         break;
     case RMotor:
         if (State == Forward) {
-            if (OverCurrent == true) {
+            if (OverCurrent) {
                 Dutycycle = 0;
+                M2_COAST = Set_ActiveLO;
             } else {
                 Dutycycle = GetDuty(ControlRPM[Channel], TargetParameter[Channel],
                                     ControlCurrent[Channel], Channel, SpeedCtrlMode[Channel]);
-            }
-            if (OverCurrent == true) {
-                M2_COAST = Set_ActiveLO;
-            } else {
                 M2_COAST = Clear_ActiveLO;
             }
             M2_BRAKE = Clear_ActiveLO;
             M2_DIR = LO;
             PWM2Duty(Dutycycle);
         } else if (State == Backwards) {
-            if (OverCurrent == true) {
+            if (OverCurrent) {
                 Dutycycle = 0;
+                M2_COAST = Set_ActiveLO;
             } else {
                 Dutycycle = GetDuty(ControlRPM[Channel], TargetParameter[Channel],
                                     ControlCurrent[Channel], Channel, SpeedCtrlMode[Channel]);
-            }
-            if (OverCurrent == true) {
-                M2_COAST = Set_ActiveLO;
-            } else {
                 M2_COAST = Clear_ActiveLO;
             }
             M2_BRAKE = Clear_ActiveLO;
@@ -1075,14 +1062,6 @@ void UpdateSpeed(int Channel, int State) {
         break;
     }
     Debugging_Dutycycle[Channel] = Dutycycle;
-}
-
-void UART1Tranmit(int data) {
-    while (U1STAbits.UTXBF == 1)
-        ;
-    IFS0bits.U1TXIF = 0;
-    U1TXREG = data;
-    // 	M1_RESET=~M1_RESET;
 }
 
 //*********************************************//
@@ -1264,9 +1243,7 @@ void USBInput() {
         break;
     }
 
-    // gNewData=!gNewData;
-
-    // long time no data, clear everything
+    // long time no data, clear everything and stop moving
     if (USBTimeOutTimerExpired == true) {
         // printf("USB Timer Expired!");
         USBTimeOutTimerExpired = false;
@@ -1280,9 +1257,10 @@ void USBInput() {
         Xbee_MOTOR_VELOCITY[1] = 0;
         Xbee_MOTOR_VELOCITY[2] = 0;
 #endif
+
         for (i = 0; i < 3; i++) {
             Robot_Motor_TargetSpeedUSB[i] = 0;
-            Event[i] = Stop; // Get the event
+            Event[i] = Stop;
             TargetParameter[i] = Robot_Motor_TargetSpeedUSB[i];
             // ClearSpeedCtrlData(i);
             // ClearCurrentCtrlData(i);
@@ -1292,68 +1270,30 @@ void USBInput() {
 #endif
     }
     // printf("!\n");
-#ifndef XbeeTest
-    // if there is new data comming in, update all the data
-    if (USB_New_Data_Received != gNewData) {
-        USB_New_Data_Received = gNewData;
-        USBTimeOutTimerCount = 0;
-        USBTimeOutTimerEnabled = true;
-        USBTimeOutTimerExpired = false;
-        // printf("1");
-        // printf("Lmotor:%d",Robot_Motor_TargetSpeedUSB[0]);
-        for (i = 0; i < 3; i++) {
-            // Robot_Motor_TargetSpeedUSB[i]==0 ->Stop
-            if (Robot_Motor_TargetSpeedUSB[i] == 0) {
-                Event[i] = Stop; // Get the event
-                TargetParameter[i] = Robot_Motor_TargetSpeedUSB[i];
-                // printf("2");
-            }
-            //-1024<Robot_Motor_TargetSpeedUSB[i]<0 ->Back
-            else if (Robot_Motor_TargetSpeedUSB[i] > -1024 && Robot_Motor_TargetSpeedUSB[i] < 0) {
-                Event[i] = Back; // Get the event
-                TargetParameter[i] = Robot_Motor_TargetSpeedUSB[i];
-                // printf("3");
-            }
-            // 0<Robot_Motor_TargetSpeedUSB[i]<1024 ->Go
-            else if (Robot_Motor_TargetSpeedUSB[i] > 0 && Robot_Motor_TargetSpeedUSB[i] < 1024) {
-                Event[i] = Go;                                      // Get the event
-                TargetParameter[i] = Robot_Motor_TargetSpeedUSB[i]; // Save the speed
-                // printf("4");
-            }
-        }
-    }
-#endif
 
-#ifdef XbeeTest
+#ifdef Xbeetest
     if (USB_New_Data_Received != Xbee_gNewData) {
         USB_New_Data_Received = Xbee_gNewData;
+#else
+    if (USB_New_Data_Received != gNewData) {
+        USB_New_Data_Received = gNewData;
+#endif
+        // if there is new data coming in, update all the data
         USBTimeOutTimerCount = 0;
         USBTimeOutTimerEnabled = true;
         USBTimeOutTimerExpired = false;
-        // printf("1");
-        // printf("LM:%d",Robot_Motor_TargetSpeedUSB[0]);
+        // printf("Lmotor:%d",Robot_Motor_TargetSpeedUSB[0]);
         for (i = 0; i < 3; i++) {
-            // Robot_Motor_TargetSpeedUSB[i]==0 ->Stop
-            if (Robot_Motor_TargetSpeedUSB[i] == 0) {
-                Event[i] = Stop; // Get the event
-                TargetParameter[i] = Robot_Motor_TargetSpeedUSB[i];
-                // printf("2");
-            }
-            //-1024<Robot_Motor_TargetSpeedUSB[i]<0 ->Back
-            else if (Robot_Motor_TargetSpeedUSB[i] > -1024 && Robot_Motor_TargetSpeedUSB[i] < 0) {
-                Event[i] = Back; // Get the event
-                TargetParameter[i] = Robot_Motor_TargetSpeedUSB[i];
-                // printf("3");
-            }
-            // 0<Robot_Motor_TargetSpeedUSB[i]<1024 ->Go
-            else if (Robot_Motor_TargetSpeedUSB[i] > 0 && Robot_Motor_TargetSpeedUSB[i] < 1024) {
-                Event[i] = Go;                                      // Get the event
-                TargetParameter[i] = Robot_Motor_TargetSpeedUSB[i]; // Save the speed
-                // printf("4");
-            }
+            if (Robot_Motor_TargetSpeedUSB[i] == 0)
+                Event[i] = Stop;
+            else if (-1024 < Robot_Motor_TargetSpeedUSB[i] && Robot_Motor_TargetSpeedUSB[i] < 0)
+                Event[i] = Back;
+            else if (0 < Robot_Motor_TargetSpeedUSB[i] && Robot_Motor_TargetSpeedUSB[i] < 1024)
+                Event[i] = Go;
+
+            TargetParameter[i] = Robot_Motor_TargetSpeedUSB[i];
         }
     }
-#endif
 }
 
 int EventChecker() {
@@ -2167,7 +2107,7 @@ void Motor_T5Interrupt(void) {
         CurrentTooHigh = false;
         Timer5Count = 0;
     }
-    if (OverCurrent == false && TotalCurrent >= CurrentLimit) {
+    if (!OverCurrent && TotalCurrent >= CurrentLimit) {
         OverCurrent = true;
         MotorOffTimerEnabled = true;
         MotorOffTimerExpired = false;
