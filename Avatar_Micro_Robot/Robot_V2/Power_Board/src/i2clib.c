@@ -13,6 +13,7 @@ typedef enum i2c_state_t {
   I2C_RCEN, ///< I2C is receiving
   I2C_RBF, ///< I2C has received a byte
   I2C_ACKEN, ///< I2C is transmitting an ack bit
+  I2C_NACKED, ///< A NACK was either sent or received, and I2C should stop
   I2C_DISABLED ///< The I2C module is not running
 } i2c_state_t;
 
@@ -76,6 +77,7 @@ i2c_state_t i2c_state(i2c_bus_t bus) {
                                                                         : bus->CON->ACKEN ? I2C_ACKEN
                                                                                           : bus->STAT->TRSTAT
                                                                                             ? I2C_TRANSMITTING
+      : bus->STAT->ACKSTAT==NACK? I2C_NACKED
                                                                                             : bus->STAT->S ? I2C_STARTED
                                                                                                            : bus->CON->I2CEN
                                                                                                              ? I2C_STOPPED
@@ -101,6 +103,7 @@ i2c_result_t i2c_start(i2c_bus_t bus) {
 i2c_result_t i2c_stop(i2c_bus_t bus) {
     i2c_state_t state = i2c_state(bus);
     switch (state) {
+      case I2C_NACKED:
     case I2C_STARTED: break;
     case I2C_ACKEN:
     case I2C_TRANSMITTING: return I2C_NOTYET;
