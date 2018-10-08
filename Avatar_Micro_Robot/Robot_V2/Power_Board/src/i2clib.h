@@ -63,4 +63,4 @@ i2c_operationdef_t i2c_op_writeword(uint8_t address, uint8_t command_byte, const
 i2c_operationdef_t i2c_op_writeblock(uint8_t address, uint8_t command_byte, uint8_t *block_to_write, uint8_t maxlen);
 
 /** Asynchronously do the given operation */
-i2c_result_t i2c_do(i2c_bus_t bus, i2c_op_t op, i2c_progress_t *progress);
+i2c_result_t i2c_tick(i2c_bus_t bus, i2c_op_t op, i2c_progress_t *progress);
