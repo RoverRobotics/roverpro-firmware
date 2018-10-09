@@ -171,7 +171,6 @@ int MotorSpeedTargetCoefficient[3];
 float MotorCurrentTargetCoefficient = MotorCurrentTargetCoefficient_Normal;
 float MaxDuty = 1000.0;
 int MotorRecovering = false;
-int CurrentTooHigh = false;
 long TargetDifference = 0;
 int CO;
 // long BackEmfRPM[3];
@@ -902,15 +901,6 @@ int GetMotorSpeedTargetCoefficient(int Current) {
         result = MotorSpeedTargetCoefficient_Normal;
     if (result < MotorSpeedTargetCoefficient_Turn)
         result = MotorSpeedTargetCoefficient_Turn;
-    if (CurrentTooHigh == true) {
-        // MaxDuty=500.0;
-        // result=result/(1+TMR5/PR5);
-
-        // result=result/1.5;
-
-    } else {
-        // MaxDuty=750.0;
-    }
     CO = result;
     return result;
 }
@@ -2192,23 +2182,6 @@ void Motor_ADC1Interrupt(void) {
         XbeeTest_UART_BufferPointer == 0) // if transmit reg is empty and last packet is sent
     {
         U1TXREG = Xbee_StartBit; // send out the index
-        // XbeeTest_Temp_u16=REG_PWR_TOTAL_CURRENT;
-        // XbeeTest_Temp_u16=REG_MOTOR_FB_RPM.left;
-        // XbeeTest_Temp_u16=REG_MOTOR_FB_RPM.right;
-        // XbeeTest_Temp_u16=REG_FLIPPER_FB_POSITION.pot1;
-        // XbeeTest_Temp_u16=REG_FLIPPER_FB_POSITION.pot2;
-        // XbeeTest_Temp_u16=REG_MOTOR_FB_CURRENT.left;
-        // XbeeTest_Temp_u16=REG_MOTOR_FB_CURRENT.right;
-        // XbeeTest_Temp_u16=REG_MOTOR_ENCODER_COUNT.left;
-        // XbeeTest_Temp_u16=REG_MOTOR_ENCODER_COUNT.right;
-        // XbeeTest_Temp_u16=REG_MOTOR_FAULT_FLAG.left;
-        // XbeeTest_Temp_u16=REG_MOTOR_FAULT_FLAG.right;
-        // XbeeTest_Temp_u16=REG_MOTOR_TEMP.left;
-        // XbeeTest_Temp_u16=REG_MOTOR_TEMP.right;
-        // XbeeTest_Temp_u16=REG_PWR_BAT_VOLTAGE.a;
-        // XbeeTest_Temp_u16=REG_PWR_BAT_VOLTAGE.b;
-        // XbeeTest_Temp_u16=REG_PWR_TOTAL_CURRENT;
-        // XbeeTest_Temp_u16=TotalCurrent;
         XbeeTest_UART_DataNO = Xbee_Incoming_Cmd[1];
         XbeeTest_UART_Buffer[0] = XbeeTest_UART_DataNO;
         // XbeeTest_UART_Buffer[1]=(XbeeTest_Temp_u16>>8);//load the buffer
@@ -2412,9 +2385,11 @@ void Motor_ADC1Interrupt(void) {
 }
 
 void Motor_U1TXInterrupt(void) {
-
     // clear the flag
     IFS0bits.U1TXIF = 0;
+
+
+
 #ifdef XbeeTest
     // transmit data
     if (XbeeTest_UART_BufferPointer < XbeeTest_UART_Buffer_Length) {
