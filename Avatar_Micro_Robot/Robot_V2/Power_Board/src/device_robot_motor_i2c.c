@@ -11,25 +11,26 @@ int I2C3XmitReset = 0;
 int I2C2TimerExpired = 0;
 int I2C3TimerExpired = 0;
 
-const i2c_busdef_t I2C2_meta = {(i2c_con_t *)&I2C2CON, (i2c_stat_t *)&I2C2STAT, &I2C2TRN, &I2C2RCV};
-const i2c_busdef_t I2C3_meta = {(i2c_con_t *)&I2C3CON, (i2c_stat_t *)&I2C3STAT, &I2C3TRN, &I2C3RCV};
-
 // A step may be reached by either falling through into it (first try)
 // Or by jumping back to it (every retry)
 // Note an i2c_result of I2C_ILLEGAL probably means there is a coding error, hence the conditional
 // breakpoint
 #define STEP(cmd)                                                                                  \
     case (__LINE__):                                                                               \
-        resume_at = __LINE__;                                                                      \
+        resume_at = (__LINE__);                                                                    \
         i2c_result = (cmd);                                                                        \
         if (i2c_result == I2C_NOTYET) {                                                            \
             break;                                                                                 \
+        } else if (i2c_result == I2C_ILLEGAL) {                                                    \
+            resume_at = -1;                                                                        \
+            break;                                                                                 \
         }                                                                                          \
-        BREAKPOINT_IF(i2c_result != I2C_OKAY)                                                      \
+        BREAKPOINT_IF(i2c_result != I2C_OKAY);                                                     \
         // fallthrough to next case
 
 void I2C2Update(void) {
-    static const i2c_bus_t BUS = (&I2C2_meta);
+    const i2c_bus_t BUS = I2C_BUS2;
+
     static int resume_at = 0;
     static unsigned char a, b;
     static i2c_ack_t ack;
@@ -41,9 +42,12 @@ void I2C2Update(void) {
     }
     switch (resume_at) {
     default:
-        BREAKPOINT;
+        BREAKPOINT();
+    // fallthrough
+    case -1:
+        re_init_i2c2();
+        // fallthrough
     case 0:
-
         // REG_MOTOR_TEMP.left = FanControl ReadByte 0x00
         STEP(i2c_start(BUS))
         STEP(i2c_address(BUS, FAN_CONTROLLER_ADDRESS, I2C_WRITE))
@@ -89,13 +93,13 @@ void I2C2Update(void) {
         STEP(i2c_address(BUS, FAN_CONTROLLER_ADDRESS, I2C_WRITE))
         STEP(i2c_transmit_byte(BUS, 0x0b))
         // STEP(i2c_transmit_byte(BUS, REG_MOTOR_SIDE_FAN_SPEED))
-        STEP(i2c_transmit_byte(BUS,
-                            Xbee_SIDE_FAN_NEW != 0
-                                ? Xbee_SIDE_FAN_SPEED
-                                // as long as the motor speed is not 0, turn side fan on full speed
-                                : (abs(Xbee_MOTOR_VELOCITY[0]) + abs(Xbee_MOTOR_VELOCITY[1])) > 10
-                                      ? (Xbee_SIDE_FAN_SPEED = 240)
-                                      : (Xbee_SIDE_FAN_SPEED = 0)))
+        STEP(i2c_transmit_byte(
+            BUS, Xbee_SIDE_FAN_NEW != 0
+                     ? Xbee_SIDE_FAN_SPEED
+                     // as long as the motor speed is not 0, turn side fan on full speed
+                     : (abs(Xbee_MOTOR_VELOCITY[0]) + abs(Xbee_MOTOR_VELOCITY[1])) > 10
+                           ? (Xbee_SIDE_FAN_SPEED = 240)
+                           : (Xbee_SIDE_FAN_SPEED = 0)))
         STEP(i2c_stop(BUS))
 
         // Battery ReadWord 0x16 [="BatteryStatus"]
@@ -146,14 +150,13 @@ void I2C2Update(void) {
         }
         STEP(i2c_stop(BUS))
 
-        BREAKPOINT_IF(REG_BATTERY_STATUS_A & 0xFF00) // any alarm flags
-        I2C2TimerExpired = false;                    // reset the I2C2 update timer
+        I2C2TimerExpired = false; // reset the I2C2 update timer
         resume_at = -1;
     }
 }
 
 void I2C3Update(void) {
-    static const i2c_bus_t BUS = (&I2C3_meta);
+    const i2c_bus_t BUS = I2C_BUS3;
     static int resume_at = 0;
     static unsigned char a, b;
     static i2c_ack_t ack;
@@ -165,25 +168,34 @@ void I2C3Update(void) {
     }
     switch (resume_at) {
     default:
-        BREAKPOINT;
+        BREAKPOINT();
+    // fallthrough
+    case -1:
+        re_init_i2c3();
+        // fallthrough
     case 0:
-
         // Battery ReadWord 0x0d [="RelativeStateOfCharge"]
         STEP(i2c_start(BUS))
         STEP(i2c_address(BUS, BATTERY_ADDRESS, I2C_WRITE))
-        STEP(i2c_transmit_byte(BUS, 0x0d))
-        STEP(i2c_restart(BUS))
-        STEP(i2c_address(BUS, BATTERY_ADDRESS, I2C_READ))
-        STEP(i2c_request_byte(BUS))
-        STEP(i2c_receive_and_ack(BUS, ACK, &a))
-        STEP(i2c_request_byte(BUS))
-        STEP(i2c_receive_and_ack(BUS, NACK, &b))
-        REG_ROBOT_REL_SOC_B = a + (b << 8);
+        STEP(i2c_check_ack(BUS, &ack))
+        if (ack == ACK) {
+            STEP(i2c_transmit_byte(BUS, 0x0d))
+            STEP(i2c_restart(BUS))
+            STEP(i2c_address(BUS, BATTERY_ADDRESS, I2C_READ))
+            STEP(i2c_request_byte(BUS))
+            STEP(i2c_receive_and_ack(BUS, ACK, &a))
+            STEP(i2c_request_byte(BUS))
+            STEP(i2c_receive_and_ack(BUS, NACK, &b))
+            REG_ROBOT_REL_SOC_B = a + (b << 8);
+        }
         STEP(i2c_stop(BUS))
 
         // BatteryCharger ReadWord 0xca
         STEP(i2c_start(BUS))
         STEP(i2c_address(BUS, BATTERY_CHARGER_ADDRESS, I2C_WRITE))
+
+        BREAKPOINT_IF(0);
+        BREAKPOINT_IF(1);
         STEP(i2c_transmit_byte(BUS, 0xca))
         STEP(i2c_restart(BUS))
         STEP(i2c_address(BUS, BATTERY_CHARGER_ADDRESS, I2C_READ))
@@ -192,11 +204,13 @@ void I2C3Update(void) {
         STEP(i2c_request_byte(BUS))
         STEP(i2c_receive_and_ack(BUS, NACK, &b))
         REG_MOTOR_CHARGER_STATE = a + (b << 8);
+
         STEP(i2c_stop(BUS))
 
         // Battery ReadWord 0x16 [="BatteryStatus"]
         STEP(i2c_start(BUS))
         STEP(i2c_address(BUS, BATTERY_ADDRESS, I2C_WRITE))
+
         STEP(i2c_transmit_byte(BUS, 0x16))
         STEP(i2c_restart(BUS))
         STEP(i2c_address(BUS, BATTERY_ADDRESS, I2C_READ))
@@ -207,6 +221,10 @@ void I2C3Update(void) {
         STEP(i2c_receive_and_ack(BUS, NACK, &b))
         if (ack == ACK) {
             REG_BATTERY_STATUS_B = a + (b << 8);
+        }
+
+        else {
+            BREAKPOINT();
         }
         STEP(i2c_stop(BUS))
 
@@ -242,8 +260,6 @@ void I2C3Update(void) {
         }
         STEP(i2c_stop(BUS))
 
-        BREAKPOINT_IF(REG_BATTERY_STATUS_B & 0xFF00) // any alarm flags
-
         I2C3TimerExpired = false; // reset the I2C3 update timer
         resume_at = -1;
     }
@@ -252,6 +268,7 @@ void I2C3Update(void) {
 //*********************************************//
 
 void re_init_i2c2(void) {
+    I2C2CONbits.I2CEN = 0;
     I2C2CON = 0;
     I2C2STAT = 0;
 

@@ -20,14 +20,10 @@
 
 // PIC24-specific breakpoint command:
 #define BREAKPOINT __asm__ __volatile__(".pword 0xDA4000")
-#ifdef __DEBUG
 #define BREAKPOINT_IF(condition)                                                                   \
     if (condition) {                                                                               \
         BREAKPOINT;                                                                                \
     }
-#else
-#define BREAKPOINT_IF(condition)
-#endif
 
 // PROTOTYPES FOR PROJECT stdfunction.h
 
@@ -50,6 +46,6 @@ int clamp(int value, int lo, int hi);
 /** compute the mean of an array of integers */
 int mean(int count, int *values);
 long mean_l(int count, long *values);
-
 #include "../HardwareProfile.h"
+
 #endif
