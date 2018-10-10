@@ -94,21 +94,20 @@
 #define Locked 0xEE04
 #define Unlocked 0xEE05
 
-// constant for timer
-#define SpeedUpdateTimer 5 // 200Hz
-//#define SpeedUpdateTimer 2  	//500Hz
+// constant for timer.
+// Since these are on timer1, they are in multiples of PR1
+#define SpeedUpdateTimer 5          // 200Hz
 #define CurrentSurgeRecoverTimer 10 // 10ms
 #define USBTimeOutTimer 333         // 3Hz--333ms
 #define Xbee_FanSpeedTimer 333      // 3Hz--333ms
-//#define USBTimeOutTimer 3333 	//0.3Hz--3333ms
-#define SwitchDirectionTimer 10  // 10ms
-#define StateMachineTimer 1      // 1KHz
-#define RPMTimer 1               // 1KHz
-#define CurrentFBTimer 1         // 1KHz
-#define M3_POSFB_Timer 1         // 1KHz
-#define CurrentProtectionTimer 1 // 1KHz
-#define I2C2Timer 25
-#define I2C3Timer 25          // 4Hz, this is the default sample rate of TMPSensorIC
+#define SwitchDirectionTimer 10     // 10ms
+#define StateMachineTimer 1         // 1KHz
+#define RPMTimer 1                  // 1KHz
+#define CurrentFBTimer 1            // 1KHz
+#define M3_POSFB_Timer 1            // 1KHz
+#define CurrentProtectionTimer 1    // 1KHz
+#define I2C2Timer 100
+#define I2C3Timer 100
 #define SFREGUpdateTimer 4    // 250Hz
 #define BATVolCheckingTimer 1 // 1KHz
 #define BATRecoveryTimer 100  // 100ms
