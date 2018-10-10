@@ -35,7 +35,7 @@ void I2C2Update(void) {
     static i2c_ack_t ack;
     i2c_result_t i2c_result;
 
-    if (I2C2XmitReset == true) {
+    if (I2C2XmitReset) {
         I2C2XmitReset = false; // clear the flag
         resume_at = 0;         // start from the beginning
     }
@@ -190,7 +190,7 @@ void I2C3Update(void) {
     static i2c_ack_t ack;
     i2c_result_t i2c_result;
 
-    if (I2C3XmitReset == true) {
+    if (I2C3XmitReset) {
         I2C3XmitReset = false; // clear the flag
         resume_at = 0;         //  start from the beginning
     }

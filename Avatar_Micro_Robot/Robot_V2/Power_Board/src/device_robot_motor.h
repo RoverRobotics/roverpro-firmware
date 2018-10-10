@@ -1,37 +1,5 @@
 /*****************************************************************************/
 //*-----------------------------General Purpose------------------------------*/
-#define BIT00LO 0b1111111111111110;
-#define BIT01LO 0b1111111111111101;
-#define BIT02LO 0b1111111111111011;
-#define BIT03LO 0b1111111111110111;
-#define BIT04LO 0b1111111111101111;
-#define BIT05LO 0b1111111111011111;
-#define BIT06LO 0b1111111110111111;
-#define BIT07LO 0b1111111101111111;
-#define BIT08LO 0b1111111011111111;
-#define BIT09LO 0b1111110111111111;
-#define BIT10LO 0b1111101111111111;
-#define BIT11LO 0b1111011111111111;
-#define BIT12LO 0b1110111111111111;
-#define BIT13LO 0b1101111111111111;
-#define BIT14LO 0b1011111111111111;
-#define BIT15LO 0b0111111111111111;
-#define BIT00HI 0b0000000000000001;
-#define BIT01HI 0b0000000000000010;
-#define BIT02HI 0b0000000000000100;
-#define BIT03HI 0b0000000000001000;
-#define BIT04HI 0b0000000000010000;
-#define BIT05HI 0b0000000000100000;
-#define BIT06HI 0b0000000001000000;
-#define BIT07HI 0b0000000010000000;
-#define BIT08HI 0b0000000100000000;
-#define BIT09HI 0b0000001000000000;
-#define BIT10HI 0b0000010000000000;
-#define BIT11HI 0b0000100000000000;
-#define BIT12HI 0b0001000000000000;
-#define BIT13HI 0b0010000000000000;
-#define BIT14HI 0b0100000000000000;
-#define BIT15HI 0b1000000000000000;
 #define CLEAR 0
 #define SET 1
 #define HI 1
@@ -80,19 +48,21 @@
 #define BaudRate_57600_HI 68  // BRGH=1
 #define BaudRate_115200_HI 34 // BRGH=1
 
-// constant for event
-#define Stop 0xFF01
-#define Go 0xFF02
-#define Back 0xFF03
-#define NoEvent 0xFF00
+enum MotorEvent {
+    Stop = 0xFF01,
+    Go = 0xFF02,
+    Back = 0xFF03,
+    NoEvent = 0xFF00,
+};
 
-// constant for state
-#define Forward 0xEE00
-#define Brake 0xEE01
-#define Protection 0xEE02
-#define Backwards 0xEE03
-#define Locked 0xEE04
-#define Unlocked 0xEE05
+enum MotorState {
+    Forward = 0xEE00,
+    Brake = 0xEE01,
+    Protection = 0xEE02,
+    Backward = 0xEE03,
+    Locked = 0xEE04,
+    Unlocked = 0xEE05,
+};
 
 // constant for timer.
 // Since these are on timer1, they are in multiples of PR1
@@ -113,38 +83,20 @@
 #define BATRecoveryTimer 100  // 100ms
 #define MotorOffTimer 35      // 35ms motor off if there is a surge
 
-#define CurrentLimit 2300
+#define CurrentLimit                                                                               \
+    2300 ///< Total motor current at which we will declare an overcurrent threshold and kill the
+         ///< motors
 #define MotorSpeedTargetCoefficient_Normal 40
 #define MotorSpeedTargetCoefficient_Turn 4
 #define MotorSpeedTargetCoefficient_Low 5
-#define MotorCurrentTargetCoefficient_Normal 0.6
-#define MotorCurrentTargetCoefficient_Turn 0.6
-#define CurrentSurgeLimit 1 // sampling rate 1KHz,Alow surge 1 times (1ms) before shut down
-#define CurrentThreshold 800
 #define HardTurning 1000
 #define StartTurning 0
-#define TurningDutyCycle 400.0
+
 // constant for special usage
-#define Cell_ON 1
-#define Cell_OFF 0
-#define Cell_A 0
-#define Cell_B 1
+typedef enum { Cell_OFF = 0, Cell_ON = 1 } BatteryState;
 
+typedef enum { Cell_A = 0, Cell_B, BATTERY_CHANNEL_COUNT } BatteryChannel;
 // constant for pins
-// input pin mapping
-
-#define M1_TACHO_RPn 12
-#define M2_TACHO_RPn 16
-#define M3_TACHO_RPn 20 // is this used in the software?
-
-/*
-#define Servo2_Input_RPn 19
-#define Servo1_Input_RPn 27
-*/
-
-// XbeeTest Only
-#define U1RX_RPn 6
-// XbeeTest End
 
 // output pin mapping
 #define M1_PWM _RP24R
@@ -152,45 +104,46 @@
 #define M3_PWM _RP25R
 
 // XbeeTest Only
+#define U1RX_RPn 6
 #define U1TX_RPn _RP7R
 // XbeeTest End
 
 // Analog pins
-#define M1_TEMP_EN(a) _PCFG2 = !a
-#define M1_CURR_EN(a) _PCFG3 = !a
-#define M2_TEMP_EN(a) _PCFG0 = !a
-#define M2_CURR_EN(a) _PCFG1 = !a
-#define M3_TEMP_EN(a) _PCFG14 = !a
-#define M3_CURR_EN(a) _PCFG15 = !a
+#define M1_TEMP_EN(a) _PCFG2 = !(a)
+#define M1_CURR_EN(a) _PCFG3 = !(a)
+#define M2_TEMP_EN(a) _PCFG0 = !(a)
+#define M2_CURR_EN(a) _PCFG1 = !(a)
+#define M3_TEMP_EN(a) _PCFG14 = !(a)
+#define M3_CURR_EN(a) _PCFG15 = !(a)
 
-#define VCELL_A_EN(a) _PCFG10 = !a
-#define VCELL_B_EN(a) _PCFG11 = !a
-#define CELL_A_CURR_EN(a) _PCFG12 = !a
-#define CELL_B_CURR_EN(a) _PCFG13 = !a
+#define VCELL_A_EN(a) _PCFG10 = !(a)
+#define VCELL_B_EN(a) _PCFG11 = !(a)
+#define CELL_A_CURR_EN(a) _PCFG12 = !(a)
+#define CELL_B_CURR_EN(a) _PCFG13 = !(a)
 
-#define M3_POS_FB_1_EN(a) _PCFG8 = !a
-#define M3_POS_FB_2_EN(a) _PCFG9 = !a
+#define M3_POS_FB_1_EN(a) _PCFG8 = !(a)
+#define M3_POS_FB_2_EN(a) _PCFG9 = !(a)
 
 // Configure outputs
 
 // Main power bus MOSFET control pins
-#define CELL_A_MOS_EN(a) _TRISD3 = !a
-#define CELL_B_MOS_EN(a) _TRISD2 = !a
+#define CELL_A_MOS_EN(a) _TRISD3 = !(a)
+#define CELL_B_MOS_EN(a) _TRISD2 = !(a)
 
-#define M1_DIR_EN(a) _TRISD6 = !a
-#define M1_BRAKE_EN(a) _TRISD7 = !a
-#define M1_MODE_EN(a) _TRISD9 = !a
-#define M1_COAST_EN(a) _TRISD10 = !a
+#define M1_DIR_EN(a) _TRISD6 = !(a)
+#define M1_BRAKE_EN(a) _TRISD7 = !(a)
+#define M1_MODE_EN(a) _TRISD9 = !(a)
+#define M1_COAST_EN(a) _TRISD10 = !(a)
 
-#define M2_DIR_EN(a) _TRISB4 = !a
-#define M2_BRAKE_EN(a) _TRISB5 = !a
-#define M2_MODE_EN(a) _TRISG9 = !a
-#define M2_COAST_EN(a) _TRISG8 = !a
+#define M2_DIR_EN(a) _TRISB4 = !(a)
+#define M2_BRAKE_EN(a) _TRISB5 = !(a)
+#define M2_MODE_EN(a) _TRISG9 = !(a)
+#define M2_COAST_EN(a) _TRISG8 = !(a)
 
-#define M3_DIR_EN(a) _TRISE3 = !a
-#define M3_BRAKE_EN(a) _TRISF0 = !a
-#define M3_MODE_EN(a) _TRISE4 = !a
-#define M3_COAST_EN(a) _TRISF1 = !a
+#define M3_DIR_EN(a) _TRISE3 = !(a)
+#define M3_BRAKE_EN(a) _TRISF0 = !(a)
+#define M3_MODE_EN(a) _TRISE4 = !(a)
+#define M3_COAST_EN(a) _TRISF1 = !(a)
 
 // functional pins
 #define M1_DIRO _RD0
@@ -214,23 +167,23 @@
 #define M3_MODE _LATE4
 #define M3_COAST _LATF1
 
-//#define M3_Fault 	PORTBbits.RB2
-// fan fails aren't connected anymore
-/*#define Fan1_Fail
-#define Fan2_Fail 	*/
 #define Cell_A_MOS _LATD3
 #define Cell_B_MOS _LATD2
 
 // other constant
-#define LMotor 0
-#define RMotor 1
-#define Flipper 2
-#define ChannelA 0
-#define ChannelB 1
-#define ControlMode_Conservative 0
-#define ControlMode_Normal 1
-#define ControlMode_Agressive 2
-#define ControlMode_Customized 3
+typedef enum { MOTOR_LEFT = 0, MOTOR_RIGHT, MOTOR_FLIPPER, MOTOR_CHANNEL_COUNT } MotorChannel;
+/** Helper macro for iterating all motors and storing the result in variable i */
+#define EACH_MOTOR_CHANNEL(i)                                                                      \
+    i = 0;                                                                                         \
+    i < MOTOR_CHANNEL_COUNT;                                                                       \
+    i++
+
+typedef enum {
+    ControlMode_Conservative = 0,
+    ControlMode_Normal,
+    ControlMode_Aggressive,
+    ControlMode_Customized
+} ControlMode;
 
 #define BackEMFSampleRangeStart 1800 // BackEMF sampling range starts about 90% of PWM period
 #define BackEMFSampleRangeEnd 1840   // BackEMF sampling range ends about 92% of PWM period
@@ -238,32 +191,23 @@
 //#define BATVoltageLimit 650 //11.06V, 3.3V-1024, 430K-100K voltage divider, 1024->17.49V
 #define BATVoltageLimit 800 // 11.06V, 3.3V-1024, 430K-100K voltage divider, 1024->17.49V
 
-// control mode
-#define SpeedControl 0
-#define CurrentControl 1
-// LMotor RMotor Flipper can never be changed
-/** Number of samples to keep of running metrics, like battery temperature and voltage */
-#define SampleLength 4
+#define SAMPLE_LENGTH                                                                              \
+    4 ///< Number of samples to keep of running metrics for power management, like battery
+      ///< temperature and voltage
+#define SAMPLE_LENGTH_CONTROL 8 ///< Number of samples to keep of running metrics for speed control
 
 // I2C Device Address
-#define TMPSensorICAddressW 0b10010010
-#define TMPSensorICAddressR 0b10010011
-#define FAN_CONTROLLER_ADDRESS 0x18
-#define BATTERY_ADDRESS                                                                            \
-    0x0b // two batteries exist with the same address; one on each of I2C bus 2 and 3
-#define EEPROM_ADDRESS 0x50
-#define BATTERY_CHARGER_ADDRESS 0x0c
+#define FAN_CONTROLLER_ADDRESS 0x18 ///< I2C address of fan controller
+#define BATTERY_ADDRESS 0x0b ///< I2C address of batteries (one battery on I2C bus 2, one on 3)
+#define EEPROM_ADDRESS 0x50  ///< I2C address of EEPROM
+#define BATTERY_CHARGER_ADDRESS 0x0c ///< I2C address of Battery Charger
 
 #define Fan1LowTemp 45 // 45C fan1 start temperature
 #define Fan2LowTemp 45 // 45C fan2 start temperature
 
-// Subsystem control
-#define Available 0
-#define TMPSensorIC 1
-
 /////variable
 
-extern int16_t Robot_Motor_TargetSpeedUSB[3];
+extern int16_t Robot_Motor_TargetSpeedUSB[MOTOR_CHANNEL_COUNT];
 
 extern int gNewData;
 
@@ -271,35 +215,35 @@ extern int gNewData;
 void PWM1Ini(void);
 void PWM1Duty(int Duty);
 
-void PWM2Ini(void);      // initialize PWM chnnel 2
+void PWM2Ini(void);      // initialize PWM channel 2
 void PWM2Duty(int Duty); // set duty cycle for PWM channel 2
 // Duty is 0~1024, 1024-100% duty cycle,0-0% duty cycle
 
-void PWM3Ini(void);      // initialize PWM chnnel 3
+void PWM3Ini(void);      // initialize PWM channel 3
 void PWM3Duty(int Duty); // set duty cycle for PWM channel 3
 // Duty is 0~1024, 1024-100% duty cycle,0-0% duty cycle
 
-void PWM4Ini(void);      // initialize PWM chnnel 4
+void PWM4Ini(void);      // initialize PWM channel 4
 void PWM4Duty(int Duty); // set duty cycle for PWM channel 4
 // Duty is 0~1024, 1024-100% duty cycle,0-0% duty cycle
 
-void PWM5Ini(void);      // initialize PWM chnnel 5
+void PWM5Ini(void);      // initialize PWM channel 5
 void PWM5Duty(int Duty); // set duty cycle for PWM channel 5
 // Duty is 0~1024, 1024-100% duty cycle,0-0% duty cycle
 
-void PWM6Ini(void);      // initialize PWM chnnel 6
+void PWM6Ini(void);      // initialize PWM channel 6
 void PWM6Duty(int Duty); // set duty cycle for PWM channel 6
 // Duty is 0~1024, 1024-100% duty cycle,0-0% duty cycle
 
-void PWM7Ini(void);      // initialize PWM chnnel 7
+void PWM7Ini(void);      // initialize PWM channel 7
 void PWM7Duty(int Duty); // set duty cycle for PWM channel 7
 // Duty is 0~1024, 1024-100% duty cycle,0-0% duty cycle
 
-void PWM8Ini(void);      // initialize PWM chnnel 8
+void PWM8Ini(void);      // initialize PWM channel 8
 void PWM8Duty(int Duty); // set duty cycle for PWM channel 8
 // Duty is 0~1024, 1024-100% duty cycle,0-0% duty cycle
 
-void PWM9Ini(void);      // initialize PWM chnnel 9
+void PWM9Ini(void);      // initialize PWM channel 9
 void PWM9Duty(int Duty); // set duty cycle for PWM channel 9
 // Duty is 0~1024, 1024-100% duty cycle,0-0% duty cycle
 
@@ -324,36 +268,25 @@ void IniAD();
 //*--------------------------------General Functions-------------------------*/
 
 void MC_Ini(void);
-void init_io(void);
-void ProtectHB(int Channel);
+void ProtectHB(MotorChannel Channel);
 void PinRemap(void);
-unsigned int GetPulseWidth(int Channel);
-int EventChecker();
-int GetChannel();
-int GetSpeed();
-void Braking(int Channel);
-void UpdateSpeed(int Channel, int State);
-int GetExpTimer();
+void Braking(MotorChannel Channel);
+void UpdateSpeed(MotorChannel Channel, int State);
 void DeviceRobotMotorInit();
 void Device_MotorController_Process();
-int GetDuty(long CurrentState, long Target, int RTCurrent, int Channel, int Mode);
+int GetDuty(long CurrentState, long Target, MotorChannel Channel, ControlMode Mode);
 void UART1Ini();
-void GetRPM(int Channel);
-void GetCurrent(int Channel);
-void GetControlRPM(int Channel);
-void GetControlCurrent(int Channel);
-void Cell_Ctrl(int Channel, int state);
-void ServoInput();
-void ClearSpeedCtrlData(int Channel);
-void ClearCurrentCtrlData(int Channel);
-int GetMotorTargetCoefficient(int Current);
+void GetRPM(MotorChannel Channel);
+void GetCurrent(MotorChannel Channel);
+void ClearSpeedCtrlData(MotorChannel Channel);
+void ClearCurrentCtrlData(MotorChannel Channel);
+void Cell_Ctrl(BatteryChannel Channel, BatteryState state);
 void I2C1Ini();
 void I2C2Ini();
 void I2C3Ini();
 void TMPSensorICIni();
 void I2C3Update();
 void FANCtrlIni();
-void Motor_I2C3ResigsterWrite(int8_t ICAddW, int8_t RegAdd, int8_t Data);
 void InterruptIni();
 void Motor_IC1Interrupt();
 void Motor_IC2Interrupt();
@@ -378,8 +311,8 @@ void TestPWM(void);
 void TestIC2();
 void TestOC();
 
-extern int Cell_A_Current[SampleLength];
-extern int Cell_B_Current[SampleLength];
-extern int16_t Xbee_MOTOR_VELOCITY[3];
+extern int Cell_A_Current[SAMPLE_LENGTH];
+extern int Cell_B_Current[SAMPLE_LENGTH];
+extern int16_t Xbee_MOTOR_VELOCITY[MOTOR_CHANNEL_COUNT];
 extern uint8_t Xbee_SIDE_FAN_SPEED;
 extern uint8_t Xbee_SIDE_FAN_NEW;
