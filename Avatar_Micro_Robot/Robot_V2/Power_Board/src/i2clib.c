@@ -106,18 +106,20 @@ i2c_result_t i2c_enable(i2c_bus_t bus) {
     return I2C_OKAY;
 }
 i2c_result_t i2c_start(i2c_bus_t bus) {
+    // Clear bus collision flag. If there was a collision in a previous operation, we don't care anymore.
+    bus->STAT->BCL = 0;
+    
     i2c_state_t state = i2c_state(bus);
     switch (state) {
     default:
         return I2C_ILLEGAL;
-    case I2C_BUS_COLLISION:
-        return I2C_ABORT;
     case I2C_STOPPING:
         return I2C_NOTYET;
     case I2C_IDLE_ACK: // ACKSTAT will still be set from the last I2C operation, so we do need both
     case I2C_IDLE_NACK:
         break;
     }
+    
     bus->CON->SEN = 1;
     return I2C_OKAY;
 }
