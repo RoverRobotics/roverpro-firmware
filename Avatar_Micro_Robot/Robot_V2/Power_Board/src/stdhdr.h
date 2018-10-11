@@ -19,10 +19,10 @@
 #include <stdbool.h>
 
 // PIC24-specific breakpoint command:
-#define BREAKPOINT __asm__ __volatile__(".pword 0xDA4000")
+#define BREAKPOINT() __asm__ __volatile__(".pword 0xDA4000")
 #define BREAKPOINT_IF(condition)                                                                   \
     if (condition) {                                                                               \
-        BREAKPOINT;                                                                                \
+        BREAKPOINT();                                                                              \
     }
 
 // PROTOTYPES FOR PROJECT stdfunction.h

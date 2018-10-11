@@ -13,27 +13,31 @@ int I2C3TimerExpired = 0;
 
 // A step may be reached by either falling through into it (first try)
 // Or by jumping back to it (every retry)
-// Note an i2c_result of I2C_ILLEGAL probably means there is a coding error, hence the conditional
-// breakpoint
-#define STEP(cmd)                                                                                  \
+// Note an i2c_result of I2C_ILLEGAL probably means there is a coding error, hence the breakpoint
+#define I2C_SUB(operationdef)                                                                      \
+    op = operationdef;                                                                             \
+    progress = I2C_PROGRESS_UNSTARTED;                                                             \
     case (__LINE__):                                                                               \
         resume_at = (__LINE__);                                                                    \
-        i2c_result = (cmd);                                                                        \
+        i2c_result = i2c_tick(BUS, &op, &progress);                                                \
+        BREAKPOINT_IF(i2c_result == I2C_ILLEGAL);                                                  \
         if (i2c_result == I2C_NOTYET) {                                                            \
-            break;                                                                                 \
+            return;                                                                                \
         } else if (i2c_result == I2C_ILLEGAL) {                                                    \
             resume_at = -1;                                                                        \
-            break;                                                                                 \
+            return;                                                                                \
         }                                                                                          \
-        BREAKPOINT_IF(i2c_result != I2C_OKAY);                                                     \
         // fallthrough to next case
 
 void I2C2Update(void) {
     const i2c_bus_t BUS = I2C_BUS2;
 
+    static i2c_operationdef_t op;
+    static i2c_progress_t progress;
+
     static int resume_at = 0;
-    static unsigned char a, b;
-    static i2c_ack_t ack;
+    static uint16_t c;
+    static uint8_t a;
     i2c_result_t i2c_result;
 
     if (I2C2XmitReset == true) {
@@ -48,107 +52,48 @@ void I2C2Update(void) {
         re_init_i2c2();
         // fallthrough
     case 0:
+
         // REG_MOTOR_TEMP.left = FanControl ReadByte 0x00
-        STEP(i2c_start(BUS))
-        STEP(i2c_address(BUS, FAN_CONTROLLER_ADDRESS, I2C_WRITE))
-        STEP(i2c_check_ack(BUS, &ack))
-        STEP(i2c_transmit_byte(BUS, 0x00))
-        STEP(i2c_restart(BUS))
-        STEP(i2c_address(BUS, FAN_CONTROLLER_ADDRESS, I2C_READ))
-        STEP(i2c_check_ack(BUS, &ack))
-        STEP(i2c_request_byte(BUS))
-        STEP(i2c_receive_and_ack(BUS, NACK, &a))
-        REG_MOTOR_TEMP_STATUS.left = (ack == ACK);
+        I2C_SUB(i2c_op_read_byte(FAN_CONTROLLER_ADDRESS, 0x00, &a))
+        REG_MOTOR_TEMP_STATUS.left = (i2c_result == I2C_OKAY);
         REG_MOTOR_TEMP.left = a;
-        STEP(i2c_stop(BUS))
 
         // REG_MOTOR_TEMP.right = FanControl ReadByte 0x01
-        STEP(i2c_start(BUS))
-        STEP(i2c_address(BUS, FAN_CONTROLLER_ADDRESS, I2C_WRITE))
-        STEP(i2c_transmit_byte(BUS, 0x01))
-        STEP(i2c_restart(BUS))
-        STEP(i2c_address(BUS, FAN_CONTROLLER_ADDRESS, I2C_READ))
-        STEP(i2c_check_ack(BUS, &ack))
-        STEP(i2c_request_byte(BUS))
-        STEP(i2c_receive_and_ack(BUS, NACK, &a))
-        REG_MOTOR_TEMP_STATUS.right = (ack == ACK);
+        I2C_SUB(i2c_op_read_byte(FAN_CONTROLLER_ADDRESS, 0x01, &a))
+        REG_MOTOR_TEMP_STATUS.right = (i2c_result == I2C_OKAY);
         REG_MOTOR_TEMP.right = a;
-        STEP(i2c_stop(BUS))
 
         // REG_ROBOT_REL_SOC_A = Battery ReadWord 0x0d [="RelativeStateOfCharge"]
-        STEP(i2c_start(BUS))
-        STEP(i2c_address(BUS, BATTERY_ADDRESS, I2C_WRITE))
-        STEP(i2c_transmit_byte(BUS, 0x0d))
-        STEP(i2c_restart(BUS))
-        STEP(i2c_address(BUS, BATTERY_ADDRESS, I2C_READ))
-        STEP(i2c_request_byte(BUS))
-        STEP(i2c_receive_and_ack(BUS, ACK, &a))
-        STEP(i2c_request_byte(BUS))
-        STEP(i2c_receive_and_ack(BUS, NACK, &b))
-        REG_ROBOT_REL_SOC_A = a + (b << 8);
-        STEP(i2c_stop(BUS))
+        I2C_SUB(i2c_op_read_word(BATTERY_ADDRESS, 0x0d, &c))
+        REG_ROBOT_REL_SOC_A = c;
 
         // FanControl WriteByte 0x0b
-        STEP(i2c_start(BUS))
-        STEP(i2c_address(BUS, FAN_CONTROLLER_ADDRESS, I2C_WRITE))
-        STEP(i2c_transmit_byte(BUS, 0x0b))
-        // STEP(i2c_transmit_byte(BUS, REG_MOTOR_SIDE_FAN_SPEED))
-        STEP(i2c_transmit_byte(
-            BUS, Xbee_SIDE_FAN_NEW != 0
-                     ? Xbee_SIDE_FAN_SPEED
-                     // as long as the motor speed is not 0, turn side fan on full speed
-                     : (abs(Xbee_MOTOR_VELOCITY[0]) + abs(Xbee_MOTOR_VELOCITY[1])) > 10
-                           ? (Xbee_SIDE_FAN_SPEED = 240)
-                           : (Xbee_SIDE_FAN_SPEED = 0)))
-        STEP(i2c_stop(BUS))
+        if (Xbee_SIDE_FAN_NEW) {
+            a = Xbee_SIDE_FAN_SPEED;
+        } else if (abs(Xbee_MOTOR_VELOCITY[0]) + abs(Xbee_MOTOR_VELOCITY[1]) > 10) {
+            a = Xbee_SIDE_FAN_SPEED = 240;
+        } else {
+            a = Xbee_SIDE_FAN_SPEED = 0;
+        }
+        I2C_SUB(i2c_op_write_byte(FAN_CONTROLLER_ADDRESS, 0x0b, &a));
 
         // Battery ReadWord 0x16 [="BatteryStatus"]
-        STEP(i2c_start(BUS))
-        STEP(i2c_address(BUS, BATTERY_ADDRESS, I2C_WRITE))
-        STEP(i2c_transmit_byte(BUS, 0x16))
-        STEP(i2c_restart(BUS))
-        STEP(i2c_address(BUS, BATTERY_ADDRESS, I2C_READ))
-        STEP(i2c_check_ack(BUS, &ack))
-        STEP(i2c_request_byte(BUS))
-        STEP(i2c_receive_and_ack(BUS, ACK, &a))
-        STEP(i2c_request_byte(BUS))
-        STEP(i2c_receive_and_ack(BUS, NACK, &b))
-        if (ack == ACK) {
-            REG_BATTERY_STATUS_A = a + (b << 8);
+        I2C_SUB(i2c_op_read_word(BATTERY_ADDRESS, 0x16, &c));
+        if (i2c_result == I2C_OKAY) {
+            REG_BATTERY_STATUS_A = c;
         }
-        STEP(i2c_stop(BUS))
 
         // Battery ReadWord 0x03 [="BatteryMode"]
-        STEP(i2c_start(BUS))
-        STEP(i2c_address(BUS, BATTERY_ADDRESS, I2C_WRITE))
-        STEP(i2c_transmit_byte(BUS, 0x03))
-        STEP(i2c_restart(BUS))
-        STEP(i2c_address(BUS, BATTERY_ADDRESS, I2C_READ))
-        STEP(i2c_check_ack(BUS, &ack))
-        STEP(i2c_request_byte(BUS))
-        STEP(i2c_receive_and_ack(BUS, ACK, &a))
-        STEP(i2c_request_byte(BUS))
-        STEP(i2c_receive_and_ack(BUS, NACK, &b))
-        if (ack == ACK) {
-            REG_BATTERY_MODE_A = a + (b << 8);
+        I2C_SUB(i2c_op_read_word(BATTERY_ADDRESS, 0x03, &c));
+        if (i2c_result == I2C_OKAY) {
+            REG_BATTERY_MODE_A = c;
         }
-        STEP(i2c_stop(BUS))
 
         // Battery ReadWord 0x08 [="Temperature"]
-        STEP(i2c_start(BUS))
-        STEP(i2c_address(BUS, BATTERY_ADDRESS, I2C_WRITE))
-        STEP(i2c_transmit_byte(BUS, 0x08))
-        STEP(i2c_restart(BUS))
-        STEP(i2c_address(BUS, BATTERY_ADDRESS, I2C_READ))
-        STEP(i2c_check_ack(BUS, &ack))
-        STEP(i2c_request_byte(BUS))
-        STEP(i2c_receive_and_ack(BUS, ACK, &a))
-        STEP(i2c_request_byte(BUS))
-        STEP(i2c_receive_and_ack(BUS, NACK, &b))
-        if (ack == ACK) {
-            REG_BATTERY_TEMP_A = a + (b << 8);
+        I2C_SUB(i2c_op_read_word(BATTERY_ADDRESS, 0x08, &c))
+        if (i2c_result == I2C_OKAY) {
+            REG_BATTERY_TEMP_A = c;
         }
-        STEP(i2c_stop(BUS))
 
         I2C2TimerExpired = false; // reset the I2C2 update timer
         resume_at = -1;
@@ -157,9 +102,12 @@ void I2C2Update(void) {
 
 void I2C3Update(void) {
     const i2c_bus_t BUS = I2C_BUS3;
+
+    static i2c_operationdef_t op;
+    static i2c_progress_t progress;
+
     static int resume_at = 0;
-    static unsigned char a, b;
-    static i2c_ack_t ack;
+    static uint16_t c;
     i2c_result_t i2c_result;
 
     if (I2C3XmitReset == true) {
@@ -175,90 +123,34 @@ void I2C3Update(void) {
         // fallthrough
     case 0:
         // Battery ReadWord 0x0d [="RelativeStateOfCharge"]
-        STEP(i2c_start(BUS))
-        STEP(i2c_address(BUS, BATTERY_ADDRESS, I2C_WRITE))
-        STEP(i2c_check_ack(BUS, &ack))
-        if (ack == ACK) {
-            STEP(i2c_transmit_byte(BUS, 0x0d))
-            STEP(i2c_restart(BUS))
-            STEP(i2c_address(BUS, BATTERY_ADDRESS, I2C_READ))
-            STEP(i2c_request_byte(BUS))
-            STEP(i2c_receive_and_ack(BUS, ACK, &a))
-            STEP(i2c_request_byte(BUS))
-            STEP(i2c_receive_and_ack(BUS, NACK, &b))
-            REG_ROBOT_REL_SOC_B = a + (b << 8);
+        I2C_SUB(i2c_op_read_word(BATTERY_ADDRESS, 0x0d, &c))
+        if (i2c_result == I2C_OKAY) {
+            REG_ROBOT_REL_SOC_B = c;
         }
-        STEP(i2c_stop(BUS))
 
         // BatteryCharger ReadWord 0xca
-        STEP(i2c_start(BUS))
-        STEP(i2c_address(BUS, BATTERY_CHARGER_ADDRESS, I2C_WRITE))
-
-        BREAKPOINT_IF(0);
-        BREAKPOINT_IF(1);
-        STEP(i2c_transmit_byte(BUS, 0xca))
-        STEP(i2c_restart(BUS))
-        STEP(i2c_address(BUS, BATTERY_CHARGER_ADDRESS, I2C_READ))
-        STEP(i2c_request_byte(BUS))
-        STEP(i2c_receive_and_ack(BUS, ACK, &a))
-        STEP(i2c_request_byte(BUS))
-        STEP(i2c_receive_and_ack(BUS, NACK, &b))
-        REG_MOTOR_CHARGER_STATE = a + (b << 8);
-
-        STEP(i2c_stop(BUS))
+        I2C_SUB(i2c_op_read_word(BATTERY_CHARGER_ADDRESS, 0xca, &c))
+        if (i2c_result == I2C_OKAY) {
+            REG_MOTOR_CHARGER_STATE = c;
+        }
 
         // Battery ReadWord 0x16 [="BatteryStatus"]
-        STEP(i2c_start(BUS))
-        STEP(i2c_address(BUS, BATTERY_ADDRESS, I2C_WRITE))
-
-        STEP(i2c_transmit_byte(BUS, 0x16))
-        STEP(i2c_restart(BUS))
-        STEP(i2c_address(BUS, BATTERY_ADDRESS, I2C_READ))
-        STEP(i2c_check_ack(BUS, &ack))
-        STEP(i2c_request_byte(BUS))
-        STEP(i2c_receive_and_ack(BUS, ACK, &a))
-        STEP(i2c_request_byte(BUS))
-        STEP(i2c_receive_and_ack(BUS, NACK, &b))
-        if (ack == ACK) {
-            REG_BATTERY_STATUS_B = a + (b << 8);
+        I2C_SUB(i2c_op_read_word(BATTERY_ADDRESS, 0x16, &c))
+        if (i2c_result == I2C_OKAY) {
+            REG_BATTERY_STATUS_B = c;
         }
-
-        else {
-            BREAKPOINT();
-        }
-        STEP(i2c_stop(BUS))
 
         // Battery ReadWord 0x03 [="BatteryMode"]
-        STEP(i2c_start(BUS))
-        STEP(i2c_address(BUS, BATTERY_ADDRESS, I2C_WRITE))
-        STEP(i2c_transmit_byte(BUS, 0x03))
-        STEP(i2c_restart(BUS))
-        STEP(i2c_address(BUS, BATTERY_ADDRESS, I2C_READ))
-        STEP(i2c_check_ack(BUS, &ack))
-        STEP(i2c_request_byte(BUS))
-        STEP(i2c_receive_and_ack(BUS, ACK, &a))
-        STEP(i2c_request_byte(BUS))
-        STEP(i2c_receive_and_ack(BUS, NACK, &b))
-        if (ack == ACK) {
-            REG_BATTERY_MODE_B = a + (b << 8);
+        I2C_SUB(i2c_op_read_word(BATTERY_ADDRESS, 0x03, &c))
+        if (i2c_result == I2C_OKAY) {
+            REG_BATTERY_MODE_B = c;
         }
-        STEP(i2c_stop(BUS))
 
         // Battery ReadWord 0x08 [="Temperature"]
-        STEP(i2c_start(BUS))
-        STEP(i2c_address(BUS, BATTERY_ADDRESS, I2C_WRITE))
-        STEP(i2c_transmit_byte(BUS, 0x08))
-        STEP(i2c_restart(BUS))
-        STEP(i2c_address(BUS, BATTERY_ADDRESS, I2C_READ))
-        STEP(i2c_check_ack(BUS, &ack))
-        STEP(i2c_request_byte(BUS))
-        STEP(i2c_receive_and_ack(BUS, ACK, &a))
-        STEP(i2c_request_byte(BUS))
-        STEP(i2c_receive_and_ack(BUS, NACK, &b))
-        if (ack == ACK) {
-            REG_BATTERY_TEMP_B = a + (b << 8);
+        I2C_SUB(i2c_op_read_word(BATTERY_ADDRESS, 0x08, &c))
+        if (i2c_result == I2C_OKAY) {
+            REG_BATTERY_TEMP_B = c;
         }
-        STEP(i2c_stop(BUS))
 
         I2C3TimerExpired = false; // reset the I2C3 update timer
         resume_at = -1;

@@ -106,13 +106,15 @@ i2c_result_t i2c_enable(i2c_bus_t bus) {
     return I2C_OKAY;
 }
 i2c_result_t i2c_start(i2c_bus_t bus) {
-    i2c_state_t state;
-    switch (state = i2c_state(bus)) {
+    i2c_state_t state = i2c_state(bus);
+    switch (state) {
     default:
         return I2C_ILLEGAL;
+    case I2C_BUS_COLLISION:
+        return I2C_ABORT;
     case I2C_STOPPING:
         return I2C_NOTYET;
-    case I2C_IDLE_ACK: // TODO: do we need both of
+    case I2C_IDLE_ACK: // ACKSTAT will still be set from the last I2C operation, so we do need both
     case I2C_IDLE_NACK:
         break;
     }
@@ -121,14 +123,13 @@ i2c_result_t i2c_start(i2c_bus_t bus) {
 }
 
 i2c_result_t i2c_stop(i2c_bus_t bus) {
-    i2c_state_t state;
-    switch (state = i2c_state(bus)) {
+    i2c_state_t state = i2c_state(bus);
+    switch (state) {
     default:
         return I2C_ILLEGAL;
     case I2C_ACKING:
     case I2C_TRANSMITTING:
         return I2C_NOTYET;
-
     case I2C_IDLE_NACK:
     case I2C_IDLE_ACK:
         break;
@@ -138,10 +139,13 @@ i2c_result_t i2c_stop(i2c_bus_t bus) {
 }
 
 i2c_result_t i2c_restart(i2c_bus_t bus) {
-    i2c_state_t state;
-    switch (state = i2c_state(bus)) {
+    i2c_state_t state = i2c_state(bus);
+    switch (state) {
     default:
         return I2C_ILLEGAL;
+    case I2C_IDLE_NACK:
+    case I2C_BUS_COLLISION:
+        return I2C_ABORT;
     case I2C_TRANSMITTING:
         return I2C_NOTYET;
     case I2C_IDLE_ACK:
@@ -152,10 +156,13 @@ i2c_result_t i2c_restart(i2c_bus_t bus) {
 }
 
 i2c_result_t i2c_request_byte(i2c_bus_t bus) {
-    i2c_state_t state;
-    switch (state = i2c_state(bus)) {
+    i2c_state_t state = i2c_state(bus);
+    switch (state) {
     default:
         return I2C_ILLEGAL;
+    case I2C_IDLE_NACK:
+    case I2C_BUS_COLLISION:
+        return I2C_ABORT;
     case I2C_ACKING:       // still acknowledging the previous byte
     case I2C_TRANSMITTING: // still sending data
         return I2C_NOTYET;
@@ -166,15 +173,17 @@ i2c_result_t i2c_request_byte(i2c_bus_t bus) {
     return I2C_OKAY;
 }
 
-i2c_result_t i2c_address(i2c_bus_t bus, unsigned char addr, i2c_readwrite_t rw) {
-    i2c_state_t state;
-    switch (state = i2c_state(bus)) {
+i2c_result_t i2c_address(i2c_bus_t bus, uint8_t addr, i2c_readwrite_t rw) {
+    i2c_state_t state = i2c_state(bus);
+    switch (state) {
     default:
         return I2C_ILLEGAL;
+    case I2C_BUS_COLLISION:
+        return I2C_ABORT;
     case I2C_STARTING:   // Writing address initially
     case I2C_RESTARTING: // Writing address after a repeated start condition
         return I2C_NOTYET;
-    case I2C_IDLE_ACK: // Idle and is not addressing a
+    case I2C_IDLE_ACK:
     case I2C_IDLE_NACK:
         break;
     }
@@ -186,11 +195,14 @@ i2c_result_t i2c_address(i2c_bus_t bus, unsigned char addr, i2c_readwrite_t rw) 
     return I2C_OKAY;
 }
 
-i2c_result_t i2c_transmit_byte(i2c_bus_t bus, unsigned char data) {
-    i2c_state_t state;
-    switch (state = i2c_state(bus)) {
+i2c_result_t i2c_transmit_byte(i2c_bus_t bus, uint8_t data) {
+    i2c_state_t state = i2c_state(bus);
+    switch (state) {
     default:
         return I2C_ILLEGAL;
+    case I2C_BUS_COLLISION:
+    case I2C_IDLE_NACK:
+        return I2C_ABORT;
     case I2C_TRANSMITTING:
         return I2C_NOTYET;
     case I2C_IDLE_ACK:
@@ -207,8 +219,8 @@ i2c_result_t i2c_transmit_byte(i2c_bus_t bus, unsigned char data) {
 i2c_ack_t i2c_get_ack(i2c_bus_t bus) { return bus->STAT->ACKSTAT ? NACK : ACK; }
 
 i2c_result_t i2c_check_ack(i2c_bus_t bus, i2c_ack_t *ack) {
-    i2c_state_t state;
-    switch (state = i2c_state(bus)) {
+    i2c_state_t state = i2c_state(bus);
+    switch (state) {
     default:
         return I2C_ILLEGAL;
     case I2C_TRANSMITTING:
@@ -223,8 +235,9 @@ i2c_result_t i2c_check_ack(i2c_bus_t bus, i2c_ack_t *ack) {
     return I2C_OKAY;
 }
 
-i2c_result_t i2c_receive_and_ack(i2c_bus_t bus, i2c_ack_t acknack, unsigned char *data) {
-    switch (i2c_state(bus)) {
+i2c_result_t i2c_receive_and_ack(i2c_bus_t bus, i2c_ack_t acknack, uint8_t *data) {
+    i2c_state_t state = i2c_state(bus);
+    switch (state) {
     default:
         return I2C_ILLEGAL;
     case I2C_RECEIVING:
@@ -238,8 +251,9 @@ i2c_result_t i2c_receive_and_ack(i2c_bus_t bus, i2c_ack_t acknack, unsigned char
     bus->CON->ACKEN = 1;
     return I2C_OKAY;
 }
-i2c_result_t i2c_receive_byte(i2c_bus_t bus, unsigned char *data) {
-    switch (i2c_state(bus)) {
+i2c_result_t i2c_receive_byte(i2c_bus_t bus, uint8_t *data) {
+    i2c_state_t state = i2c_state(bus);
+    switch (state) {
     default:
         return I2C_ILLEGAL;
     case I2C_RECEIVING:
@@ -255,7 +269,8 @@ i2c_result_t i2c_receive_byte(i2c_bus_t bus, unsigned char *data) {
     return I2C_OKAY;
 }
 i2c_result_t i2c_ack(i2c_bus_t bus, i2c_ack_t ack) {
-    switch (i2c_state(bus)) {
+    i2c_state_t state = i2c_state(bus);
+    switch (state) {
     default:
         return I2C_ILLEGAL;
     case I2C_IDLE_ACK:
@@ -284,43 +299,38 @@ const i2c_bus_t I2C_BUS3 = &I2C_BUS3_DEF;
 // Begin device-independent I2C Stuff.
 int min_(int x, int y) { return x < y ? x : y; }
 
-i2c_result_t i2c_do(i2c_bus_t bus, i2c_operationdef_t *op, i2c_progress_t *progress) {
+i2c_result_t i2c_tick(i2c_bus_t bus, i2c_operationdef_t *op, i2c_progress_t *progress) {
+    int x;
     i2c_result_t result;
-    i2c_ack_t ack;
 
-#define STEP(cmd)                                                                                  \
-    progress->resume_at = (__LINE__);                                                              \
-    case (__LINE__):                                                                               \
+    // Most operations are nearly identical:
+    // 1. Run an I2C command
+    // 2. Yield control (return) if I2C wasn't ready for the given command
+    // 3. Abort if we did something illegal, like writing after a NACK
+#define CASE(name, cmd)                                                                            \
+    progress->resume_at = (name);                                                                  \
+    case (name):                                                                                   \
         result = (cmd);                                                                            \
-        if (result == I2C_OKAY) { /*continue on to next step*/                                     \
-        } else if (result == I2C_NOTYET) {                                                         \
-            return result;                                                                         \
-        } else {                                                                                   \
-            BREAKPOINT();                                                                          \
-        }
-
-#define STEP_ACK(cmd)                                                                              \
-    progress->resume_at = (__LINE__);                                                              \
-    case (__LINE__):                                                                               \
-        result = (cmd);                                                                            \
-        BREAKPOINT_IF(result != I2C_OKAY && result != I2C_NOTYET);                                 \
-        if (i2c_get_ack(bus) == NACK) {                                                            \
-            goto CASE_I2C_STOP;                                                                    \
-        } else if (result == I2C_OKAY) { /*continue on to next step*/                              \
-        } else if (result == I2C_NOTYET) {                                                         \
-            return result;                                                                         \
+        BREAKPOINT_IF(result == I2C_ILLEGAL);                                                      \
+        if (result == I2C_NOTYET) {                                                                \
+            return I2C_NOTYET;                                                                     \
+        } else if (result == I2C_ABORT || result == I2C_ILLEGAL) {                                 \
+            break;                                                                                 \
         }
 
     switch (progress->resume_at) { // todo: we have to abort early if NACK
     default:
         BREAKPOINT();
-    case 0:
-        STEP(i2c_start(bus))
-        if (op->size_writebuf || !op->no_command_byte) {
-            STEP_ACK(i2c_address(bus, op->address, I2C_WRITE))
+        CASE(I2C_STEP_START, i2c_start(bus))
+        if (result == I2C_NOTYET) {
+            return result;
+        }
+
+        if (!op->no_command_byte || op->size_writebuf) {
+            CASE(I2C_STEP_ADDRESS_W, i2c_address(bus, op->address, I2C_WRITE))
 
             if (!op->no_command_byte) {
-                STEP_ACK(i2c_transmit_byte(bus, op->command_byte))
+                CASE(I2C_STEP_COMMAND, i2c_transmit_byte(bus, op->command_byte))
             }
             if (op->write_starts_with_len) {
                 progress->nbytes_write_len = min_(op->size_writebuf, op->writebuf[0] + 1);
@@ -330,21 +340,22 @@ i2c_result_t i2c_do(i2c_bus_t bus, i2c_operationdef_t *op, i2c_progress_t *progr
             for (progress->nbytes_written = 0;
                  progress->nbytes_written < progress->nbytes_write_len;
                  progress->nbytes_written++) {
-                STEP_ACK(i2c_transmit_byte(bus, op->writebuf[progress->nbytes_written]))
+                CASE(I2C_STEP_TRANSMIT,
+                     i2c_transmit_byte(bus, op->writebuf[progress->nbytes_written]))
             }
         }
 
         if ((op->size_writebuf || !op->no_command_byte) && op->size_readbuf > 0) {
-            STEP(i2c_restart(bus))
+            CASE(I2C_STEP_RESTART, i2c_restart(bus))
         }
 
         if (op->size_readbuf > 0) {
-            STEP_ACK(i2c_address(bus, op->address, I2C_READ))
+            CASE(I2C_STEP_ADDRESS_R, i2c_address(bus, op->address, I2C_READ))
 
             progress->nbytes_read = 0;
             // read the first data byte
-            STEP(i2c_request_byte(bus))
-            STEP(i2c_receive_byte(bus, op->readbuf))
+            CASE(I2C_STEP_REQUEST_FIRST, i2c_request_byte(bus))
+            CASE(I2C_STEP_RECEIVE_FIRST, i2c_receive_byte(bus, op->readbuf))
             // the first time through, if the first byte we read is a length
             if (op->read_starts_with_len) {
                 // then set the number of bytes to read based on that length or the read buffer
@@ -355,28 +366,79 @@ i2c_result_t i2c_do(i2c_bus_t bus, i2c_operationdef_t *op, i2c_progress_t *progr
                 progress->nbytes_read_len = op->size_readbuf;
             }
 
-            for (progress->nbytes_read = 1; // we have already read one byte.
+            for (progress->nbytes_read = 1; // we have already read one byte, so start at 1.
                  progress->nbytes_read < progress->nbytes_read_len; progress->nbytes_read++) {
-                STEP(i2c_ack(bus, ACK));    // ACK since there's another byte to read
-                STEP(i2c_request_byte(bus)) // let recipient know we're ready for another byte
-                STEP(i2c_receive_byte(
-                    bus, op->readbuf + progress->nbytes_read)) // get that byte into the read buffer
+                CASE(I2C_STEP_SENDACK, i2c_ack(bus, ACK)); // ACK since there's another byte to read
+                CASE(I2C_STEP_REQUEST,
+                     i2c_request_byte(bus)) // let recipient know we're ready for another byte
+                CASE(I2C_STEP_RECEIVE,
+                     i2c_receive_byte(
+                         bus,
+                         op->readbuf + progress->nbytes_read)) // get that byte into the read buffer
             }
-            STEP(i2c_ack(bus, NACK)) // NACK after reading all data bytes
+            CASE(I2C_STEP_SENDNACK, i2c_ack(bus, NACK)) // NACK after reading all data bytes
         }
+        CASE(I2C_STEP_STOP, i2c_stop(bus))
+        return I2C_OKAY;
 
-    CASE_I2C_STOP:
-        STEP(i2c_stop(bus))
+    case I2C_STEP_ABORT:
+        break;
 #undef STEP
     }
-}
-/*
-void i2c_await(i2c_bus_t bus, i2c_operation_t *op);
-void i2c_await(i2c_bus_t bus, i2c_operation_t *op) {
-    i2c_progress_t progress = {0};
-    while (i2c_do(bus, op, &progress) == I2C_NOTYET) {
-        // just block execution until this is done...
-    };
+
+    progress->resume_at = I2C_STEP_ABORT;
+    bus->STAT->BCL = 0;
+    result = i2c_stop(bus);
+
+    if (result == I2C_OKAY) {
+        result = I2C_ABORT;
+    }
+    return result;
 }
 
-*/
+i2c_result_t i2c_synchronously_await(i2c_bus_t bus, i2c_operationdef_t *op) {
+    i2c_progress_t progress = {0};
+    i2c_result_t result;
+    do {
+        result = i2c_tick(bus, op, &progress);
+    } while (result == I2C_NOTYET);
+    return result;
+}
+
+i2c_operationdef_t i2c_op_read_byte(uint8_t address, uint8_t command_byte, uint8_t *byte_to_read) {
+    i2c_operationdef_t result = {0};
+    result.address = address;
+    result.command_byte = command_byte;
+    result.size_readbuf = sizeof(*byte_to_read);
+    result.readbuf = byte_to_read;
+    return result;
+}
+
+i2c_operationdef_t i2c_op_read_word(uint8_t address, uint8_t command_byte, uint16_t *word_to_read) {
+    i2c_operationdef_t result = {0};
+    result.address = address;
+    result.command_byte = command_byte;
+    result.size_readbuf = sizeof(*word_to_read);
+    result.readbuf = (uint8_t *)word_to_read;
+    return result;
+}
+
+i2c_operationdef_t i2c_op_write_byte(uint8_t address, uint8_t command_byte,
+                                     const uint8_t *byte_to_write) {
+    i2c_operationdef_t result = {0};
+    result.address = address;
+    result.command_byte = command_byte;
+    result.size_writebuf = sizeof(*byte_to_write);
+    result.writebuf = (uint8_t *)byte_to_write;
+    return result;
+}
+
+i2c_operationdef_t i2c_op_write_word(uint8_t address, uint8_t command_byte,
+                                     const uint16_t *word_to_write) {
+    i2c_operationdef_t result = {0};
+    result.address = address;
+    result.command_byte = command_byte;
+    result.size_writebuf = sizeof(*word_to_write);
+    result.writebuf = (uint8_t *)word_to_write;
+    return result;
+}

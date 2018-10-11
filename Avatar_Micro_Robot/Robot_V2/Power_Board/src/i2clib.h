@@ -23,6 +23,8 @@ typedef enum i2c_readwrite_t {
 typedef enum i2c_result_t {
     I2C_OKAY,    ///< The operation completed successfully
     I2C_NOTYET,  ///< Bus is still busy with the last operation. Try again in a bit.
+    I2C_ABORT,   ///< Operation was not completed due to a problem, e.g. bus contention with another
+                 ///< master. The master should issue a STOP condition.
     I2C_ILLEGAL, ///< Incorrect use of the I2C protocol, probably by calling functions in the wrong
                  ///< order.
 } i2c_result_t;
@@ -35,10 +37,10 @@ i2c_result_t i2c_start(i2c_bus_t bus);
 i2c_result_t i2c_stop(i2c_bus_t bus);
 i2c_result_t i2c_restart(i2c_bus_t bus);
 i2c_result_t i2c_request_byte(i2c_bus_t bus);
-i2c_result_t i2c_address(i2c_bus_t bus, unsigned char addr, i2c_readwrite_t r);
-i2c_result_t i2c_transmit_byte(i2c_bus_t bus, unsigned char data);
+i2c_result_t i2c_address(i2c_bus_t bus, uint8_t addr, i2c_readwrite_t r);
+i2c_result_t i2c_transmit_byte(i2c_bus_t bus, uint8_t data);
 i2c_result_t i2c_check_ack(i2c_bus_t bus, i2c_ack_t *ack);
-i2c_result_t i2c_receive_and_ack(i2c_bus_t bus, i2c_ack_t acknack, unsigned char *data);
+i2c_result_t i2c_receive_and_ack(i2c_bus_t bus, i2c_ack_t acknack, uint8_t *data);
 
 /** These are the I2C buses available on our hardware (PIC24). */
 #ifdef __PIC24FJ256GB106__
@@ -62,27 +64,48 @@ typedef struct i2c_operationdef_t {
     uint8_t *readbuf;
 } i2c_operationdef_t;
 
-typedef const struct i2c_operationdef_t *i2c_op_t;
-i2c_operationdef_t i2c_op_readbyte(uint8_t address, uint8_t command_byte, uint8_t *byte_to_read);
-i2c_operationdef_t i2c_op_readword(uint8_t address, uint8_t command_byte, uint16_t *word_to_read);
-i2c_operationdef_t i2c_op_readblock(uint8_t address, uint8_t command_byte, uint8_t *block_to_read,
-                                    uint8_t maxlen);
-
-i2c_operationdef_t i2c_op_writebyte(uint8_t address, uint8_t command_byte,
-                                    const uint16_t *byte_to_write);
-i2c_operationdef_t i2c_op_writeword(uint8_t address, uint8_t command_byte,
-                                    const uint16_t *word_to_write);
-i2c_operationdef_t i2c_op_writeblock(uint8_t address, uint8_t command_byte, uint8_t *block_to_write,
+i2c_operationdef_t i2c_op_read_byte(uint8_t address, uint8_t command_byte, uint8_t *byte_to_read);
+i2c_operationdef_t i2c_op_read_word(uint8_t address, uint8_t command_byte, uint16_t *word_to_read);
+i2c_operationdef_t i2c_op_read_block(uint8_t address, uint8_t command_byte, uint8_t *block_to_read,
                                      uint8_t maxlen);
 
+i2c_operationdef_t i2c_op_write_byte(uint8_t address, uint8_t command_byte,
+                                     const uint8_t *byte_to_write);
+i2c_operationdef_t i2c_op_write_word(uint8_t address, uint8_t command_byte,
+                                     const uint16_t *word_to_write);
+i2c_operationdef_t i2c_op_write_block(uint8_t address, uint8_t command_byte,
+                                      uint8_t *block_to_write, uint8_t maxlen);
+/** A logical step of the I2C protocol. */
+typedef enum i2c_resume_at {
+    I2C_STEP_START = 0,
+    I2C_STEP_ADDRESS_W,
+    I2C_STEP_COMMAND,
+    I2C_STEP_TRANSMIT,
+    I2C_STEP_RESTART,
+    I2C_STEP_ADDRESS_R,
+    I2C_STEP_REQUEST_FIRST,
+    I2C_STEP_RECEIVE_FIRST,
+    I2C_STEP_SENDACK,
+    I2C_STEP_REQUEST,
+    I2C_STEP_RECEIVE,
+    I2C_STEP_SENDNACK,
+    I2C_STEP_STOP,
+    I2C_STEP_ABORT,
+} i2c_resume_at;
+
 typedef struct i2c_progress_t {
-    int resume_at;
+    i2c_resume_at resume_at;
     int nbytes_written;
     int nbytes_write_len;
     int nbytes_read;
     int nbytes_read_len;
 } i2c_progress_t;
+
+static const i2c_progress_t I2C_PROGRESS_UNSTARTED = {0};
+
 /** Asynchronously do the given operation */
 i2c_result_t i2c_tick(i2c_bus_t bus, i2c_operationdef_t *op, i2c_progress_t *progress);
 
+/** Synchronously force the operation to completion */
+i2c_result_t i2c_synchronously_await(i2c_bus_t bus, i2c_operationdef_t *op);
 #endif
