@@ -223,13 +223,13 @@ void current_display(void) {
 
     temp1 = 0;
     temp2 = 0;
-    for (i = 0; i < SampleLength; i++) {
+    for (i = 0; i < SAMPLE_LENGTH; i++) {
         temp1 += Cell_A_Current[i];
         temp2 += Cell_B_Current[i];
     }
 
-    A_Current = temp1 / SampleLength;
-    B_Current = temp2 / SampleLength;
+    A_Current = temp1 / SAMPLE_LENGTH;
+    B_Current = temp2 / SAMPLE_LENGTH;
 
     send_debug_uart_string("Baseline current: ", 18);
     block_ms(10);
@@ -255,13 +255,13 @@ void current_display(void) {
         ClrWdt();
         temp1 = 0;
         temp2 = 0;
-        for (i = 0; i < SampleLength; i++) {
+        for (i = 0; i < SAMPLE_LENGTH; i++) {
             temp1 += Cell_A_Current[i];
             temp2 += Cell_B_Current[i];
         }
 
-        A_Current = temp1 / SampleLength;
-        B_Current = temp2 / SampleLength;
+        A_Current = temp1 / SAMPLE_LENGTH;
+        B_Current = temp2 / SAMPLE_LENGTH;
 
         percentage = abs(A_Current - B_Current) * 100 / ((A_Current + B_Current) / 2);
 
