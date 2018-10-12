@@ -21,11 +21,11 @@ typedef enum i2c_readwrite_t {
 
 /** The result of an I2C operation. */
 typedef enum i2c_result_t {
-    I2C_OKAY,    ///< The operation completed successfully
     I2C_NOTYET,  ///< Bus is still busy with the last operation. Try again in a bit.
-    I2C_ABORT,   ///< Operation was not completed due to a problem, e.g. bus contention with another
+    I2C_OKAY,    ///< The operation completed successfully
+    I2C_ERROR,   ///< Operation was not completed due to a problem, e.g. bus contention with another
                  ///< master. The master should issue a STOP condition.
-    I2C_ILLEGAL, ///< Incorrect use of the I2C protocol, probably by calling functions in the wrong
+    I2C_ILLEGAL, ///< Incorrect use of the I2C module, probably by calling functions in the wrong
                  ///< order.
 } i2c_result_t;
 
@@ -76,7 +76,7 @@ i2c_operationdef_t i2c_op_write_word(uint8_t address, uint8_t command_byte,
 i2c_operationdef_t i2c_op_write_block(uint8_t address, uint8_t command_byte,
                                       uint8_t *block_to_write, uint8_t maxlen);
 /** A logical step of the I2C protocol. */
-typedef enum i2c_resume_at {
+typedef enum i2c_resume_at_t {
     I2C_STEP_START = 0,
     I2C_STEP_ADDRESS_W,
     I2C_STEP_COMMAND,
@@ -91,19 +91,21 @@ typedef enum i2c_resume_at {
     I2C_STEP_SENDNACK,
     I2C_STEP_STOP,
     I2C_STEP_ABORT,
-} i2c_resume_at;
+} i2c_resume_at_t;
 
 typedef struct i2c_progress_t {
-    i2c_resume_at resume_at;
+    i2c_resume_at_t resume_at;
     int nbytes_written;
     int nbytes_write_len;
     int nbytes_read;
     int nbytes_read_len;
 } i2c_progress_t;
 
-static const i2c_progress_t I2C_PROGRESS_UNSTARTED = {0};
+static const i2c_progress_t I2C_PROGRESS_UNSTARTED = {I2C_STEP_START};
 
-/** Asynchronously do the given operation */
+/** Asynchronously do the given operation.
+This function will continuously return I2C_NOTYET until it's finished, then it will return either
+I2C_OKAY or I2C_ERROR */
 i2c_result_t i2c_tick(i2c_bus_t bus, i2c_operationdef_t *op, i2c_progress_t *progress);
 
 /** Synchronously force the operation to completion */

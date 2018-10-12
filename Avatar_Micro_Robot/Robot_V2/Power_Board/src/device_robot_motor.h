@@ -107,8 +107,9 @@
 #define CurrentFBTimer 1         // 1KHz
 #define M3_POSFB_Timer 1         // 1KHz
 #define CurrentProtectionTimer 1 // 1KHz
-#define I2C2Timer 25
-#define I2C3Timer 25          // 4Hz, this is the default sample rate of TMPSensorIC
+#define I2C2Timer 100
+#define I2C3Timer 100
+// 4Hz, this is the default sample rate of TMPSensorIC
 #define SFREGUpdateTimer 4    // 250Hz
 #define BATVolCheckingTimer 1 // 1KHz
 #define BATRecoveryTimer 100  // 100ms

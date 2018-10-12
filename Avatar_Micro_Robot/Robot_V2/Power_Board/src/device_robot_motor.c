@@ -527,6 +527,7 @@ void Device_MotorController_Process() {
         // i2c2 didn't finish last time -- init variables so that
         // the value doesn't just stay the same
         if (I2C2TimerExpired == true) {
+            BREAKPOINT();
             re_init_i2c2();
         }
         I2C2TimerExpired = true;
@@ -534,7 +535,9 @@ void Device_MotorController_Process() {
         I2C2XmitReset = true;
     }
     if (I2C3TimerCount >= I2C3Timer) {
+
         if (I2C3TimerExpired == true) {
+            BREAKPOINT();
             re_init_i2c3();
         }
         I2C3TimerExpired = true;
