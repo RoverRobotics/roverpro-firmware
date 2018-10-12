@@ -48,21 +48,24 @@
 #define BaudRate_57600_HI 68  // BRGH=1
 #define BaudRate_115200_HI 34 // BRGH=1
 
-enum MotorEvent {
+typedef enum MotorEvent {
     Stop = 0xFF01,
     Go = 0xFF02,
     Back = 0xFF03,
     NoEvent = 0xFF00,
-};
+} MotorEvent;
 
-enum MotorState {
+typedef enum MotorState {
     Forward = 0xEE00,
     Brake = 0xEE01,
     Protection = 0xEE02,
     Backward = 0xEE03,
+} MotorState;
+
+typedef enum MotorState2 {
     Locked = 0xEE04,
     Unlocked = 0xEE05,
-};
+} MotorState2;
 
 // constant for timer.
 // Since these are on timer1, they are in multiples of PR1
@@ -94,8 +97,11 @@ enum MotorState {
 
 // constant for special usage
 typedef enum { Cell_OFF = 0, Cell_ON = 1 } BatteryState;
-
-typedef enum { Cell_A = 0, Cell_B, BATTERY_CHANNEL_COUNT } BatteryChannel;
+typedef enum {
+    Cell_A = 0,
+    Cell_B,
+} BatteryChannel;
+#define BATTERY_CHANNEL_COUNT 2
 // constant for pins
 
 // output pin mapping
@@ -171,7 +177,12 @@ typedef enum { Cell_A = 0, Cell_B, BATTERY_CHANNEL_COUNT } BatteryChannel;
 #define Cell_B_MOS _LATD2
 
 // other constant
-typedef enum { MOTOR_LEFT = 0, MOTOR_RIGHT, MOTOR_FLIPPER, MOTOR_CHANNEL_COUNT } MotorChannel;
+typedef enum {
+    MOTOR_LEFT = 0,
+    MOTOR_RIGHT,
+    MOTOR_FLIPPER,
+} MotorChannel;
+#define MOTOR_CHANNEL_COUNT 3
 /** Helper macro for iterating all motors and storing the result in variable i */
 #define EACH_MOTOR_CHANNEL(i)                                                                      \
     i = 0;                                                                                         \
@@ -281,6 +292,7 @@ void GetCurrent(MotorChannel Channel);
 void ClearSpeedCtrlData(MotorChannel Channel);
 void ClearCurrentCtrlData(MotorChannel Channel);
 void Cell_Ctrl(BatteryChannel Channel, BatteryState state);
+void USBInput();
 void I2C1Ini();
 void I2C2Ini();
 void I2C3Ini();

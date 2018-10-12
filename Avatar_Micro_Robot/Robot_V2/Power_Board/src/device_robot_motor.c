@@ -29,7 +29,7 @@ static long int Period9;
 
 MotorEvent Event[MOTOR_CHANNEL_COUNT] = {Stop, Stop, Stop};
 MotorState StateLevel01[MOTOR_CHANNEL_COUNT] = {Protection, Protection, Protection};
-MotorState StateLevel02[MOTOR_CHANNEL_COUNT] = {Locked, Locked, Locked};
+MotorState2 StateLevel02[MOTOR_CHANNEL_COUNT] = {Locked, Locked, Locked};
 
 long TargetParameter[MOTOR_CHANNEL_COUNT]; ///< Target speed (for left/right motor) or position (for
 ///< flipper)
@@ -98,18 +98,18 @@ unsigned int REncoderCurrentValue = 0;
 
 long Encoder_Interrupt_Counter[2] = {0, 0};
 
-long EncoderFBInterval[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH] = {0};
-int DIR[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH] = {0};
+long EncoderFBInterval[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH] = {{0}};
+int DIR[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH] = {{0}};
 int EncoderFBIntervalPointer[MOTOR_CHANNEL_COUNT] = {0};
 
-long MotorCurrentAD[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH] = {0};
+long MotorCurrentAD[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH] = {{0}};
 int MotorCurrentADPointer = 0;
 long RealTimeCurrent[MOTOR_CHANNEL_COUNT] = {0};
-long Current4Control[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH_CONTROL] = {0};
+long Current4Control[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH_CONTROL] = {{0}};
 int Current4ControlPointer[MOTOR_CHANNEL_COUNT] = {0};
 long ControlCurrent[MOTOR_CHANNEL_COUNT] = {0};
 long CurrentRPM[MOTOR_CHANNEL_COUNT] = {0};
-long RPM4Control[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH_CONTROL] = {0};
+long RPM4Control[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH_CONTROL] = {{0}};
 int RPM4ControlPointer[MOTOR_CHANNEL_COUNT] = {0};
 long ControlRPM[MOTOR_CHANNEL_COUNT] = {0};
 long TotalCurrent;
@@ -124,7 +124,7 @@ int16_t Robot_Motor_TargetSpeedUSB[MOTOR_CHANNEL_COUNT] = {0};
 int Timer3Count = 0;
 // int BackEMFSampleEnabled=false;
 int M3_POSFB = 0;
-int M3_POSFB_Array[2][SAMPLE_LENGTH] = {0}; ///< Flipper Motor positional feedback data
+int M3_POSFB_Array[2][SAMPLE_LENGTH] = {{0}}; ///< Flipper Motor positional feedback data
 int M3_POSFB_ArrayPointer = 0;
 int Total_Cell_Current = 0;
 int Total_Cell_Current_Array[SAMPLE_LENGTH] = {0};
@@ -727,6 +727,8 @@ void Device_MotorController_Process() {
                 case Stop:
                     Event[i] = NoEvent;
                     break;
+                case NoEvent:
+                    break;
                 }
                 break;
             case Forward:
@@ -744,6 +746,8 @@ void Device_MotorController_Process() {
                     StateLevel01[i] = Protection;
                     StateLevel02[i] = Locked;
                     break;
+                case NoEvent:
+                    break;
                 }
                 break;
             case Backward:
@@ -760,6 +764,8 @@ void Device_MotorController_Process() {
                     ProtectHB(i);
                     StateLevel01[i] = Protection;
                     StateLevel02[i] = Locked;
+                    break;
+                case NoEvent:
                     break;
                 }
                 break;
@@ -784,6 +790,8 @@ void Device_MotorController_Process() {
                     case Back:
                         SpeedUpdateTimerEnabled[i] = true;
                         StateLevel01[i] = Backward;
+                        break;
+                    case NoEvent:
                         break;
                     }
                 }
@@ -878,7 +886,7 @@ int GetMotorSpeedTargetCoefficient(int Current) {
     return result;
 }
 
-int GetDuty(long CurrentState, long Target, int RTCurrent, MotorChannel Channel, ControlMode Mode) {
+int GetDuty(long CurrentState, long Target, MotorChannel Channel, ControlMode Mode) {
     long TargetRPM;
     // 	long TargetCurrent;
     float result;
@@ -952,8 +960,8 @@ void UpdateSpeed(MotorChannel Channel, int State) {
                 Dutycycle = 0;
                 M1_COAST = Set_ActiveLO;
             } else {
-                Dutycycle = GetDuty(ControlRPM[Channel], TargetParameter[Channel],
-                                    ControlCurrent[Channel], Channel, SpeedCtrlMode[Channel]);
+                Dutycycle = GetDuty(ControlRPM[Channel], TargetParameter[Channel], Channel,
+                                    SpeedCtrlMode[Channel]);
                 M1_COAST = Clear_ActiveLO;
             }
             M1_BRAKE = Clear_ActiveLO;
@@ -964,8 +972,8 @@ void UpdateSpeed(MotorChannel Channel, int State) {
                 Dutycycle = 0;
                 M1_COAST = Set_ActiveLO;
             } else {
-                Dutycycle = GetDuty(ControlRPM[Channel], TargetParameter[Channel],
-                                    ControlCurrent[Channel], Channel, SpeedCtrlMode[Channel]);
+                Dutycycle = GetDuty(ControlRPM[Channel], TargetParameter[Channel], Channel,
+                                    SpeedCtrlMode[Channel]);
                 M1_COAST = Clear_ActiveLO;
             }
             M1_BRAKE = Clear_ActiveLO;
@@ -979,8 +987,8 @@ void UpdateSpeed(MotorChannel Channel, int State) {
                 Dutycycle = 0;
                 M2_COAST = Set_ActiveLO;
             } else {
-                Dutycycle = GetDuty(ControlRPM[Channel], TargetParameter[Channel],
-                                    ControlCurrent[Channel], Channel, SpeedCtrlMode[Channel]);
+                Dutycycle = GetDuty(ControlRPM[Channel], TargetParameter[Channel], Channel,
+                                    SpeedCtrlMode[Channel]);
                 M2_COAST = Clear_ActiveLO;
             }
             M2_BRAKE = Clear_ActiveLO;
@@ -991,8 +999,8 @@ void UpdateSpeed(MotorChannel Channel, int State) {
                 Dutycycle = 0;
                 M2_COAST = Set_ActiveLO;
             } else {
-                Dutycycle = GetDuty(ControlRPM[Channel], TargetParameter[Channel],
-                                    ControlCurrent[Channel], Channel, SpeedCtrlMode[Channel]);
+                Dutycycle = GetDuty(ControlRPM[Channel], TargetParameter[Channel], Channel,
+                                    SpeedCtrlMode[Channel]);
                 M2_COAST = Clear_ActiveLO;
             }
             M2_BRAKE = Clear_ActiveLO;
@@ -1002,8 +1010,8 @@ void UpdateSpeed(MotorChannel Channel, int State) {
         break;
     case MOTOR_FLIPPER:
         if (State == Forward) {
-            Dutycycle = GetDuty(CurrentParameter[Channel], TargetParameter[Channel],
-                                ControlCurrent[Channel], Channel, SpeedCtrlMode[Channel]);
+            Dutycycle = GetDuty(CurrentParameter[Channel], TargetParameter[Channel], Channel,
+                                SpeedCtrlMode[Channel]);
             M3_COAST = Clear_ActiveLO;
             Nop();
             M3_BRAKE = Clear_ActiveLO;
@@ -1011,8 +1019,8 @@ void UpdateSpeed(MotorChannel Channel, int State) {
             M3_DIR = HI;
             PWM3Duty(Dutycycle);
         } else if (State == Backward) {
-            Dutycycle = GetDuty(CurrentParameter[Channel], -TargetParameter[Channel],
-                                ControlCurrent[Channel], Channel, SpeedCtrlMode[Channel]);
+            Dutycycle = GetDuty(CurrentParameter[Channel], -TargetParameter[Channel], Channel,
+                                SpeedCtrlMode[Channel]);
             M3_COAST = Clear_ActiveLO;
             Nop();
             M3_BRAKE = Clear_ActiveLO;
@@ -2109,20 +2117,19 @@ void Motor_ADC1Interrupt(void) {
     if (Xbee_Incoming_Cmd[0] == P1_Read_Register && U1STAbits.UTXBF == 0 &&
         XbeeTest_UART_BufferPointer == 0) // if transmit reg is empty and last packet is sent
     {
-        uint16_t out_value;
         U1TXREG = Xbee_StartBit; // send out the index
         XbeeTest_UART_DataNO = Xbee_Incoming_Cmd[1];
         XbeeTest_UART_Buffer[0] = XbeeTest_UART_DataNO;
-        switch (XbeeTest_UART_DataNO) {
 
-// CASE(n,REGISTER) populates the UART output buffer with the 16-bit integer value of the given
-// register
+// CASE(n, REGISTER) populates the UART output buffer with the 16-bit integer value of the given
+// register and breaks out of the switch statement
 #define CASE(n, REGISTER)                                                                          \
     case (n):                                                                                      \
         XbeeTest_UART_Buffer[1] = (uint8_t)((REGISTER) >> 8 & 0xff);                               \
         XbeeTest_UART_Buffer[2] = (uint8_t)(REGISTER & 0xff);                                      \
         break;
 
+        switch (XbeeTest_UART_DataNO) {
             CASE(0, REG_PWR_TOTAL_CURRENT)
             CASE(2, REG_MOTOR_FB_RPM.left)
             CASE(4, REG_MOTOR_FB_RPM.right)
@@ -2132,7 +2139,7 @@ void Motor_ADC1Interrupt(void) {
             CASE(12, REG_MOTOR_FB_CURRENT.right)
             CASE(14, REG_MOTOR_ENCODER_COUNT.left)
             CASE(16, REG_MOTOR_ENCODER_COUNT.right)
-        case 18: // 18-REG_MOTOR_FAULT_FLAG.left
+        case 18: // 18-REG_MOTOR_FAULT_FLAG
             XbeeTest_UART_Buffer[1] = REG_MOTOR_FAULT_FLAG.left;
             XbeeTest_UART_Buffer[2] = REG_MOTOR_FAULT_FLAG.right;
             break;
@@ -2162,12 +2169,13 @@ void Motor_ADC1Interrupt(void) {
             CASE(66, REG_BATTERY_VOLTAGE_B)
             CASE(68, REG_BATTERY_CURRENT_A)
             CASE(70, REG_BATTERY_CURRENT_B)
-#undef CASE
+
         default:
             XbeeTest_UART_Buffer[0] = 0;
             XbeeTest_UART_Buffer[1] = 0;
             break;
         }
+#undef CASE
         // add checksum of the package
         XbeeTest_UART_Buffer[3] =
             255 -
@@ -2176,15 +2184,6 @@ void Motor_ADC1Interrupt(void) {
         Xbee_Incoming_Cmd[0] = 0;
         Xbee_Incoming_Cmd[1] = 0;
     }
-
-    // 	if((Xbee_MOTOR_VELOCITY[0]||Xbee_MOTOR_VELOCITY[1]||Xbee_MOTOR_VELOCITY[2])!=0)
-    // 	{
-    // 		XbeeTest_UART_DataNO++;//index++, if transmit reg is full, skip this
-    // 		if(XbeeTest_UART_DataNO==201)
-    // 		{
-    // 			XbeeTest_UART_DataNO=0;
-    // 		}
-    // 	}
 #endif
 }
 
