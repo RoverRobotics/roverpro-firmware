@@ -18,7 +18,7 @@ int mean(int count, int *values) {
     long total = 0;
     int i;
     for (i = 0; i < count; i++) {
-        total += i;
+        total += values[i];
     }
     return (int)(total / count);
 }
@@ -27,7 +27,7 @@ long mean_l(int count, long *values) {
     long long total = 0;
     int i;
     for (i = 0; i < count; i++) {
-        total += i;
+        total += values[i];
     }
     return (int)(total / count);
 }
