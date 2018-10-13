@@ -1,4 +1,0 @@
-Original bin file names:
-
-1.  VC0346_EEPROM_OV5642_20100309_AF - OCU Cameras.bin
-2.  VC0346_EEPROM_OV5642AF_20101026_center mode_3460.bin

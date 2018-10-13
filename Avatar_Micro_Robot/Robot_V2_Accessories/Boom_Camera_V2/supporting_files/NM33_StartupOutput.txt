@@ -1,0 +1,69 @@
+
+CWv8 4512A1 booting... (13 records)
+Decompressing from 0x001FA570 to 0x10000000 (129288 -> 305892 bytes)
+Decompressing from 0x00219E78 to 0x00126010 (12 -> 80 bytes)
+Decompressing from 0x00219E84 to 0x00000A00 (370 -> 528 bytes)
+Zero filling 45684 bytes @ 0x121E6000
+Decompressing from 0x00219FF8 to 0x00000C10 (108 -> 160 bytes)
+Decompressing from 0x0021A064 to 0x00002608 (83 -> 604 bytes)
+Zero filling 6488 bytes @ 0x00000CB0
+Zero filling 204 bytes @ 0x00002864
+Decompressing from 0x0021A0B8 to 0x1004AAE4 (42545 -> 70948 bytes)
+Decompressing from 0x002246EC to 0x1005C008 (2218 -> 3840 bytes)
+Decompressing from 0x00224F98 to 0x1005CF08 (635 -> 2148 bytes)
+Decompressing from 0x00225214 to 0x1005D76C (16251 -> 167936 bytes)
+Zero filling 205400 bytes @ 0x1008676C
+Starting program @ PC 0x10000000 (110267498 cycles)
+Succession datas:0x00002930
+
+
+
+[castle4output]
+   Release:     Reference Library Release Version CASTLE4_20040730
+   Copyright:   ChipWrights, Inc. Copyright 2000-2004
+   Compiled on: Apr  1 2011 @ 10:02:51
+
+[castle4output] PLL: 216 MHz (36*12/2), 1620 AHB clocks/refresh
+[castle4output] flashControlMode: FPGA
+Notice: Watchdog enabled with 5 second timeout!
+[flashInit] Non-Intel 'Common Flash Interface' device
+[flashInit] Manufacturer: 0x00BF Device ID: 0x2781
+[flashInit] Found flash device "SST 39VF800 16bit" (1048576 bytes)
+[castle4output] Using parameter block #15 (generation 14)
+[flashParams]
+  signature: "Castle-1 Params"
+  header:    version 10, generation 14, CRC 0x7ED62972 (256 bytes)
+  etmax: 500000
+  gainmax: 32.000000
+  front:     0.00 degrees
+  center:    1008.000,762.000
+  radius:    593.000,720.000
+  palParams: pan       tilt      roll      zoom
+      [ 0 ]       0.00      0.00      0.00  1.000000
+      [ 1 ]     -90.00     90.00      0.00  1.787740
+      [ 2 ]     270.00     70.35      0.00  0.800000
+      [ 3 ]     -90.00     90.00      0.00  1.787740
+      [ 4 ]     -90.00     90.00      0.00  1.787740
+  binning:   1x
+  scaling:   1x
+  lensType:  Depression (4)
+  autoGain:  220.0000 target
+  flags:     autoGain clockwise NTSC Around
+  usbreso:   VGA
+  jpegQ:     75
+Calibration: center: 1008.00,762.00 radius: 720.00(0.00)
+[castle4output] Using sensor calibration block (generation 9)
+[flashCalibration]
+  signature: "Castle-4 CalBlk"
+  header:    version 3, generation 9, CRC 0xF19148CF (32808 bytes)
+[castle4output] set USB Serial Number
+   USB Serial Number Change >{0,0,0,0,0,3,5,2,4,2}
+[castle4output] Using I2C sensor interface
+[codecInit] Initializing codec...
+[init] Using NTSC video output @ 640x480
+[sensorInit] Configuring Micron MT9T001 ES3 sensor (2056x1544)
+sensor ring: 1536x1536, 3 4718592 bytes frames @
+sensor ring: 0x100B9000 0x105C9000 0x10AD9000
+Calibration: center: 1008.00,762.00 radius: 720.00(0.00)
+[castle4output] Entering mode loop...
+  Number of the adapted fault pixels : 1596
