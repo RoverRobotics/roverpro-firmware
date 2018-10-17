@@ -7,6 +7,7 @@
 #include "debug_uart.h"
 #include "device_robot_motor_i2c.h"
 #include "DEE Emulation 16-bit.h"
+#include "i2clib.h"
 #include "device_robot_motor_loop.h"
 #include "../closed_loop_control/core/InputCapture.h"
 
@@ -172,20 +173,10 @@ float MotorCurrentTargetCoefficient = MotorCurrentTargetCoefficient_Normal;
 float MaxDuty = 1000.0;
 int MotorRecovering = false;
 long TargetDifference = 0;
-int CO;
-// long BackEmfRPM[3];
-// long BackEmfTemp3[3];
-// long BackEmfTemp4[3];
 long Debugging_Dutycycle[3];
 long MotorTargetRPM[3];
 long Debugging_MotorTempError[3];
 int Timer5Count = 0;
-int8_t I2C3DataMSOut[20]; // I2C3DataMSOut[0]--Lock indicator, 0-unlocked
-                          // 1-locked;I2C3DataMSOut[1]--length of this packet
-int I2C1Channel = Available;
-int I2C2Channel = Available;
-int I2C3Channel = Available;
-
 unsigned int flipper_angle_offset = 0;
 void calibrate_flipper_angle_sensor(void);
 static void read_stored_angle_offset(void);
@@ -228,8 +219,6 @@ uint8_t Xbee_SIDE_FAN_NEW = 0; // if there is a cmd or no
 uint8_t Xbee_Low_Speed_mode = 0;
 uint8_t Xbee_Calibration = 0;
 #endif
-
-void read_EEPROM_string(void);
 
 void PWM1Duty(int Duty);
 void PWM2Duty(int Duty);
@@ -281,23 +270,12 @@ void DeviceRobotMotorInit() {
     block_ms(100);
     ClrWdt();
 
-    // turn_on_power_bus_old_method();
-    //  turn_on_power_bus_new_method();
-
     MC_Ini();
 
     handle_power_bus();
-
-    // turn_on_power_bus_hybrid_method();
-
-    // initialize all modules
-
     TMPSensorICIni();
     FANCtrlIni();
 
-    read_EEPROM_string();
-
-    // Call ProtectHB
     ProtectHB(LMotor);
     ProtectHB(RMotor);
     ProtectHB(Flipper);
@@ -377,18 +355,6 @@ void GetRPM(int Channel) {
     }
 
     LastEnCount[Channel] = Encoder_Interrupt_Counter[Channel];
-}
-
-// reads PCB information from the EEPROM.  This is pretty inefficient, but it should only run once,
-// while the COM Express is booting.
-void read_EEPROM_string(void) {
-    unsigned int i;
-
-    for (i = 0; i < 79; i++) {
-        REG_MOTOR_BOARD_DATA.data[i] = readI2C2_Reg(EEPROM_ADDRESS, i);
-        block_ms(5);
-        ClrWdt();
-    }
 }
 
 void Device_MotorController_Process() {
@@ -904,7 +870,6 @@ int GetMotorSpeedTargetCoefficient(int Current) {
         result = MotorSpeedTargetCoefficient_Normal;
     if (result < MotorSpeedTargetCoefficient_Turn)
         result = MotorSpeedTargetCoefficient_Turn;
-    CO = result;
     return result;
 }
 
@@ -2097,7 +2062,6 @@ void Motor_T5Interrupt(void) {
         IEC1bits.T5IE = CLEAR; // disable the interrupt
         T5CONbits.TON = CLEAR; // stop clock
         TMR5 = 0;              // clear the timer register
-        CurrentTooHigh = false;
         Timer5Count = 0;
     }
     if (!OverCurrent && TotalCurrent >= CurrentLimit) {
@@ -2390,8 +2354,6 @@ void Motor_ADC1Interrupt(void) {
 void Motor_U1TXInterrupt(void) {
     // clear the flag
     IFS0bits.U1TXIF = 0;
-
-
 
 #ifdef XbeeTest
     // transmit data

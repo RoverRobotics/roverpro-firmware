@@ -13,20 +13,19 @@ int I2C3TimerExpired = 0;
 
 // A step may be reached by either falling through into it (first try)
 // Or by jumping back to it (every retry)
-// Note an i2c_result of I2C_ILLEGAL probably means there is a coding error, hence the breakpoint
+// Note an i2c_result of I2C_ILLEGAL probably means there is a coding error, hence the breakpoint.
+// If you want to check other I2C results, you can replace that check with (i2c_result != I2C_OKAY)
 #define I2C_SUB(operationdef)                                                                      \
-    op = operationdef;                                                                             \
+    op = (operationdef);                                                                           \
     progress = I2C_PROGRESS_UNSTARTED;                                                             \
     case (__LINE__):                                                                               \
         resume_at = (__LINE__);                                                                    \
         i2c_result = i2c_tick(BUS, &op, &progress);                                                \
-        BREAKPOINT_IF(i2c_result == I2C_ILLEGAL);                                                  \
         if (i2c_result == I2C_NOTYET) {                                                            \
             return;                                                                                \
-        } else if (i2c_result == I2C_ILLEGAL) {                                                    \
-            resume_at = -1;                                                                        \
-            return;                                                                                \
         }                                                                                          \
+        BREAKPOINT_IF(i2c_result == I2C_ILLEGAL);                                                  \
+        BREAKPOINT_IF(i2c_result != I2C_OKAY);                                                     \
         // fallthrough to next case
 
 void I2C2Update(void) {
@@ -52,20 +51,15 @@ void I2C2Update(void) {
         re_init_i2c2();
         // fallthrough
     case 0:
-
-        // REG_MOTOR_TEMP.left = FanControl ReadByte 0x00
+        // REG_MOTOR_TEMP.left = FanControl ReadByte 0x00 [Temperature channel 1]
         I2C_SUB(i2c_op_read_byte(FAN_CONTROLLER_ADDRESS, 0x00, &a_byte))
         REG_MOTOR_TEMP_STATUS.left = (i2c_result == I2C_OKAY);
         REG_MOTOR_TEMP.left = a_byte;
 
-        // REG_MOTOR_TEMP.right = FanControl ReadByte 0x01
+        // REG_MOTOR_TEMP.right = FanControl ReadByte 0x01 [Temperature channel 2]
         I2C_SUB(i2c_op_read_byte(FAN_CONTROLLER_ADDRESS, 0x01, &a_byte))
         REG_MOTOR_TEMP_STATUS.right = (i2c_result == I2C_OKAY);
         REG_MOTOR_TEMP.right = a_byte;
-		
-        // REG_ROBOT_REL_SOC_A = Battery ReadWord 0x0d [="RelativeStateOfCharge"]
-        I2C_SUB(i2c_op_read_word(BATTERY_ADDRESS, 0x0d, &a_word))
-        REG_ROBOT_REL_SOC_A = a_word;
 
         // FanControl WriteByte 0x0b
         if (Xbee_SIDE_FAN_NEW) {
@@ -76,6 +70,10 @@ void I2C2Update(void) {
             a_byte = Xbee_SIDE_FAN_SPEED = 0;
         }
         I2C_SUB(i2c_op_write_byte(FAN_CONTROLLER_ADDRESS, 0x0b, &a_byte));
+
+        // REG_ROBOT_REL_SOC_A = Battery ReadWord 0x0d [="RelativeStateOfCharge"]
+        I2C_SUB(i2c_op_read_word(BATTERY_ADDRESS, 0x0d, &a_word))
+        REG_ROBOT_REL_SOC_A = a_word;
 
         // Battery ReadWord 0x16 [="BatteryStatus"]
         I2C_SUB(i2c_op_read_word(BATTERY_ADDRESS, 0x16, &a_word));
@@ -122,6 +120,7 @@ void I2C3Update(void) {
         re_init_i2c3();
         // fallthrough
     case 0:
+
         // Battery ReadWord 0x0d [="RelativeStateOfCharge"]
         I2C_SUB(i2c_op_read_word(BATTERY_ADDRESS, 0x0d, &a_word))
         if (i2c_result == I2C_OKAY) {
@@ -129,6 +128,7 @@ void I2C3Update(void) {
         }
 
         // BatteryCharger ReadWord 0xca
+        // Note the battery charger is expected to be unreachable except while charging
         I2C_SUB(i2c_op_read_word(BATTERY_CHARGER_ADDRESS, 0xca, &a_word))
         if (i2c_result == I2C_OKAY) {
             REG_MOTOR_CHARGER_STATE = a_word;
@@ -160,9 +160,7 @@ void I2C3Update(void) {
 //*********************************************//
 
 void re_init_i2c2(void) {
-    I2C2CONbits.I2CEN = 0;
-    I2C2CON = 0;
-    I2C2STAT = 0;
+    i2c_disable(I2C_BUS2);
 
     // New Bren-Tronics battery (or existing device interacting with the new
     // battery ties up the SMBus line (usually
@@ -176,24 +174,16 @@ void re_init_i2c2(void) {
     _LATF4 = 0;
     _LATF5 = 0;
 
-    // FCY should be 16M
-    // I2C2BRG = FCY/100000-FCY/10000000-1;	//should be 157.4 (between 9D and 9E)
-    I2C2BRG = 0xff;
-    I2C2CONbits.I2CEN = 1;
+    i2c_enable(I2C_BUS2);
 }
 
 void re_init_i2c3(void) {
-    I2C3CONbits.I2CEN = 0;
-    I2C3CON = 0;
-    I2C3STAT = 0;
+    i2c_disable(I2C_BUS3);
 
     _TRISE6 = 0;
     _TRISE7 = 0;
     _LATE6 = 0;
     _LATE7 = 0;
 
-    // FCY should be 16M
-    // I2C2BRG = FCY/100000-FCY/10000000-1;	//should be 157.4 (between 9D and 9E)
-    I2C3BRG = 0xff;
-    I2C3CONbits.I2CEN = 1;
+    i2c_enable(I2C_BUS3);
 }
