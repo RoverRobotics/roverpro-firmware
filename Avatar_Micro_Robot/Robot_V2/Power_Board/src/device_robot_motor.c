@@ -28,62 +28,61 @@ static long int Period8;
 static long int Period9;
 //****************************************************
 
-//****************************************************
+MotorEvent Event[MOTOR_CHANNEL_COUNT] = {Stop, Stop, Stop};
+MotorState StateLevel01[MOTOR_CHANNEL_COUNT] = {Protection, Protection, Protection};
+MotorState2 StateLevel02[MOTOR_CHANNEL_COUNT] = {Locked, Locked, Locked};
 
-unsigned int PulseWidth[3] = {0, 0, 0};
-int Event[3] = {Stop, Stop, Stop};
-int StateLevel01[3] = {Protection, Protection, Protection};
-int StateLevel02[3] = {Locked, Locked, Locked};
-long TargetParameter[3]; // target speed or position
-unsigned int
-    CurrentParameter[3]; // Current speed(for left and right motor) or position (for flipper)
-int SwitchDirectionTimerExpired[3] = {false, false, false};
-int SwitchDirectionTimerEnabled[3] = {false, false, false};
-int SwitchDirectionTimerCount[3] = {0, 0, 0};
-int SpeedUpdateTimerExpired[3] = {false, false, false};
-int SpeedUpdateTimerEnabled[3] = {false, false, false};
-int SpeedUpdateTimerCount[3] = {0, 0, 0};
-int USBTimeOutTimerExpired = false;
+long TargetParameter[MOTOR_CHANNEL_COUNT]; ///< Target speed (for left/right motor) or position (for
+///< flipper)
+unsigned int CurrentParameter[MOTOR_CHANNEL_COUNT]; ///< Current speed(for left and right motor) or
+///< position (for flipper)
+bool SwitchDirectionTimerExpired[MOTOR_CHANNEL_COUNT] = {false, false, false};
+bool SwitchDirectionTimerEnabled[MOTOR_CHANNEL_COUNT] = {false, false, false};
+int SwitchDirectionTimerCount[MOTOR_CHANNEL_COUNT] = {0, 0, 0};
+bool SpeedUpdateTimerExpired[MOTOR_CHANNEL_COUNT] = {false, false, false};
+bool SpeedUpdateTimerEnabled[MOTOR_CHANNEL_COUNT] = {false, false, false};
+int SpeedUpdateTimerCount[MOTOR_CHANNEL_COUNT] = {0, 0, 0};
+bool USBTimeOutTimerExpired = false;
 long USBTimeOutTimerCount = 0;
-int USBTimeOutTimerEnabled = true;
-int StateMachineTimerEnabled = true;
-int StateMachineTimerExpired = false;
+bool USBTimeOutTimerEnabled = true;
+bool StateMachineTimerEnabled = true;
+bool StateMachineTimerExpired = false;
 int StateMachineTimerCount = 0;
-int RPMTimerExpired = false;
-int RPMTimerEnabled = true;
+bool RPMTimerExpired = false;
+bool RPMTimerEnabled = true;
 int RPMTimerCount = 0;
-int CurrentFBTimerExpired = false;
-int CurrentFBTimerEnabled = true;
+bool CurrentFBTimerExpired = false;
+bool CurrentFBTimerEnabled = true;
 int CurrentFBTimerCount = 0;
-int M3_POSFB_TimerExpired = false;
-int M3_POSFB_TimerEnabled = true;
+bool M3_POSFB_TimerExpired = false;
+bool M3_POSFB_TimerEnabled = true;
 int M3_POSFB_timerCount = 0;
-int CurrentProtectionTimerEnabled = true;
-int CurrentProtectionTimerExpired = false;
+bool CurrentProtectionTimerEnabled = true;
+bool CurrentProtectionTimerExpired = false;
 int CurrentProtectionTimerCount = 0;
-int MotorOffTimerEnabled = false;
-int MotorOffTimerExpired = false;
+bool MotorOffTimerEnabled = false;
+bool MotorOffTimerExpired = false;
 int MotorOffTimerCount = 0;
-int CurrentSurgeRecoverTimerEnabled = false;
-int CurrentSurgeRecoverTimerExpired = false;
+bool CurrentSurgeRecoverTimerEnabled = false;
+bool CurrentSurgeRecoverTimerExpired = false;
 int CurrentSurgeRecoverTimerCount = 0;
-int I2C2TimerEnabled = true;
+bool I2C2TimerEnabled = true;
 int I2C2TimerCount = 0;
-int I2C3TimerEnabled = true;
+bool I2C3TimerEnabled = true;
 int I2C3TimerCount = 0;
-int SFREGUpdateTimerEnabled = true;
-int SFREGUpdateTimerExpired = false;
+bool SFREGUpdateTimerEnabled = true;
+bool SFREGUpdateTimerExpired = false;
 int SFREGUpdateTimerCount = 0;
-int BATVolCheckingTimerEnabled = true;
-int BATVolCheckingTimerExpired = false;
+bool BATVolCheckingTimerEnabled = true;
+bool BATVolCheckingTimerExpired = false;
 int BATVolCheckingTimerCount = 0;
-int BATRecoveryTimerEnabled = false;
-int BATRecoveryTimerExpired = true; // for initial powering of the power bus
+bool BATRecoveryTimerEnabled = false;
+bool BATRecoveryTimerExpired = true; // for initial powering of the power bus
 int BATRecoveryTimerCount = 0;
 int closed_loop_control_timer_count = 0;
 int closed_loop_control_timer = 10;
-int Xbee_FanSpeedTimerEnabled = false;
-int Xbee_FanSpeedTimerExpired = false;
+bool Xbee_FanSpeedTimerEnabled = false;
+bool Xbee_FanSpeedTimerExpired = false;
 int Xbee_FanSpeedTimerCount = 0;
 
 unsigned int ICLMotorOverFlowCount = 0;
@@ -100,82 +99,74 @@ unsigned int REncoderCurrentValue = 0;
 
 long Encoder_Interrupt_Counter[2] = {0, 0};
 
-long EncoderFBInterval[3][SampleLength] = {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}};
-int DIR[3][SampleLength] = {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}};
-int EncoderFBIntervalPointer[3] = {0, 0, 0};
-// long
-// BackEMF[3][2][SampleLength]={{{0,0,0,0},{0,0,0,0}},{{0,0,0,0},{0,0,0,0}},{{0,0,0,0},{0,0,0,0}}};
-// int BackEMFPointer=0;
-long MotorCurrentAD[3][SampleLength] = {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}};
+long EncoderFBInterval[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH] = {{0}};
+int DIR[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH] = {{0}};
+int EncoderFBIntervalPointer[MOTOR_CHANNEL_COUNT] = {0};
+
+long MotorCurrentAD[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH] = {{0}};
 int MotorCurrentADPointer = 0;
-long RealTimeCurrent[3] = {0, 0, 0};
-long Current4Control[3][8] = {
-    {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}};
-int Current4ControlPointer[3] = {0, 0, 0};
-long ControlCurrent[3] = {0, 0, 0};
-long CurrentRPM[3] = {0, 0, 0};
-long RPM4Control[3][8] = {
-    {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0, 0, 0}};
-int RPM4ControlPointer[3] = {0, 0, 0};
-long ControlRPM[3] = {0, 0, 0};
+long RealTimeCurrent[MOTOR_CHANNEL_COUNT] = {0};
+long Current4Control[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH_CONTROL] = {{0}};
+int Current4ControlPointer[MOTOR_CHANNEL_COUNT] = {0};
+long ControlCurrent[MOTOR_CHANNEL_COUNT] = {0};
+long CurrentRPM[MOTOR_CHANNEL_COUNT] = {0};
+long RPM4Control[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH_CONTROL] = {{0}};
+int RPM4ControlPointer[MOTOR_CHANNEL_COUNT] = {0};
+long ControlRPM[MOTOR_CHANNEL_COUNT] = {0};
 long TotalCurrent;
 // long
-// BackEMFCOE[3][SampleLength]={{2932,2932,2932,2932},{2932,2932,2932,2932},{2932,2932,2932,2932}};
+// BackEMFCOE[3][SAMPLE_LENGTH]={{2932,2932,2932,2932},{2932,2932,2932,2932},{2932,2932,2932,2932}};
 // long BackEMFCOEF[3]={2932,2932,2932};
 // int BackEMFCOEPointer=0;
 int EncoderICClock = 10000;
-long EnCount[3] = {0, 0, 0};
-// int Robot_Motor_TargetSpeedUSB[3];
-int16_t Robot_Motor_TargetSpeedUSB[3] = {0, 0, 0};
+long EnCount[MOTOR_CHANNEL_COUNT] = {0};
+int16_t Robot_Motor_TargetSpeedUSB[MOTOR_CHANNEL_COUNT] = {0};
 
 int Timer3Count = 0;
 // int BackEMFSampleEnabled=false;
 int M3_POSFB = 0;
-int M3_POSFB_Array[2][SampleLength] = {{0, 0, 0}, {0, 0, 0}};
+int M3_POSFB_Array[2][SAMPLE_LENGTH] = {{0}}; ///< Flipper Motor positional feedback data
 int M3_POSFB_ArrayPointer = 0;
 int Total_Cell_Current = 0;
-int Total_Cell_Current_Array[SampleLength] = {0, 0, 0};
+int Total_Cell_Current_Array[SAMPLE_LENGTH] = {0};
 int Total_Cell_Current_ArrayPointer = 0;
-int InitialCellVoltage[2] = {0, 0};
-int CellVoltage[2] = {0, 0};
-int CellVoltageArray[2][SampleLength];
+int InitialCellVoltage[BATTERY_CHANNEL_COUNT] = {0};
+int CellVoltageArray[BATTERY_CHANNEL_COUNT][SAMPLE_LENGTH];
 int CellVoltageArrayPointer = 0;
-int Cell_A_Current[SampleLength];
-int Cell_B_Current[SampleLength];
+int Cell_A_Current[SAMPLE_LENGTH];
+int Cell_B_Current[SAMPLE_LENGTH];
 // float
 // SpeedCtrlKp[4][3]={{0.0002,0.0002,0.0002},{0.09,0.09,0.09},{0.09,0.09,0.09},{0.09,0.09,0.09}};//SpeedCtrlKp[i][j],i-
-// control mode, j-LMotor, Right Motor, Flipper
-float SpeedCtrlKp[4][3] = {
+// control mode, j-MOTOR_LEFT, Right Motor, MOTOR_FLIPPER
+float SpeedCtrlKp[4][MOTOR_CHANNEL_COUNT] = {
     {0.2, 0.2, 0.2},
     {0.03, 0.03, 0.03},
     {0.09, 0.09, 0.09},
-    {0.09, 0.09, 0.09}}; // SpeedCtrlKp[i][j],i- control mode, j-LMotor, Right Motor, Flipper
-float SpeedCtrlKi[4][3] = {
+    {0.09, 0.09,
+     0.09}}; // SpeedCtrlKp[i][j],i- control mode, j-MOTOR_LEFT, Right Motor, MOTOR_FLIPPER
+float SpeedCtrlKi[4][MOTOR_CHANNEL_COUNT] = {
     {0.01, 0.01, 0.01}, {0.001, 0.001, 0.001}, {0.2, 0.2, 0.2}, {0.2, 0.2, 0.2}};
-float SpeedCtrlKd[4][3] = {
+float SpeedCtrlKd[4][MOTOR_CHANNEL_COUNT] = {
     {0.000, 0.000, 0.000}, {0.001, 0.001, 0.001}, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}};
 /*float CurrentCtrlKp[4][3]={{1.5,1.5,1.5},{1.0,1.0,1.0},{1.5,1.5,1.5},{1.5,1.5,1.5}};
 float CurrentCtrlKi[4][3]={{0.5,0.5,0.5},{0.01,0.01,0.01},{1.5,1.5,1.5},{1.5,1.5,1.5}};
 float CurrentCtrlKd[4][3]={{0.00,0.00,0.00},{0.0,0.0,0.0},{0.0,0.0,0.0},{0.0,0.0,0.0}};*/
-int ControlMode[3] = {SpeedControl, SpeedControl, SpeedControl};
-int SpeedCtrlMode[3] = {ControlMode_Conservative, ControlMode_Conservative,
-                        ControlMode_Conservative};
-long AccumulatedSpeedError[3] = {0, 0, 0};
-long AccumulatedCurrentError[3] = {0, 0, 0};
-long LastSpeedError[3] = {0, 0, 0};
-long LastCurrentError[3] = {0, 0, 0};
-long LastTarget[3] = {0, 0, 0};
-int OverCurrent = false;
-int MotorDuty[3] = {0, 0, 0};
+ControlMode SpeedCtrlMode[MOTOR_CHANNEL_COUNT] = {
+    ControlMode_Conservative, ControlMode_Conservative, ControlMode_Conservative};
+long AccumulatedSpeedError[MOTOR_CHANNEL_COUNT] = {0, 0, 0};
+long AccumulatedCurrentError[MOTOR_CHANNEL_COUNT] = {0, 0, 0};
+long LastSpeedError[MOTOR_CHANNEL_COUNT] = {0, 0, 0};
+long LastCurrentError[MOTOR_CHANNEL_COUNT] = {0, 0, 0};
+long LastTarget[MOTOR_CHANNEL_COUNT] = {0, 0, 0};
+bool OverCurrent = false;
 int CurrentSurgeTimes = 0;
-int MotorSpeedTargetCoefficient[3];
-float MotorCurrentTargetCoefficient = MotorCurrentTargetCoefficient_Normal;
+int MotorSpeedTargetCoefficient[MOTOR_CHANNEL_COUNT];
 float MaxDuty = 1000.0;
-int MotorRecovering = false;
+bool MotorRecovering = false;
 long TargetDifference = 0;
-long Debugging_Dutycycle[3];
-long MotorTargetRPM[3];
-long Debugging_MotorTempError[3];
+long Debugging_Dutycycle[MOTOR_CHANNEL_COUNT];
+long MotorTargetRPM[MOTOR_CHANNEL_COUNT];
+long Debugging_MotorTempError[MOTOR_CHANNEL_COUNT];
 int Timer5Count = 0;
 unsigned int flipper_angle_offset = 0;
 void calibrate_flipper_angle_sensor(void);
@@ -187,8 +178,6 @@ void turn_on_power_bus_hybrid_method(void);
 int check_string_match(unsigned char *string1, unsigned char *string2, unsigned char length);
 
 static void alternate_power_bus(void);
-
-unsigned int adc_test_reg = 0;
 
 #ifdef XbeeTest
 #define XbeeTest_BufferLength 6
@@ -208,7 +197,7 @@ int16_t Xbee_MOTOR_VELOCITY[3];
 uint8_t Xbee_Incoming_Cmd[2];
 int Xbee_gNewData = 0;
 uint8_t Xbee_StartBit = 253;
-uint16_t EncoderInterval[3]; // Encoder time interval
+uint16_t EncoderInterval[MOTOR_CHANNEL_COUNT]; // Encoder time interval
 uint16_t BuildNO = 40621;
 uint8_t Xbee_SIDE_FAN_SPEED = 0;
 uint8_t Xbee_SIDE_FAN_NEW = 0; // if there is a cmd or no
@@ -244,18 +233,16 @@ void handle_power_bus(void);
 #define HIGH_POT_THRESHOLD 990
 #define FLIPPER_POT_OFFSET -55
 
-void bringup_board(void) {}
-
 //*********************************************//
 //**chief functions
-void ClearSpeedCtrlData(int Channel) {
+void ClearSpeedCtrlData(MotorChannel Channel) {
 
     AccumulatedSpeedError[Channel] = 0;
     LastSpeedError[Channel] = 0;
     // printf("Control Data Cleared!\n");
 }
 
-void ClearCurrentCtrlData(int Channel) {
+void ClearCurrentCtrlData(MotorChannel Channel) {
 
     AccumulatedCurrentError[Channel] = 0;
     LastCurrentError[Channel] = 0;
@@ -292,31 +279,27 @@ void DeviceRobotMotorInit() {
     closed_loop_control_init();
 }
 
-void GetCurrent(int Channel) {
+void GetCurrent(MotorChannel Channel) {
     long temp = 0;
     // read the AD value
-    temp = mean_l(SampleLength, MotorCurrentAD[(int)Channel]);
+    temp = mean_l(SAMPLE_LENGTH, MotorCurrentAD[Channel]);
     RealTimeCurrent[Channel] = temp;
     Current4Control[Channel][Current4ControlPointer[Channel]] = temp;
-    Current4ControlPointer[Channel]++;
-    Current4ControlPointer[Channel] &= 7;
+    Current4ControlPointer[Channel] = (Current4ControlPointer[Channel] + 1) % SAMPLE_LENGTH_CONTROL;
 }
 
-void GetRPM(int Channel) {
-
+void GetRPM(MotorChannel Channel) {
     static long ENRPM = 0;
     static int ENDIR = 0;
-    static long LastEnCount[3] = {0, 0, 0};
+    static long LastEnCount[MOTOR_CHANNEL_COUNT] = {0, 0, 0};
     long ltemp1 = 0;
 
     ENRPM = 0;
     ENDIR = 0;
 
-    // T1
-
     // RPM Calculation
     // encoder RPM Calculation
-    ltemp1 = mean_l(SampleLength, EncoderFBInterval[Channel]);
+    ltemp1 = mean_l(SAMPLE_LENGTH, EncoderFBInterval[Channel]);
 
     if (ltemp1 > 0) {
         ENRPM = 24000000 / ltemp1;
@@ -326,12 +309,12 @@ void GetRPM(int Channel) {
         ENRPM = 0;
     }
 
-    if (Channel == 0) {
+    if (Channel == MOTOR_LEFT) {
         if (M1_DIRO)
             ENDIR = -1;
         else
             ENDIR = 1;
-    } else if (Channel == 1) {
+    } else if (Channel == MOTOR_RIGHT) {
         if (M2_DIRO)
             ENDIR = 1;
         else
@@ -346,11 +329,10 @@ void GetRPM(int Channel) {
     }
     // otherwise, update the RPM
     else {
-
-        if (Channel == 0) {
-            REG_MOTOR_FB_RPM.left = CurrentRPM[LMotor];
-        } else if (Channel == 1) {
-            REG_MOTOR_FB_RPM.right = CurrentRPM[RMotor];
+        if (Channel == MOTOR_LEFT) {
+            REG_MOTOR_FB_RPM.left = CurrentRPM[MOTOR_LEFT];
+        } else if (Channel == MOTOR_RIGHT) {
+            REG_MOTOR_FB_RPM.right = CurrentRPM[MOTOR_RIGHT];
         }
     }
 
@@ -358,7 +340,7 @@ void GetRPM(int Channel) {
 }
 
 void Device_MotorController_Process() {
-    int i;
+    MotorChannel i;
     long temp1, temp2;
     static int overcurrent_counter = 0;
     // check if software wants to calibrate flipper position
@@ -387,55 +369,55 @@ void Device_MotorController_Process() {
         PORTFbits.RF5 = !PORTFbits.RF5;
         // clear the flag
         IFS0bits.T1IF = CLEAR;
-        // check LMotor,RMotor and Flipper
+        // check MOTOR_LEFT,MOTOR_RIGHT and MOTOR_FLIPPER
         // start counting all the timers
-        if (StateMachineTimerEnabled == true) {
+        if (StateMachineTimerEnabled) {
             StateMachineTimerCount++;
         }
-        for (i = 0; i <= 2; i++) {
-            if (SwitchDirectionTimerEnabled[i] == true) {
+        for (EACH_MOTOR_CHANNEL(i)) {
+            if (SwitchDirectionTimerEnabled[i]) {
                 SwitchDirectionTimerCount[i]++;
             }
-            if (SpeedUpdateTimerEnabled[i] == true) {
+            if (SpeedUpdateTimerEnabled[i]) {
                 SpeedUpdateTimerCount[i]++;
             }
         }
-        if (CurrentFBTimerEnabled == true) {
+        if (CurrentFBTimerEnabled) {
             CurrentFBTimerCount++;
         }
-        if (RPMTimerEnabled == true) {
+        if (RPMTimerEnabled) {
             RPMTimerCount++;
         }
-        if (USBTimeOutTimerEnabled == true) {
+        if (USBTimeOutTimerEnabled) {
             USBTimeOutTimerCount++;
             // printf("USBTimeOutTimerCount:%ld\n",USBTimeOutTimerCount);
         }
-        if (CurrentProtectionTimerEnabled == true) {
+        if (CurrentProtectionTimerEnabled) {
             CurrentProtectionTimerCount++;
         }
-        if (MotorOffTimerEnabled == true) {
+        if (MotorOffTimerEnabled) {
             MotorOffTimerCount++;
         }
-        if (CurrentSurgeRecoverTimerEnabled == true) {
+        if (CurrentSurgeRecoverTimerEnabled) {
             CurrentSurgeRecoverTimerCount++;
         }
-        if (I2C2TimerEnabled == true) {
+        if (I2C2TimerEnabled) {
             I2C2TimerCount++;
         }
-        if (I2C3TimerEnabled == true) {
+        if (I2C3TimerEnabled) {
             I2C3TimerCount++;
         }
-        if (SFREGUpdateTimerEnabled == true) {
+        if (SFREGUpdateTimerEnabled) {
             SFREGUpdateTimerCount++;
         }
-        if (BATVolCheckingTimerEnabled == true) {
+        if (BATVolCheckingTimerEnabled) {
             BATVolCheckingTimerCount++;
         }
-        if (BATRecoveryTimerEnabled == true) {
+        if (BATRecoveryTimerEnabled) {
             BATRecoveryTimerCount++;
         }
 #ifdef XbeeTest
-        if (Xbee_FanSpeedTimerEnabled == true) {
+        if (Xbee_FanSpeedTimerEnabled) {
             Xbee_FanSpeedTimerCount++;
             // printf("%d",Xbee_FanSpeedTimerCount);
         }
@@ -457,7 +439,7 @@ void Device_MotorController_Process() {
     if (USBTimeOutTimerCount >= USBTimeOutTimer) {
         USBTimeOutTimerExpired = true;
     }
-    for (i = 0; i <= 2; i++) {
+    for (EACH_MOTOR_CHANNEL(i)) {
         // check SwitchDirectionTimer
         if (SwitchDirectionTimerCount[i] >= SwitchDirectionTimer) {
             SwitchDirectionTimerExpired[i] = true;
@@ -489,7 +471,6 @@ void Device_MotorController_Process() {
         CurrentSurgeRecoverTimerExpired = true;
     }
     if (I2C2TimerCount >= I2C2Timer) {
-
         // i2c2 didn't finish last time -- init variables so that
         // the value doesn't just stay the same
         if (I2C2TimerExpired == true) {
@@ -531,10 +512,10 @@ void Device_MotorController_Process() {
     }
 #endif
 
-    // if any of the timers expired, excute relative codes
+    // if any of the timers expired, execute relative codes
     // Control timer expired
-    for (i = 0; i <= 2; i++) {
-        if (SpeedUpdateTimerExpired[i] == true) {
+    for (EACH_MOTOR_CHANNEL(i)) {
+        if (SpeedUpdateTimerExpired[i]) {
             UpdateSpeed(i, StateLevel01[i]);
             SpeedUpdateTimerExpired[i] = false;
             // 	 	 	test();
@@ -542,27 +523,26 @@ void Device_MotorController_Process() {
     }
     // t3
 
-    if (RPMTimerExpired == true) {
+    if (RPMTimerExpired) {
         RPMTimerEnabled = true;
         RPMTimerExpired = false;
-        for (i = 0; i < 2; i++) // only two driving motors, no flipper
-        {
-            GetRPM(i);
-        }
+        GetRPM(MOTOR_LEFT);
+        GetRPM(MOTOR_RIGHT);
     }
     // T6
 
-    if (CurrentFBTimerExpired == true) {
+    if (CurrentFBTimerExpired) {
         // clear CurrentFBTimerExpired
         CurrentFBTimerExpired = false;
         CurrentFBTimerEnabled = true;
-        for (i = 0; i < 3; i++) {
+        for (EACH_MOTOR_CHANNEL(i)) {
             GetCurrent(i);
         }
-        TotalCurrent = RealTimeCurrent[LMotor] + RealTimeCurrent[RMotor] + RealTimeCurrent[Flipper];
+        TotalCurrent = RealTimeCurrent[MOTOR_LEFT] + RealTimeCurrent[MOTOR_RIGHT] +
+                       RealTimeCurrent[MOTOR_FLIPPER];
         // printf("\nTotal Current%ld:\n",TotalCurrent);
     }
-    if (MotorOffTimerExpired == true) {
+    if (MotorOffTimerExpired) {
         OverCurrent = false;
         MotorOffTimerExpired = false;
         MotorOffTimerEnabled = false;
@@ -572,54 +552,52 @@ void Device_MotorController_Process() {
         CurrentSurgeRecoverTimerExpired = false;
         MotorRecovering = true;
     }
-    if (CurrentSurgeRecoverTimerExpired == true) {
+    if (CurrentSurgeRecoverTimerExpired) {
         CurrentSurgeRecoverTimerEnabled = false;
         CurrentSurgeRecoverTimerCount = 0;
         CurrentSurgeRecoverTimerExpired = false;
         MotorRecovering = false;
     }
-    if (I2C2TimerExpired == true) {
-        // update data on I2C3, reset the I2C data accquiring sequence
+    if (I2C2TimerExpired) {
         I2C2Update();
     }
-    if (I2C3TimerExpired == true) {
-        // update data on I2C3, reset the I2C data accquiring sequence
+    if (I2C3TimerExpired) {
         I2C3Update();
     }
-    if (SFREGUpdateTimerExpired == true) {
+    if (SFREGUpdateTimerExpired) {
         SFREGUpdateTimerExpired = false;
 
         // update flipper motor position
-        temp1 = mean(SampleLength, M3_POSFB_Array[0]);
-        temp2 = mean(SampleLength, M3_POSFB_Array[1]);
+        temp1 = mean(SAMPLE_LENGTH, M3_POSFB_Array[0]);
+        temp2 = mean(SAMPLE_LENGTH, M3_POSFB_Array[1]);
         REG_FLIPPER_FB_POSITION.pot1 = temp1;
         REG_FLIPPER_FB_POSITION.pot2 = temp2;
         REG_MOTOR_FLIPPER_ANGLE = return_calibrated_pot_angle(temp1, temp2);
 
         // update current for all three motors
-        REG_MOTOR_FB_CURRENT.left = ControlCurrent[LMotor];
-        REG_MOTOR_FB_CURRENT.right = ControlCurrent[RMotor];
-        REG_MOTOR_FB_CURRENT.flipper = ControlCurrent[Flipper];
+        REG_MOTOR_FB_CURRENT.left = ControlCurrent[MOTOR_LEFT];
+        REG_MOTOR_FB_CURRENT.right = ControlCurrent[MOTOR_RIGHT];
+        REG_MOTOR_FB_CURRENT.flipper = ControlCurrent[MOTOR_FLIPPER];
         // update the encodercount for two driving motors
-        REG_MOTOR_ENCODER_COUNT.left = Encoder_Interrupt_Counter[LMotor];
-        REG_MOTOR_ENCODER_COUNT.right = Encoder_Interrupt_Counter[RMotor];
+        REG_MOTOR_ENCODER_COUNT.left = Encoder_Interrupt_Counter[MOTOR_LEFT];
+        REG_MOTOR_ENCODER_COUNT.right = Encoder_Interrupt_Counter[MOTOR_RIGHT];
         // update the mosfet driving fault flag pin 1-good 2-fault
         REG_MOTOR_FAULT_FLAG.left = PORTDbits.RD1;
         REG_MOTOR_FAULT_FLAG.right = PORTEbits.RE5;
         // update temperatures for two motors
         // done in I2C code
         // update battery voltage
-        REG_PWR_BAT_VOLTAGE.a = mean(SampleLength, CellVoltageArray[Cell_A]);
-        REG_PWR_BAT_VOLTAGE.b = mean(SampleLength, CellVoltageArray[Cell_B]);
+        REG_PWR_BAT_VOLTAGE.a = mean(SAMPLE_LENGTH, CellVoltageArray[Cell_A]);
+        REG_PWR_BAT_VOLTAGE.b = mean(SAMPLE_LENGTH, CellVoltageArray[Cell_B]);
 
         // update total current (out of battery)
-        REG_PWR_TOTAL_CURRENT = mean(SampleLength, Total_Cell_Current_Array);
+        REG_PWR_TOTAL_CURRENT = mean(SAMPLE_LENGTH, Total_Cell_Current_Array);
     }
-    if (BATVolCheckingTimerExpired == true) {
+    if (BATVolCheckingTimerExpired) {
 
         // added this so that we check voltage faster
-        temp1 = mean(SampleLength, Cell_A_Current);
-        temp2 = mean(SampleLength, Cell_B_Current);
+        temp1 = mean(SAMPLE_LENGTH, Cell_A_Current);
+        temp2 = mean(SAMPLE_LENGTH, Cell_B_Current);
 
         REG_PWR_A_CURRENT = temp1;
         REG_PWR_B_CURRENT = temp2;
@@ -636,18 +614,16 @@ void Device_MotorController_Process() {
                 PWM1Duty(0);
                 PWM2Duty(0);
                 PWM3Duty(0);
-                ProtectHB(LMotor);
-                ProtectHB(RMotor);
-                ProtectHB(Flipper);
+                ProtectHB(MOTOR_LEFT);
+                ProtectHB(MOTOR_RIGHT);
+                ProtectHB(MOTOR_FLIPPER);
                 OverCurrent = true;
                 BATRecoveryTimerCount = 0;
                 BATRecoveryTimerEnabled = true;
                 BATRecoveryTimerExpired = false;
             }
 
-        }
-        //
-        else if (temp1 <= 341 || temp2 <= 341) {
+        } else if (temp1 <= 341 || temp2 <= 341) {
             overcurrent_counter = 0;
         }
         /*		if(REG_PWR_BAT_VOLTAGE.a<=BATVoltageLimit ||
@@ -655,9 +631,9 @@ void Device_MotorController_Process() {
                        {
                                Cell_Ctrl(Cell_A,Cell_OFF);
                                Cell_Ctrl(Cell_B,Cell_OFF);
-                               ProtectHB(LMotor);
-                               ProtectHB(RMotor);
-                               ProtectHB(Flipper);
+                               ProtectHB(MOTOR_LEFT);
+                               ProtectHB(MOTOR_RIGHT);
+                               ProtectHB(MOTOR_FLIPPER);
                                OverCurrent=true;
                                BATRecoveryTimerCount=0;
                                BATRecoveryTimerEnabled=true;
@@ -666,7 +642,7 @@ void Device_MotorController_Process() {
                        }*/
 #endif
     }
-    if (BATRecoveryTimerExpired == true) {
+    if (BATRecoveryTimerExpired) {
         Cell_Ctrl(Cell_A, Cell_ON);
         Cell_Ctrl(Cell_B, Cell_ON);
         OverCurrent = false;
@@ -676,7 +652,7 @@ void Device_MotorController_Process() {
     }
 // xbee fan timer
 #ifdef XbeeTest
-    if (Xbee_FanSpeedTimerExpired == true) {
+    if (Xbee_FanSpeedTimerExpired) {
         Xbee_FanSpeedTimerExpired = false;
         Xbee_FanSpeedTimerEnabled = false;
         Xbee_FanSpeedTimerCount = 0;
@@ -689,20 +665,20 @@ void Device_MotorController_Process() {
 
     // T5
 
-    EventChecker();
-    if (CurrentProtectionTimerExpired == true) {
+    USBInput();
+    if (CurrentProtectionTimerExpired) {
         CurrentProtectionTimerCount = 0;
         CurrentProtectionTimerExpired = false;
     }
     // T4
 
     // update state machine
-    if (StateMachineTimerExpired == true) {
+    if (StateMachineTimerExpired) {
         // clear the flag
         // printf("State Machine Updated!\n");
         StateMachineTimerExpired = false;
         StateMachineTimerCount = 0;
-        for (i = 0; i < 3; i++) {
+        for (EACH_MOTOR_CHANNEL(i)) {
             // update state machine
             switch (StateLevel01[i]) {
             case Brake:
@@ -722,6 +698,8 @@ void Device_MotorController_Process() {
                 case Stop:
                     Event[i] = NoEvent;
                     break;
+                case NoEvent:
+                    break;
                 }
                 break;
             case Forward:
@@ -739,9 +717,11 @@ void Device_MotorController_Process() {
                     StateLevel01[i] = Protection;
                     StateLevel02[i] = Locked;
                     break;
+                case NoEvent:
+                    break;
                 }
                 break;
-            case Backwards:
+            case Backward:
                 switch (Event[i]) {
                 case Go:
                     ProtectHB(i);
@@ -756,11 +736,13 @@ void Device_MotorController_Process() {
                     StateLevel01[i] = Protection;
                     StateLevel02[i] = Locked;
                     break;
+                case NoEvent:
+                    break;
                 }
                 break;
             case Protection:
                 if (StateLevel02[i] == Locked) {
-                    if (SwitchDirectionTimerExpired[i] == true) {
+                    if (SwitchDirectionTimerExpired[i]) {
                         StateLevel02[i] = Unlocked;
                         SwitchDirectionTimerExpired[i] = false;
                         SwitchDirectionTimerCount[i] = 0;
@@ -778,7 +760,9 @@ void Device_MotorController_Process() {
                         break;
                     case Back:
                         SpeedUpdateTimerEnabled[i] = true;
-                        StateLevel01[i] = Backwards;
+                        StateLevel01[i] = Backward;
+                        break;
+                    case NoEvent:
                         break;
                     }
                 }
@@ -786,26 +770,27 @@ void Device_MotorController_Process() {
             }
         }
     }
+
     // test();//run testing code
 }
 
 //**Motor control functions
 
-void Braking(int Channel) {
+void Braking(MotorChannel Channel) {
     switch (Channel) {
-    case LMotor:
+    case MOTOR_LEFT:
         PWM1Duty(0);
         M1_COAST = Clear_ActiveLO;
         Nop();
         M1_BRAKE = Set_ActiveLO;
         break;
-    case RMotor:
+    case MOTOR_RIGHT:
         PWM2Duty(0);
         M2_COAST = Clear_ActiveLO;
         Nop();
         M2_BRAKE = Set_ActiveLO;
         break;
-    case Flipper:
+    case MOTOR_FLIPPER:
         PWM3Duty(0);
         M3_COAST = Clear_ActiveLO;
         Nop();
@@ -815,7 +800,7 @@ void Braking(int Channel) {
 }
 
 // disable the corresponding transistors preparing a direction switch
-void ProtectHB(int Channel) {
+void ProtectHB(MotorChannel Channel) {
     SpeedUpdateTimerEnabled[Channel] = false;
     SpeedUpdateTimerCount[Channel] = 0;
     // start timer
@@ -824,17 +809,17 @@ void ProtectHB(int Channel) {
     ClearSpeedCtrlData(Channel);
     ClearCurrentCtrlData(Channel);
     switch (Channel) {
-    case LMotor:
+    case MOTOR_LEFT:
         M1_COAST = Set_ActiveLO;
         PWM1Duty(0);
         M1_BRAKE = Clear_ActiveLO;
         break;
-    case RMotor:
+    case MOTOR_RIGHT:
         M2_COAST = Set_ActiveLO;
         PWM2Duty(0);
         M2_BRAKE = Clear_ActiveLO;
         break;
-    case Flipper:
+    case MOTOR_FLIPPER:
         M3_COAST = Set_ActiveLO;
         PWM3Duty(0);
         M3_BRAKE = Clear_ActiveLO;
@@ -843,11 +828,9 @@ void ProtectHB(int Channel) {
 }
 
 int GetMotorSpeedTargetCoefficient(int Current) {
-    int result;
-    long temp;
+    int result = MotorSpeedTargetCoefficient_Normal;
+    long temp = TargetDifference;
 
-    result = MotorSpeedTargetCoefficient_Normal;
-    temp = TargetDifference;
     // turning?
     if (temp < HardTurning && temp > StartTurning) {
         result = MotorSpeedTargetCoefficient_Turn +
@@ -861,7 +844,7 @@ int GetMotorSpeedTargetCoefficient(int Current) {
     }
 
     // recovering protection
-    if (MotorRecovering == true) {
+    if (MotorRecovering) {
         result = MotorSpeedTargetCoefficient_Turn +
                  (MotorSpeedTargetCoefficient_Normal - MotorSpeedTargetCoefficient_Turn) *
                      CurrentSurgeRecoverTimerCount / CurrentSurgeRecoverTimer;
@@ -873,7 +856,7 @@ int GetMotorSpeedTargetCoefficient(int Current) {
     return result;
 }
 
-int GetDuty(long CurrentState, long Target, int RTCurrent, int Channel, int Mode) {
+int GetDuty(long CurrentState, long Target, MotorChannel Channel, ControlMode Mode) {
     long TargetRPM;
     // 	long TargetCurrent;
     float result;
@@ -915,11 +898,9 @@ int GetDuty(long CurrentState, long Target, int RTCurrent, int Channel, int Mode
         AccumulatedSpeedError[Channel] = 0;
     }
 
-    if (Channel == Flipper) {
-        MotorDuty[Channel] = Target;
+    if (Channel == MOTOR_FLIPPER) {
         return Target;
     } else {
-        MotorDuty[Channel] = result;
         result = labs(Target);
         if (result >= MaxDuty)
             result = MaxDuty;
@@ -927,14 +908,14 @@ int GetDuty(long CurrentState, long Target, int RTCurrent, int Channel, int Mode
     }
 }
 
-void UpdateSpeed(int Channel, int State) {
+void UpdateSpeed(MotorChannel Channel, int State) {
     int Dutycycle;
     int temp;
 
-    ControlRPM[Channel] = mean_l(8, RPM4Control[Channel]);
-    ControlCurrent[Channel] = mean_l(8, Current4Control[Channel]);
+    ControlRPM[Channel] = mean_l(SAMPLE_LENGTH_CONTROL, RPM4Control[Channel]);
+    ControlCurrent[Channel] = mean_l(SAMPLE_LENGTH_CONTROL, Current4Control[Channel]);
 
-    TargetDifference = labs(TargetParameter[LMotor] - TargetParameter[RMotor]);
+    TargetDifference = labs(TargetParameter[MOTOR_LEFT] - TargetParameter[MOTOR_RIGHT]);
     temp = TargetDifference;
     // turning?
     if (temp >= HardTurning) {
@@ -943,26 +924,26 @@ void UpdateSpeed(int Channel, int State) {
         SpeedCtrlMode[Channel] = ControlMode_Normal;
     }
     switch (Channel) {
-    case LMotor:
+    case MOTOR_LEFT:
         if (State == Forward) {
             if (OverCurrent) {
                 Dutycycle = 0;
                 M1_COAST = Set_ActiveLO;
             } else {
-                Dutycycle = GetDuty(ControlRPM[Channel], TargetParameter[Channel],
-                                    ControlCurrent[Channel], Channel, SpeedCtrlMode[Channel]);
+                Dutycycle = GetDuty(ControlRPM[Channel], TargetParameter[Channel], Channel,
+                                    SpeedCtrlMode[Channel]);
                 M1_COAST = Clear_ActiveLO;
             }
             M1_BRAKE = Clear_ActiveLO;
             M1_DIR = HI;
             PWM1Duty(Dutycycle);
-        } else if (State == Backwards) {
+        } else if (State == Backward) {
             if (OverCurrent) {
                 Dutycycle = 0;
                 M1_COAST = Set_ActiveLO;
             } else {
-                Dutycycle = GetDuty(ControlRPM[Channel], TargetParameter[Channel],
-                                    ControlCurrent[Channel], Channel, SpeedCtrlMode[Channel]);
+                Dutycycle = GetDuty(ControlRPM[Channel], TargetParameter[Channel], Channel,
+                                    SpeedCtrlMode[Channel]);
                 M1_COAST = Clear_ActiveLO;
             }
             M1_BRAKE = Clear_ActiveLO;
@@ -970,26 +951,26 @@ void UpdateSpeed(int Channel, int State) {
             PWM1Duty(Dutycycle);
         }
         break;
-    case RMotor:
+    case MOTOR_RIGHT:
         if (State == Forward) {
             if (OverCurrent) {
                 Dutycycle = 0;
                 M2_COAST = Set_ActiveLO;
             } else {
-                Dutycycle = GetDuty(ControlRPM[Channel], TargetParameter[Channel],
-                                    ControlCurrent[Channel], Channel, SpeedCtrlMode[Channel]);
+                Dutycycle = GetDuty(ControlRPM[Channel], TargetParameter[Channel], Channel,
+                                    SpeedCtrlMode[Channel]);
                 M2_COAST = Clear_ActiveLO;
             }
             M2_BRAKE = Clear_ActiveLO;
             M2_DIR = LO;
             PWM2Duty(Dutycycle);
-        } else if (State == Backwards) {
+        } else if (State == Backward) {
             if (OverCurrent) {
                 Dutycycle = 0;
                 M2_COAST = Set_ActiveLO;
             } else {
-                Dutycycle = GetDuty(ControlRPM[Channel], TargetParameter[Channel],
-                                    ControlCurrent[Channel], Channel, SpeedCtrlMode[Channel]);
+                Dutycycle = GetDuty(ControlRPM[Channel], TargetParameter[Channel], Channel,
+                                    SpeedCtrlMode[Channel]);
                 M2_COAST = Clear_ActiveLO;
             }
             M2_BRAKE = Clear_ActiveLO;
@@ -997,19 +978,19 @@ void UpdateSpeed(int Channel, int State) {
             PWM2Duty(Dutycycle);
         }
         break;
-    case Flipper:
+    case MOTOR_FLIPPER:
         if (State == Forward) {
-            Dutycycle = GetDuty(CurrentParameter[Channel], TargetParameter[Channel],
-                                ControlCurrent[Channel], Channel, SpeedCtrlMode[Channel]);
+            Dutycycle = GetDuty(CurrentParameter[Channel], TargetParameter[Channel], Channel,
+                                SpeedCtrlMode[Channel]);
             M3_COAST = Clear_ActiveLO;
             Nop();
             M3_BRAKE = Clear_ActiveLO;
             Nop();
             M3_DIR = HI;
             PWM3Duty(Dutycycle);
-        } else if (State == Backwards) {
-            Dutycycle = GetDuty(CurrentParameter[Channel], -TargetParameter[Channel],
-                                ControlCurrent[Channel], Channel, SpeedCtrlMode[Channel]);
+        } else if (State == Backward) {
+            Dutycycle = GetDuty(CurrentParameter[Channel], -TargetParameter[Channel], Channel,
+                                SpeedCtrlMode[Channel]);
             M3_COAST = Clear_ActiveLO;
             Nop();
             M3_BRAKE = Clear_ActiveLO;
@@ -1024,44 +1005,12 @@ void UpdateSpeed(int Channel, int State) {
 
 //*********************************************//
 
-void ServoInput() {
-    long int ECSpeed;
-    long int temp;
-    int i;
-    int Tor = 10; // tolerance
-
-    for (i = 0; i < 3; i++) {
-        // 1.5ms pulse width->Stop
-        if (PulseWidth[i] <= 3000 + Tor && PulseWidth[i] >= 3000 - Tor) {
-            Event[i] = Stop; // Get the event
-            TargetParameter[i] = 0;
-        }
-        // 1-1.5ms pulse width->Back
-        else if (PulseWidth[i] >= 2000 && PulseWidth[i] <= 3000 - Tor) {
-            Event[i] = Back; // Get the event
-            temp = PulseWidth[i];
-            ECSpeed = (3000 - temp) * 1024 / 1000;
-            TargetParameter[i] = -ECSpeed; // Save the speed
-            // PulseWidth[i]=0;//clear pulse width info
-        }
-        // 1.5-2ms pulse width->Go
-        else if (PulseWidth[i] >= 3000 + Tor && PulseWidth[i] <= 4000) {
-            Event[i] = Go; // Get the event
-            temp = PulseWidth[i];
-            ECSpeed = (temp - 3000) * 1024 / 1000;
-            TargetParameter[i] = ECSpeed; // Save the speed
-            // PulseWidth[i]=0;//clear pulse width info
-        }
-    }
-    // printf("%u,%u,%u\n",Event[LMotor],Event[RMotor],Event[Flipper]);
-}
-
 /** Tweak the speed of motor i toward the desired speed
  *   - Speed of a motor will cut to zero if desired_speed is 0
  *   - Speed of *all* motors will cut to zero if the OverCurrent flag is set.
  * Returns the new value for the given motor speed */
-int speed_control_loop(unsigned char i, int desired_speed) {
-    static int motor_speed[3] = {0, 0, 0};
+int speed_control_loop(MotorChannel i, int desired_speed) {
+    static int motor_speed[MOTOR_CHANNEL_COUNT] = {0, 0, 0};
 
     if (desired_speed == 0) {
         motor_speed[i] = 0;
@@ -1071,16 +1020,16 @@ int speed_control_loop(unsigned char i, int desired_speed) {
     motor_speed[i] = clamp(desired_speed, motor_speed[i] - 1, motor_speed[i] + 1);
 
     if (OverCurrent) {
-        motor_speed[0] = 0;
-        motor_speed[1] = 0;
-        motor_speed[2] = 0;
+        motor_speed[MOTOR_LEFT] = 0;
+        motor_speed[MOTOR_RIGHT] = 0;
+        motor_speed[MOTOR_FLIPPER] = 0;
     }
 
     return motor_speed[i];
 }
 
 void USBInput() {
-    int i;
+    MotorChannel i;
     static int USB_New_Data_Received;
     static unsigned int control_loop_counter = 0;
     static unsigned int flipper_control_loop_counter = 0;
@@ -1106,13 +1055,17 @@ void USBInput() {
         if (control_loop_counter > 5) {
             control_loop_counter = 0;
 #ifndef XbeeTest
-            Robot_Motor_TargetSpeedUSB[0] = speed_control_loop(0, REG_MOTOR_VELOCITY.left);
-            Robot_Motor_TargetSpeedUSB[1] = speed_control_loop(1, REG_MOTOR_VELOCITY.right);
+            Robot_Motor_TargetSpeedUSB[MOTOR_LEFT] =
+                speed_control_loop(MOTOR_LEFT, REG_MOTOR_VELOCITY.left);
+            Robot_Motor_TargetSpeedUSB[MOTOR_RIGHT] =
+                speed_control_loop(MOTOR_RIGHT, REG_MOTOR_VELOCITY.right);
 #endif
 #ifdef XbeeTest
             // printf("XL%d,XR,%d",Xbee_MOTOR_VELOCITY[0],Robot_Motor_TargetSpeedUSB[1]);
-            Robot_Motor_TargetSpeedUSB[0] = speed_control_loop(0, Xbee_MOTOR_VELOCITY[0]);
-            Robot_Motor_TargetSpeedUSB[1] = speed_control_loop(1, Xbee_MOTOR_VELOCITY[1]);
+            Robot_Motor_TargetSpeedUSB[MOTOR_LEFT] =
+                speed_control_loop(MOTOR_LEFT, Xbee_MOTOR_VELOCITY[MOTOR_LEFT]);
+            Robot_Motor_TargetSpeedUSB[MOTOR_RIGHT] =
+                speed_control_loop(MOTOR_RIGHT, Xbee_MOTOR_VELOCITY[MOTOR_RIGHT]);
             // printf("L%d,R%d\n",Robot_Motor_TargetSpeedUSB[0],Robot_Motor_TargetSpeedUSB[1]);
 #endif
         }
@@ -1120,10 +1073,12 @@ void USBInput() {
         if (flipper_control_loop_counter > 15) {
             flipper_control_loop_counter = 0;
 #ifndef XbeeTest
-            Robot_Motor_TargetSpeedUSB[2] = speed_control_loop(2, REG_MOTOR_VELOCITY.flipper);
+            Robot_Motor_TargetSpeedUSB[MOTOR_FLIPPER] =
+                speed_control_loop(MOTOR_FLIPPER, REG_MOTOR_VELOCITY.flipper);
 #endif
 #ifdef XbeeTest
-            Robot_Motor_TargetSpeedUSB[2] = speed_control_loop(2, Xbee_MOTOR_VELOCITY[2]);
+            Robot_Motor_TargetSpeedUSB[MOTOR_FLIPPER] =
+                speed_control_loop(MOTOR_FLIPPER, Xbee_MOTOR_VELOCITY[MOTOR_FLIPPER]);
             // printf();
 #endif
         }
@@ -1146,14 +1101,15 @@ void USBInput() {
             control_loop_counter = 0;
 
             // set speed to 1 (speed of 0 immediately stops motors)
-            Robot_Motor_TargetSpeedUSB[0] = speed_control_loop(0, 1);
-            Robot_Motor_TargetSpeedUSB[1] = speed_control_loop(1, 1);
-            Robot_Motor_TargetSpeedUSB[2] = speed_control_loop(2, 1);
+            Robot_Motor_TargetSpeedUSB[MOTOR_LEFT] = speed_control_loop(MOTOR_LEFT, 1);
+            Robot_Motor_TargetSpeedUSB[MOTOR_RIGHT] = speed_control_loop(MOTOR_RIGHT, 1);
+            Robot_Motor_TargetSpeedUSB[MOTOR_FLIPPER] = speed_control_loop(MOTOR_FLIPPER, 1);
         }
 
         // motors are stopped if speed falls below 1%
-        if ((abs(Robot_Motor_TargetSpeedUSB[0]) < 10) &&
-            (abs(Robot_Motor_TargetSpeedUSB[1]) < 10) && (abs(Robot_Motor_TargetSpeedUSB[2]) < 10))
+        if ((abs(Robot_Motor_TargetSpeedUSB[MOTOR_LEFT]) < 10) &&
+            (abs(Robot_Motor_TargetSpeedUSB[MOTOR_RIGHT]) < 10) &&
+            (abs(Robot_Motor_TargetSpeedUSB[MOTOR_FLIPPER]) < 10))
             state = LOW_SPEED;
 
         break;
@@ -1164,13 +1120,14 @@ void USBInput() {
                                REG_MOTOR_VELOCITY.flipper);
 #endif
 #ifdef XbeeTest
-        set_desired_velocities(Xbee_MOTOR_VELOCITY[0], Xbee_MOTOR_VELOCITY[1],
-                               Xbee_MOTOR_VELOCITY[2]);
+        set_desired_velocities(Xbee_MOTOR_VELOCITY[MOTOR_LEFT], Xbee_MOTOR_VELOCITY[MOTOR_RIGHT],
+                               Xbee_MOTOR_VELOCITY[MOTOR_FLIPPER]);
 #endif
         // printf("low speed loop!");
-        Robot_Motor_TargetSpeedUSB[0] = return_closed_loop_control_effort(0);
-        Robot_Motor_TargetSpeedUSB[1] = return_closed_loop_control_effort(1);
-        Robot_Motor_TargetSpeedUSB[2] = return_closed_loop_control_effort(2);
+        Robot_Motor_TargetSpeedUSB[MOTOR_LEFT] = return_closed_loop_control_effort(MOTOR_LEFT);
+        Robot_Motor_TargetSpeedUSB[MOTOR_RIGHT] = return_closed_loop_control_effort(MOTOR_RIGHT);
+        Robot_Motor_TargetSpeedUSB[MOTOR_FLIPPER] =
+            return_closed_loop_control_effort(MOTOR_FLIPPER);
         // printf("AA:%d,%d,%d",Robot_Motor_TargetSpeedUSB[0],Robot_Motor_TargetSpeedUSB[1],Robot_Motor_TargetSpeedUSB[2]);
         control_loop_counter = 0;
         flipper_control_loop_counter = 0;
@@ -1189,20 +1146,22 @@ void USBInput() {
 
         set_desired_velocities(0, 0, 0);
 
-        Robot_Motor_TargetSpeedUSB[0] = return_closed_loop_control_effort(0);
-        Robot_Motor_TargetSpeedUSB[1] = return_closed_loop_control_effort(1);
-        Robot_Motor_TargetSpeedUSB[2] = return_closed_loop_control_effort(2);
+        Robot_Motor_TargetSpeedUSB[MOTOR_LEFT] = return_closed_loop_control_effort(MOTOR_LEFT);
+        Robot_Motor_TargetSpeedUSB[MOTOR_RIGHT] = return_closed_loop_control_effort(MOTOR_RIGHT);
+        Robot_Motor_TargetSpeedUSB[MOTOR_FLIPPER] =
+            return_closed_loop_control_effort(MOTOR_FLIPPER);
 
         // motors are stopped if speed falls below 1%
-        if ((abs(Robot_Motor_TargetSpeedUSB[0]) < 10) &&
-            (abs(Robot_Motor_TargetSpeedUSB[1]) < 10) && (abs(Robot_Motor_TargetSpeedUSB[2]) < 10))
+        if ((abs(Robot_Motor_TargetSpeedUSB[MOTOR_LEFT]) < 10) &&
+            (abs(Robot_Motor_TargetSpeedUSB[MOTOR_RIGHT]) < 10) &&
+            (abs(Robot_Motor_TargetSpeedUSB[MOTOR_FLIPPER]) < 10))
             state = HIGH_SPEED;
 
         break;
     }
 
     // long time no data, clear everything and stop moving
-    if (USBTimeOutTimerExpired == true) {
+    if (USBTimeOutTimerExpired) {
         // printf("USB Timer Expired!");
         USBTimeOutTimerExpired = false;
         USBTimeOutTimerEnabled = false;
@@ -1211,12 +1170,12 @@ void USBInput() {
         REG_MOTOR_VELOCITY.right = 0;
         REG_MOTOR_VELOCITY.flipper = 0;
 #ifdef XbeeTest
-        Xbee_MOTOR_VELOCITY[0] = 0;
-        Xbee_MOTOR_VELOCITY[1] = 0;
-        Xbee_MOTOR_VELOCITY[2] = 0;
+        Xbee_MOTOR_VELOCITY[MOTOR_LEFT] = 0;
+        Xbee_MOTOR_VELOCITY[MOTOR_RIGHT] = 0;
+        Xbee_MOTOR_VELOCITY[MOTOR_FLIPPER] = 0;
 #endif
 
-        for (i = 0; i < 3; i++) {
+        for (EACH_MOTOR_CHANNEL(i)) {
             Robot_Motor_TargetSpeedUSB[i] = 0;
             Event[i] = Stop;
             TargetParameter[i] = Robot_Motor_TargetSpeedUSB[i];
@@ -1240,8 +1199,8 @@ void USBInput() {
         USBTimeOutTimerCount = 0;
         USBTimeOutTimerEnabled = true;
         USBTimeOutTimerExpired = false;
-        // printf("Lmotor:%d",Robot_Motor_TargetSpeedUSB[0]);
-        for (i = 0; i < 3; i++) {
+        // printf("MOTOR_LEFT:%d",Robot_Motor_TargetSpeedUSB[0]);
+        for (EACH_MOTOR_CHANNEL(i)) {
             if (Robot_Motor_TargetSpeedUSB[i] == 0)
                 Event[i] = Stop;
             else if (-1024 < Robot_Motor_TargetSpeedUSB[i] && Robot_Motor_TargetSpeedUSB[i] < 0)
@@ -1252,12 +1211,6 @@ void USBInput() {
             TargetParameter[i] = Robot_Motor_TargetSpeedUSB[i];
         }
     }
-}
-
-int EventChecker() {
-    USBInput();
-    // 	ServoInput();
-    return 1;
 }
 
 //**********************************************
@@ -1331,7 +1284,7 @@ void PinRemap(void) {
     // lock Pin Re-map
 }
 
-void Cell_Ctrl(int Channel, int state) {
+void Cell_Ctrl(BatteryChannel Channel, BatteryState state) {
     switch (Channel) {
     case Cell_A:
         switch (state) {
@@ -1604,7 +1557,7 @@ void I2C3Ini() {
 
 //*-----------------------------------PWM------------------------------------*/
 
-// initialize PWM chnnel 1
+// initialize PWM channel 1
 void PWM1Ini(void) {
     // 1. Configure the OCx output for one of the
     // available Peripheral Pin Select pins.
@@ -1641,7 +1594,7 @@ void PWM1Ini(void) {
 void PWM1Duty(int Duty) { OC1R = Duty * 2; }
 //****************************************************
 
-// initialize PWM chnnel 2
+// initialize PWM channel 2
 void PWM2Ini(void) {
 
     OC2R = 0;
@@ -1658,7 +1611,7 @@ void PWM2Duty(int Duty) { OC2R = Duty * 2; }
 //****************************************************
 
 //****************************************************
-// initialize PWM chnnel 3
+// initialize PWM channel 3
 void PWM3Ini(void) {
     OC3R = 0;
     OC3RS = 2000;
@@ -1674,7 +1627,7 @@ void PWM3Duty(int Duty) { OC3R = Duty * 2; }
 //****************************************************
 
 //****************************************************
-// initialize PWM chnnel 4
+// initialize PWM channel 4
 void PWM4Ini(void) {
     OC4R = 0;
     OC4RS = Period30000Hz;
@@ -1690,7 +1643,7 @@ void PWM4Duty(int Duty) { OC4R = (Period4 * Duty) >> 10; }
 //****************************************************
 
 //****************************************************
-// initialize PWM chnnel 5
+// initialize PWM channel 5
 void PWM5Ini(void) {
     OC5R = 0;
     OC5RS = Period30000Hz;
@@ -1706,7 +1659,7 @@ void PWM5Duty(int Duty) { OC5R = (Period5 * Duty) >> 10; }
 //****************************************************
 
 //****************************************************
-// initialize PWM chnnel 6
+// initialize PWM channel 6
 void PWM6Ini(void) {
     OC6R = 0;
     OC6RS = Period30000Hz;
@@ -1722,7 +1675,7 @@ void PWM6Duty(int Duty) { OC6R = (Period6 * Duty) >> 10; }
 //****************************************************
 
 //****************************************************
-// initialize PWM chnnel 7
+// initialize PWM channel 7
 void PWM7Ini(void) {
     OC7R = 0;
     OC7RS = Period30000Hz;
@@ -1738,7 +1691,7 @@ void PWM7Duty(int Duty) { OC7R = (Period7 * Duty) >> 10; }
 //****************************************************
 
 //****************************************************
-// initialize PWM chnnel 8
+// initialize PWM channel 8
 void PWM8Ini(void) {
     OC8R = 0;
     OC8RS = Period30000Hz;
@@ -1754,7 +1707,7 @@ void PWM8Duty(int Duty) { OC8R = (Period8 * Duty) >> 10; }
 //****************************************************
 
 //****************************************************
-// initialize PWM chnnel 9
+// initialize PWM channel 9
 void PWM9Ini(void) {
     OC9R = 0;
     OC9RS = Period30000Hz;
@@ -1838,7 +1791,7 @@ void IniIC1() {
     // 4. Set the SYNCSEL bits (ICxCON2<4:0>) to the
     // desired sync/trigger source.
     IC1CON2bits.SYNCSEL = 0b00000; // not snycronized to anything
-                                   // 5. Set the ICTSEL bits (ICxCON1<12:10>) for the
+    // 5. Set the ICTSEL bits (ICxCON1<12:10>) for the
     // desired clock source.
     IC1CON1bits.ICTSEL = 0b010; // timer 4
     // 6. Set the ICI bits (ICxCON1<6:5>) to the desired
@@ -1884,7 +1837,7 @@ void IniIC3() {
     // 4. Set the SYNCSEL bits (ICxCON2<4:0>) to the
     // desired sync/trigger source.
     IC3CON2bits.SYNCSEL = 0b00000; // not snycronized to anything
-                                   // 5. Set the ICTSEL bits (ICxCON1<12:10>) for the
+    // 5. Set the ICTSEL bits (ICxCON1<12:10>) for the
     // desired clock source.
     IC3CON1bits.ICTSEL = 0b010; // timer 4
     // 6. Set the ICI bits (ICxCON1<6:5>) to the desired
@@ -1925,7 +1878,7 @@ void IniAD() {
     // b) Select voltage reference source to match
     // expected range on analog inputs (AD1CON2<15:13>).
     AD1CON2bits.VCFG = 0b000; // VR+: AVDD, VR-: AVSS
-                              // c) Select the analog conversion clock to
+    // c) Select the analog conversion clock to
     // match desired data rate with processor clock (AD1CON3<7:0>).
     AD1CON3bits.ADCS = 0b00000001; // TAD= 2TCY = 125 ns, at least 75ns required
 
@@ -1981,20 +1934,20 @@ void Motor_IC1Interrupt(void) {
     // make sure pull all the data from the buffer
     while (IC1CON1bits.ICBNE == SET) {
         LEncoderCurrentValue = IC1BUF;
-        EncoderFBInterval[LMotor][EncoderFBIntervalPointer[LMotor]] =
+        EncoderFBInterval[MOTOR_LEFT][EncoderFBIntervalPointer[MOTOR_LEFT]] =
             LEncoderCurrentValue - LEncoderLastValue;
-        if (EncoderFBInterval[LMotor][EncoderFBIntervalPointer[LMotor]] < 0 ||
+        if (EncoderFBInterval[MOTOR_LEFT][EncoderFBIntervalPointer[MOTOR_LEFT]] < 0 ||
             LEncoderAOverFlowCount > 0) {
-            EncoderFBInterval[LMotor][EncoderFBIntervalPointer[LMotor]] +=
+            EncoderFBInterval[MOTOR_LEFT][EncoderFBIntervalPointer[MOTOR_LEFT]] +=
                 65535 * LEncoderAOverFlowCount;
             LEncoderAOverFlowCount = 0;
         }
         LEncoderLastValue = LEncoderCurrentValue;
-        EncoderFBIntervalPointer[LMotor]++;
-        EncoderFBIntervalPointer[LMotor] &= (SampleLength - 1);
+        EncoderFBIntervalPointer[MOTOR_LEFT] =
+            (EncoderFBIntervalPointer[MOTOR_LEFT] + 1) % SAMPLE_LENGTH;
     }
 
-    Encoder_Interrupt_Counter[LMotor]++;
+    Encoder_Interrupt_Counter[MOTOR_LEFT]++;
 }
 
 void Motor_IC3Interrupt(void) {
@@ -2002,20 +1955,20 @@ void Motor_IC3Interrupt(void) {
     // make sure pull all the data from the buffer
     while (IC3CON1bits.ICBNE == SET) {
         REncoderCurrentValue = IC3BUF;
-        EncoderFBInterval[RMotor][EncoderFBIntervalPointer[RMotor]] =
+        EncoderFBInterval[MOTOR_RIGHT][EncoderFBIntervalPointer[MOTOR_RIGHT]] =
             REncoderCurrentValue - REncoderLastValue;
-        if (EncoderFBInterval[RMotor][EncoderFBIntervalPointer[RMotor]] < 0 ||
+        if (EncoderFBInterval[MOTOR_RIGHT][EncoderFBIntervalPointer[MOTOR_RIGHT]] < 0 ||
             REncoderAOverFlowCount > 0) {
-            EncoderFBInterval[RMotor][EncoderFBIntervalPointer[RMotor]] +=
+            EncoderFBInterval[MOTOR_RIGHT][EncoderFBIntervalPointer[MOTOR_RIGHT]] +=
                 65535 * REncoderAOverFlowCount;
             REncoderAOverFlowCount = 0;
         }
         REncoderLastValue = REncoderCurrentValue;
-        EncoderFBIntervalPointer[RMotor]++;
-        EncoderFBIntervalPointer[RMotor] &= (SampleLength - 1);
+        EncoderFBIntervalPointer[MOTOR_RIGHT] =
+            (EncoderFBIntervalPointer[MOTOR_RIGHT] + 1) % SAMPLE_LENGTH;
     }
 
-    Encoder_Interrupt_Counter[RMotor]++;
+    Encoder_Interrupt_Counter[MOTOR_RIGHT]++;
 }
 
 void Motor_T4Interrupt(void) {
@@ -2054,7 +2007,7 @@ void Motor_T3Interrupt(void) {
 }
 
 void Motor_T5Interrupt(void) {
-    int i;
+    MotorChannel i;
     IFS1bits.T5IF = CLEAR; // clear interrupt flag
     Timer5Count++;
     if (Timer5Count >= 3) // slow down the whole system within 45 ms
@@ -2069,7 +2022,7 @@ void Motor_T5Interrupt(void) {
         MotorOffTimerEnabled = true;
         MotorOffTimerExpired = false;
         MotorOffTimerCount = 0;
-        for (i = 0; i < 3; i++) {
+        for (EACH_MOTOR_CHANNEL(i)) {
             ClearSpeedCtrlData(i);
             ClearCurrentCtrlData(i);
         }
@@ -2102,45 +2055,31 @@ void Motor_ADC1Interrupt(void) {
 
     M3_POSFB_Array[0][M3_POSFB_ArrayPointer] = ADC1BUF4;
     M3_POSFB_Array[1][M3_POSFB_ArrayPointer] = ADC1BUF5;
-    MotorCurrentAD[LMotor][MotorCurrentADPointer] = ADC1BUF3;
-    MotorCurrentAD[RMotor][MotorCurrentADPointer] = ADC1BUF1;
-    MotorCurrentAD[Flipper][MotorCurrentADPointer] = ADC1BUFB;
+    MotorCurrentAD[MOTOR_LEFT][MotorCurrentADPointer] = ADC1BUF3;
+    MotorCurrentAD[MOTOR_RIGHT][MotorCurrentADPointer] = ADC1BUF1;
+    MotorCurrentAD[MOTOR_FLIPPER][MotorCurrentADPointer] = ADC1BUFB;
     Cell_A_Current[Total_Cell_Current_ArrayPointer] = ADC1BUF8;
     Cell_B_Current[Total_Cell_Current_ArrayPointer] = ADC1BUF9;
     Total_Cell_Current_Array[Total_Cell_Current_ArrayPointer] =
         Cell_A_Current[Total_Cell_Current_ArrayPointer] +
         Cell_B_Current[Total_Cell_Current_ArrayPointer];
-    // adc_test_reg = ADC1BUF9;
+
     CellVoltageArray[Cell_A][CellVoltageArrayPointer] = ADC1BUF6;
     CellVoltageArray[Cell_B][CellVoltageArrayPointer] = ADC1BUF7;
-    TotalCurrent = MotorCurrentAD[LMotor][MotorCurrentADPointer] +
-                   MotorCurrentAD[RMotor][MotorCurrentADPointer] +
-                   MotorCurrentAD[Flipper][MotorCurrentADPointer];
-
-    /* 	if(TotalCurrent>=CurrentLimit)
-            {
-                    //start protection timer
-                    T5CONbits.TON=SET;//start clock
-                    IEC1bits.T5IE=SET;//enable the interrupt
-                    CurrentTooHigh=true;
-            }*/
+    TotalCurrent = MotorCurrentAD[MOTOR_LEFT][MotorCurrentADPointer] +
+                   MotorCurrentAD[MOTOR_RIGHT][MotorCurrentADPointer] +
+                   MotorCurrentAD[MOTOR_FLIPPER][MotorCurrentADPointer];
 
     // increase array pointer, prevent over flow
-    CellVoltageArrayPointer++;
-    CellVoltageArrayPointer &= (SampleLength - 1);
-    Total_Cell_Current_ArrayPointer++;
-    Total_Cell_Current_ArrayPointer &= (SampleLength - 1);
-    M3_POSFB_ArrayPointer++;
-    M3_POSFB_ArrayPointer &= (SampleLength - 1);
-    // 	BackEMFPointer++;
-    // 	BackEMFPointer&=(SampleLength-1);
-    MotorCurrentADPointer++;
-    MotorCurrentADPointer &= (SampleLength - 1);
+    CellVoltageArrayPointer = (CellVoltageArrayPointer + 1) % SAMPLE_LENGTH;
+    Total_Cell_Current_ArrayPointer = (Total_Cell_Current_ArrayPointer + 1) % SAMPLE_LENGTH;
+    M3_POSFB_ArrayPointer = (M3_POSFB_ArrayPointer + 1) % SAMPLE_LENGTH;
+    MotorCurrentADPointer = (MotorCurrentADPointer + 1) % SAMPLE_LENGTH;
 
 #ifdef XbeeTest
-    EncoderInterval[0] = IC_period(kIC01); // left motor encoder time interval
-    EncoderInterval[1] = IC_period(kIC02); // right motor encoder time interval
-    EncoderInterval[3] = IC_period(kIC03); // Encoder motor encoder time interval
+    EncoderInterval[MOTOR_LEFT] = IC_period(kIC01);    // left motor encoder time interval
+    EncoderInterval[MOTOR_RIGHT] = IC_period(kIC02);   // right motor encoder time interval
+    EncoderInterval[MOTOR_FLIPPER] = IC_period(kIC03); // Encoder motor encoder time interval
     // if(Xbee_Incoming_Cmd[0]== P1_Read_Register && U1STAbits.UTXBF==0 &&
     // XbeeTest_UART_BufferPointer==0 &&
     // (Xbee_MOTOR_VELOCITY[0]||Xbee_MOTOR_VELOCITY[1]||Xbee_MOTOR_VELOCITY[2])!=0)//if transmit reg
@@ -2151,186 +2090,62 @@ void Motor_ADC1Interrupt(void) {
         U1TXREG = Xbee_StartBit; // send out the index
         XbeeTest_UART_DataNO = Xbee_Incoming_Cmd[1];
         XbeeTest_UART_Buffer[0] = XbeeTest_UART_DataNO;
-        // XbeeTest_UART_Buffer[1]=(XbeeTest_Temp_u16>>8);//load the buffer
-        // XbeeTest_UART_Buffer[2]=XbeeTest_Temp_u16;
-        // XbeeTest_UART_Buffer[1]=REG_MOTOR_ENCODER_COUNT.left;//load the buffer
-        // XbeeTest_UART_Buffer[2]=REG_MOTOR_ENCODER_COUNT.right;
+
+// CASE(n, REGISTER) populates the UART output buffer with the 16-bit integer value of the given
+// register and breaks out of the switch statement
+#define CASE(n, REGISTER)                                                                          \
+    case (n):                                                                                      \
+        XbeeTest_UART_Buffer[1] = (uint8_t)((REGISTER) >> 8 & 0xff);                               \
+        XbeeTest_UART_Buffer[2] = (uint8_t)(REGISTER & 0xff);                                      \
+        break;
+
         switch (XbeeTest_UART_DataNO) {
-        case 0: // 0-REG_PWR_TOTAL_CURRENT HI
-            XbeeTest_UART_Buffer[1] = REG_PWR_TOTAL_CURRENT >> 8;
-            XbeeTest_UART_Buffer[2] = REG_PWR_TOTAL_CURRENT;
-            break;
-            // 		 	case 1:		//1-REG_PWR_TOTAL_CURRENT LO
-            // 				XbeeTest_UART_Buffer[3]=REG_PWR_TOTAL_CURRENT;
-            // 				break;
-        case 2: // 2-REG_MOTOR_FB_RPM.left HI
-            XbeeTest_UART_Buffer[1] = REG_MOTOR_FB_RPM.left >> 8;
-            XbeeTest_UART_Buffer[2] = REG_MOTOR_FB_RPM.left;
-            break;
-            // 		 	case 3: 	//3-REG_MOTOR_FB_RPM.left LO
-            // 				XbeeTest_UART_Buffer[3]=REG_MOTOR_FB_RPM.left;
-            // 				break;
-        case 4: // 4-REG_MOTOR_FB_RPM.right HI
-            XbeeTest_UART_Buffer[1] = REG_MOTOR_FB_RPM.right >> 8;
-            XbeeTest_UART_Buffer[2] = REG_MOTOR_FB_RPM.right;
-            break;
-            // 		 	case 5: 	//5-REG_MOTOR_FB_RPM.right LO
-            // 				XbeeTest_UART_Buffer[3]=REG_MOTOR_FB_RPM.right;
-            // 				break;
-        case 6: // 6-REG_FLIPPER_FB_POSITION.pot1 HI
-            XbeeTest_UART_Buffer[1] = REG_FLIPPER_FB_POSITION.pot1 >> 8;
-            XbeeTest_UART_Buffer[2] = REG_FLIPPER_FB_POSITION.pot1;
-            break;
-            // 		 	case 7: 	//7-REG_FLIPPER_FB_POSITION.pot1 LO
-            // 				XbeeTest_UART_Buffer[3]=REG_FLIPPER_FB_POSITION.pot1;
-            // 				break;
-        case 8: // 8-REG_FLIPPER_FB_POSITION.pot2 HI
-            XbeeTest_UART_Buffer[1] = REG_FLIPPER_FB_POSITION.pot2 >> 8;
-            XbeeTest_UART_Buffer[2] = REG_FLIPPER_FB_POSITION.pot2;
-            break;
-            // 		 	case 9: 	//9-REG_FLIPPER_FB_POSITION.pot2 LO
-            // 				XbeeTest_UART_Buffer[3]=REG_FLIPPER_FB_POSITION.pot2;
-            // 				break;
-        case 10: // 10-REG_MOTOR_FB_CURRENT.left HI
-            XbeeTest_UART_Buffer[1] = REG_MOTOR_FB_CURRENT.left >> 8;
-            XbeeTest_UART_Buffer[2] = REG_MOTOR_FB_CURRENT.left;
-            break;
-            // 			case 11: 	//11-REG_MOTOR_FB_CURRENT.left LO
-            // 				XbeeTest_UART_Buffer[3]=REG_MOTOR_FB_CURRENT.left;
-            // 				break;
-        case 12: // 12-REG_MOTOR_FB_CURRENT.right HI
-            XbeeTest_UART_Buffer[1] = REG_MOTOR_FB_CURRENT.right >> 8;
-            XbeeTest_UART_Buffer[2] = REG_MOTOR_FB_CURRENT.right;
-            break;
-            // 			case 13:	//13-REG_MOTOR_FB_CURRENT.right LO
-            // 				XbeeTest_UART_Buffer[3]=REG_MOTOR_FB_CURRENT.right;
-            // 				break;
-        case 14: // 14-REG_MOTOR_ENCODER_COUNT.left HI
-            XbeeTest_UART_Buffer[1] = REG_MOTOR_ENCODER_COUNT.left >> 8;
-            XbeeTest_UART_Buffer[2] = REG_MOTOR_ENCODER_COUNT.left;
-            break;
-            // 		 	case 15:	//15-REG_MOTOR_ENCODER_COUNT.left LO
-            // 				XbeeTest_UART_Buffer[3]=REG_MOTOR_ENCODER_COUNT.left;
-            // 				break;
-        case 16: // 16-REG_MOTOR_ENCODER_COUNT.right HI
-            XbeeTest_UART_Buffer[1] = REG_MOTOR_ENCODER_COUNT.right >> 8;
-            XbeeTest_UART_Buffer[2] = REG_MOTOR_ENCODER_COUNT.right;
-            break;
-            // 		 	case 17:	//17-REG_MOTOR_ENCODER_COUNT.right LO
-            // 				XbeeTest_UART_Buffer[3]=REG_MOTOR_ENCODER_COUNT.right;
-            // 				break;
-        case 18: // 18-REG_MOTOR_FAULT_FLAG.left
+            CASE(0, REG_PWR_TOTAL_CURRENT)
+            CASE(2, REG_MOTOR_FB_RPM.left)
+            CASE(4, REG_MOTOR_FB_RPM.right)
+            CASE(6, REG_FLIPPER_FB_POSITION.pot1)
+            CASE(8, REG_FLIPPER_FB_POSITION.pot2)
+            CASE(10, REG_MOTOR_FB_CURRENT.left)
+            CASE(12, REG_MOTOR_FB_CURRENT.right)
+            CASE(14, REG_MOTOR_ENCODER_COUNT.left)
+            CASE(16, REG_MOTOR_ENCODER_COUNT.right)
+        case 18: // 18-REG_MOTOR_FAULT_FLAG
             XbeeTest_UART_Buffer[1] = REG_MOTOR_FAULT_FLAG.left;
             XbeeTest_UART_Buffer[2] = REG_MOTOR_FAULT_FLAG.right;
             break;
-            // 		 	case 19:	//19-REG_MOTOR_FAULT_FLAG.right
-            // 				XbeeTest_UART_Buffer[3]=REG_MOTOR_FAULT_FLAG.right;
-            // 				break;
-        case 20: // 20-REG_MOTOR_TEMP.left HI
-            XbeeTest_UART_Buffer[1] = REG_MOTOR_TEMP.left >> 8;
-            XbeeTest_UART_Buffer[2] = REG_MOTOR_TEMP.left;
-            break;
-            // 			case 21:	//21-REG_MOTOR_TEMP.left LO
-            // 				XbeeTest_UART_Buffer[3]=REG_MOTOR_TEMP.left;
-            // 				break;
-        case 22: // 22-REG_MOTOR_TEMP.right HI
-            XbeeTest_UART_Buffer[1] = REG_MOTOR_TEMP.right >> 8;
-            XbeeTest_UART_Buffer[2] = REG_MOTOR_TEMP.right;
-            break;
-            // 			case 23:	//23-REG_MOTOR_TEMP.right LO
-            // 				XbeeTest_UART_Buffer[3]=REG_MOTOR_TEMP.right;
-            // 				break;
-        case 24: // 24-REG_PWR_BAT_VOLTAGE.a HI
-            XbeeTest_UART_Buffer[1] = REG_PWR_BAT_VOLTAGE.a >> 8;
-            XbeeTest_UART_Buffer[2] = REG_PWR_BAT_VOLTAGE.a;
-            break;
-            // 			case 25:	//25-REG_PWR_BAT_VOLTAGE.a LO
-            // 				XbeeTest_UART_Buffer[3]=REG_PWR_BAT_VOLTAGE.a;
-            // 				break;
-        case 26: // 26-REG_PWR_BAT_VOLTAGE.b HI
-            XbeeTest_UART_Buffer[1] = REG_PWR_BAT_VOLTAGE.b >> 8;
-            XbeeTest_UART_Buffer[2] = REG_PWR_BAT_VOLTAGE.b;
-            break;
-            // 			case 27:	//27-REG_PWR_BAT_VOLTAGE.b LO
-            // 				XbeeTest_UART_Buffer[3]=REG_PWR_BAT_VOLTAGE.b;
-            // 				break;
-        case 28: // 28-EncoderInterval[0]
-            XbeeTest_UART_Buffer[1] = EncoderInterval[0] >> 8;
-            XbeeTest_UART_Buffer[2] = EncoderInterval[0];
-            break;
-        case 30: // 30-EncoderInterval[1]
-            XbeeTest_UART_Buffer[1] = EncoderInterval[1] >> 8;
-            XbeeTest_UART_Buffer[2] = EncoderInterval[1];
-            break;
-        case 32: // 32-EncoderInterval[2]
-            XbeeTest_UART_Buffer[1] = EncoderInterval[2] >> 8;
-            XbeeTest_UART_Buffer[2] = EncoderInterval[2];
-            break;
-        case 34: // 34-REG_ROBOT_REL_SOC_A
-            XbeeTest_UART_Buffer[1] = REG_ROBOT_REL_SOC_A >> 8;
-            XbeeTest_UART_Buffer[2] = REG_ROBOT_REL_SOC_A;
-            break;
-        case 36: // 36-REG_ROBOT_REL_SOC_B
-            XbeeTest_UART_Buffer[1] = REG_ROBOT_REL_SOC_B >> 8;
-            XbeeTest_UART_Buffer[2] = REG_ROBOT_REL_SOC_B;
-            break;
-        case 38: // 38-REG_MOTOR_CHARGER_STATE
-            XbeeTest_UART_Buffer[1] = REG_MOTOR_CHARGER_STATE >> 8;
-            XbeeTest_UART_Buffer[2] = REG_MOTOR_CHARGER_STATE;
-            break;
-        case 40: // 40-BuildNO
-            XbeeTest_UART_Buffer[1] = BuildNO >> 8;
-            XbeeTest_UART_Buffer[2] = BuildNO;
-            break;
-        case 42: // 42-REG_PWR_A_CURRENT
-            XbeeTest_UART_Buffer[1] = REG_PWR_A_CURRENT >> 8;
-            XbeeTest_UART_Buffer[2] = REG_PWR_A_CURRENT;
-            break;
-        case 44: // 44-REG_PWR_B_CURRENT
-            XbeeTest_UART_Buffer[1] = REG_PWR_B_CURRENT >> 8;
-            XbeeTest_UART_Buffer[2] = REG_PWR_B_CURRENT;
-            break;
-        case 46: // 46-REG_MOTOR_FLIPPER_ANGLE
-            XbeeTest_UART_Buffer[1] = REG_MOTOR_FLIPPER_ANGLE >> 8;
-            XbeeTest_UART_Buffer[2] = REG_MOTOR_FLIPPER_ANGLE;
-            break;
-        case 48: // 46-REG_MOTOR_FLIPPER_ANGLE
-            XbeeTest_UART_Buffer[1] = Xbee_SIDE_FAN_SPEED >> 8;
-            XbeeTest_UART_Buffer[2] = Xbee_SIDE_FAN_SPEED;
-            break;
-        case 50: // 46-REG_MOTOR_FLIPPER_ANGLE
-            XbeeTest_UART_Buffer[1] = Xbee_Low_Speed_mode >> 8;
-            XbeeTest_UART_Buffer[2] = Xbee_Low_Speed_mode;
-            break;
-        case 52: // 52-REG_BATTERY_STATUS_A
-            XbeeTest_UART_Buffer[1] = REG_BATTERY_STATUS_A >> 8;
-            XbeeTest_UART_Buffer[2] = REG_BATTERY_STATUS_A;
-            break;
-        case 54: // 54-REG_BATTERY_STATUS_B
-            XbeeTest_UART_Buffer[1] = REG_BATTERY_STATUS_B >> 8;
-            XbeeTest_UART_Buffer[2] = REG_BATTERY_STATUS_B;
-            break;
-        case 56: // 56-REG_BATTERY_MODE_A
-            XbeeTest_UART_Buffer[1] = REG_BATTERY_MODE_A >> 8;
-            XbeeTest_UART_Buffer[2] = REG_BATTERY_MODE_A;
-            break;
-        case 58: // 58-REG_BATTERY_MODE_B
-            XbeeTest_UART_Buffer[1] = REG_BATTERY_MODE_B >> 8;
-            XbeeTest_UART_Buffer[2] = REG_BATTERY_MODE_B;
-            break;
-        case 60: // 60-REG_BATTERY_TEMP_A
-            XbeeTest_UART_Buffer[1] = REG_BATTERY_TEMP_A >> 8;
-            XbeeTest_UART_Buffer[2] = REG_BATTERY_TEMP_A;
-            break;
-        case 62: // 62-REG_BATTERY_TEMP_B
-            XbeeTest_UART_Buffer[1] = REG_BATTERY_TEMP_B >> 8;
-            XbeeTest_UART_Buffer[2] = REG_BATTERY_TEMP_B;
-            break;
+            CASE(20, REG_MOTOR_TEMP.left)
+            CASE(22, REG_MOTOR_TEMP.right)
+            CASE(24, REG_PWR_BAT_VOLTAGE.a)
+            CASE(26, REG_PWR_BAT_VOLTAGE.b)
+            CASE(28, EncoderInterval[MOTOR_LEFT])
+            CASE(30, EncoderInterval[MOTOR_RIGHT])
+            CASE(32, EncoderInterval[MOTOR_FLIPPER])
+            CASE(34, REG_ROBOT_REL_SOC_A)
+            CASE(36, REG_ROBOT_REL_SOC_B)
+            CASE(38, REG_MOTOR_CHARGER_STATE)
+            CASE(40, BuildNO)
+            CASE(42, REG_PWR_A_CURRENT)
+            CASE(44, REG_PWR_B_CURRENT)
+            CASE(46, REG_MOTOR_FLIPPER_ANGLE)
+            CASE(48, Xbee_SIDE_FAN_SPEED)
+            CASE(50, Xbee_Low_Speed_mode)
+            CASE(52, REG_BATTERY_STATUS_A)
+            CASE(54, REG_BATTERY_STATUS_B)
+            CASE(56, REG_BATTERY_MODE_A)
+            CASE(58, REG_BATTERY_MODE_B)
+            CASE(60, REG_BATTERY_TEMP_A)
+            CASE(62, REG_BATTERY_TEMP_B)
+            CASE(64, REG_BATTERY_VOLTAGE_A)
+            CASE(66, REG_BATTERY_VOLTAGE_B)
+            CASE(68, REG_BATTERY_CURRENT_A)
+            CASE(70, REG_BATTERY_CURRENT_B)
 
         default:
-            XbeeTest_UART_Buffer[3] = 0;
+            XbeeTest_UART_Buffer[0] = 0;
+            XbeeTest_UART_Buffer[1] = 0;
             break;
         }
+#undef CASE
         // add checksum of the package
         XbeeTest_UART_Buffer[3] =
             255 -
@@ -2339,15 +2154,6 @@ void Motor_ADC1Interrupt(void) {
         Xbee_Incoming_Cmd[0] = 0;
         Xbee_Incoming_Cmd[1] = 0;
     }
-
-    // 	if((Xbee_MOTOR_VELOCITY[0]||Xbee_MOTOR_VELOCITY[1]||Xbee_MOTOR_VELOCITY[2])!=0)
-    // 	{
-    // 		XbeeTest_UART_DataNO++;//index++, if transmit reg is full, skip this
-    // 		if(XbeeTest_UART_DataNO==201)
-    // 		{
-    // 			XbeeTest_UART_DataNO=0;
-    // 		}
-    // 	}
 #endif
 }
 
@@ -2396,9 +2202,9 @@ void Motor_U1RXInterrupt(void) {
                 // input data range 0~250, 125 is stop, 0 is backwards full speed, 250 is forward
                 // full speed for Marge, the right and left is flipped, so left and right need to be
                 // flipped
-                Xbee_MOTOR_VELOCITY[0] = (XbeeTest_Buffer[0] * 8 - 1000);
-                Xbee_MOTOR_VELOCITY[1] = (XbeeTest_Buffer[1] * 8 - 1000);
-                Xbee_MOTOR_VELOCITY[2] = (XbeeTest_Buffer[2] * 8 - 1000);
+                Xbee_MOTOR_VELOCITY[MOTOR_LEFT] = (XbeeTest_Buffer[0] * 8 - 1000);
+                Xbee_MOTOR_VELOCITY[MOTOR_RIGHT] = (XbeeTest_Buffer[1] * 8 - 1000);
+                Xbee_MOTOR_VELOCITY[MOTOR_FLIPPER] = (XbeeTest_Buffer[2] * 8 - 1000);
                 Xbee_Incoming_Cmd[0] = XbeeTest_Buffer[3];
                 Xbee_Incoming_Cmd[1] = XbeeTest_Buffer[4];
                 // see if this is a fan cmd
@@ -2678,10 +2484,10 @@ void turn_on_power_bus_hybrid_method(void) {
 void handle_power_bus(void) {
 
     unsigned char battery_data1[20], battery_data2[20];
-    unsigned char old_battery[7] = {'B', 'B', '-', '2', '5', '9', '0'};
-    unsigned char new_battery[9] = {'B', 'T', '-', '7', '0', '7', '9', '1', 'B'};
-    unsigned char BT70791_CK[9] = {'B', 'T', '-', '7', '0', '7', '9', '1', 'C'};
-    unsigned char custom_matthews_battery[7] = {'R', 'O', 'B', 'O', 'T', 'E', 'X'};
+    unsigned char DEVICE_NAME_OLD_BATTERY[7] = {'B', 'B', '-', '2', '5', '9', '0'};
+    unsigned char DEVICE_NAME_NEW_BATTERY[9] = {'B', 'T', '-', '7', '0', '7', '9', '1', 'B'};
+    unsigned char DEVICE_NAME_BT70791_CK[9] = {'B', 'T', '-', '7', '0', '7', '9', '1', 'C'};
+    unsigned char DEVICE_NAME_CUSTOM_BATTERY[7] = {'R', 'O', 'B', 'O', 'T', 'E', 'X'};
     unsigned int j;
 
     // enable outputs for power bus
@@ -2699,8 +2505,10 @@ void handle_power_bus(void) {
         readI2C3_Block(0x0b, 0x21, 10, battery_data2);
 
         // If we're using the old battery (BB-2590)
-        if (check_string_match(old_battery, battery_data1, 7) ||
-            check_string_match(old_battery, battery_data2, 7)) {
+        if (check_string_match(DEVICE_NAME_OLD_BATTERY, battery_data1,
+                               sizeof(DEVICE_NAME_OLD_BATTERY)) ||
+            check_string_match(DEVICE_NAME_OLD_BATTERY, battery_data2,
+                               sizeof(DEVICE_NAME_OLD_BATTERY))) {
             send_debug_uart_string("BATTERY:  BB-2590\r\n", 19);
             block_ms(10);
             turn_on_power_bus_old_method();
@@ -2708,8 +2516,10 @@ void handle_power_bus(void) {
         }
 
         // If we're using the new battery (BT-70791B)
-        if (check_string_match(new_battery, battery_data1, 9) ||
-            check_string_match(new_battery, battery_data2, 9)) {
+        if (check_string_match(DEVICE_NAME_NEW_BATTERY, battery_data1,
+                               sizeof(DEVICE_NAME_NEW_BATTERY)) ||
+            check_string_match(DEVICE_NAME_NEW_BATTERY, battery_data2,
+                               sizeof(DEVICE_NAME_NEW_BATTERY))) {
             send_debug_uart_string("BATTERY:  BT-70791B\r\n", 21);
             block_ms(10);
             turn_on_power_bus_new_method();
@@ -2717,8 +2527,10 @@ void handle_power_bus(void) {
         }
 
         // If we're using Bren-Tronics BT-70791C
-        if (check_string_match(BT70791_CK, battery_data1, 9) ||
-            check_string_match(BT70791_CK, battery_data2, 9)) {
+        if (check_string_match(DEVICE_NAME_BT70791_CK, battery_data1,
+                               sizeof(DEVICE_NAME_BT70791_CK)) ||
+            check_string_match(DEVICE_NAME_BT70791_CK, battery_data2,
+                               sizeof(DEVICE_NAME_BT70791_CK))) {
             send_debug_uart_string("BATTERY:  BT-70791C\r\n", 21);
             block_ms(10);
             turn_on_power_bus_new_method();
@@ -2726,8 +2538,10 @@ void handle_power_bus(void) {
         }
 
         // if we're using the low lithium custom Matthew's battery
-        if (check_string_match(custom_matthews_battery, battery_data1, 7) ||
-            check_string_match(custom_matthews_battery, battery_data2, 7)) {
+        if (check_string_match(DEVICE_NAME_CUSTOM_BATTERY, battery_data1,
+                               sizeof(DEVICE_NAME_CUSTOM_BATTERY)) ||
+            check_string_match(DEVICE_NAME_CUSTOM_BATTERY, battery_data2,
+                               sizeof(DEVICE_NAME_CUSTOM_BATTERY))) {
             send_debug_uart_string("BATTERY:  ROBOTEX\r\n", 19);
             block_ms(10);
             turn_on_power_bus_old_method();

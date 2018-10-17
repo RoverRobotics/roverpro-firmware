@@ -39,7 +39,7 @@ void I2C2Update(void) {
     static uint8_t a_byte;
     i2c_result_t i2c_result;
 
-    if (I2C2XmitReset == true) {
+    if (I2C2XmitReset) {
         I2C2XmitReset = false; // clear the flag
         resume_at = 0;         // start from the beginning
     }
@@ -93,6 +93,38 @@ void I2C2Update(void) {
             REG_BATTERY_TEMP_A = a_word;
         }
 
+        // Battery ReadWord 0x09 [="Voltage"]
+        STEP(i2c_start(BUS))
+        STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_WRITE))
+        STEP(i2c_write_byte(BUS, 0x09))
+        STEP(i2c_restart(BUS))
+        STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_READ))
+        STEP(i2c_check_ack(BUS, &ack))
+        STEP(i2c_receive(BUS))
+        STEP(i2c_read_byte(BUS, ACK, &a))
+        STEP(i2c_receive(BUS))
+        STEP(i2c_read_byte(BUS, NACK, &b))
+        if (ack == ACK) {
+            REG_BATTERY_VOLTAGE_A = a + (b << 8);
+        }
+        STEP(i2c_stop(BUS))
+
+        // Battery ReadWord 0x0a [="Current"]
+        STEP(i2c_start(BUS))
+        STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_WRITE))
+        STEP(i2c_write_byte(BUS, 0x0a))
+        STEP(i2c_restart(BUS))
+        STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_READ))
+        STEP(i2c_check_ack(BUS, &ack))
+        STEP(i2c_receive(BUS))
+        STEP(i2c_read_byte(BUS, ACK, &a))
+        STEP(i2c_receive(BUS))
+        STEP(i2c_read_byte(BUS, NACK, &b))
+        if (ack == ACK) {
+            REG_BATTERY_CURRENT_A = a + (b << 8);
+        }
+        STEP(i2c_stop(BUS))
+
         I2C2TimerExpired = false; // reset the I2C2 update timer
         resume_at = -1;
     }
@@ -108,7 +140,7 @@ void I2C3Update(void) {
     static uint16_t a_word;
     i2c_result_t i2c_result;
 
-    if (I2C3XmitReset == true) {
+    if (I2C3XmitReset) {
         I2C3XmitReset = false; // clear the flag
         resume_at = 0;         //  start from the beginning
     }
@@ -151,6 +183,38 @@ void I2C3Update(void) {
         if (i2c_result == I2C_OKAY) {
             REG_BATTERY_TEMP_B = a_word;
         }
+
+        // Battery ReadWord 0x09 [="Voltage"]
+        STEP(i2c_start(BUS))
+        STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_WRITE))
+        STEP(i2c_write_byte(BUS, 0x09))
+        STEP(i2c_restart(BUS))
+        STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_READ))
+        STEP(i2c_check_ack(BUS, &ack))
+        STEP(i2c_receive(BUS))
+        STEP(i2c_read_byte(BUS, ACK, &a))
+        STEP(i2c_receive(BUS))
+        STEP(i2c_read_byte(BUS, NACK, &b))
+        if (ack == ACK) {
+            REG_BATTERY_VOLTAGE_B = a + (b << 8);
+        }
+        STEP(i2c_stop(BUS))
+
+        // Battery ReadWord 0x0a [="Current"]
+        STEP(i2c_start(BUS))
+        STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_WRITE))
+        STEP(i2c_write_byte(BUS, 0x0a))
+        STEP(i2c_restart(BUS))
+        STEP(i2c_write_addr(BUS, BATTERY_ADDRESS, I2C_READ))
+        STEP(i2c_check_ack(BUS, &ack))
+        STEP(i2c_receive(BUS))
+        STEP(i2c_read_byte(BUS, ACK, &a))
+        STEP(i2c_receive(BUS))
+        STEP(i2c_read_byte(BUS, NACK, &b))
+        if (ack == ACK) {
+            REG_BATTERY_CURRENT_B = a + (b << 8);
+        }
+        STEP(i2c_stop(BUS))
 
         I2C3TimerExpired = false; // reset the I2C3 update timer
         resume_at = -1;
