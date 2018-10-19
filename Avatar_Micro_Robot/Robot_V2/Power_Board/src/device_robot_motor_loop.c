@@ -45,7 +45,7 @@ float IIRFilter(const uint8_t i, const float x, const float alpha, const bool sh
 #define LMOTOR_FILTER 0
 #define RMOTOR_FILTER 1
 
-#define XbeeTest
+#define UART_CONTROL
 
 // OCU speed filter-related values
 #define MAX_DESIRED_SPEED 900 // [au], caps incoming signal from OCU
@@ -87,7 +87,7 @@ void handle_closed_loop_control(unsigned int OverCurrent) {
     // printf("%f|",desired_speed_left);
     float desired_speed_right =
         IIRFilter(RMOTOR_FILTER, GetDesiredSpeed(kMotorRight), ALPHA, false);
-#ifndef XbeeTest
+#ifndef UART_CONTROL
     // if the user releases the joystick, come to a relatively quick stop by clearing the integral
     // term
     if ((abs(REG_MOTOR_VELOCITY.left) < 50) && (abs(REG_MOTOR_VELOCITY.right) < 50)) {
@@ -102,10 +102,11 @@ void handle_closed_loop_control(unsigned int OverCurrent) {
     }
 #endif
 
-#ifdef XbeeTest
+#ifdef UART_CONTROL
     // if the user releases the joystick, come to a relatively quick stop by clearing the integral
     // term
-    if ((abs(Xbee_MOTOR_VELOCITY[0]) < 50) && (abs(Xbee_MOTOR_VELOCITY[1]) < 50)) {
+    if ((abs(uart_motor_velocity[MOTOR_LEFT]) < 50) &&
+        (abs(uart_motor_velocity[MOTOR_RIGHT]) < 50)) {
         PID_Reset_Integral(kMotorLeft);
         PID_Reset_Integral(kMotorRight);
 

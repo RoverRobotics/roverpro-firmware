@@ -55,9 +55,7 @@ void PF FIRST_PROGRAMMABLE_FUNC callFunc(COMMAND command, void *params) { return
 // GLOBAL VARIABLES
 // -------------------------------------------------------------------------
 
-#pragma udata
-
-int gNewData;
+bool USB_New_Data_Received;
 int gpio_id = 0;
 int gRegisterCount = 0;
 // uint8_t OutPacket[OUT_PACKET_LENGTH];
@@ -80,8 +78,6 @@ extern USB_DEVICE_DESCRIPTOR device_dsc;
 // -------------------------------------------------------------------------
 // CODE
 // -------------------------------------------------------------------------
-
-#pragma code
 
 int PF main(void) {
     InitializeSystem();
@@ -179,8 +175,8 @@ void ProcessIO(void) {
         return;
 
     if (!USBHandleBusy(USBGenericOutHandle)) {
-        gNewData = !gNewData; // toggle new data flag for those watching
-        i = 0;                // reset IN packet pointer
+        USB_New_Data_Received = true;
+        i = 0; // reset IN packet pointer
 
         // PARSE INCOMING PACKET ----------------------------------------------
         while (1) {

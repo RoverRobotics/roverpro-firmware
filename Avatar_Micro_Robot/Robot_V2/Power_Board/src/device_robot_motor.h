@@ -72,7 +72,7 @@ typedef enum MotorState2 {
 #define SpeedUpdateTimer 5          // 200Hz
 #define CurrentSurgeRecoverTimer 10 // 10ms
 #define USBTimeOutTimer 333         // 3Hz--333ms
-#define Xbee_FanSpeedTimer 333      // 3Hz--333ms
+#define UART_FAN_SPEED_TIMER 333    // 3Hz--333ms
 #define SwitchDirectionTimer 10     // 10ms
 #define StateMachineTimer 1         // 1KHz
 #define RPMTimer 1                  // 1KHz
@@ -109,10 +109,10 @@ typedef enum {
 #define M2_PWM _RP2R
 #define M3_PWM _RP25R
 
-// XbeeTest Only
+// UART_CONTROL Only
 #define U1RX_RPn 6
 #define U1TX_RPn _RP7R
-// XbeeTest End
+// UART_CONTROL End
 
 // Analog pins
 #define M1_TEMP_EN(a) _PCFG2 = !(a)
@@ -228,7 +228,7 @@ enum I2CDeviceAddress {
 
 extern int16_t Robot_Motor_TargetSpeedUSB[MOTOR_CHANNEL_COUNT];
 
-extern int gNewData;
+extern bool USB_New_Data_Received;
 
 /////function
 void PWM1Ini(void);
@@ -328,6 +328,5 @@ void TestOC();
 
 extern int Cell_A_Current[SAMPLE_LENGTH];
 extern int Cell_B_Current[SAMPLE_LENGTH];
-extern int16_t Xbee_MOTOR_VELOCITY[MOTOR_CHANNEL_COUNT];
-extern uint8_t Xbee_SIDE_FAN_SPEED;
-extern uint8_t Xbee_SIDE_FAN_NEW;
+extern int16_t uart_motor_velocity[MOTOR_CHANNEL_COUNT];
+extern bool uart_has_new_fan_speed;
