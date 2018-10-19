@@ -1,8 +1,7 @@
-#include "device_robot_motor_loop.h"
-#include "p24FJ256GB106.h"
+#include <p24fxxxx.h>
 #include "stdhdr.h"
+#include "device_robot_motor_loop.h"
 #include "device_robot_motor.h"
-#include <stdbool.h>
 #include "../closed_loop_control/core/InputCapture.h"
 
 // supported motor options

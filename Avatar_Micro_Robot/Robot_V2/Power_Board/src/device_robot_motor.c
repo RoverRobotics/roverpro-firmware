@@ -1,7 +1,6 @@
-#include "p24FJ256GB106.h"
+#include <p24fxxxx.h>
 #include "stdhdr.h"
 #include "device_robot_motor.h"
-#include "i2c.h"
 #include "interrupt_switch.h"
 #include "testing.h"
 #include "debug_uart.h"
@@ -114,16 +113,10 @@ long RPM4Control[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH_CONTROL] = {{0}};
 int RPM4ControlPointer[MOTOR_CHANNEL_COUNT] = {0};
 long ControlRPM[MOTOR_CHANNEL_COUNT] = {0};
 long TotalCurrent;
-// long
-// BackEMFCOE[3][SAMPLE_LENGTH]={{2932,2932,2932,2932},{2932,2932,2932,2932},{2932,2932,2932,2932}};
-// long BackEMFCOEF[3]={2932,2932,2932};
-// int BackEMFCOEPointer=0;
-int EncoderICClock = 10000;
 long EnCount[MOTOR_CHANNEL_COUNT] = {0};
 int16_t Robot_Motor_TargetSpeedUSB[MOTOR_CHANNEL_COUNT] = {0};
 
 int Timer3Count = 0;
-// int BackEMFSampleEnabled=false;
 int M3_POSFB = 0;
 int M3_POSFB_Array[2][SAMPLE_LENGTH] = {{0}}; ///< Flipper Motor positional feedback data
 int M3_POSFB_ArrayPointer = 0;
@@ -175,7 +168,7 @@ static void read_stored_angle_offset(void);
 void turn_on_power_bus_new_method(void);
 void turn_on_power_bus_old_method(void);
 void turn_on_power_bus_hybrid_method(void);
-int check_string_match(unsigned char *string1, unsigned char *string2, unsigned char length);
+bool check_string_match(unsigned char *string1, unsigned char *string2, unsigned char length);
 
 static void alternate_power_bus(void);
 
@@ -254,18 +247,14 @@ int wrap_angle(int value) { return (value % 360 + 360) % 360; }
 void DeviceRobotMotorInit() {
     // local variables
 
-    block_ms(100);
-    ClrWdt();
-
     MC_Ini();
 
     handle_power_bus();
-    TMPSensorICIni();
     FANCtrlIni();
 
-    ProtectHB(LMotor);
-    ProtectHB(RMotor);
-    ProtectHB(Flipper);
+    ProtectHB(MOTOR_LEFT);
+    ProtectHB(MOTOR_RIGHT);
+    ProtectHB(MOTOR_FLIPPER);
 
     test_function();
 
@@ -471,22 +460,11 @@ void Device_MotorController_Process() {
         CurrentSurgeRecoverTimerExpired = true;
     }
     if (I2C2TimerCount >= I2C2Timer) {
-        // i2c2 didn't finish last time -- init variables so that
-        // the value doesn't just stay the same
-        if (I2C2TimerExpired == true) {
-            BREAKPOINT();
-            re_init_i2c2();
-        }
         I2C2TimerExpired = true;
         I2C2TimerCount = 0;
         I2C2XmitReset = true;
     }
     if (I2C3TimerCount >= I2C3Timer) {
-
-        if (I2C3TimerExpired == true) {
-            BREAKPOINT();
-            re_init_i2c3();
-        }
         I2C3TimerExpired = true;
         I2C3TimerCount = 0;
         I2C3XmitReset = true;
@@ -626,20 +604,7 @@ void Device_MotorController_Process() {
         } else if (temp1 <= 341 || temp2 <= 341) {
             overcurrent_counter = 0;
         }
-        /*		if(REG_PWR_BAT_VOLTAGE.a<=BATVoltageLimit ||
-           REG_PWR_BAT_VOLTAGE.b<=BATVoltageLimit)//Battery voltage too low, turn off the power bus
-                       {
-                               Cell_Ctrl(Cell_A,Cell_OFF);
-                               Cell_Ctrl(Cell_B,Cell_OFF);
-                               ProtectHB(MOTOR_LEFT);
-                               ProtectHB(MOTOR_RIGHT);
-                               ProtectHB(MOTOR_FLIPPER);
-                               OverCurrent=true;
-                               BATRecoveryTimerCount=0;
-                               BATRecoveryTimerEnabled=true;
-                               BATRecoveryTimerExpired=false;
-                               //block_ms(10000);
-                       }*/
+
 #endif
     }
     if (BATRecoveryTimerExpired) {
@@ -1416,9 +1381,8 @@ void MC_Ini(void) // initialzation for the whole program
     // IniIC1();
     // IniIC3();
 
-    I2C1Ini();
-    I2C2Ini();
-    I2C3Ini();
+    i2c_enable(I2C_BUS2);
+    i2c_enable(I2C_BUS3);
 
 #ifdef XbeeTest
     UART1Ini();
@@ -1442,114 +1406,36 @@ void InterruptIni() {
 #endif
 }
 
-void I2C3ResigsterWrite(int8_t ICAddW, int8_t RegAdd, int8_t Data) {
-    IdleI2C3();
-    StartI2C3();
-    IdleI2C3();
-
-    MasterWriteI2C3(ICAddW);
-    IdleI2C3();
-
-    MasterWriteI2C3(RegAdd);
-    IdleI2C3();
-    MasterWriteI2C3(Data);
-    IdleI2C3();
-    StopI2C3();
-    IdleI2C3();
-}
+#define FCY 16000000UL // instruction clock
+#include "libpic30.h"
 
 void FANCtrlIni() {
-
-    unsigned int i;
-
-    block_ms(20);
-    ClrWdt();
+    uint8_t a_byte;
 
     // reset the IC
-    writeI2C2Reg(FAN_CONTROLLER_ADDRESS, 0x02, 0b01011000);
-    block_ms(20);
-    ClrWdt();
+    a_byte = 0b01011000;
+    i2c_synchronously_await(I2C_BUS2, i2c_op_write_byte(FAN_CONTROLLER_ADDRESS, 0x02, &a_byte));
 
     // auto fan speed control mode
     // writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x11,0b00111100);
 
     // manual fan speed control mode
-    writeI2C2Reg(FAN_CONTROLLER_ADDRESS, 0x11, 0x00);
+    a_byte = 0;
+    i2c_synchronously_await(I2C_BUS2, i2c_op_write_byte(FAN_CONTROLLER_ADDRESS, 0x11, &a_byte));
+    i2c_synchronously_await(I2C_BUS2, i2c_op_write_byte(FAN_CONTROLLER_ADDRESS, 0x12, &a_byte));
 
-    block_ms(20);
-
-    writeI2C2Reg(FAN_CONTROLLER_ADDRESS, 0x12, 0);
-
-    block_ms(20);
-
-    // writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x13,0xff);
-
-    block_ms(20);
-
+    // TODO: this value is unused. Maybe make it right and update in our main I2C loop?
     REG_MOTOR_SIDE_FAN_SPEED = 48;
 
-    writeI2C2Reg(FAN_CONTROLLER_ADDRESS, 0x0B, 240);
-    for (i = 0; i < 10; i++) {
-        ClrWdt();
-        block_ms(250);
-        ClrWdt();
-        block_ms(250);
-        ClrWdt();
-    }
-    // writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x0B,0);
+    // blast fan up to max duty cycle
+    a_byte = 240;
+    i2c_synchronously_await(I2C_BUS2, i2c_op_write_byte(FAN_CONTROLLER_ADDRESS, 0x0b, &a_byte));
 
-    block_ms(20);
-    ClrWdt();
+    block_ms(3000);
 
-    // for FAN1 starting temperature
-    /*	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x0F,10);
-
-           //for FAN2 starting temperature
-           writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x10,Fan2LowTemp);
-
-           //for duty-cycle step
-           writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x13,0b11111111);
-
-           //for duty-cycle change rate
-           writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x12,0b00100100);
-
-           ClrWdt();
-           block_ms(1000);
-           ClrWdt();
-           //for FAN1 starting temperature
-           writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x0F,Fan1LowTemp);
-           */
-}
-
-void TMPSensorICIni() {
-    // use default settings
-    /*
-            I2C3DataMSOut[0]=1;//lock the I2C3 out data packet,
-            I2C3DataMSOut[1]=4;//packet length :3 int
-            I2C3DataMSOut[2]=(TMPSensorICAddress<<=1)&0xFE;//bit 1=0, write to slave
-            I2C3DataMSOut[3]=0b00000001;//configuration register
-            I2C3DataMSOut[4]=0b01100000;
-            I2C3DataMSOut[5]=0b10100000;
-    */
-}
-
-void I2C1Ini() {}
-
-void I2C2Ini() {
-    OpenI2C2(I2C_ON & I2C_IDLE_CON & I2C_CLK_HLD & I2C_IPMI_DIS & I2C_7BIT_ADD & I2C_SLW_DIS &
-                 I2C_SM_DIS & I2C_GCALL_DIS & I2C_STR_DIS & I2C_NACK,
-             0xff);
-
-    IdleI2C2();
-}
-
-void I2C3Ini() {
-
-    OpenI2C3(I2C_ON & I2C_IDLE_CON & I2C_CLK_HLD & I2C_IPMI_DIS & I2C_7BIT_ADD & I2C_SLW_DIS &
-                 I2C_SM_DIS & I2C_GCALL_DIS & I2C_STR_DIS & I2C_NACK,
-             0xff);
-
-    IdleI2C3();
+    // return fan to low duty cycle
+    a_byte = 0;
+    i2c_synchronously_await(I2C_BUS2, i2c_op_write_byte(FAN_CONTROLLER_ADDRESS, 0x0b, &a_byte));
 }
 
 /*****************************************************************************/
@@ -2406,8 +2292,6 @@ void turn_on_power_bus_new_method(void) {
 
         k = k0 + i * i / 4;
         // k+=10;
-
-        ClrWdt();
     }
 
     Cell_Ctrl(Cell_A, Cell_ON);
@@ -2425,7 +2309,6 @@ void turn_on_power_bus_old_method(void) {
         Cell_Ctrl(Cell_A, Cell_OFF);
         Cell_Ctrl(Cell_B, Cell_OFF);
         block_ms(40);
-        ClrWdt();
     }
 
     Cell_Ctrl(Cell_A, Cell_ON);
@@ -2454,13 +2337,10 @@ void turn_on_power_bus_hybrid_method(void) {
             if (i > 20)
                 break;
 
-            ClrWdt();
             block_ms(10);
         }
 
-        ClrWdt();
         block_ms(40);
-        ClrWdt();
         // k+=10;
         k = k0 + i * i / 4;
         /*if(i<10000)
@@ -2482,75 +2362,76 @@ void turn_on_power_bus_hybrid_method(void) {
 }
 
 void handle_power_bus(void) {
-
-    unsigned char battery_data1[20], battery_data2[20];
+#define BATTERY_DATA_LEN 20
+    unsigned char battery_data1[BATTERY_DATA_LEN], battery_data2[BATTERY_DATA_LEN];
     unsigned char DEVICE_NAME_OLD_BATTERY[7] = {'B', 'B', '-', '2', '5', '9', '0'};
     unsigned char DEVICE_NAME_NEW_BATTERY[9] = {'B', 'T', '-', '7', '0', '7', '9', '1', 'B'};
     unsigned char DEVICE_NAME_BT70791_CK[9] = {'B', 'T', '-', '7', '0', '7', '9', '1', 'C'};
     unsigned char DEVICE_NAME_CUSTOM_BATTERY[7] = {'R', 'O', 'B', 'O', 'T', 'E', 'X'};
     unsigned int j;
+    I2CResult result;
+    I2COperationDef op;
 
     // enable outputs for power bus
     CELL_A_MOS_EN(1);
     CELL_B_MOS_EN(1);
 
     // initialize i2c buses
-    I2C2Ini();
-    I2C3Ini();
+    i2c_enable(I2C_BUS2);
+    i2c_enable(I2C_BUS3);
 
     for (j = 0; j < 3; j++) {
-
         // Read "Device Name" from battery
-        readI2C2_Block(0x0b, 0x21, 10, battery_data1);
-        readI2C3_Block(0x0b, 0x21, 10, battery_data2);
+        op = i2c_op_read_block(BATTERY_ADDRESS, 0x21, battery_data1, BATTERY_DATA_LEN);
+        result = i2c_synchronously_await(I2C_BUS2, op);
+        if (result == I2C_OKAY)
+            break;
+        op = i2c_op_read_block(BATTERY_ADDRESS, 0x21, battery_data2, BATTERY_DATA_LEN);
+        result = i2c_synchronously_await(I2C_BUS3, op);
+        if (result == I2C_OKAY)
+            break;
+    }
 
-        // If we're using the old battery (BB-2590)
-        if (check_string_match(DEVICE_NAME_OLD_BATTERY, battery_data1,
-                               sizeof(DEVICE_NAME_OLD_BATTERY)) ||
-            check_string_match(DEVICE_NAME_OLD_BATTERY, battery_data2,
-                               sizeof(DEVICE_NAME_OLD_BATTERY))) {
-            send_debug_uart_string("BATTERY:  BB-2590\r\n", 19);
-            block_ms(10);
-            turn_on_power_bus_old_method();
-            return;
-        }
+    // If we're using the old battery (BB-2590)
+    if (check_string_match(DEVICE_NAME_OLD_BATTERY, battery_data1,
+                           sizeof(DEVICE_NAME_OLD_BATTERY)) ||
+        check_string_match(DEVICE_NAME_OLD_BATTERY, battery_data2,
+                           sizeof(DEVICE_NAME_OLD_BATTERY))) {
+        send_debug_uart_string("BATTERY:  BB-2590\r\n", 19);
+        block_ms(10);
+        turn_on_power_bus_old_method();
+        return;
+    }
 
-        // If we're using the new battery (BT-70791B)
-        if (check_string_match(DEVICE_NAME_NEW_BATTERY, battery_data1,
-                               sizeof(DEVICE_NAME_NEW_BATTERY)) ||
-            check_string_match(DEVICE_NAME_NEW_BATTERY, battery_data2,
-                               sizeof(DEVICE_NAME_NEW_BATTERY))) {
-            send_debug_uart_string("BATTERY:  BT-70791B\r\n", 21);
-            block_ms(10);
-            turn_on_power_bus_new_method();
-            return;
-        }
+    // If we're using the new battery (BT-70791B)
+    if (check_string_match(DEVICE_NAME_NEW_BATTERY, battery_data1,
+                           sizeof(DEVICE_NAME_NEW_BATTERY)) ||
+        check_string_match(DEVICE_NAME_NEW_BATTERY, battery_data2,
+                           sizeof(DEVICE_NAME_NEW_BATTERY))) {
+        send_debug_uart_string("BATTERY:  BT-70791B\r\n", 21);
+        block_ms(10);
+        turn_on_power_bus_new_method();
+        return;
+    }
 
-        // If we're using Bren-Tronics BT-70791C
-        if (check_string_match(DEVICE_NAME_BT70791_CK, battery_data1,
-                               sizeof(DEVICE_NAME_BT70791_CK)) ||
-            check_string_match(DEVICE_NAME_BT70791_CK, battery_data2,
-                               sizeof(DEVICE_NAME_BT70791_CK))) {
-            send_debug_uart_string("BATTERY:  BT-70791C\r\n", 21);
-            block_ms(10);
-            turn_on_power_bus_new_method();
-            return;
-        }
+    // If we're using Bren-Tronics BT-70791C
+    if (check_string_match(DEVICE_NAME_BT70791_CK, battery_data1, sizeof(DEVICE_NAME_BT70791_CK)) ||
+        check_string_match(DEVICE_NAME_BT70791_CK, battery_data2, sizeof(DEVICE_NAME_BT70791_CK))) {
+        send_debug_uart_string("BATTERY:  BT-70791C\r\n", 21);
+        block_ms(10);
+        turn_on_power_bus_new_method();
+        return;
+    }
 
-        // if we're using the low lithium custom Matthew's battery
-        if (check_string_match(DEVICE_NAME_CUSTOM_BATTERY, battery_data1,
-                               sizeof(DEVICE_NAME_CUSTOM_BATTERY)) ||
-            check_string_match(DEVICE_NAME_CUSTOM_BATTERY, battery_data2,
-                               sizeof(DEVICE_NAME_CUSTOM_BATTERY))) {
-            send_debug_uart_string("BATTERY:  ROBOTEX\r\n", 19);
-            block_ms(10);
-            turn_on_power_bus_old_method();
-            return;
-        }
-
-        ClrWdt();
-        block_ms(20);
-        ClrWdt();
+    // if we're using the low lithium custom Matthew's battery
+    if (check_string_match(DEVICE_NAME_CUSTOM_BATTERY, battery_data1,
+                           sizeof(DEVICE_NAME_CUSTOM_BATTERY)) ||
+        check_string_match(DEVICE_NAME_CUSTOM_BATTERY, battery_data2,
+                           sizeof(DEVICE_NAME_CUSTOM_BATTERY))) {
+        send_debug_uart_string("BATTERY:  ROBOTEX\r\n", 19);
+        block_ms(10);
+        turn_on_power_bus_old_method();
+        return;
     }
 
     // if we're using an unknown battery
@@ -2560,20 +2441,16 @@ void handle_power_bus(void) {
     block_ms(10);
 
     turn_on_power_bus_hybrid_method();
-
-    Nop();
-    Nop();
 }
 
-int check_string_match(unsigned char *string1, unsigned char *string2, unsigned char length) {
+bool check_string_match(unsigned char *string1, unsigned char *string2, unsigned char length) {
     unsigned int i;
-    int string_match = 1;
     for (i = 0; i < length; i++) {
         if (string1[i] != string2[i])
-            string_match = 0;
+            return false;
     }
 
-    return string_match;
+    return true;
 }
 
 // When robot is on the charger, only leave one side of the power bus on at a time.

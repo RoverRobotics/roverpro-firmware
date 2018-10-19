@@ -5,14 +5,16 @@ firmware
 
 Released hex files can be found at https://github.com/RoverRobotics/OpenRoverFirmware-dan/releases
 
-Given a hex file, deploy to the robot power board with [MPLAB IDE 8.9.2](https://www.microchip.com/development-tools/pic-and-dspic-downloads-archive) using a PICKit 3.
+Given a hex file, deploy to the robot power board with [MPLAB IDE 8.92](https://www.microchip.com/development-tools/pic-and-dspic-downloads-archive) (*not* MPLAB X, only available for Windows) using a PICKit 3.
 
 1. File -> Import... -> (choose hex file)
 2. Programmer -> Select Programmer -> PICKit 3
-3. (Only needed if the target rover has no battery) Programmer -> Settings -> Power tab -> Power Target circuit from PICKit3 -> OK
+3. (Only needed if the target rover has no battery. If it has a power source, this step will fail) Programmer -> Settings -> Power tab -> Power Target circuit from PICKit3 -> OK
 4. Programmer -> Program
 
 ## Development
+
+The MCP files can be opened in [MPLAB IDE v8.92](https://www.microchip.com/development-tools/pic-and-dspic-downloads-archive) (not MPLAB X) and should be built with the Microchip C30 Toolsuite.
 
 To build, use the Debug mode (if you're attaching a PICKit) or Release mode (if you're using this with other things). Note that if you build in Debug mode and you hit a breakpoint (`BREAKPOINT()` macro), execution will halt and wait for the debugger. If no debugger is attached, the [Watchdog Timer](http://ww1.microchip.com/downloads/en/devicedoc/39697a.pdf) will restart the device.
 
@@ -29,7 +31,7 @@ git diff --name-only --cached --relative --diff-filter=d -- '*.h' '*.c' | xargs 
 ```
 This will tidy up all locally modified files. You can make this a precommit hook if you like.
 
-The MCP files can be opened in [MPLAB IDE](https://www.microchip.com/development-tools/pic-and-dspic-downloads-archive) (not MPLAB X). Code tips for debuggability as of MPLAB v8.92:
+Code tips for debuggability as of MPLAB v8.92:
 
 * Typedef'd types should have a name anyway. It looks redundant, but the debugger will display the value as an enum instead of an int without that first "my_enum".
 

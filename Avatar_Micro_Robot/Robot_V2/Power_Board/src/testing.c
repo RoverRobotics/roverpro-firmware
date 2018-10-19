@@ -1,7 +1,6 @@
-#include "p24FJ256GB106.h"
+#include <p24fxxxx.h>
 #include "stdhdr.h"
 #include "device_robot_motor.h"
-#include "i2c.h"
 #include "interrupt_switch.h"
 #include "testing.h"
 #include "debug_uart.h"
@@ -70,7 +69,6 @@ void motor_stress_test(void) {
             OC2R = i;
             OC3R = i;
             block_ms(30);
-            ClrWdt();
         }
 
         if (direction_flag) {
@@ -219,7 +217,6 @@ void current_display(void) {
     M3_MODE = 1;
 
     block_ms(1000);
-    ClrWdt();
 
     temp1 = 0;
     temp2 = 0;
@@ -252,7 +249,6 @@ void current_display(void) {
     OC3R = 2000;
 
     while (1) {
-        ClrWdt();
         temp1 = 0;
         temp2 = 0;
         for (i = 0; i < SAMPLE_LENGTH; i++) {
@@ -305,11 +301,9 @@ void force_overcurrent(void) {
     OC2R = 0;
     OC3R = 0;
 
-    ClrWdt();
     OC1R = 200;
     OC2R = 200;
     block_ms(5000);
-    ClrWdt();
 
     OC1R = 2000;
     OC2R = 2000;

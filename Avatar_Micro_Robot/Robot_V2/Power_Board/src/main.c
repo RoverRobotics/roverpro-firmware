@@ -14,14 +14,17 @@
  */
 
 #include "stdhdr.h"
-#include "PwrMgnt.h"
 #include "device_robot_motor.h"
 
 // -------------------------------------------------------------------------
 // PIC24FJ256GB106 FLASH CONFIGURATION
 // -------------------------------------------------------------------------
 
-#define GCP #if __DEBUG GCP_OFF #else GCP_ON #endif
+#if __DEBUG
+#define GCP GCP_OFF
+#else
+#define GCP GCP_ON
+#endif
 
 _CONFIG1((JTAGEN_OFF & GCP & GWRP_OFF & COE_OFF & FWDTEN_ON & ICS_PGx2 & WDTPS_PS128))
 _CONFIG2((IESO_OFF & FCKSM_CSDCMD & OSCIOFNC_ON & POSCMOD_HS & FNOSC_PRIPLL & PLLDIV_DIV5 &
@@ -255,9 +258,7 @@ void ProcessIO(void) {
                 M3_BRAKE = Clear_ActiveLO;
 
                 send_debug_uart_string("Initial motor velocities out of bounds!\r\n", 41);
-                ClrWdt();
                 block_ms(100);
-                ClrWdt();
                 send_debug_uart_string("Stopping motors forever.\r\n", 26);
 
                 while (1) {
