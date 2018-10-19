@@ -1,9 +1,16 @@
 # Style file for pre-commit code checks
+# sudo apt install clang-tidy-6.0
+# sudo ln -s `which clang-tidy-6.0` /usr/local/bin/clang-tidy
 # alias clang-tidy=/usr/local/Cellar/llvm/7.0.0/bin/clang-tidy
 # For one file:
 #   clang-tidy device_robot_motor_i2c.c -- -D__PIC24FJ256GB106__
 # As a pre-commit step on everything changed:
 #   git diff --name-only -- '*.h' '*.c' | xargs clang-tidy
+#
+# To get this to really work, need to get this to compile with a real compiler (C30 wasn't working with the below tools)
+# sudo apt install bear
+# to regenerate the makefile, in MPLab: Project -> Export Makefile
+# and to build the database: bear make -B
 
 ---
 Checks:          '-*,readability-*,bugprone-*,clang-portability-*'

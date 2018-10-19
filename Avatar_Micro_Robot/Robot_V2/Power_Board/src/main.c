@@ -14,22 +14,21 @@
  */
 
 #include "stdhdr.h"
-#include "PwrMgnt.h"
 #include "device_robot_motor.h"
 
 // -------------------------------------------------------------------------
 // PIC24FJ256GB106 FLASH CONFIGURATION
 // -------------------------------------------------------------------------
 
-_CONFIG1(JTAGEN_OFF &
 #if __DEBUG
-             GCP_OFF
+#define GCP GCP_OFF
 #else
-             GCP_ON
+#define GCP GCP_ON
 #endif
-                 &GWRP_OFF &COE_OFF &FWDTEN_ON &ICS_PGx2 &WDTPS_PS128)
 
-_CONFIG2(IESO_OFF &FCKSM_CSDCMD &OSCIOFNC_ON &POSCMOD_HS &FNOSC_PRIPLL &PLLDIV_DIV5 &IOL1WAY_ON)
+_CONFIG1((JTAGEN_OFF & GCP & GWRP_OFF & COE_OFF & FWDTEN_ON & ICS_PGx2 & WDTPS_PS128))
+_CONFIG2((IESO_OFF & FCKSM_CSDCMD & OSCIOFNC_ON & POSCMOD_HS & FNOSC_PRIPLL & PLLDIV_DIV5 &
+          IOL1WAY_ON))
 
 // WDT timeout = 128/31 kHz * WDTPS
 // 128/31e3*128 = .53 seconds
@@ -56,9 +55,7 @@ void PF FIRST_PROGRAMMABLE_FUNC callFunc(COMMAND command, void *params) { return
 // GLOBAL VARIABLES
 // -------------------------------------------------------------------------
 
-#pragma udata
-
-int gNewData;
+bool USB_New_Data_Received;
 int gpio_id = 0;
 int gRegisterCount = 0;
 // uint8_t OutPacket[OUT_PACKET_LENGTH];
@@ -81,8 +78,6 @@ extern USB_DEVICE_DESCRIPTOR device_dsc;
 // -------------------------------------------------------------------------
 // CODE
 // -------------------------------------------------------------------------
-
-#pragma code
 
 int PF main(void) {
     InitializeSystem();
@@ -180,8 +175,8 @@ void ProcessIO(void) {
         return;
 
     if (!USBHandleBusy(USBGenericOutHandle)) {
-        gNewData = !gNewData; // toggle new data flag for those watching
-        i = 0;                // reset IN packet pointer
+        USB_New_Data_Received = true;
+        i = 0; // reset IN packet pointer
 
         // PARSE INCOMING PACKET ----------------------------------------------
         while (1) {
@@ -259,9 +254,7 @@ void ProcessIO(void) {
                 M3_BRAKE = Clear_ActiveLO;
 
                 send_debug_uart_string("Initial motor velocities out of bounds!\r\n", 41);
-                ClrWdt();
                 block_ms(100);
-                ClrWdt();
                 send_debug_uart_string("Stopping motors forever.\r\n", 26);
 
                 while (1) {

@@ -17,7 +17,7 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 #ifndef INPUT_CAPTURE_H
 #define INPUT_CAPTURE_H
 /*---------------------------Dependencies-------------------------------------*/
-#include "p24FJ256GB106.h"
+#include <p24fxxxx.h>
 #include "stdhdr.h"
 #include "InputCapture.h"
 

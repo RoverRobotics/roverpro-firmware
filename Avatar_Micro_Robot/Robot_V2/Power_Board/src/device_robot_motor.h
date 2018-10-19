@@ -72,7 +72,7 @@ typedef enum MotorState2 {
 #define SpeedUpdateTimer 5          // 200Hz
 #define CurrentSurgeRecoverTimer 10 // 10ms
 #define USBTimeOutTimer 333         // 3Hz--333ms
-#define Xbee_FanSpeedTimer 333      // 3Hz--333ms
+#define UART_FAN_SPEED_TIMER 333    // 3Hz--333ms
 #define SwitchDirectionTimer 10     // 10ms
 #define StateMachineTimer 1         // 1KHz
 #define RPMTimer 1                  // 1KHz
@@ -109,10 +109,10 @@ typedef enum {
 #define M2_PWM _RP2R
 #define M3_PWM _RP25R
 
-// XbeeTest Only
+// UART_CONTROL Only
 #define U1RX_RPn 6
 #define U1TX_RPn _RP7R
-// XbeeTest End
+// UART_CONTROL End
 
 // Analog pins
 #define M1_TEMP_EN(a) _PCFG2 = !(a)
@@ -196,22 +196,30 @@ typedef enum {
     ControlMode_Customized
 } ControlMode;
 
-#define BackEMFSampleRangeStart 1800 // BackEMF sampling range starts about 90% of PWM period
-#define BackEMFSampleRangeEnd 1840   // BackEMF sampling range ends about 92% of PWM period
+/// Number of samples to keep of running metrics for power management, like battery temperature and
+/// voltage
+#define SAMPLE_LENGTH 4
+/// Number of samples to keep of running metrics for speed control
+#define SAMPLE_LENGTH_CONTROL 8
 
-//#define BATVoltageLimit 650 //11.06V, 3.3V-1024, 430K-100K voltage divider, 1024->17.49V
-#define BATVoltageLimit 800 // 11.06V, 3.3V-1024, 430K-100K voltage divider, 1024->17.49V
-
-#define SAMPLE_LENGTH                                                                              \
-    4 ///< Number of samples to keep of running metrics for power management, like battery
-      ///< temperature and voltage
-#define SAMPLE_LENGTH_CONTROL 8 ///< Number of samples to keep of running metrics for speed control
-
-// I2C Device Address
-#define FAN_CONTROLLER_ADDRESS 0x18 ///< I2C address of fan controller
-#define BATTERY_ADDRESS 0x0b ///< I2C address of batteries (one battery on I2C bus 2, one on 3)
-#define EEPROM_ADDRESS 0x50  ///< I2C address of EEPROM
-#define BATTERY_CHARGER_ADDRESS 0x0c ///< I2C address of Battery Charger
+/// Physical addresses of I2C devices
+enum I2CDeviceAddress {
+    /// I2C Bus 2 address of fan controller Maxim MAX6615AEE+. Datasheet with messaging info:
+    /// https://www.mouser.com/datasheet/2/256/MAX6615-MAX6616-370370.pdf
+    FAN_CONTROLLER_ADDRESS = 0b0011000,
+    /// I2C Bus 2+3 batteries (one on I2C bus 2, one on bus 3). These are logically separate devices
+    /// but they live in the same plastic housing.
+    /// Batteries may be one of several models. Communicate using the SmartBattery Data
+    /// specification http://sbs-forum.org/specs/sbdat110.pdf
+    BATTERY_ADDRESS = 0b0001011,
+    /// I2C Bus 2 EEPROM. Not in use.
+    EEPROM_ADDRESS = 0b1010000,
+    /// I2C Bus 2 Temperature Sensor. Not in use.
+    TEMPERATURE_SENSOR_ADDRESS = 0b1001001,
+    /// I2C Bus 3 Battery Charger. See Internal_Charger firmware for slave device logic. Should
+    /// respond to I2C ReadWord 0xca with value 0xdada to indicate that charging is active.
+    BATTERY_CHARGER_ADDRESS = 0b0001100,
+};
 
 #define Fan1LowTemp 45 // 45C fan1 start temperature
 #define Fan2LowTemp 45 // 45C fan2 start temperature
@@ -220,7 +228,7 @@ typedef enum {
 
 extern int16_t Robot_Motor_TargetSpeedUSB[MOTOR_CHANNEL_COUNT];
 
-extern int gNewData;
+extern bool USB_New_Data_Received;
 
 /////function
 void PWM1Ini(void);
@@ -293,11 +301,6 @@ void ClearSpeedCtrlData(MotorChannel Channel);
 void ClearCurrentCtrlData(MotorChannel Channel);
 void Cell_Ctrl(BatteryChannel Channel, BatteryState state);
 void USBInput();
-void I2C1Ini();
-void I2C2Ini();
-void I2C3Ini();
-void TMPSensorICIni();
-void I2C3Update();
 void FANCtrlIni();
 void InterruptIni();
 void Motor_IC1Interrupt();
@@ -325,6 +328,5 @@ void TestOC();
 
 extern int Cell_A_Current[SAMPLE_LENGTH];
 extern int Cell_B_Current[SAMPLE_LENGTH];
-extern int16_t Xbee_MOTOR_VELOCITY[MOTOR_CHANNEL_COUNT];
-extern uint8_t Xbee_SIDE_FAN_SPEED;
-extern uint8_t Xbee_SIDE_FAN_NEW;
+extern int16_t uart_motor_velocity[MOTOR_CHANNEL_COUNT];
+extern bool uart_has_new_fan_speed;
