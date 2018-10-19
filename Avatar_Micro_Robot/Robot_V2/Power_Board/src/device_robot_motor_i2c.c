@@ -60,12 +60,12 @@ void I2C2Update(void) {
         REG_MOTOR_TEMP.right = a_byte;
 
         // Fan Controller write PWM1 target duty cycle
-        if (Xbee_SIDE_FAN_NEW) {
-            a_byte = Xbee_SIDE_FAN_SPEED;
-        } else if (abs(Xbee_MOTOR_VELOCITY[0]) + abs(Xbee_MOTOR_VELOCITY[1]) > 10) {
-            a_byte = Xbee_SIDE_FAN_SPEED = 240;
+        if (uart_has_new_fan_speed) {
+            a_byte = REG_MOTOR_SIDE_FAN_SPEED;
+        } else if (abs(uart_motor_velocity[0]) + abs(uart_motor_velocity[1]) > 10) {
+            a_byte = REG_MOTOR_SIDE_FAN_SPEED = 240;
         } else {
-            a_byte = Xbee_SIDE_FAN_SPEED = 0;
+            a_byte = REG_MOTOR_SIDE_FAN_SPEED = 0;
         }
         I2C_ASYNCHRONOUSLY(i2c_op_write_byte(FAN_CONTROLLER_ADDRESS, 0x0b, &a_byte));
 

@@ -10,9 +10,8 @@
 #include "device_robot_motor_loop.h"
 #include "../closed_loop_control/core/InputCapture.h"
 
-#define XbeeTest
+#define UART_CONTROL
 #define BATProtectionON
-#define XbeeTest_TX_Enable
 
 // variables
 // sub system variables
@@ -32,9 +31,9 @@ MotorState StateLevel01[MOTOR_CHANNEL_COUNT] = {Protection, Protection, Protecti
 MotorState2 StateLevel02[MOTOR_CHANNEL_COUNT] = {Locked, Locked, Locked};
 
 long TargetParameter[MOTOR_CHANNEL_COUNT]; ///< Target speed (for left/right motor) or position (for
-///< flipper)
+                                           ///< flipper)
 unsigned int CurrentParameter[MOTOR_CHANNEL_COUNT]; ///< Current speed(for left and right motor) or
-///< position (for flipper)
+                                                    ///< position (for flipper)
 bool SwitchDirectionTimerExpired[MOTOR_CHANNEL_COUNT] = {false, false, false};
 bool SwitchDirectionTimerEnabled[MOTOR_CHANNEL_COUNT] = {false, false, false};
 int SwitchDirectionTimerCount[MOTOR_CHANNEL_COUNT] = {0, 0, 0};
@@ -80,9 +79,9 @@ bool BATRecoveryTimerExpired = true; // for initial powering of the power bus
 int BATRecoveryTimerCount = 0;
 int closed_loop_control_timer_count = 0;
 int closed_loop_control_timer = 10;
-bool Xbee_FanSpeedTimerEnabled = false;
-bool Xbee_FanSpeedTimerExpired = false;
-int Xbee_FanSpeedTimerCount = 0;
+bool uart_FanSpeedTimerEnabled = false;
+bool uart_fan_speed_expired = false;
+int uart_FanSpeedTimerCount = 0;
 
 unsigned int ICLMotorOverFlowCount = 0;
 unsigned int ICRMotorOverFlowCount = 0;
@@ -114,7 +113,8 @@ int RPM4ControlPointer[MOTOR_CHANNEL_COUNT] = {0};
 long ControlRPM[MOTOR_CHANNEL_COUNT] = {0};
 long TotalCurrent;
 long EnCount[MOTOR_CHANNEL_COUNT] = {0};
-int16_t Robot_Motor_TargetSpeedUSB[MOTOR_CHANNEL_COUNT] = {0};
+
+int16_t motor_target_speed[MOTOR_CHANNEL_COUNT] = {0};
 
 int Timer3Count = 0;
 int M3_POSFB = 0;
@@ -157,9 +157,7 @@ int MotorSpeedTargetCoefficient[MOTOR_CHANNEL_COUNT];
 float MaxDuty = 1000.0;
 bool MotorRecovering = false;
 long TargetDifference = 0;
-long Debugging_Dutycycle[MOTOR_CHANNEL_COUNT];
 long MotorTargetRPM[MOTOR_CHANNEL_COUNT];
-long Debugging_MotorTempError[MOTOR_CHANNEL_COUNT];
 int Timer5Count = 0;
 unsigned int flipper_angle_offset = 0;
 void calibrate_flipper_angle_sensor(void);
@@ -172,34 +170,31 @@ bool check_string_match(unsigned char *string1, unsigned char *string2, unsigned
 
 static void alternate_power_bus(void);
 
-#ifdef XbeeTest
-#define XbeeTest_BufferLength 6
-#define XbeeTest_StateIdle 0
-#define XbeeTest_StateProcessing 1
-int XbeeTest_State = XbeeTest_StateIdle;
-int16_t XbeeTest_Buffer[XbeeTest_BufferLength];
-int XbeeTest_BufferArrayPointer = 0;
-int XbeeTest_Temp;
-uint16_t XbeeTest_Temp_u16;
-#define XbeeTest_UART_Buffer_Length                                                                \
-    4 // no more than 5 bytes based on 57600 baud and 1ms system loop
-uint8_t XbeeTest_UART_Buffer[XbeeTest_UART_Buffer_Length];
-uint8_t XbeeTest_UART_BufferPointer = 0;
-uint8_t XbeeTest_UART_DataNO = 0;
-int16_t Xbee_MOTOR_VELOCITY[3];
-uint8_t Xbee_Incoming_Cmd[2];
-int Xbee_gNewData = 0;
-uint8_t Xbee_StartBit = 253;
+#ifdef UART_CONTROL
+#define UART_RECEIVE_BUFFER_LENGTH 6
+typedef enum UARTState { UART_STATE_IDLE, UART_STATE_PROCESSING } UArtState;
+int16_t uart_receive_buffer[UART_RECEIVE_BUFFER_LENGTH];
+int i_uart_receive_buffer = 0;
+// no more than 5 bytes based on 57600 baud and 1ms system loop
+#define UART_SEND_BUFFER_LENGTH 4
+uint8_t uart_send_buffer[UART_SEND_BUFFER_LENGTH];
+uint8_t i_uart_send_buffer = 0;
+uint8_t uart_data_identifier = 0;
+int16_t uart_motor_velocity[3];
+uint8_t uart_incoming_cmd[2];
+
+bool uart_has_new_data = false;
+const uint8_t UART_START_BYTE = 253;
 uint16_t EncoderInterval[MOTOR_CHANNEL_COUNT]; // Encoder time interval
 uint16_t BuildNO = 40621;
-uint8_t Xbee_SIDE_FAN_SPEED = 0;
-uint8_t Xbee_SIDE_FAN_NEW = 0; // if there is a cmd or no
-#define P1_Read_Register 10
-#define P1_Fan_Command 20
-#define P1_Low_Speed_Set 240
-#define P1_Calibration_Flipper 250
-uint8_t Xbee_Low_Speed_mode = 0;
-uint8_t Xbee_Calibration = 0;
+bool uart_has_new_fan_speed = false;
+typedef enum UARTCommand {
+    UART_COMMAND_GET = 10,
+    UART_COMMAND_SET_FAN_SPEED = 20,
+    UART_COMMAND_SET_MOTOR_SLOW_SPEED = 240,
+    UART_COMMAND_FLIPPER_CALIBRATE = 250,
+} UARTCommand;
+bool uart_flipper_calibrate_requested = false;
 #endif
 
 void PWM1Duty(int Duty);
@@ -210,9 +205,6 @@ void PWM2Ini(void);
 void PWM3Ini(void);
 
 void set_firmware_build_time(void);
-
-void initialize_i2c2_registers(void);
-void initialize_i2c3_registers(void);
 
 static unsigned int return_combined_pot_angle(unsigned int pot_1_value, unsigned int pot_2_value);
 static unsigned int return_calibrated_pot_angle(unsigned int pot_1_value, unsigned int pot_2_value);
@@ -257,9 +249,6 @@ void DeviceRobotMotorInit() {
     ProtectHB(MOTOR_FLIPPER);
 
     test_function();
-
-    initialize_i2c2_registers();
-    initialize_i2c3_registers();
 
     // read flipper position from flash, and put it into a module variable
     read_stored_angle_offset();
@@ -333,21 +322,21 @@ void Device_MotorController_Process() {
     long temp1, temp2;
     static int overcurrent_counter = 0;
     // check if software wants to calibrate flipper position
-#ifndef XbeeTest
+#ifndef UART_CONTROL
     if (REG_MOTOR_VELOCITY.flipper == 12345) {
         calibrate_flipper_angle_sensor();
     }
 #endif
 
-#ifdef XbeeTest
-    if (Xbee_Calibration == 1) {
+#ifdef UART_CONTROL
+    if (uart_flipper_calibrate_requested) {
         calibrate_flipper_angle_sensor();
         // clear the flag just for safe
-        Xbee_Calibration = 0;
-        Xbee_SIDE_FAN_SPEED = 240;
-        Xbee_SIDE_FAN_NEW = 1;
-        Xbee_FanSpeedTimerEnabled = true;
-        Xbee_FanSpeedTimerCount = 0;
+        uart_flipper_calibrate_requested = false;
+        REG_MOTOR_SIDE_FAN_SPEED = 240;
+        uart_has_new_fan_speed = true;
+        uart_FanSpeedTimerEnabled = true;
+        uart_FanSpeedTimerCount = 0;
     }
 #endif
 
@@ -379,7 +368,6 @@ void Device_MotorController_Process() {
         }
         if (USBTimeOutTimerEnabled) {
             USBTimeOutTimerCount++;
-            // printf("USBTimeOutTimerCount:%ld\n",USBTimeOutTimerCount);
         }
         if (CurrentProtectionTimerEnabled) {
             CurrentProtectionTimerCount++;
@@ -405,10 +393,9 @@ void Device_MotorController_Process() {
         if (BATRecoveryTimerEnabled) {
             BATRecoveryTimerCount++;
         }
-#ifdef XbeeTest
-        if (Xbee_FanSpeedTimerEnabled) {
-            Xbee_FanSpeedTimerCount++;
-            // printf("%d",Xbee_FanSpeedTimerCount);
+#ifdef UART_CONTROL
+        if (uart_FanSpeedTimerEnabled) {
+            uart_FanSpeedTimerCount++;
         }
 #endif
 
@@ -481,11 +468,11 @@ void Device_MotorController_Process() {
         BATRecoveryTimerExpired = true;
         BATRecoveryTimerCount = 0;
     }
-#ifdef XbeeTest
-    if (Xbee_FanSpeedTimerCount >= Xbee_FanSpeedTimer) {
-        Xbee_FanSpeedTimerExpired = true;
-        Xbee_FanSpeedTimerCount = 0;
-        Xbee_FanSpeedTimerEnabled = false;
+#ifdef UART_CONTROL
+    if (uart_FanSpeedTimerCount >= UART_FAN_SPEED_TIMER) {
+        uart_fan_speed_expired = true;
+        uart_FanSpeedTimerCount = 0;
+        uart_FanSpeedTimerEnabled = false;
         // printf("fan speed timer expired!");
     }
 #endif
@@ -615,15 +602,15 @@ void Device_MotorController_Process() {
         BATRecoveryTimerCount = 0;
         BATRecoveryTimerEnabled = false;
     }
-// xbee fan timer
-#ifdef XbeeTest
-    if (Xbee_FanSpeedTimerExpired) {
-        Xbee_FanSpeedTimerExpired = false;
-        Xbee_FanSpeedTimerEnabled = false;
-        Xbee_FanSpeedTimerCount = 0;
+
+#ifdef UART_CONTROL
+    if (uart_fan_speed_expired) {
+        uart_fan_speed_expired = false;
+        uart_FanSpeedTimerEnabled = false;
+        uart_FanSpeedTimerCount = 0;
         // clear all the fan command
-        Xbee_SIDE_FAN_SPEED = 0;
-        Xbee_SIDE_FAN_NEW = 0;
+        REG_MOTOR_SIDE_FAN_SPEED = 0;
+        uart_has_new_fan_speed = 0;
         // printf("clear side fan speed!");
     }
 #endif
@@ -843,7 +830,6 @@ int GetDuty(long CurrentState, long Target, MotorChannel Channel, ControlMode Mo
     MotorTargetRPM[Channel] = TargetRPM;
     TempSpeedError = TargetRPM - labs(CurrentState);
     AccumulatedSpeedError[Channel] += TempSpeedError;
-    Debugging_MotorTempError[Channel] = TempSpeedError;
     // PID Control
     // printf("Temp Error:%ld,Kp:%f, Accumulated Error:%li,
     // Ki:%f\n",TempSpeedError,SpeedCtrlKp[Mode][Channel],AccumulatedSpeedError[Channel],SpeedCtrlKi[Mode][Channel]);
@@ -965,7 +951,6 @@ void UpdateSpeed(MotorChannel Channel, int State) {
         }
         break;
     }
-    Debugging_Dutycycle[Channel] = Dutycycle;
 }
 
 //*********************************************//
@@ -995,7 +980,7 @@ int speed_control_loop(MotorChannel i, int desired_speed) {
 
 void USBInput() {
     MotorChannel i;
-    static int USB_New_Data_Received;
+    static bool USB_New_Data_Received;
     static unsigned int control_loop_counter = 0;
     static unsigned int flipper_control_loop_counter = 0;
 
@@ -1019,42 +1004,35 @@ void USBInput() {
 
         if (control_loop_counter > 5) {
             control_loop_counter = 0;
-#ifndef XbeeTest
-            Robot_Motor_TargetSpeedUSB[MOTOR_LEFT] =
+#ifndef UART_CONTROL
+            motor_target_speed[MOTOR_LEFT] =
                 speed_control_loop(MOTOR_LEFT, REG_MOTOR_VELOCITY.left);
-            Robot_Motor_TargetSpeedUSB[MOTOR_RIGHT] =
+            motor_target_speed[MOTOR_RIGHT] =
                 speed_control_loop(MOTOR_RIGHT, REG_MOTOR_VELOCITY.right);
 #endif
-#ifdef XbeeTest
-            // printf("XL%d,XR,%d",Xbee_MOTOR_VELOCITY[0],Robot_Motor_TargetSpeedUSB[1]);
-            Robot_Motor_TargetSpeedUSB[MOTOR_LEFT] =
-                speed_control_loop(MOTOR_LEFT, Xbee_MOTOR_VELOCITY[MOTOR_LEFT]);
-            Robot_Motor_TargetSpeedUSB[MOTOR_RIGHT] =
-                speed_control_loop(MOTOR_RIGHT, Xbee_MOTOR_VELOCITY[MOTOR_RIGHT]);
-            // printf("L%d,R%d\n",Robot_Motor_TargetSpeedUSB[0],Robot_Motor_TargetSpeedUSB[1]);
+#ifdef UART_CONTROL
+            motor_target_speed[MOTOR_LEFT] =
+                speed_control_loop(MOTOR_LEFT, uart_motor_velocity[MOTOR_LEFT]);
+            motor_target_speed[MOTOR_RIGHT] =
+                speed_control_loop(MOTOR_RIGHT, uart_motor_velocity[MOTOR_RIGHT]);
 #endif
         }
 
         if (flipper_control_loop_counter > 15) {
             flipper_control_loop_counter = 0;
-#ifndef XbeeTest
-            Robot_Motor_TargetSpeedUSB[MOTOR_FLIPPER] =
+#ifndef UART_CONTROL
+            motor_target_speed[MOTOR_FLIPPER] =
                 speed_control_loop(MOTOR_FLIPPER, REG_MOTOR_VELOCITY.flipper);
 #endif
-#ifdef XbeeTest
-            Robot_Motor_TargetSpeedUSB[MOTOR_FLIPPER] =
-                speed_control_loop(MOTOR_FLIPPER, Xbee_MOTOR_VELOCITY[MOTOR_FLIPPER]);
+#ifdef UART_CONTROL
+            motor_target_speed[MOTOR_FLIPPER] =
+                speed_control_loop(MOTOR_FLIPPER, uart_motor_velocity[MOTOR_FLIPPER]);
             // printf();
 #endif
         }
-#ifdef XbeeTest
+
         if (REG_MOTOR_SLOW_SPEED == 1)
             state = DECEL_AFTER_HIGH_SPEED;
-#endif
-#ifdef XbeeTest
-        if (Xbee_Low_Speed_mode == 1)
-            state = DECEL_AFTER_HIGH_SPEED;
-#endif
 
         break;
 
@@ -1066,44 +1044,38 @@ void USBInput() {
             control_loop_counter = 0;
 
             // set speed to 1 (speed of 0 immediately stops motors)
-            Robot_Motor_TargetSpeedUSB[MOTOR_LEFT] = speed_control_loop(MOTOR_LEFT, 1);
-            Robot_Motor_TargetSpeedUSB[MOTOR_RIGHT] = speed_control_loop(MOTOR_RIGHT, 1);
-            Robot_Motor_TargetSpeedUSB[MOTOR_FLIPPER] = speed_control_loop(MOTOR_FLIPPER, 1);
+            motor_target_speed[MOTOR_LEFT] = speed_control_loop(MOTOR_LEFT, 1);
+            motor_target_speed[MOTOR_RIGHT] = speed_control_loop(MOTOR_RIGHT, 1);
+            motor_target_speed[MOTOR_FLIPPER] = speed_control_loop(MOTOR_FLIPPER, 1);
         }
 
         // motors are stopped if speed falls below 1%
-        if ((abs(Robot_Motor_TargetSpeedUSB[MOTOR_LEFT]) < 10) &&
-            (abs(Robot_Motor_TargetSpeedUSB[MOTOR_RIGHT]) < 10) &&
-            (abs(Robot_Motor_TargetSpeedUSB[MOTOR_FLIPPER]) < 10))
+        if ((abs(motor_target_speed[MOTOR_LEFT]) < 10) &&
+            (abs(motor_target_speed[MOTOR_RIGHT]) < 10) &&
+            (abs(motor_target_speed[MOTOR_FLIPPER]) < 10))
             state = LOW_SPEED;
 
         break;
 
     case LOW_SPEED:
-#ifndef XbeeTest
+#ifndef UART_CONTROL
         set_desired_velocities(REG_MOTOR_VELOCITY.left, REG_MOTOR_VELOCITY.right,
                                REG_MOTOR_VELOCITY.flipper);
 #endif
-#ifdef XbeeTest
-        set_desired_velocities(Xbee_MOTOR_VELOCITY[MOTOR_LEFT], Xbee_MOTOR_VELOCITY[MOTOR_RIGHT],
-                               Xbee_MOTOR_VELOCITY[MOTOR_FLIPPER]);
+#ifdef UART_CONTROL
+        set_desired_velocities(uart_motor_velocity[MOTOR_LEFT], uart_motor_velocity[MOTOR_RIGHT],
+                               uart_motor_velocity[MOTOR_FLIPPER]);
 #endif
         // printf("low speed loop!");
-        Robot_Motor_TargetSpeedUSB[MOTOR_LEFT] = return_closed_loop_control_effort(MOTOR_LEFT);
-        Robot_Motor_TargetSpeedUSB[MOTOR_RIGHT] = return_closed_loop_control_effort(MOTOR_RIGHT);
-        Robot_Motor_TargetSpeedUSB[MOTOR_FLIPPER] =
-            return_closed_loop_control_effort(MOTOR_FLIPPER);
-        // printf("AA:%d,%d,%d",Robot_Motor_TargetSpeedUSB[0],Robot_Motor_TargetSpeedUSB[1],Robot_Motor_TargetSpeedUSB[2]);
+        motor_target_speed[MOTOR_LEFT] = return_closed_loop_control_effort(MOTOR_LEFT);
+        motor_target_speed[MOTOR_RIGHT] = return_closed_loop_control_effort(MOTOR_RIGHT);
+        motor_target_speed[MOTOR_FLIPPER] = return_closed_loop_control_effort(MOTOR_FLIPPER);
+        // printf("AA:%d,%d,%d",motor_target_speed[0],motor_target_speed[1],motor_target_speed[2]);
         control_loop_counter = 0;
         flipper_control_loop_counter = 0;
-#ifndef XbeeTest
+
         if (REG_MOTOR_SLOW_SPEED == 0)
             state = DECEL_AFTER_LOW_SPEED;
-#endif
-#ifdef XbeeTest
-        if (Xbee_Low_Speed_mode == 0)
-            state = DECEL_AFTER_LOW_SPEED;
-#endif
 
         break;
 
@@ -1111,15 +1083,14 @@ void USBInput() {
 
         set_desired_velocities(0, 0, 0);
 
-        Robot_Motor_TargetSpeedUSB[MOTOR_LEFT] = return_closed_loop_control_effort(MOTOR_LEFT);
-        Robot_Motor_TargetSpeedUSB[MOTOR_RIGHT] = return_closed_loop_control_effort(MOTOR_RIGHT);
-        Robot_Motor_TargetSpeedUSB[MOTOR_FLIPPER] =
-            return_closed_loop_control_effort(MOTOR_FLIPPER);
+        motor_target_speed[MOTOR_LEFT] = return_closed_loop_control_effort(MOTOR_LEFT);
+        motor_target_speed[MOTOR_RIGHT] = return_closed_loop_control_effort(MOTOR_RIGHT);
+        motor_target_speed[MOTOR_FLIPPER] = return_closed_loop_control_effort(MOTOR_FLIPPER);
 
         // motors are stopped if speed falls below 1%
-        if ((abs(Robot_Motor_TargetSpeedUSB[MOTOR_LEFT]) < 10) &&
-            (abs(Robot_Motor_TargetSpeedUSB[MOTOR_RIGHT]) < 10) &&
-            (abs(Robot_Motor_TargetSpeedUSB[MOTOR_FLIPPER]) < 10))
+        if ((abs(motor_target_speed[MOTOR_LEFT]) < 10) &&
+            (abs(motor_target_speed[MOTOR_RIGHT]) < 10) &&
+            (abs(motor_target_speed[MOTOR_FLIPPER]) < 10))
             state = HIGH_SPEED;
 
         break;
@@ -1134,46 +1105,42 @@ void USBInput() {
         REG_MOTOR_VELOCITY.left = 0;
         REG_MOTOR_VELOCITY.right = 0;
         REG_MOTOR_VELOCITY.flipper = 0;
-#ifdef XbeeTest
-        Xbee_MOTOR_VELOCITY[MOTOR_LEFT] = 0;
-        Xbee_MOTOR_VELOCITY[MOTOR_RIGHT] = 0;
-        Xbee_MOTOR_VELOCITY[MOTOR_FLIPPER] = 0;
+#ifdef UART_CONTROL
+        uart_motor_velocity[MOTOR_LEFT] = 0;
+        uart_motor_velocity[MOTOR_RIGHT] = 0;
+        uart_motor_velocity[MOTOR_FLIPPER] = 0;
 #endif
 
         for (EACH_MOTOR_CHANNEL(i)) {
-            Robot_Motor_TargetSpeedUSB[i] = 0;
+            motor_target_speed[i] = 0;
             Event[i] = Stop;
-            TargetParameter[i] = Robot_Motor_TargetSpeedUSB[i];
+            TargetParameter[i] = motor_target_speed[i];
             // ClearSpeedCtrlData(i);
             // ClearCurrentCtrlData(i);
         }
-#ifndef XbeeTest
-        // send_debug_uart_string("USB Timeout Detected \r\n",23);
-#endif
     }
-    // printf("!\n");
 
-#ifdef Xbeetest
-    if (USB_New_Data_Received != Xbee_gNewData) {
-        USB_New_Data_Received = Xbee_gNewData;
+#ifdef UART_CONTROL
+    if (uart_has_new_data) {
+        uart_has_new_data = false;
 #else
-    if (USB_New_Data_Received != gNewData) {
-        USB_New_Data_Received = gNewData;
+    if (USB_New_Data_Received) {
+        USB_New_Data_Received = false;
 #endif
         // if there is new data coming in, update all the data
         USBTimeOutTimerCount = 0;
         USBTimeOutTimerEnabled = true;
         USBTimeOutTimerExpired = false;
-        // printf("MOTOR_LEFT:%d",Robot_Motor_TargetSpeedUSB[0]);
+        // printf("MOTOR_LEFT:%d",motor_target_speed[0]);
         for (EACH_MOTOR_CHANNEL(i)) {
-            if (Robot_Motor_TargetSpeedUSB[i] == 0)
+            if (motor_target_speed[i] == 0)
                 Event[i] = Stop;
-            else if (-1024 < Robot_Motor_TargetSpeedUSB[i] && Robot_Motor_TargetSpeedUSB[i] < 0)
+            else if (-1024 < motor_target_speed[i] && motor_target_speed[i] < 0)
                 Event[i] = Back;
-            else if (0 < Robot_Motor_TargetSpeedUSB[i] && Robot_Motor_TargetSpeedUSB[i] < 1024)
+            else if (0 < motor_target_speed[i] && motor_target_speed[i] < 1024)
                 Event[i] = Go;
 
-            TargetParameter[i] = Robot_Motor_TargetSpeedUSB[i];
+            TargetParameter[i] = motor_target_speed[i];
         }
     }
 }
@@ -1205,7 +1172,7 @@ void PinRemap(void) {
     // Assign IC3 To Encoder_R1A
     // RPINR8bits.IC3R = M2_TACHO_RPn;
 
-#ifdef XbeeTest
+#ifdef UART_CONTROL
     // Assign U1RX To U1RX, Uart receive channnel
     RPINR18bits.U1RXR = U1RX_RPn;
 #endif
@@ -1239,7 +1206,7 @@ void PinRemap(void) {
             I2C_DAT_RPn = 7; //7 represents SPI1 Data Output
     */
 
-#ifdef XbeeTest
+#ifdef UART_CONTROL
     // Assign U1TX To U1TX/Uart Tx
     U1TX_RPn = 3; // 3 represents U1TX
 #endif
@@ -1384,7 +1351,7 @@ void MC_Ini(void) // initialzation for the whole program
     i2c_enable(I2C_BUS2);
     i2c_enable(I2C_BUS3);
 
-#ifdef XbeeTest
+#ifdef UART_CONTROL
     UART1Ini();
 #endif
 
@@ -1400,7 +1367,7 @@ void InterruptIni() {
     // 	IC1InterruptUserFunction=Motor_IC1Interrupt;
     // 	IC3InterruptUserFunction=Motor_IC3Interrupt;
     ADC1InterruptUserFunction = Motor_ADC1Interrupt;
-#ifdef XbeeTest
+#ifdef UART_CONTROL
     U1TXInterruptUserFunction = Motor_U1TXInterrupt;
     U1RXInterruptUserFunction = Motor_U1RXInterrupt;
 #endif
@@ -1423,9 +1390,6 @@ void FANCtrlIni() {
     a_byte = 0;
     i2c_synchronously_await(I2C_BUS2, i2c_op_write_byte(FAN_CONTROLLER_ADDRESS, 0x11, &a_byte));
     i2c_synchronously_await(I2C_BUS2, i2c_op_write_byte(FAN_CONTROLLER_ADDRESS, 0x12, &a_byte));
-
-    // TODO: this value is unused. Maybe make it right and update in our main I2C loop?
-    REG_MOTOR_SIDE_FAN_SPEED = 48;
 
     // blast fan up to max duty cycle
     a_byte = 240;
@@ -1482,7 +1446,6 @@ void PWM1Duty(int Duty) { OC1R = Duty * 2; }
 
 // initialize PWM channel 2
 void PWM2Ini(void) {
-
     OC2R = 0;
     OC2RS = 2000;
     OC2CON2bits.SYNCSEL = 0x1F;
@@ -1929,15 +1892,10 @@ void Motor_T5Interrupt(void) {
 }
 
 void Motor_ADC1Interrupt(void) {
-    //	unsigned int temp = 0;
-    // stop the conversion
     AD1CON1bits.ASAM = CLEAR;
-
     // clear the flag
     IFS0bits.AD1IF = CLEAR;
     // load the value
-
-    // 		BackEMFSampleEnabled=false;
 
     M3_POSFB_Array[0][M3_POSFB_ArrayPointer] = ADC1BUF4;
     M3_POSFB_Array[1][M3_POSFB_ArrayPointer] = ADC1BUF5;
@@ -1962,30 +1920,27 @@ void Motor_ADC1Interrupt(void) {
     M3_POSFB_ArrayPointer = (M3_POSFB_ArrayPointer + 1) % SAMPLE_LENGTH;
     MotorCurrentADPointer = (MotorCurrentADPointer + 1) % SAMPLE_LENGTH;
 
-#ifdef XbeeTest
+#ifdef UART_CONTROL
     EncoderInterval[MOTOR_LEFT] = IC_period(kIC01);    // left motor encoder time interval
     EncoderInterval[MOTOR_RIGHT] = IC_period(kIC02);   // right motor encoder time interval
     EncoderInterval[MOTOR_FLIPPER] = IC_period(kIC03); // Encoder motor encoder time interval
-    // if(Xbee_Incoming_Cmd[0]== P1_Read_Register && U1STAbits.UTXBF==0 &&
-    // XbeeTest_UART_BufferPointer==0 &&
-    // (Xbee_MOTOR_VELOCITY[0]||Xbee_MOTOR_VELOCITY[1]||Xbee_MOTOR_VELOCITY[2])!=0)//if transmit reg
-    // is empty and last packet is sent
-    if (Xbee_Incoming_Cmd[0] == P1_Read_Register && U1STAbits.UTXBF == 0 &&
-        XbeeTest_UART_BufferPointer == 0) // if transmit reg is empty and last packet is sent
+    // if transmit reg is empty and last packet is sent
+    if (uart_incoming_cmd[0] == UART_COMMAND_GET && U1STAbits.UTXBF == 0 &&
+        i_uart_send_buffer == 0) // if transmit reg is empty and last packet is sent
     {
-        U1TXREG = Xbee_StartBit; // send out the index
-        XbeeTest_UART_DataNO = Xbee_Incoming_Cmd[1];
-        XbeeTest_UART_Buffer[0] = XbeeTest_UART_DataNO;
+        U1TXREG = UART_START_BYTE; // send out the index
+        uart_data_identifier = uart_incoming_cmd[1];
+        uart_send_buffer[0] = uart_data_identifier;
 
 // CASE(n, REGISTER) populates the UART output buffer with the 16-bit integer value of the given
 // register and breaks out of the switch statement
 #define CASE(n, REGISTER)                                                                          \
     case (n):                                                                                      \
-        XbeeTest_UART_Buffer[1] = (uint8_t)((REGISTER) >> 8 & 0xff);                               \
-        XbeeTest_UART_Buffer[2] = (uint8_t)(REGISTER & 0xff);                                      \
+        uart_send_buffer[1] = (uint8_t)((REGISTER) >> 8 & 0xff);                                   \
+        uart_send_buffer[2] = (uint8_t)(REGISTER & 0xff);                                          \
         break;
 
-        switch (XbeeTest_UART_DataNO) {
+        switch (uart_data_identifier) {
             CASE(0, REG_PWR_TOTAL_CURRENT)
             CASE(2, REG_MOTOR_FB_RPM.left)
             CASE(4, REG_MOTOR_FB_RPM.right)
@@ -1996,8 +1951,8 @@ void Motor_ADC1Interrupt(void) {
             CASE(14, REG_MOTOR_ENCODER_COUNT.left)
             CASE(16, REG_MOTOR_ENCODER_COUNT.right)
         case 18: // 18-REG_MOTOR_FAULT_FLAG
-            XbeeTest_UART_Buffer[1] = REG_MOTOR_FAULT_FLAG.left;
-            XbeeTest_UART_Buffer[2] = REG_MOTOR_FAULT_FLAG.right;
+            uart_send_buffer[1] = REG_MOTOR_FAULT_FLAG.left;
+            uart_send_buffer[2] = REG_MOTOR_FAULT_FLAG.right;
             break;
             CASE(20, REG_MOTOR_TEMP.left)
             CASE(22, REG_MOTOR_TEMP.right)
@@ -2013,8 +1968,8 @@ void Motor_ADC1Interrupt(void) {
             CASE(42, REG_PWR_A_CURRENT)
             CASE(44, REG_PWR_B_CURRENT)
             CASE(46, REG_MOTOR_FLIPPER_ANGLE)
-            CASE(48, Xbee_SIDE_FAN_SPEED)
-            CASE(50, Xbee_Low_Speed_mode)
+            CASE(48, REG_MOTOR_SIDE_FAN_SPEED)
+            CASE(50, REG_MOTOR_SLOW_SPEED)
             CASE(52, REG_BATTERY_STATUS_A)
             CASE(54, REG_BATTERY_STATUS_B)
             CASE(56, REG_BATTERY_MODE_A)
@@ -2027,88 +1982,89 @@ void Motor_ADC1Interrupt(void) {
             CASE(70, REG_BATTERY_CURRENT_B)
 
         default:
-            XbeeTest_UART_Buffer[0] = 0;
-            XbeeTest_UART_Buffer[1] = 0;
+            uart_send_buffer[0] = 0;
+            uart_send_buffer[1] = 0;
             break;
         }
 #undef CASE
         // add checksum of the package
-        XbeeTest_UART_Buffer[3] =
-            255 -
-            (XbeeTest_UART_Buffer[0] + XbeeTest_UART_Buffer[1] + XbeeTest_UART_Buffer[2]) % 255;
+        uart_send_buffer[3] =
+            255 - (uart_send_buffer[0] + uart_send_buffer[1] + uart_send_buffer[2]) % 255;
         // clear incoming command
-        Xbee_Incoming_Cmd[0] = 0;
-        Xbee_Incoming_Cmd[1] = 0;
+        uart_incoming_cmd[0] = 0;
+        uart_incoming_cmd[1] = 0;
     }
 #endif
 }
 
+#ifdef UART_CONTROL
 void Motor_U1TXInterrupt(void) {
     // clear the flag
     IFS0bits.U1TXIF = 0;
 
-#ifdef XbeeTest
     // transmit data
-    if (XbeeTest_UART_BufferPointer < XbeeTest_UART_Buffer_Length) {
-#ifdef XbeeTest_TX_Enable
-        U1TXREG = XbeeTest_UART_Buffer[XbeeTest_UART_BufferPointer];
-        XbeeTest_UART_BufferPointer++;
-#endif
+    if (i_uart_send_buffer < UART_SEND_BUFFER_LENGTH) {
+        U1TXREG = uart_send_buffer[i_uart_send_buffer];
+        i_uart_send_buffer++;
     } else {
-        XbeeTest_UART_BufferPointer = 0;
+        i_uart_send_buffer = 0;
     }
-#endif
 }
+#endif
 
+#ifdef UART_CONTROL
 void Motor_U1RXInterrupt(void) {
+    static UArtState uart_state;
+    uint8_t a_byte;
     // clear the flag
     IFS0bits.U1RXIF = 0;
-    // XbeeTest code only
-#ifdef XbeeTest
+    // UART_CONTROL code only
+
     int i = 0;
-    int SumBytes = 0;
-    XbeeTest_Temp = U1RXREG;
-    if (XbeeTest_State == XbeeTest_StateIdle) {
-        if (XbeeTest_Temp == Xbee_StartBit) {
-            XbeeTest_State = XbeeTest_StateProcessing;
+    a_byte = U1RXREG;
+    switch (uart_state) {
+    case UART_STATE_IDLE:
+        if (a_byte == UART_START_BYTE) {
+            uart_state = UART_STATE_PROCESSING;
         }
-    } else if (XbeeTest_State == XbeeTest_StateProcessing) {
-        XbeeTest_Buffer[XbeeTest_BufferArrayPointer] = XbeeTest_Temp;
-        XbeeTest_BufferArrayPointer++;
-        if (XbeeTest_BufferArrayPointer >= XbeeTest_BufferLength) // end of the package
+        break;
+    case UART_STATE_PROCESSING:
+        uart_receive_buffer[i_uart_receive_buffer] = a_byte;
+        i_uart_receive_buffer++;
+        if (i_uart_receive_buffer >= UART_RECEIVE_BUFFER_LENGTH) // end of the package
         {
             // if all bytes add up together equals 255, it is a good pack, then process
-            SumBytes = 0;
-            for (i = 0; i < XbeeTest_BufferLength; i++) {
-                // printf("%d:%d  ",i,XbeeTest_Buffer[i]);
-                SumBytes += XbeeTest_Buffer[i];
+            int SumBytes = 0;
+            for (i = 0; i < UART_RECEIVE_BUFFER_LENGTH; i++) {
+                // printf("%d:%d  ",i,uart_receive_buffer[i]);
+                SumBytes += uart_receive_buffer[i];
             }
             // printf("Sum:%d\n",SumBytes);
             if (SumBytes % 255 == 0) {
                 // input data range 0~250, 125 is stop, 0 is backwards full speed, 250 is forward
                 // full speed for Marge, the right and left is flipped, so left and right need to be
                 // flipped
-                Xbee_MOTOR_VELOCITY[MOTOR_LEFT] = (XbeeTest_Buffer[0] * 8 - 1000);
-                Xbee_MOTOR_VELOCITY[MOTOR_RIGHT] = (XbeeTest_Buffer[1] * 8 - 1000);
-                Xbee_MOTOR_VELOCITY[MOTOR_FLIPPER] = (XbeeTest_Buffer[2] * 8 - 1000);
-                Xbee_Incoming_Cmd[0] = XbeeTest_Buffer[3];
-                Xbee_Incoming_Cmd[1] = XbeeTest_Buffer[4];
+                uart_motor_velocity[MOTOR_LEFT] = (uart_receive_buffer[0] * 8 - 1000);
+                uart_motor_velocity[MOTOR_RIGHT] = (uart_receive_buffer[1] * 8 - 1000);
+                uart_motor_velocity[MOTOR_FLIPPER] = (uart_receive_buffer[2] * 8 - 1000);
+                uart_incoming_cmd[0] = uart_receive_buffer[3];
+                uart_incoming_cmd[1] = uart_receive_buffer[4];
                 // see if this is a fan cmd
-                switch (Xbee_Incoming_Cmd[0]) {
-                case P1_Fan_Command: // new fan command coming in
-                    Xbee_SIDE_FAN_SPEED = Xbee_Incoming_Cmd[1];
-                    Xbee_SIDE_FAN_NEW = 1;
+                switch (uart_incoming_cmd[0]) {
+                case UART_COMMAND_SET_FAN_SPEED: // new fan command coming in
+                    REG_MOTOR_SIDE_FAN_SPEED = uart_incoming_cmd[1];
+                    uart_has_new_fan_speed = true;
                     // Enable fan speed timer
-                    Xbee_FanSpeedTimerEnabled = true;
-                    Xbee_FanSpeedTimerCount = 0;
+                    uart_FanSpeedTimerEnabled = true;
+                    uart_FanSpeedTimerCount = 0;
                     // printf("fan data received!");
                     break;
-                case P1_Low_Speed_Set:
-                    Xbee_Low_Speed_mode = Xbee_Incoming_Cmd[1];
+                case UART_COMMAND_SET_MOTOR_SLOW_SPEED:
+                    REG_MOTOR_SLOW_SPEED = uart_incoming_cmd[1];
                     break;
-                case P1_Calibration_Flipper:
-                    if (Xbee_Incoming_Cmd[1] == P1_Calibration_Flipper) {
-                        Xbee_Calibration = 1;
+                case UART_COMMAND_FLIPPER_CALIBRATE:
+                    if (uart_incoming_cmd[1] == UART_COMMAND_FLIPPER_CALIBRATE) {
+                        uart_flipper_calibrate_requested = true;
                     }
                     break;
                 }
@@ -2116,27 +2072,18 @@ void Motor_U1RXInterrupt(void) {
                 // REG_MOTOR_VELOCITY.right=800;
                 // REG_MOTOR_VELOCITY.flipper=400;
                 // printf("Motor Speed Set!!\n");
-                // printf("Receive New Package! Xbee_gNewData=%d",Xbee_gNewData);
-                // printf("L:%d,R:%d,F:%d/n",Xbee_MOTOR_VELOCITY[0],Xbee_MOTOR_VELOCITY[1],Xbee_MOTOR_VELOCITY[2]);
-                Xbee_gNewData = !Xbee_gNewData;
+                // printf("Receive New Package! uart_has_\=%d",uart_has_new_data);
+                // printf("L:%d,R:%d,F:%d/n",uart_motor_velocity[0],uart_motor_velocity[1],uart_motor_velocity[2]);
+                uart_has_new_data = true;
             }
             // clear all the local buffer
-            XbeeTest_BufferArrayPointer = 0;
-            XbeeTest_State = XbeeTest_StateIdle;
+            i_uart_receive_buffer = 0;
+            uart_state = UART_STATE_IDLE;
+            break;
         }
     }
+}
 #endif
-    // XbeeTest code ends
-}
-
-void initialize_i2c2_registers(void) {
-    REG_MOTOR_TEMP.left = 255;
-    REG_MOTOR_TEMP.right = 255;
-    REG_MOTOR_TEMP.board = 255;
-    REG_ROBOT_REL_SOC_A = 255;
-}
-
-void initialize_i2c3_registers(void) { REG_ROBOT_REL_SOC_B = 255; }
 
 static unsigned int return_calibrated_pot_angle(unsigned int pot_1_value,
                                                 unsigned int pot_2_value) {
