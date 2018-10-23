@@ -1,7 +1,7 @@
 firmware
 ========
 
-##Installation
+## Installation
 
 Released hex files can be found at https://github.com/RoverRobotics/OpenRoverFirmware-dan/releases
 
