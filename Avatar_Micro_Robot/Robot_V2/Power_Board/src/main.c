@@ -108,40 +108,7 @@ static void InitializeSystem(void) {
 
     device_dsc.idProduct = DEVICE_MOTOR;
 
-    // we got rid of the ID pins, so force robot motor to init
     DeviceRobotMotorInit();
-
-    /*	switch (gpio_id)
-            {
-                    case DEVICE_OCU:
-                            DeviceOcuInit();
-                            break;
-
-                    case DEVICE_CARRIER:
-                            DeviceCarrierInit();
-                            break;
-
-                    case DEVICE_MOTOR:
-                            DeviceRobotMotorInit();
-                            break;
-
-                    case DEVICE_ARM_BASE:
-                            DeviceArmBaseInit();
-                            break;
-
-                    case DEVICE_ARM_SHOLDER:
-                            DeviceArmSholderInit();
-                            break;
-
-                    case DEVICE_ARM_HAND:
-                            DeviceArmHandInit();
-                            break;
-
-                    case DEVICE_GENERIC:
-                    default:
-                            DeviceGenericInit();
-                            break;
-            }*/
 
     // ---------------------------------------------------------------------
     // GENERIC INITIALIZATION HERE

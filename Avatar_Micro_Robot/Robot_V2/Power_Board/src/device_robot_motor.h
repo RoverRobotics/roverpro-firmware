@@ -1,3 +1,8 @@
+#ifndef DEVICE_ROBOT_MOTOR_H
+#define DEVICE_ROBOT_MOTOR_H
+
+#include "stdhdr.h"
+
 /*****************************************************************************/
 //*-----------------------------General Purpose------------------------------*/
 #define CLEAR 0
@@ -77,7 +82,6 @@ typedef enum MotorState2 {
 #define StateMachineTimer 1         // 1KHz
 #define RPMTimer 1                  // 1KHz
 #define CurrentFBTimer 1            // 1KHz
-#define M3_POSFB_Timer 1            // 1KHz
 #define CurrentProtectionTimer 1    // 1KHz
 #define I2C2Timer 100
 #define I2C3Timer 100
@@ -86,18 +90,12 @@ typedef enum MotorState2 {
 #define BATRecoveryTimer 100  // 100ms
 #define MotorOffTimer 35      // 35ms motor off if there is a surge
 
-#define CurrentLimit                                                                               \
-    2300 ///< Total motor current at which we will declare an overcurrent threshold and kill the
-         ///< motors
-#define MotorSpeedTargetCoefficient_Normal 40
-#define MotorSpeedTargetCoefficient_Turn 4
-#define MotorSpeedTargetCoefficient_Low 5
-#define HardTurning 1000
-#define StartTurning 0
-
 // constant for special usage
-typedef enum { Cell_OFF = 0, Cell_ON = 1 } BatteryState;
-typedef enum {
+typedef enum BatteryState {
+    Cell_OFF = 0,
+    Cell_ON = 1,
+} BatteryState;
+typedef enum BatteryChannel {
     Cell_A = 0,
     Cell_B,
 } BatteryChannel;
@@ -189,13 +187,6 @@ typedef enum {
     i < MOTOR_CHANNEL_COUNT;                                                                       \
     i++
 
-typedef enum {
-    ControlMode_Conservative = 0,
-    ControlMode_Normal,
-    ControlMode_Aggressive,
-    ControlMode_Customized
-} ControlMode;
-
 /// Number of samples to keep of running metrics for power management, like battery temperature and
 /// voltage
 #define SAMPLE_LENGTH 4
@@ -221,13 +212,7 @@ enum I2CDeviceAddress {
     BATTERY_CHARGER_ADDRESS = 0b0001100,
 };
 
-#define Fan1LowTemp 45 // 45C fan1 start temperature
-#define Fan2LowTemp 45 // 45C fan2 start temperature
-
 /////variable
-
-extern int16_t Robot_Motor_TargetSpeedUSB[MOTOR_CHANNEL_COUNT];
-
 extern bool USB_New_Data_Received;
 
 /////function
@@ -242,41 +227,13 @@ void PWM3Ini(void);      // initialize PWM channel 3
 void PWM3Duty(int Duty); // set duty cycle for PWM channel 3
 // Duty is 0~1024, 1024-100% duty cycle,0-0% duty cycle
 
-void PWM4Ini(void);      // initialize PWM channel 4
-void PWM4Duty(int Duty); // set duty cycle for PWM channel 4
-// Duty is 0~1024, 1024-100% duty cycle,0-0% duty cycle
-
-void PWM5Ini(void);      // initialize PWM channel 5
-void PWM5Duty(int Duty); // set duty cycle for PWM channel 5
-// Duty is 0~1024, 1024-100% duty cycle,0-0% duty cycle
-
-void PWM6Ini(void);      // initialize PWM channel 6
-void PWM6Duty(int Duty); // set duty cycle for PWM channel 6
-// Duty is 0~1024, 1024-100% duty cycle,0-0% duty cycle
-
-void PWM7Ini(void);      // initialize PWM channel 7
-void PWM7Duty(int Duty); // set duty cycle for PWM channel 7
-// Duty is 0~1024, 1024-100% duty cycle,0-0% duty cycle
-
-void PWM8Ini(void);      // initialize PWM channel 8
-void PWM8Duty(int Duty); // set duty cycle for PWM channel 8
-// Duty is 0~1024, 1024-100% duty cycle,0-0% duty cycle
-
-void PWM9Ini(void);      // initialize PWM channel 9
-void PWM9Duty(int Duty); // set duty cycle for PWM channel 9
-// Duty is 0~1024, 1024-100% duty cycle,0-0% duty cycle
-
 /*****************************************************************************/
 
 /*****************************************************************************/
 //*-----------------------------------Timer----------------------------------*/
-void IniIC1();
-void IniIC3();
 void IniTimer1();
 void IniTimer2();
 void IniTimer3();
-void IniTimer4();
-void IniTimer5();
 /*****************************************************************************/
 
 /*****************************************************************************/
@@ -293,7 +250,7 @@ void Braking(MotorChannel Channel);
 void UpdateSpeed(MotorChannel Channel, int State);
 void DeviceRobotMotorInit();
 void Device_MotorController_Process();
-int GetDuty(long CurrentState, long Target, MotorChannel Channel, ControlMode Mode);
+int GetDuty(long Target, MotorChannel Channel);
 void UART1Ini();
 void GetRPM(MotorChannel Channel);
 void GetCurrent(MotorChannel Channel);
@@ -303,17 +260,8 @@ void Cell_Ctrl(BatteryChannel Channel, BatteryState state);
 void USBInput();
 void FANCtrlIni();
 void InterruptIni();
-void Motor_IC1Interrupt();
-void Motor_IC2Interrupt();
-void Motor_IC3Interrupt();
-void Motor_IC4Interrupt();
-void Motor_IC5Interrupt();
-void Motor_IC6Interrupt();
 
-void Motor_T2Interrupt(void);
 void Motor_T3Interrupt(void);
-void Motor_T4Interrupt(void);
-void Motor_T5Interrupt(void);
 
 void Motor_ADC1Interrupt(void);
 
@@ -330,3 +278,5 @@ extern int Cell_A_Current[SAMPLE_LENGTH];
 extern int Cell_B_Current[SAMPLE_LENGTH];
 extern int16_t uart_motor_velocity[MOTOR_CHANNEL_COUNT];
 extern bool uart_has_new_fan_speed;
+
+#endif

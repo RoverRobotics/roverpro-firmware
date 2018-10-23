@@ -19,11 +19,10 @@ typedef enum {
 /*---------------------------Helper Function Prototypes-----------------------*/
 /*---------------------------IC Related---------------------------------------*/
 #define MAX_NUM_IC_PINS 2
-static volatile uint32_t timeouts[MAX_NUM_IC_PINS] = {0};
 
 /*---------------------------PID Related--------------------------------------*/
 /*---------------------------Filter Related-----------------------------------*/
-float IIRFilter(const uint8_t i, const float x, const float alpha, const bool should_reset);
+float IIRFilter(uint8_t i, float x, float alpha, bool should_reset);
 
 #define ALPHA 0.8
 #define LMOTOR_FILTER 0
@@ -40,30 +39,23 @@ float IIRFilter(const uint8_t i, const float x, const float alpha, const bool sh
 #define K_I 0.00003  // integral gain
 #define K_D 0.000000 // differential gain
 
-// filters
-#define ALPHA 0.8
-#define LMOTOR_FILTER 0
-#define RMOTOR_FILTER 1
-
 #define UART_CONTROL
 
 // OCU speed filter-related values
 #define MAX_DESIRED_SPEED 900 // [au], caps incoming signal from OCU
 #define MIN_ACHEIVABLE_SPEED 50
 
-float DT_speed(const kMotor motor);
-static float GetNominalDriveEffort(const float desired_speed);
-static int16_t GetDesiredSpeed(const kMotor motor);
+float DT_speed(kMotor motor);
+static float GetNominalDriveEffort(float desired_speed);
+static int16_t GetDesiredSpeed(kMotor motor);
 
-static float closed_loop_effort[3] = {0, 0, 0};
+static float closed_loop_effort[MOTOR_CHANNEL_COUNT] = {0};
 
 static int desired_velocity_left = 0;
 static int desired_velocity_right = 0;
 static int desired_velocity_flipper = 0;
 
 void closed_loop_control_init(void) {
-    Nop();
-    Nop();
     IC_Init(kIC01, M1_TACHO_RPN, 1000);
     IC_Init(kIC02, M2_TACHO_RPN, 1000);
     PID_Init(LEFT_CONTROLLER, MAX_EFFORT, MIN_EFFORT, K_P, K_I, K_D);
@@ -71,7 +63,7 @@ void closed_loop_control_init(void) {
 }
 
 // this runs every 10ms
-void handle_closed_loop_control(unsigned int OverCurrent) {
+void handle_closed_loop_control(bool OverCurrent) {
 
     static unsigned int stop_counter = 0;
 
@@ -120,7 +112,7 @@ void handle_closed_loop_control(unsigned int OverCurrent) {
 
     // update the flipper
     float desired_flipper_speed = desired_velocity_flipper / 1200.0;
-    // DT_set_speed(kMotorFlipper, desired_flipper_speed);
+
     closed_loop_effort[kMotorFlipper] = desired_flipper_speed;
 
     // update the left drive motor
@@ -128,27 +120,15 @@ void handle_closed_loop_control(unsigned int OverCurrent) {
     float actual_speed_left = DT_speed(kMotorLeft);
     float effort_left = PID_ComputeEffort(LEFT_CONTROLLER, desired_speed_left, actual_speed_left,
                                           nominal_effort_left);
-    // printf("%f",effort_left);
-    // DT_set_speed(kMotorLeft, effort_left);
+
     closed_loop_effort[kMotorLeft] = effort_left;
-    // printf("%d",closed_loop_effort[kMotorLeft]);
-    // DT_set_speed(kMotorLeft, nominal_effort_left);
 
     // update the right drive motor
     float nominal_effort_right = GetNominalDriveEffort(desired_speed_right);
     float actual_speed_right = DT_speed(kMotorRight);
     float effort_right = PID_ComputeEffort(RIGHT_CONTROLLER, desired_speed_right,
                                            actual_speed_right, nominal_effort_right);
-    // DT_set_speed(kMotorRight, effort_right);
     closed_loop_effort[kMotorRight] = effort_right;
-    // DT_set_speed(kMotorRight, nominal_effort_right);
-
-    /*i++;
-    if(i>=100)
-    {
-      i=0;
-    }
-    actual_speed_array[i] = actual_speed_right;*/
 
     // if the speed inputs are 0, reset controller after 1 second
     // TODO: fix controller so that we don't get these small offsets
@@ -163,10 +143,8 @@ void handle_closed_loop_control(unsigned int OverCurrent) {
         stop_counter = 0;
 }
 
-int return_closed_loop_control_effort(unsigned char motor) {
-    // if(motor==1) return 300;
+int return_closed_loop_control_effort(MotorChannel motor) {
     return (int)(closed_loop_effort[motor] * 1000.0);
-    // return 0;
 }
 
 float DT_speed(const kMotor motor) {
@@ -197,7 +175,6 @@ float DT_speed(const kMotor motor) {
     case kMotorFlipper: {
         period = IC_period(kIC03);
         if (period != 0) {
-            //        if (M3_DIRO) return (HZ_16US / period);
             if (M3_DIR)
                 return (HZ_16US / period);
             else
@@ -239,7 +216,6 @@ static int16_t GetDesiredSpeed(const kMotor motor) {
         // if we are turning (sign bits do not match AND magnitudes are non-negligible)
         if (((temp_left >> 15) != (temp_right >> 15)) &&
             ((200 < abs(temp_left)) && (200 < abs(temp_right)))) {
-            // ClearMotorHistory();
             if (0 < temp_left)
                 return 500;
             else
@@ -259,7 +235,6 @@ static int16_t GetDesiredSpeed(const kMotor motor) {
 
         if (((temp_left >> 15) != (temp_right >> 15)) &&
             ((200 < abs(temp_left)) && (200 < abs(temp_right)))) {
-            // ClearMotorHistory();
             if (0 < temp_right)
                 return 500;
             else
@@ -280,9 +255,7 @@ static int16_t GetDesiredSpeed(const kMotor motor) {
 }
 
 void set_desired_velocities(int left, int right, int flipper) {
-
     desired_velocity_left = left;
     desired_velocity_right = right;
     desired_velocity_flipper = flipper;
-    // printf("%d,%d,%d",desired_velocity_left,desired_velocity_right,desired_velocity_flipper);
 }
