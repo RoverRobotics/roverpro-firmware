@@ -112,7 +112,7 @@ void IC2_ISR(void) {
 
   static uint16_t last_value = 0;
   uint16_t current_value = IC3BUF;
-  
+  
   if (last_value < current_value) periods[2] = current_value - last_value;
   else periods[2] = (UINT_MAX - last_value) + current_value;
   last_value = current_value;
@@ -122,10 +122,10 @@ void IC2_ISR(void) {
 void __attribute__((__interrupt__, auto_psv)) _IC4Interrupt(void) {
   _IC4IF = 0;
   elapsed_times[3] = 0;
-  
+  
   static uint16_t last_value = 0;
   uint16_t current_value = IC4BUF;
-  
+  
   if (last_value < current_value) periods[3] = current_value - last_value;
   else periods[3] = (UINT_MAX - last_value) + current_value;
   last_value = current_value;
@@ -135,10 +135,10 @@ void __attribute__((__interrupt__, auto_psv)) _IC4Interrupt(void) {
 void __attribute__((__interrupt__, auto_psv)) _IC5Interrupt(void) {
   _IC5IF = 0;
   elapsed_times[4] = 0;
-  
+  
   static uint16_t last_value = 0;
   uint16_t current_value = IC5BUF;
-  
+  
   if (last_value < current_value) periods[4] = current_value - last_value;
   else periods[4] = (UINT_MAX - last_value) + current_value;
   last_value = current_value;
@@ -151,7 +151,7 @@ void __attribute__((__interrupt__, auto_psv)) _IC6Interrupt(void) {
 
   static uint16_t last_value = 0;
   uint16_t current_value = IC6BUF;
-  
+  
   if (last_value < current_value) periods[5] = current_value - last_value;
   else periods[5] = (UINT_MAX - last_value) + current_value;
   last_value = current_value;
@@ -161,10 +161,10 @@ void __attribute__((__interrupt__, auto_psv)) _IC6Interrupt(void) {
 void __attribute__((__interrupt__, auto_psv)) _IC7Interrupt(void) {
   _IC7IF = 0;
   elapsed_times[6] = 0;
-  
+  
   static uint16_t last_value = 0;
   uint16_t current_value = IC7BUF;
-  
+  
   if (last_value < current_value) periods[6] = current_value - last_value;
   else periods[6] = (UINT_MAX - last_value) + current_value;
   last_value = current_value;
@@ -177,7 +177,7 @@ void __attribute__((__interrupt__, auto_psv)) _IC8Interrupt(void) {
 
   static uint16_t last_value = 0;
   uint16_t current_value = IC8BUF;
-  
+  
   if (last_value < current_value) periods[7] = current_value - last_value;
   else periods[7] = (UINT_MAX - last_value) + current_value;
   last_value = current_value;
@@ -190,7 +190,7 @@ void __attribute__((__interrupt__, auto_psv)) _IC9Interrupt(void) {
 
   static uint16_t last_value = 0;
   uint16_t current_value = IC9BUF;
-  
+  
   if (last_value < current_value) periods[8] = current_value - last_value;
   else periods[8] = (UINT_MAX - last_value) + current_value;
   last_value = current_value;
@@ -208,7 +208,7 @@ void IC_Init(const kICModule module, const uint8_t RPn, const uint8_t timeout) {
       //_T3IE = 1;
       T3CONbits.TON = 1;        // turn on the timer
       is_timer3_running = YES;
-      
+      
       InitTimer4();
     }*/
 
@@ -285,14 +285,14 @@ void IC_Deinit(void) {
      for (i = 0; i < MAX_NUM_IC_PINS; i++) {
        // un-map mapped pins
        if (RPns[i]) PPS_MapPeripheral(RPns[i], OUTPUT, FN_NULL);
-       
+       
        // clear module-level arrays
        timeouts[i] = 0;
        RPns[i] = 0;
        elapsed_times[i] = 0;
        periods[i] = 0;
      }
-     
+     
      T3CONbits.TON = 0;  // turn OFF Timer3
      is_timer3_running = NO;*/
 }
@@ -357,10 +357,10 @@ static void InitIC3(const uint8_t RPn) {
       IC3CON1bits.ICTSEL = 0;
       IC3CON1bits.ICI = 0b00;
       IC3CON1bits.ICM = 0b011;
-      
+      
     //  PPS_MapPeripheral(RPn, INPUT, FN_IC3);
       _IC3R = RPn;
-      
+      
       _IC3IF = 0;
       _IC3IE = 1;*/
 }
@@ -372,9 +372,9 @@ static void InitIC4(const uint8_t RPn) {
       IC4CON1bits.ICTSEL = 0;
       IC4CON1bits.ICI = 0b00;
       IC4CON1bits.ICM = 0b011;
-      
+      
       PPS_MapPeripheral(RPn, INPUT, FN_IC4);
-      
+      
       _IC4IF = 0;
       _IC4IE = 1;*/
 }
@@ -386,9 +386,9 @@ static void InitIC5(const uint8_t RPn) {
       IC5CON1bits.ICTSEL = 0;
       IC5CON1bits.ICI = 0b00;
       IC5CON1bits.ICM = 0b011;
-      
+      
       PPS_MapPeripheral(RPn, INPUT, FN_IC5);
-      
+      
       _IC5IF = 0;
       _IC5IE = 1;*/
 }
@@ -400,9 +400,9 @@ static void InitIC6(const uint8_t RPn) {
       IC6CON1bits.ICTSEL = 0;
       IC6CON1bits.ICI = 0b00;
       IC6CON1bits.ICM = 0b011;
-      
+      
       PPS_MapPeripheral(RPn, INPUT, FN_IC6);
-      
+      
       _IC6IF = 0;
       _IC6IE = 1;*/
 }
@@ -414,9 +414,9 @@ static void InitIC7(const uint8_t RPn) {
       IC7CON1bits.ICTSEL = 0;
       IC7CON1bits.ICI = 0b00;
       IC7CON1bits.ICM = 0b011;
-      
+      
       PPS_MapPeripheral(RPn, INPUT, FN_IC7);
-      
+      
       _IC7IF = 0;
       _IC7IE = 1;*/
 }
@@ -428,9 +428,9 @@ static void InitIC8(const uint8_t RPn) {
      IC8CON1bits.ICTSEL = 0;
      IC8CON1bits.ICI = 0b00;
      IC8CON1bits.ICM = 0b011;
-     
+     
      PPS_MapPeripheral(RPn, INPUT, FN_IC8);
-     
+     
      _IC8IF = 0;
      _IC8IE = 1;*/
 }
@@ -442,9 +442,9 @@ static void InitIC9(const uint8_t RPn) {
      IC9CON1bits.ICTSEL = 0;
      IC9CON1bits.ICI = 0b00;
      IC9CON1bits.ICM = 0b011;
-     
+     
      PPS_MapPeripheral(RPn, INPUT, FN_IC9);
-     
+     
      _IC9IF = 0;
      _IC9IE = 1;*/
 }

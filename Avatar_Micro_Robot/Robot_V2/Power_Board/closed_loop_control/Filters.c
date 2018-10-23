@@ -34,7 +34,7 @@ uint8_t DeadBandFilter(const uint8_t i, const float x, const float threshold,
       // look to pass the high threshold
       if ((threshold + hysteresis) < x) current_state = 1;
     }
-          
+          
           return current_state;
     */
     return 0;
@@ -51,7 +51,7 @@ float ChangeBandFilter(const uint8_t i, const float x, const float min_delta) {
                   last_x = x;
                   return x;
           }
-          
+          
           return last_x;
     */
     return 0;
@@ -78,16 +78,16 @@ float FIRFilter(const uint8_t i, const float x, const float coefficients[]) {
     #define NUM_SAMPLES   16
     static int samples[NUM_SAMPLES] = {0};
     static unsigned char currentIndex = 0;
-    
+    
     // add in the new value
     samples[currentIndex] = x;
     if (NUM_SAMPLES < ++currentIndex) currentIndex = 0;
-    
+    
     // sum the previous window of samples
     unsigned char i;
     long int sum = 0;
     for (i = 0; i < NUM_SAMPLES; i++) sum += samples[i];
-    
+    
     return (sum / NUM_SAMPLES);
     */
     return 0;
