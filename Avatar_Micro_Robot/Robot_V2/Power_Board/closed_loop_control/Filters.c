@@ -1,25 +1,11 @@
 /*==============================================================================
 File: Filters.c
 ==============================================================================*/
-//#define TEST_FILTERS
 /*---------------------------Dependencies-------------------------------------*/
 #include "Filters.h"
 #include <stdlib.h> // for abs() function
-#include <p24Fxxxx.h>
 #include "stdhdr.h"
 
-/*---------------------------Test Harness-------------------------------------*/
-#ifdef TEST_FILTERS
-#include "./ConfigurationBits.h"
-
-int main(void) {
-
-    while (1) {
-    }
-
-    return 0;
-}
-#endif
 /*---------------------------Public Function Definitions----------------------*/
 // WARNING: assumes all parameters are positive
 
@@ -35,6 +21,3 @@ float IIRFilter(const uint8_t i, const float x, const float alpha, const bool sh
 
     return y;
 }
-
-// TODO: ButterworthFilter(), KalmanFilter(), ExtendedKalmanFilter(),
-// ChebychevFilter(), make their own modules?
