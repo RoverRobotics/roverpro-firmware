@@ -7,7 +7,7 @@ Notes:
 
 See also:
   - control system block diagram
-    
+    
 Inpired By:
   - "PID without a PhD" by Tim Wescott
   - http://brettbeauregard.com/
