@@ -1,9 +1,9 @@
 /*==============================================================================
 File: PID.h
 
-Description: This module encapsulates a PID controller with nominal offset.  
+Description: This module encapsulates a PID controller with nominal offset.
   Initialze the controller with the appropriate constants and lookup table, then
-	re-compute the control output at a consistent rate.
+        re-compute the control output at a consistent rate.
 
 Notes:
   - WARNING: assumes a direct-acting process -- that is, an increase in the
@@ -17,17 +17,17 @@ Tuning Considerations.
   - integral gain is usually low
   - if you can't stabilize with P, you can't stabilize with PI
   - unless you're working on a project with very critical performance paraters,
-    you can often get by with control gains that are within a factor of two of 
+    you can often get by with control gains that are within a factor of two of
     the "correct" value
 
 Sampling Rate Considerations.
-  - Sample Rate Tolerance.  At WORST your sampling rate should vary by no more 
-    than +/20% over any 10-sample interval.  For a PI-controller, it is 
-    preferable to have EACH sample fall within +/-1% to +/-5% of the correct 
+  - Sample Rate Tolerance.  At WORST your sampling rate should vary by no more
+    than +/20% over any 10-sample interval.  For a PI-controller, it is
+    preferable to have EACH sample fall within +/-1% to +/-5% of the correct
     sample time
   - rule of thumb: the sample time should be between 1/10th and 1/100th of the
     desired system settling time, where 'system setting time' is defined as the
-    amount of time from the moment the drive comes out of saturation until the 
+    amount of time from the moment the drive comes out of saturation until the
     control system has effectively settled out.
 
 // TODO: implement an auto-tuner: Autotune(&Kp, &Ki, &Kd);
@@ -37,26 +37,23 @@ Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 #ifndef PID_H
 #define PID_H
 //---------------------------Dependencies---------------------------------------
-#include <stdint.h>   // for uintN_t data types
+#include <stdint.h> // for uintN_t data types
 
 //---------------------------Macros---------------------------------------------
-#define MAX_NUM_CONTROLLERS   8 // change to support as many controllers 
-                                // as needed (used to obviate the need for 
-																// dynamic memory management)
+#define MAX_NUM_CONTROLLERS 8 // change to support as many controllers
+// as needed (used to obviate the need for
+// dynamic memory management)
 //---------------------------Public Functions-----------------------------------
 // Function: PID_Init
 // Parameters:
-//   uint8_t controller_index, the index (0-based) of the controller 
+//   uint8_t controller_index, the index (0-based) of the controller
 //                             on which to operate
 // 	float y_max,     the maximum value the output can produce
 // 	float y_min,     the minimum value the output can produce
 // 	float Kp,        proportional gain
 // 	float Ki,        integral gain
 // 	float Kd,        differential gain
-void PID_Init(const uint8_t controller_index,
-              const float y_max, const float y_min, 
-              const float Kp, const float Ki, const float Kd);
-
+void PID_Init(uint8_t controller_index, float y_max, float y_min, float Kp, float Ki, float Kd);
 
 // Function: PID_ComputeEffort
 // Returns:
@@ -69,18 +66,14 @@ void PID_Init(const uint8_t controller_index,
 // 	float x_nominal,	the nominal effort to acheive the desired output
 // 	                  pass zero (0) if nominal offset is NOT desired.
 // 	bool should_reset whether the controller should 'forget' its history
-float PID_ComputeEffort(const uint8_t controller_index,
-                        const float y_desired,
-												const float y_actual,
-												const float x_nominal);
-
+float PID_ComputeEffort(uint8_t controller_index, float y_desired, float y_actual, float x_nominal);
 
 // Function: PID_Reset
 // Parameters:
 //   uint8_t controller_index, the index (0-based) of the controller
 //                             on which to operate
-void PID_Reset(const uint8_t controller_index);
+void PID_Reset(uint8_t controller_index);
 
-void PID_Reset_Integral(const uint8_t controller_index);
+void PID_Reset_Integral(uint8_t controller_index);
 
 #endif

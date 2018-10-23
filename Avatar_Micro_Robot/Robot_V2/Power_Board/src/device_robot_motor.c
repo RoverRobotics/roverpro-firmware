@@ -1,4 +1,4 @@
-#include <p24fxxxx.h>
+#include <p24Fxxxx.h>
 #include "stdhdr.h"
 #include "device_robot_motor.h"
 #include "interrupt_switch.h"
@@ -18,22 +18,13 @@
 static long int Period1;
 static long int Period2;
 static long int Period3;
-static long int Period4;
-static long int Period5;
-static long int Period6;
-static long int Period7;
-static long int Period8;
-static long int Period9;
 //****************************************************
 
 MotorEvent Event[MOTOR_CHANNEL_COUNT] = {Stop, Stop, Stop};
 MotorState StateLevel01[MOTOR_CHANNEL_COUNT] = {Protection, Protection, Protection};
 MotorState2 StateLevel02[MOTOR_CHANNEL_COUNT] = {Locked, Locked, Locked};
 
-long TargetParameter[MOTOR_CHANNEL_COUNT]; ///< Target speed (for left/right motor) or position (for
-                                           ///< flipper)
-unsigned int CurrentParameter[MOTOR_CHANNEL_COUNT]; ///< Current speed(for left and right motor) or
-                                                    ///< position (for flipper)
+long TargetParameter[MOTOR_CHANNEL_COUNT]; ///< Target speed for motors
 bool SwitchDirectionTimerExpired[MOTOR_CHANNEL_COUNT] = {false, false, false};
 bool SwitchDirectionTimerEnabled[MOTOR_CHANNEL_COUNT] = {false, false, false};
 int SwitchDirectionTimerCount[MOTOR_CHANNEL_COUNT] = {0, 0, 0};
@@ -52,9 +43,6 @@ int RPMTimerCount = 0;
 bool CurrentFBTimerExpired = false;
 bool CurrentFBTimerEnabled = true;
 int CurrentFBTimerCount = 0;
-bool M3_POSFB_TimerExpired = false;
-bool M3_POSFB_TimerEnabled = true;
-int M3_POSFB_timerCount = 0;
 bool CurrentProtectionTimerEnabled = true;
 bool CurrentProtectionTimerExpired = false;
 int CurrentProtectionTimerCount = 0;
@@ -83,23 +71,9 @@ bool uart_FanSpeedTimerEnabled = false;
 bool uart_fan_speed_expired = false;
 int uart_FanSpeedTimerCount = 0;
 
-unsigned int ICLMotorOverFlowCount = 0;
-unsigned int ICRMotorOverFlowCount = 0;
-unsigned int LEncoderAOverFlowCount = 0;
-unsigned int LEncoderBOverFlowCount = 0;
-unsigned int REncoderAOverFlowCount = 0;
-unsigned int REncoderBOverFlowCount = 0;
-
-unsigned int LEncoderLastValue = 0;
-unsigned int LEncoderCurrentValue = 0;
-unsigned int REncoderLastValue = 0;
-unsigned int REncoderCurrentValue = 0;
-
 long Encoder_Interrupt_Counter[2] = {0, 0};
 
 long EncoderFBInterval[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH] = {{0}};
-int DIR[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH] = {{0}};
-int EncoderFBIntervalPointer[MOTOR_CHANNEL_COUNT] = {0};
 
 long MotorCurrentAD[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH] = {{0}};
 int MotorCurrentADPointer = 0;
@@ -109,56 +83,22 @@ int Current4ControlPointer[MOTOR_CHANNEL_COUNT] = {0};
 long ControlCurrent[MOTOR_CHANNEL_COUNT] = {0};
 long CurrentRPM[MOTOR_CHANNEL_COUNT] = {0};
 long RPM4Control[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH_CONTROL] = {{0}};
-int RPM4ControlPointer[MOTOR_CHANNEL_COUNT] = {0};
 long ControlRPM[MOTOR_CHANNEL_COUNT] = {0};
-long TotalCurrent;
-long EnCount[MOTOR_CHANNEL_COUNT] = {0};
 
 int16_t motor_target_speed[MOTOR_CHANNEL_COUNT] = {0};
 
 int Timer3Count = 0;
-int M3_POSFB = 0;
 int M3_POSFB_Array[2][SAMPLE_LENGTH] = {{0}}; ///< Flipper Motor positional feedback data
 int M3_POSFB_ArrayPointer = 0;
-int Total_Cell_Current = 0;
 int Total_Cell_Current_Array[SAMPLE_LENGTH] = {0};
 int Total_Cell_Current_ArrayPointer = 0;
-int InitialCellVoltage[BATTERY_CHANNEL_COUNT] = {0};
 int CellVoltageArray[BATTERY_CHANNEL_COUNT][SAMPLE_LENGTH];
 int CellVoltageArrayPointer = 0;
 int Cell_A_Current[SAMPLE_LENGTH];
 int Cell_B_Current[SAMPLE_LENGTH];
-// float
-// SpeedCtrlKp[4][3]={{0.0002,0.0002,0.0002},{0.09,0.09,0.09},{0.09,0.09,0.09},{0.09,0.09,0.09}};//SpeedCtrlKp[i][j],i-
-// control mode, j-MOTOR_LEFT, Right Motor, MOTOR_FLIPPER
-float SpeedCtrlKp[4][MOTOR_CHANNEL_COUNT] = {
-    {0.2, 0.2, 0.2},
-    {0.03, 0.03, 0.03},
-    {0.09, 0.09, 0.09},
-    {0.09, 0.09,
-     0.09}}; // SpeedCtrlKp[i][j],i- control mode, j-MOTOR_LEFT, Right Motor, MOTOR_FLIPPER
-float SpeedCtrlKi[4][MOTOR_CHANNEL_COUNT] = {
-    {0.01, 0.01, 0.01}, {0.001, 0.001, 0.001}, {0.2, 0.2, 0.2}, {0.2, 0.2, 0.2}};
-float SpeedCtrlKd[4][MOTOR_CHANNEL_COUNT] = {
-    {0.000, 0.000, 0.000}, {0.001, 0.001, 0.001}, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}};
-/*float CurrentCtrlKp[4][3]={{1.5,1.5,1.5},{1.0,1.0,1.0},{1.5,1.5,1.5},{1.5,1.5,1.5}};
-float CurrentCtrlKi[4][3]={{0.5,0.5,0.5},{0.01,0.01,0.01},{1.5,1.5,1.5},{1.5,1.5,1.5}};
-float CurrentCtrlKd[4][3]={{0.00,0.00,0.00},{0.0,0.0,0.0},{0.0,0.0,0.0},{0.0,0.0,0.0}};*/
-ControlMode SpeedCtrlMode[MOTOR_CHANNEL_COUNT] = {
-    ControlMode_Conservative, ControlMode_Conservative, ControlMode_Conservative};
-long AccumulatedSpeedError[MOTOR_CHANNEL_COUNT] = {0, 0, 0};
-long AccumulatedCurrentError[MOTOR_CHANNEL_COUNT] = {0, 0, 0};
-long LastSpeedError[MOTOR_CHANNEL_COUNT] = {0, 0, 0};
-long LastCurrentError[MOTOR_CHANNEL_COUNT] = {0, 0, 0};
-long LastTarget[MOTOR_CHANNEL_COUNT] = {0, 0, 0};
+
 bool OverCurrent = false;
-int CurrentSurgeTimes = 0;
-int MotorSpeedTargetCoefficient[MOTOR_CHANNEL_COUNT];
-float MaxDuty = 1000.0;
-bool MotorRecovering = false;
-long TargetDifference = 0;
-long MotorTargetRPM[MOTOR_CHANNEL_COUNT];
-int Timer5Count = 0;
+int MaxDuty = 1000;
 unsigned int flipper_angle_offset = 0;
 void calibrate_flipper_angle_sensor(void);
 static void read_stored_angle_offset(void);
@@ -166,7 +106,8 @@ static void read_stored_angle_offset(void);
 void turn_on_power_bus_new_method(void);
 void turn_on_power_bus_old_method(void);
 void turn_on_power_bus_hybrid_method(void);
-bool check_string_match(unsigned char *string1, unsigned char *string2, unsigned char length);
+bool check_string_match(const unsigned char *string1, const unsigned char *string2,
+                        unsigned char length);
 
 static void alternate_power_bus(void);
 
@@ -220,18 +161,6 @@ void handle_power_bus(void);
 
 //*********************************************//
 //**chief functions
-void ClearSpeedCtrlData(MotorChannel Channel) {
-
-    AccumulatedSpeedError[Channel] = 0;
-    LastSpeedError[Channel] = 0;
-    // printf("Control Data Cleared!\n");
-}
-
-void ClearCurrentCtrlData(MotorChannel Channel) {
-
-    AccumulatedCurrentError[Channel] = 0;
-    LastCurrentError[Channel] = 0;
-}
 
 /** returns the given angle, normalized to between 0 and 360 */
 int wrap_angle(int value) { return (value % 360 + 360) % 360; }
@@ -503,9 +432,6 @@ void Device_MotorController_Process() {
         for (EACH_MOTOR_CHANNEL(i)) {
             GetCurrent(i);
         }
-        TotalCurrent = RealTimeCurrent[MOTOR_LEFT] + RealTimeCurrent[MOTOR_RIGHT] +
-                       RealTimeCurrent[MOTOR_FLIPPER];
-        // printf("\nTotal Current%ld:\n",TotalCurrent);
     }
     if (MotorOffTimerExpired) {
         OverCurrent = false;
@@ -515,13 +441,11 @@ void Device_MotorController_Process() {
         CurrentSurgeRecoverTimerEnabled = true;
         CurrentSurgeRecoverTimerCount = 0;
         CurrentSurgeRecoverTimerExpired = false;
-        MotorRecovering = true;
     }
     if (CurrentSurgeRecoverTimerExpired) {
         CurrentSurgeRecoverTimerEnabled = false;
         CurrentSurgeRecoverTimerCount = 0;
         CurrentSurgeRecoverTimerExpired = false;
-        MotorRecovering = false;
     }
     if (I2C2TimerExpired) {
         I2C2Update();
@@ -779,101 +703,20 @@ void ProtectHB(MotorChannel Channel) {
     }
 }
 
-int GetMotorSpeedTargetCoefficient(int Current) {
-    int result = MotorSpeedTargetCoefficient_Normal;
-    long temp = TargetDifference;
-
-    // turning?
-    if (temp < HardTurning && temp > StartTurning) {
-        result = MotorSpeedTargetCoefficient_Turn +
-                 (HardTurning - temp) *
-                     (MotorSpeedTargetCoefficient_Normal - MotorSpeedTargetCoefficient_Turn) /
-                     (HardTurning - StartTurning);
-        // MaxDuty=750.0;
-    } else if (temp >= HardTurning) {
-        result = MotorSpeedTargetCoefficient_Turn;
-        // MaxDuty=150.0;
-    }
-
-    // recovering protection
-    if (MotorRecovering) {
-        result = MotorSpeedTargetCoefficient_Turn +
-                 (MotorSpeedTargetCoefficient_Normal - MotorSpeedTargetCoefficient_Turn) *
-                     CurrentSurgeRecoverTimerCount / CurrentSurgeRecoverTimer;
-    }
-    if (result > MotorSpeedTargetCoefficient_Normal)
-        result = MotorSpeedTargetCoefficient_Normal;
-    if (result < MotorSpeedTargetCoefficient_Turn)
-        result = MotorSpeedTargetCoefficient_Turn;
-    return result;
-}
-
-int GetDuty(long CurrentState, long Target, MotorChannel Channel, ControlMode Mode) {
-    long TargetRPM;
-    // 	long TargetCurrent;
-    float result;
-    long TempSpeedError;
-    // 	long TempCurrentError;
-    /*
-            if(LastTarget[Channel]!=Target)
-            {
-                    ClearSpeedCtrlData(Channel);
-            }
-    */
-    // 	if(RTCurrent<=CurrentThreshold)
-
-    // speed control
-    LastTarget[Channel] = Target;
-    MotorSpeedTargetCoefficient[Channel] = GetMotorSpeedTargetCoefficient(Channel);
-    TargetRPM = (labs(Target) * MotorSpeedTargetCoefficient[Channel]) >>
-                2; // abstract number-> RPM-- 17000 RPM (1000) is the top
-    MotorTargetRPM[Channel] = TargetRPM;
-    TempSpeedError = TargetRPM - labs(CurrentState);
-    AccumulatedSpeedError[Channel] += TempSpeedError;
-    // PID Control
-    // printf("Temp Error:%ld,Kp:%f, Accumulated Error:%li,
-    // Ki:%f\n",TempSpeedError,SpeedCtrlKp[Mode][Channel],AccumulatedSpeedError[Channel],SpeedCtrlKi[Mode][Channel]);
-    result = TempSpeedError * SpeedCtrlKp[Mode][Channel] +
-             AccumulatedSpeedError[Channel] * SpeedCtrlKi[Mode][Channel] +
-             (TempSpeedError - LastSpeedError[Channel]) * SpeedCtrlKd[Mode][Channel];
-    LastSpeedError[Channel] = TempSpeedError;
-    if (result >= MaxDuty) {
-        result = MaxDuty;
-        if (TempSpeedError > 0) {
-            AccumulatedSpeedError[Channel] -= TempSpeedError;
-        }
-    }
-    if (result < 0.0) {
-        result = 0.0;
-        // AccumulatedSpeedError[Channel]-=TempSpeedError;
-        AccumulatedSpeedError[Channel] = 0;
-    }
-
+int GetDuty(long Target, MotorChannel Channel) {
     if (Channel == MOTOR_FLIPPER) {
         return Target;
     } else {
-        result = labs(Target);
-        if (result >= MaxDuty)
-            result = MaxDuty;
-        return result;
+        return min(labs(Target), MaxDuty);
     }
 }
 
 void UpdateSpeed(MotorChannel Channel, int State) {
     int Dutycycle;
-    int temp;
 
     ControlRPM[Channel] = mean_l(SAMPLE_LENGTH_CONTROL, RPM4Control[Channel]);
     ControlCurrent[Channel] = mean_l(SAMPLE_LENGTH_CONTROL, Current4Control[Channel]);
 
-    TargetDifference = labs(TargetParameter[MOTOR_LEFT] - TargetParameter[MOTOR_RIGHT]);
-    temp = TargetDifference;
-    // turning?
-    if (temp >= HardTurning) {
-        SpeedCtrlMode[Channel] = ControlMode_Conservative;
-    } else {
-        SpeedCtrlMode[Channel] = ControlMode_Normal;
-    }
     switch (Channel) {
     case MOTOR_LEFT:
         if (State == Forward) {
@@ -881,8 +724,7 @@ void UpdateSpeed(MotorChannel Channel, int State) {
                 Dutycycle = 0;
                 M1_COAST = Set_ActiveLO;
             } else {
-                Dutycycle = GetDuty(ControlRPM[Channel], TargetParameter[Channel], Channel,
-                                    SpeedCtrlMode[Channel]);
+                Dutycycle = GetDuty(TargetParameter[Channel], Channel);
                 M1_COAST = Clear_ActiveLO;
             }
             M1_BRAKE = Clear_ActiveLO;
@@ -893,8 +735,7 @@ void UpdateSpeed(MotorChannel Channel, int State) {
                 Dutycycle = 0;
                 M1_COAST = Set_ActiveLO;
             } else {
-                Dutycycle = GetDuty(ControlRPM[Channel], TargetParameter[Channel], Channel,
-                                    SpeedCtrlMode[Channel]);
+                Dutycycle = GetDuty(TargetParameter[Channel], Channel);
                 M1_COAST = Clear_ActiveLO;
             }
             M1_BRAKE = Clear_ActiveLO;
@@ -908,8 +749,7 @@ void UpdateSpeed(MotorChannel Channel, int State) {
                 Dutycycle = 0;
                 M2_COAST = Set_ActiveLO;
             } else {
-                Dutycycle = GetDuty(ControlRPM[Channel], TargetParameter[Channel], Channel,
-                                    SpeedCtrlMode[Channel]);
+                Dutycycle = GetDuty(TargetParameter[Channel], Channel);
                 M2_COAST = Clear_ActiveLO;
             }
             M2_BRAKE = Clear_ActiveLO;
@@ -920,8 +760,7 @@ void UpdateSpeed(MotorChannel Channel, int State) {
                 Dutycycle = 0;
                 M2_COAST = Set_ActiveLO;
             } else {
-                Dutycycle = GetDuty(ControlRPM[Channel], TargetParameter[Channel], Channel,
-                                    SpeedCtrlMode[Channel]);
+                Dutycycle = GetDuty(TargetParameter[Channel], Channel);
                 M2_COAST = Clear_ActiveLO;
             }
             M2_BRAKE = Clear_ActiveLO;
@@ -931,8 +770,7 @@ void UpdateSpeed(MotorChannel Channel, int State) {
         break;
     case MOTOR_FLIPPER:
         if (State == Forward) {
-            Dutycycle = GetDuty(CurrentParameter[Channel], TargetParameter[Channel], Channel,
-                                SpeedCtrlMode[Channel]);
+            Dutycycle = GetDuty(TargetParameter[Channel], Channel);
             M3_COAST = Clear_ActiveLO;
             Nop();
             M3_BRAKE = Clear_ActiveLO;
@@ -940,8 +778,7 @@ void UpdateSpeed(MotorChannel Channel, int State) {
             M3_DIR = HI;
             PWM3Duty(Dutycycle);
         } else if (State == Backward) {
-            Dutycycle = GetDuty(CurrentParameter[Channel], -TargetParameter[Channel], Channel,
-                                SpeedCtrlMode[Channel]);
+            Dutycycle = GetDuty(-TargetParameter[Channel], Channel);
             M3_COAST = Clear_ActiveLO;
             Nop();
             M3_BRAKE = Clear_ActiveLO;
@@ -1327,26 +1164,16 @@ void MC_Ini(void) // initialzation for the whole program
     InterruptIni();
     // initialize AD
     IniAD();
+
     // initialize timer
     IniTimer2();
     IniTimer3();
     IniTimer1();
-    // 	IniTimer4();
-    // 	IniTimer5();
+
     // initialize PWM sub module
     PWM1Ini();
     PWM2Ini();
     PWM3Ini();
-    /*	PWM4Ini();
-            PWM5Ini();
-            PWM6Ini();
-            PWM7Ini();
-            PWM8Ini();
-            PWM9Ini();*/
-
-    // initialize input capture
-    // IniIC1();
-    // IniIC3();
 
     i2c_enable(I2C_BUS2);
     i2c_enable(I2C_BUS3);
@@ -1360,12 +1187,7 @@ void MC_Ini(void) // initialzation for the whole program
 
 void InterruptIni() {
     // remap all the interrupt routines
-    // 	T2InterruptUserFunction=Motor_T2Interrupt;
     T3InterruptUserFunction = Motor_T3Interrupt;
-    // 	T4InterruptUserFunction=Motor_T4Interrupt;
-    // 	T5InterruptUserFunction=Motor_T5Interrupt;
-    // 	IC1InterruptUserFunction=Motor_IC1Interrupt;
-    // 	IC3InterruptUserFunction=Motor_IC3Interrupt;
     ADC1InterruptUserFunction = Motor_ADC1Interrupt;
 #ifdef UART_CONTROL
     U1TXInterruptUserFunction = Motor_U1TXInterrupt;
@@ -1473,103 +1295,6 @@ void PWM3Ini(void) {
 
 // set duty cycle for PWM channel 3
 void PWM3Duty(int Duty) { OC3R = Duty * 2; }
-//****************************************************
-
-//****************************************************
-// initialize PWM channel 4
-void PWM4Ini(void) {
-    OC4R = 0;
-    OC4RS = Period30000Hz;
-    OC4CON2bits.SYNCSEL = 0x1F;
-    OC4CON2bits.OCTRIG = CLEAR;
-    OC4CON1bits.OCTSEL = 0b000; // Timer2
-    OC4CON1bits.OCM = 0b110;
-    Period4 = Period30000Hz; // Period is used for all the other PWMxDuty() functions
-}
-
-// set duty cycle for PWM channel 4
-void PWM4Duty(int Duty) { OC4R = (Period4 * Duty) >> 10; }
-//****************************************************
-
-//****************************************************
-// initialize PWM channel 5
-void PWM5Ini(void) {
-    OC5R = 0;
-    OC5RS = Period30000Hz;
-    OC5CON2bits.SYNCSEL = 0x1F;
-    OC5CON2bits.OCTRIG = CLEAR;
-    OC5CON1bits.OCTSEL = 0b000; // Timer2
-    OC5CON1bits.OCM = 0b110;
-    Period5 = Period30000Hz; // Period is used for all the other PWMxDuty() functions
-}
-
-// set duty cycle for PWM channel 5
-void PWM5Duty(int Duty) { OC5R = (Period5 * Duty) >> 10; }
-//****************************************************
-
-//****************************************************
-// initialize PWM channel 6
-void PWM6Ini(void) {
-    OC6R = 0;
-    OC6RS = Period30000Hz;
-    OC6CON2bits.SYNCSEL = 0x1F;
-    OC6CON2bits.OCTRIG = CLEAR;
-    OC6CON1bits.OCTSEL = 0b000; // Timer2
-    OC6CON1bits.OCM = 0b110;
-    Period6 = Period30000Hz; // Period is used for all the other PWMxDuty() functions
-}
-
-// set duty cycle for PWM channel 6
-void PWM6Duty(int Duty) { OC6R = (Period6 * Duty) >> 10; }
-//****************************************************
-
-//****************************************************
-// initialize PWM channel 7
-void PWM7Ini(void) {
-    OC7R = 0;
-    OC7RS = Period30000Hz;
-    OC7CON2bits.SYNCSEL = 0x1F;
-    OC7CON2bits.OCTRIG = CLEAR;
-    OC7CON1bits.OCTSEL = 0b000; // Timer2
-    OC7CON1bits.OCM = 0b110;
-    Period7 = Period30000Hz; // Period is used for all the other PWMxDuty() functions
-}
-
-// set duty cycle for PWM channel 7
-void PWM7Duty(int Duty) { OC7R = (Period7 * Duty) >> 10; }
-//****************************************************
-
-//****************************************************
-// initialize PWM channel 8
-void PWM8Ini(void) {
-    OC8R = 0;
-    OC8RS = Period30000Hz;
-    OC8CON2bits.SYNCSEL = 0x1F;
-    OC8CON2bits.OCTRIG = CLEAR;
-    OC8CON1bits.OCTSEL = 0b000; // Timer2
-    OC8CON1bits.OCM = 0b110;
-    Period8 = Period30000Hz; // Period is used for all the other PWMxDuty() functions
-}
-
-// set duty cycle for PWM channel 8
-void PWM8Duty(int Duty) { OC8R = (Period8 * Duty) >> 10; }
-//****************************************************
-
-//****************************************************
-// initialize PWM channel 9
-void PWM9Ini(void) {
-    OC9R = 0;
-    OC9RS = Period30000Hz;
-    OC9CON2bits.SYNCSEL = 0x1F;
-    OC9CON2bits.OCTRIG = CLEAR;
-    OC9CON1bits.OCTSEL = 0b000; // Timer2
-    OC9CON1bits.OCM = 0b110;
-    Period9 = Period30000Hz; // Period is used for all the other PWMxDuty() functions
-}
-
-// set duty cycle for PWM channel 9
-void PWM9Duty(int Duty) { OC9R = (Period9 * Duty) >> 10; }
-//****************************************************
 
 /*****************************************************************************/
 //*-----------------------------------Timer----------------------------------*/
@@ -1605,116 +1330,6 @@ void IniTimer3() {
 
     // end timer 3 initialize
 }
-
-void IniTimer4() {
-    /*	T4CON=0x0010;//stops timer4,1:8 prescale,16 bit timer,internal clock (Fosc/2)
-            TMR4=0;//clear timer1 register
-            IFS1bits.T4IF = 0;	//clear interrupt flag
-            //IEC1bits.T4IE=SET;
-            T4CONbits.TON=SET;*/
-}
-
-void IniTimer5() {
-    T5CON = 0x0010;        // stops timer3,1:8 prescale,16 bit timer,internal clock (Fosc/2)
-    TMR5 = 0;              // clear timer1 register
-    PR5 = Period67Hz;      // timer 5 -> 15ms
-    IFS1bits.T5IF = CLEAR; // clear interrupt flag
-    IEC1bits.T5IE = CLEAR; // disenable the interrupt
-    T5CONbits.TON = CLEAR; // stop clock
-}
-
-void IniIC1() {
-    int temp;
-    // 1. Configure the ICx input for one of the available
-    // Peripheral Pin Select pins.
-    // Done before
-    // 2. If Synchronous mode is to be used, disable the
-    // sync source before proceeding.
-    // No need
-    // 3. Make sure that any previous data has been
-    // removed from the FIFO by reading ICxBUF until
-    // the ICBNE bit (ICxCON1<3>) is cleared.
-    while (IC1CON1bits.ICBNE == SET) {
-        temp = IC1BUF;
-    }
-    // 4. Set the SYNCSEL bits (ICxCON2<4:0>) to the
-    // desired sync/trigger source.
-    IC1CON2bits.SYNCSEL = 0b00000; // not snycronized to anything
-    // 5. Set the ICTSEL bits (ICxCON1<12:10>) for the
-    // desired clock source.
-    IC1CON1bits.ICTSEL = 0b010; // timer 4
-    // 6. Set the ICI bits (ICxCON1<6:5>) to the desired
-    // interrupt frequency
-    IC1CON1bits.ICI = 0b00; // interrupt on every capture event
-    // 7. Select Synchronous or Trigger mode operation:
-    // a) Check that the SYNCSEL bits are not set to?0000?
-    /*
-            if(IC5CON2bits.SYNCSEL==CLEAR)
-            {
-                    IC5CON2bits.SYNCSEL=0b10100; 	//sync with IC1
-            }
-    */
-    // b) For Synchronous mode, clear the ICTRIG
-    // bit (ICxCON2<7>).
-    IC1CON2bits.ICTRIG = 0b0; // synchronous mode
-    // c) For Trigger mode, set ICTRIG, and clear the
-    // TRIGSTAT bit (ICxCON2<6>).
-
-    // 8. Set the ICM bits (ICxCON1<2:0>) to the desired
-    // operational mode.
-    IC1CON1bits.ICM = 0b011; // capture on every rising edge
-    // 9. Enable the selected trigger/sync source.
-
-    IFS0bits.IC1IF = CLEAR; // clear the interrupt flag
-    IEC0bits.IC1IE = SET;   // start the interrupt
-}
-
-void IniIC3() {
-    int temp;
-    // 1. Configure the ICx input for one of the available
-    // Peripheral Pin Select pins.
-    // Done before
-    // 2. If Synchronous mode is to be used, disable the
-    // sync source before proceeding.
-    // No need
-    // 3. Make sure that any previous data has been
-    // removed from the FIFO by reading ICxBUF until
-    // the ICBNE bit (ICxCON1<3>) is cleared.
-    while (IC3CON1bits.ICBNE == SET) {
-        temp = IC3BUF;
-    }
-    // 4. Set the SYNCSEL bits (ICxCON2<4:0>) to the
-    // desired sync/trigger source.
-    IC3CON2bits.SYNCSEL = 0b00000; // not snycronized to anything
-    // 5. Set the ICTSEL bits (ICxCON1<12:10>) for the
-    // desired clock source.
-    IC3CON1bits.ICTSEL = 0b010; // timer 4
-    // 6. Set the ICI bits (ICxCON1<6:5>) to the desired
-    // interrupt frequency
-    IC3CON1bits.ICI = 0b00; // interrupt on every capture event
-    // 7. Select Synchronous or Trigger mode operation:
-    // a) Check that the SYNCSEL bits are not set to?0000?
-    /*
-            if(IC5CON2bits.SYNCSEL==CLEAR)
-            {
-                    IC5CON2bits.SYNCSEL=0b10100; 	//sync with IC1
-            }
-    */
-    // b) For Synchronous mode, clear the ICTRIG
-    // bit (ICxCON2<7>).
-    IC3CON2bits.ICTRIG = 0b0; // synchronous mode
-    // c) For Trigger mode, set ICTRIG, and clear the
-    // TRIGSTAT bit (ICxCON2<6>).
-
-    // 8. Set the ICM bits (ICxCON1<2:0>) to the desired
-    // operational mode.
-    IC3CON1bits.ICM = 0b011; // capture on every rising edge
-    // 9. Enable the selected trigger/sync source.
-
-    IFS2bits.IC3IF = CLEAR; // clear the interrupt flag
-    IEC2bits.IC3IE = SET;   // start the interrupt
-}
-
 /*****************************************************************************/
 
 /*****************************************************************************/
@@ -1776,75 +1391,10 @@ void UART1Ini() {
 
 /***************************Interrupt routines***********************************/
 
-void Motor_IC1Interrupt(void) {
-    // int temp,index;
-
-    IFS0bits.IC1IF = 0; // clear the interrupt flag
-    // make sure pull all the data from the buffer
-    while (IC1CON1bits.ICBNE == SET) {
-        LEncoderCurrentValue = IC1BUF;
-        EncoderFBInterval[MOTOR_LEFT][EncoderFBIntervalPointer[MOTOR_LEFT]] =
-            LEncoderCurrentValue - LEncoderLastValue;
-        if (EncoderFBInterval[MOTOR_LEFT][EncoderFBIntervalPointer[MOTOR_LEFT]] < 0 ||
-            LEncoderAOverFlowCount > 0) {
-            EncoderFBInterval[MOTOR_LEFT][EncoderFBIntervalPointer[MOTOR_LEFT]] +=
-                65535 * LEncoderAOverFlowCount;
-            LEncoderAOverFlowCount = 0;
-        }
-        LEncoderLastValue = LEncoderCurrentValue;
-        EncoderFBIntervalPointer[MOTOR_LEFT] =
-            (EncoderFBIntervalPointer[MOTOR_LEFT] + 1) % SAMPLE_LENGTH;
-    }
-
-    Encoder_Interrupt_Counter[MOTOR_LEFT]++;
-}
-
-void Motor_IC3Interrupt(void) {
-    IFS2bits.IC3IF = 0; // clear the flag
-    // make sure pull all the data from the buffer
-    while (IC3CON1bits.ICBNE == SET) {
-        REncoderCurrentValue = IC3BUF;
-        EncoderFBInterval[MOTOR_RIGHT][EncoderFBIntervalPointer[MOTOR_RIGHT]] =
-            REncoderCurrentValue - REncoderLastValue;
-        if (EncoderFBInterval[MOTOR_RIGHT][EncoderFBIntervalPointer[MOTOR_RIGHT]] < 0 ||
-            REncoderAOverFlowCount > 0) {
-            EncoderFBInterval[MOTOR_RIGHT][EncoderFBIntervalPointer[MOTOR_RIGHT]] +=
-                65535 * REncoderAOverFlowCount;
-            REncoderAOverFlowCount = 0;
-        }
-        REncoderLastValue = REncoderCurrentValue;
-        EncoderFBIntervalPointer[MOTOR_RIGHT] =
-            (EncoderFBIntervalPointer[MOTOR_RIGHT] + 1) % SAMPLE_LENGTH;
-    }
-
-    Encoder_Interrupt_Counter[MOTOR_RIGHT]++;
-}
-
-void Motor_T4Interrupt(void) {
-    IFS1bits.T4IF = 0; // clear interrupt flag
-    ICLMotorOverFlowCount++;
-    ICRMotorOverFlowCount++;
-    LEncoderAOverFlowCount++;
-    LEncoderBOverFlowCount++;
-    REncoderAOverFlowCount++;
-    REncoderBOverFlowCount++;
-}
-
-void Motor_T2Interrupt(void) {
-
-    // hardcode removed
-    // 	TRISFbits.TRISF1=0;
-    // 	PORTFbits.RF1=~PORTFbits.RF1;
-    IFS0bits.T2IF = 0; // clear interrupt flag
-    // T3CONbits.TON=SET;
-}
-
 void Motor_T3Interrupt(void) {
-    int temp;
     // PORTCbits.RC13=~PORTCbits.RC13;
     // clear timer3 flage
     IFS0bits.T3IF = CLEAR; // clear interrupt flag
-    temp = TMR2;
     Timer3Count++;
 
     // TODO: turn on timer
@@ -1852,42 +1402,6 @@ void Motor_T3Interrupt(void) {
     if (Timer3Count >= 0) {
         Timer3Count = 0;
         AD1CON1bits.ASAM = SET;
-    }
-}
-
-void Motor_T5Interrupt(void) {
-    MotorChannel i;
-    IFS1bits.T5IF = CLEAR; // clear interrupt flag
-    Timer5Count++;
-    if (Timer5Count >= 3) // slow down the whole system within 45 ms
-    {
-        IEC1bits.T5IE = CLEAR; // disable the interrupt
-        T5CONbits.TON = CLEAR; // stop clock
-        TMR5 = 0;              // clear the timer register
-        Timer5Count = 0;
-    }
-    if (!OverCurrent && TotalCurrent >= CurrentLimit) {
-        OverCurrent = true;
-        MotorOffTimerEnabled = true;
-        MotorOffTimerExpired = false;
-        MotorOffTimerCount = 0;
-        for (EACH_MOTOR_CHANNEL(i)) {
-            ClearSpeedCtrlData(i);
-            ClearCurrentCtrlData(i);
-        }
-        // printf("\n Total current:%ld,\n",TotalCurrent);
-        // coast left motor
-        M1_COAST = Set_ActiveLO;
-        PWM1Duty(0);
-        M1_BRAKE = Clear_ActiveLO;
-        // coast right motor
-        M2_COAST = Set_ActiveLO;
-        PWM2Duty(0);
-        M2_BRAKE = Clear_ActiveLO;
-        // coast flipper
-        M3_COAST = Set_ActiveLO;
-        PWM1Duty(0);
-        M3_BRAKE = Clear_ActiveLO;
     }
 }
 
@@ -1910,10 +1424,6 @@ void Motor_ADC1Interrupt(void) {
 
     CellVoltageArray[Cell_A][CellVoltageArrayPointer] = ADC1BUF6;
     CellVoltageArray[Cell_B][CellVoltageArrayPointer] = ADC1BUF7;
-    TotalCurrent = MotorCurrentAD[MOTOR_LEFT][MotorCurrentADPointer] +
-                   MotorCurrentAD[MOTOR_RIGHT][MotorCurrentADPointer] +
-                   MotorCurrentAD[MOTOR_FLIPPER][MotorCurrentADPointer];
-
     // increase array pointer, prevent over flow
     CellVoltageArrayPointer = (CellVoltageArrayPointer + 1) % SAMPLE_LENGTH;
     Total_Cell_Current_ArrayPointer = (Total_Cell_Current_ArrayPointer + 1) % SAMPLE_LENGTH;
@@ -2281,25 +1791,10 @@ void turn_on_power_bus_hybrid_method(void) {
             Cell_Ctrl(Cell_A, Cell_OFF);
             Cell_Ctrl(Cell_B, Cell_OFF);
             break;
-            if (i > 20)
-                break;
-
-            block_ms(10);
         }
 
         block_ms(40);
-        // k+=10;
         k = k0 + i * i / 4;
-        /*if(i<10000)
-        {
-          k = k0+(i*i)/4;
-        }
-        else
-        {
-          k+=50;
-        } */
-        // k = 3000;
-        // k+=50;
         if (k > 20000)
             k = 20000;
     }
@@ -2390,7 +1885,8 @@ void handle_power_bus(void) {
     turn_on_power_bus_hybrid_method();
 }
 
-bool check_string_match(unsigned char *string1, unsigned char *string2, unsigned char length) {
+bool check_string_match(const unsigned char *string1, const unsigned char *string2,
+                        unsigned char length) {
     unsigned int i;
     for (i = 0; i < length; i++) {
         if (string1[i] != string2[i])

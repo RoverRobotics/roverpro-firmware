@@ -241,25 +241,6 @@ I2CResult i2c_transmit_byte(I2CBus bus, uint8_t data) {
     return I2C_OKAY;
 }
 
-I2CAck i2c_get_ack(I2CBus bus) { return bus->STAT->ACKSTAT ? NACK : ACK; }
-
-I2CResult i2c_check_ack(I2CBus bus, I2CAck *ack) {
-    I2CState state = i2c_state(bus);
-    switch (state) {
-    default:
-        return I2C_ILLEGAL;
-    case I2C_TRANSMITTING:
-        return I2C_NOTYET;
-    case I2C_IDLE_ACK:
-        *ack = ACK;
-        break;
-    case I2C_IDLE_NACK:
-        *ack = NACK;
-        break;
-    }
-    return I2C_OKAY;
-}
-
 I2CResult i2c_receive_byte(I2CBus bus, uint8_t *data) {
     I2CState state = i2c_state(bus);
     switch (state) {
@@ -306,7 +287,6 @@ const I2CBus I2C_BUS3 = &I2C_BUS3_DEF;
 #endif
 
 // Begin device-independent I2C Stuff.
-int min_(int x, int y) { return x < y ? x : y; }
 
 I2CResult i2c_tick(I2CBus bus, const I2COperationDef *op, I2CProgress *progress) {
 
@@ -428,7 +408,7 @@ I2CResult i2c_tick(I2CBus bus, const I2COperationDef *op, I2CProgress *progress)
             if (result == I2C_OKAY) {
                 // Set the number of bytes to read based on that length or the read buffer
                 // size, whichever is smaller
-                progress->nbytes_read_len = min_(op->size_readbuf, progress->nbytes_read_len);
+                progress->nbytes_read_len = min(op->size_readbuf, progress->nbytes_read_len);
 
                 if (progress->nbytes_read_len > 1) {
                     progress->resume_at = I2C_STEP_SEND_ACK;
