@@ -23,7 +23,8 @@ int mean(size_t count, int *values) {
 }
 
 long mean_l(size_t count, long *values) {
-    long long total = 0;
+    // Note: I would total into a long long instead, but performance was surprisingly bad on PIC24!
+    long total = 0;
     size_t i;
     for (i = 0; i < count; i++) {
         total += values[i];

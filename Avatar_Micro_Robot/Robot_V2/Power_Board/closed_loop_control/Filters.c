@@ -7,7 +7,6 @@ File: Filters.c
 #include "stdhdr.h"
 
 /*---------------------------Public Function Definitions----------------------*/
-// WARNING: assumes all parameters are positive
 
 float IIRFilter(const uint8_t i, const float x, const float alpha, const bool should_reset) {
     // see also:
