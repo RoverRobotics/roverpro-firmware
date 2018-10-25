@@ -24,7 +24,6 @@ MotorEvent Event[MOTOR_CHANNEL_COUNT] = {Stop, Stop, Stop};
 MotorState StateLevel01[MOTOR_CHANNEL_COUNT] = {Protection, Protection, Protection};
 MotorState2 StateLevel02[MOTOR_CHANNEL_COUNT] = {Locked, Locked, Locked};
 
-long TargetParameter[MOTOR_CHANNEL_COUNT]; ///< Target speed for motors
 bool SwitchDirectionTimerExpired[MOTOR_CHANNEL_COUNT] = {false, false, false};
 bool SwitchDirectionTimerEnabled[MOTOR_CHANNEL_COUNT] = {false, false, false};
 int SwitchDirectionTimerCount[MOTOR_CHANNEL_COUNT] = {0, 0, 0};
@@ -82,8 +81,6 @@ long Current4Control[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH_CONTROL] = {{0}};
 int Current4ControlPointer[MOTOR_CHANNEL_COUNT] = {0};
 long ControlCurrent[MOTOR_CHANNEL_COUNT] = {0};
 long CurrentRPM[MOTOR_CHANNEL_COUNT] = {0};
-long RPM4Control[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH_CONTROL] = {{0}};
-long ControlRPM[MOTOR_CHANNEL_COUNT] = {0};
 
 int16_t motor_target_speed[MOTOR_CHANNEL_COUNT] = {0};
 
@@ -268,6 +265,13 @@ void Device_MotorController_Process() {
         uart_FanSpeedTimerCount = 0;
     }
 #endif
+////DEBUG CODE. DELETE ME WHEN DONE:
+    uart_has_new_data = true;
+	
+    uart_motor_velocity[MOTOR_LEFT] = 600;
+    uart_motor_velocity[MOTOR_RIGHT] = 0;
+    uart_motor_velocity[MOTOR_FLIPPER] = 0;
+////END DEBUG
 
     IC_UpdatePeriods();
     // Check Timer
@@ -535,7 +539,6 @@ void Device_MotorController_Process() {
         // clear all the fan command
         REG_MOTOR_SIDE_FAN_SPEED = 0;
         uart_has_new_fan_speed = 0;
-        // printf("clear side fan speed!");
     }
 #endif
 
@@ -551,7 +554,6 @@ void Device_MotorController_Process() {
     // update state machine
     if (StateMachineTimerExpired) {
         // clear the flag
-        // printf("State Machine Updated!\n");
         StateMachineTimerExpired = false;
         StateMachineTimerCount = 0;
         for (EACH_MOTOR_CHANNEL(i)) {
@@ -682,8 +684,6 @@ void ProtectHB(MotorChannel Channel) {
     // start timer
     SwitchDirectionTimerEnabled[Channel] = true;
     // coast the motor
-    ClearSpeedCtrlData(Channel);
-    ClearCurrentCtrlData(Channel);
     switch (Channel) {
     case MOTOR_LEFT:
         M1_COAST = Set_ActiveLO;
@@ -714,7 +714,6 @@ int GetDuty(long Target, MotorChannel Channel) {
 void UpdateSpeed(MotorChannel Channel, int State) {
     int Dutycycle;
 
-    ControlRPM[Channel] = mean_l(SAMPLE_LENGTH_CONTROL, RPM4Control[Channel]);
     ControlCurrent[Channel] = mean_l(SAMPLE_LENGTH_CONTROL, Current4Control[Channel]);
 
     switch (Channel) {
@@ -724,7 +723,7 @@ void UpdateSpeed(MotorChannel Channel, int State) {
                 Dutycycle = 0;
                 M1_COAST = Set_ActiveLO;
             } else {
-                Dutycycle = GetDuty(TargetParameter[Channel], Channel);
+                Dutycycle = GetDuty(motor_target_speed[Channel], Channel);
                 M1_COAST = Clear_ActiveLO;
             }
             M1_BRAKE = Clear_ActiveLO;
@@ -735,7 +734,7 @@ void UpdateSpeed(MotorChannel Channel, int State) {
                 Dutycycle = 0;
                 M1_COAST = Set_ActiveLO;
             } else {
-                Dutycycle = GetDuty(TargetParameter[Channel], Channel);
+                Dutycycle = GetDuty(motor_target_speed[Channel], Channel);
                 M1_COAST = Clear_ActiveLO;
             }
             M1_BRAKE = Clear_ActiveLO;
@@ -749,7 +748,7 @@ void UpdateSpeed(MotorChannel Channel, int State) {
                 Dutycycle = 0;
                 M2_COAST = Set_ActiveLO;
             } else {
-                Dutycycle = GetDuty(TargetParameter[Channel], Channel);
+                Dutycycle = GetDuty(motor_target_speed[Channel], Channel);
                 M2_COAST = Clear_ActiveLO;
             }
             M2_BRAKE = Clear_ActiveLO;
@@ -760,7 +759,7 @@ void UpdateSpeed(MotorChannel Channel, int State) {
                 Dutycycle = 0;
                 M2_COAST = Set_ActiveLO;
             } else {
-                Dutycycle = GetDuty(TargetParameter[Channel], Channel);
+                Dutycycle = GetDuty(motor_target_speed[Channel], Channel);
                 M2_COAST = Clear_ActiveLO;
             }
             M2_BRAKE = Clear_ActiveLO;
@@ -770,7 +769,7 @@ void UpdateSpeed(MotorChannel Channel, int State) {
         break;
     case MOTOR_FLIPPER:
         if (State == Forward) {
-            Dutycycle = GetDuty(TargetParameter[Channel], Channel);
+            Dutycycle = GetDuty(motor_target_speed[Channel], Channel);
             M3_COAST = Clear_ActiveLO;
             Nop();
             M3_BRAKE = Clear_ActiveLO;
@@ -778,7 +777,7 @@ void UpdateSpeed(MotorChannel Channel, int State) {
             M3_DIR = HI;
             PWM3Duty(Dutycycle);
         } else if (State == Backward) {
-            Dutycycle = GetDuty(-TargetParameter[Channel], Channel);
+            Dutycycle = GetDuty(-motor_target_speed[Channel], Channel);
             M3_COAST = Clear_ActiveLO;
             Nop();
             M3_BRAKE = Clear_ActiveLO;
@@ -791,29 +790,6 @@ void UpdateSpeed(MotorChannel Channel, int State) {
 }
 
 //*********************************************//
-
-/** Tweak the speed of motor i toward the desired speed
- *   - Speed of a motor will cut to zero if desired_speed is 0
- *   - Speed of *all* motors will cut to zero if the OverCurrent flag is set.
- * Returns the new value for the given motor speed */
-int speed_control_loop(MotorChannel i, int desired_speed) {
-    static int motor_speed[MOTOR_CHANNEL_COUNT] = {0, 0, 0};
-
-    if (desired_speed == 0) {
-        motor_speed[i] = 0;
-        return 0;
-    }
-
-    motor_speed[i] = clamp(desired_speed, motor_speed[i] - 1, motor_speed[i] + 1);
-
-    if (OverCurrent) {
-        motor_speed[MOTOR_LEFT] = 0;
-        motor_speed[MOTOR_RIGHT] = 0;
-        motor_speed[MOTOR_FLIPPER] = 0;
-    }
-
-    return motor_speed[i];
-}
 
 void USBInput() {
     MotorChannel i;
@@ -842,33 +818,26 @@ void USBInput() {
         if (control_loop_counter > 5) {
             control_loop_counter = 0;
 #ifndef UART_CONTROL
-            motor_target_speed[MOTOR_LEFT] =
-                speed_control_loop(MOTOR_LEFT, REG_MOTOR_VELOCITY.left);
-            motor_target_speed[MOTOR_RIGHT] =
-                speed_control_loop(MOTOR_RIGHT, REG_MOTOR_VELOCITY.right);
+            motor_target_speed[MOTOR_LEFT] = REG_MOTOR_VELOCITY.left;
+            motor_target_speed[MOTOR_RIGHT] = REG_MOTOR_VELOCITY.right;
 #endif
 #ifdef UART_CONTROL
-            motor_target_speed[MOTOR_LEFT] =
-                speed_control_loop(MOTOR_LEFT, uart_motor_velocity[MOTOR_LEFT]);
-            motor_target_speed[MOTOR_RIGHT] =
-                speed_control_loop(MOTOR_RIGHT, uart_motor_velocity[MOTOR_RIGHT]);
+            motor_target_speed[MOTOR_LEFT] = uart_motor_velocity[MOTOR_LEFT];
+            motor_target_speed[MOTOR_RIGHT] = uart_motor_velocity[MOTOR_RIGHT];
 #endif
         }
 
         if (flipper_control_loop_counter > 15) {
             flipper_control_loop_counter = 0;
 #ifndef UART_CONTROL
-            motor_target_speed[MOTOR_FLIPPER] =
-                speed_control_loop(MOTOR_FLIPPER, REG_MOTOR_VELOCITY.flipper);
+            motor_target_speed[MOTOR_FLIPPER] = REG_MOTOR_VELOCITY.flipper;
 #endif
 #ifdef UART_CONTROL
-            motor_target_speed[MOTOR_FLIPPER] =
-                speed_control_loop(MOTOR_FLIPPER, uart_motor_velocity[MOTOR_FLIPPER]);
-            // printf();
+            motor_target_speed[MOTOR_FLIPPER] = uart_motor_velocity[MOTOR_FLIPPER];
 #endif
         }
 
-        if (REG_MOTOR_SLOW_SPEED == 1)
+        if (REG_MOTOR_SLOW_SPEED)
             state = DECEL_AFTER_HIGH_SPEED;
 
         break;
@@ -881,9 +850,9 @@ void USBInput() {
             control_loop_counter = 0;
 
             // set speed to 1 (speed of 0 immediately stops motors)
-            motor_target_speed[MOTOR_LEFT] = speed_control_loop(MOTOR_LEFT, 1);
-            motor_target_speed[MOTOR_RIGHT] = speed_control_loop(MOTOR_RIGHT, 1);
-            motor_target_speed[MOTOR_FLIPPER] = speed_control_loop(MOTOR_FLIPPER, 1);
+            motor_target_speed[MOTOR_LEFT] = 1;
+            motor_target_speed[MOTOR_RIGHT] = 1;
+            motor_target_speed[MOTOR_FLIPPER] = 1;
         }
 
         // motors are stopped if speed falls below 1%
@@ -903,15 +872,14 @@ void USBInput() {
         set_desired_velocities(uart_motor_velocity[MOTOR_LEFT], uart_motor_velocity[MOTOR_RIGHT],
                                uart_motor_velocity[MOTOR_FLIPPER]);
 #endif
-        // printf("low speed loop!");
         motor_target_speed[MOTOR_LEFT] = return_closed_loop_control_effort(MOTOR_LEFT);
         motor_target_speed[MOTOR_RIGHT] = return_closed_loop_control_effort(MOTOR_RIGHT);
         motor_target_speed[MOTOR_FLIPPER] = return_closed_loop_control_effort(MOTOR_FLIPPER);
-        // printf("AA:%d,%d,%d",motor_target_speed[0],motor_target_speed[1],motor_target_speed[2]);
+
         control_loop_counter = 0;
         flipper_control_loop_counter = 0;
 
-        if (REG_MOTOR_SLOW_SPEED == 0)
+        if (!REG_MOTOR_SLOW_SPEED)
             state = DECEL_AFTER_LOW_SPEED;
 
         break;
@@ -951,9 +919,6 @@ void USBInput() {
         for (EACH_MOTOR_CHANNEL(i)) {
             motor_target_speed[i] = 0;
             Event[i] = Stop;
-            TargetParameter[i] = motor_target_speed[i];
-            // ClearSpeedCtrlData(i);
-            // ClearCurrentCtrlData(i);
         }
     }
 
@@ -968,7 +933,6 @@ void USBInput() {
         USBTimeOutTimerCount = 0;
         USBTimeOutTimerEnabled = true;
         USBTimeOutTimerExpired = false;
-        // printf("MOTOR_LEFT:%d",motor_target_speed[0]);
         for (EACH_MOTOR_CHANNEL(i)) {
             if (motor_target_speed[i] == 0)
                 Event[i] = Stop;
@@ -976,8 +940,6 @@ void USBInput() {
                 Event[i] = Back;
             else if (0 < motor_target_speed[i] && motor_target_speed[i] < 1024)
                 Event[i] = Go;
-
-            TargetParameter[i] = motor_target_speed[i];
         }
     }
 }
@@ -1581,9 +1543,6 @@ void Motor_U1RXInterrupt(void) {
                 // REG_MOTOR_VELOCITY.left=300;
                 // REG_MOTOR_VELOCITY.right=800;
                 // REG_MOTOR_VELOCITY.flipper=400;
-                // printf("Motor Speed Set!!\n");
-                // printf("Receive New Package! uart_has_\=%d",uart_has_new_data);
-                // printf("L:%d,R:%d,F:%d/n",uart_motor_velocity[0],uart_motor_velocity[1],uart_motor_velocity[2]);
                 uart_has_new_data = true;
             }
             // clear all the local buffer
