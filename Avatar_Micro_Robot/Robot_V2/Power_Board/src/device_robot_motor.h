@@ -252,7 +252,6 @@ void DeviceRobotMotorInit();
 void Device_MotorController_Process();
 int GetDuty(long Target, MotorChannel Channel);
 void UART1Ini();
-void GetRPM(MotorChannel Channel);
 void GetCurrent(MotorChannel Channel);
 void ClearSpeedCtrlData(MotorChannel Channel);
 void ClearCurrentCtrlData(MotorChannel Channel);

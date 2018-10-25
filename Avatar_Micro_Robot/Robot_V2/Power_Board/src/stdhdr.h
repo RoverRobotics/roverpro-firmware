@@ -34,9 +34,9 @@ void block_ms(uint16_t ms);
 int clamp(int value, int lo, int hi);
 
 /** compute the mean of an array of ints */
-int mean(size_t count, int *values);
+int16_t mean(size_t count, int16_t *values);
 /** compute the mean of an array of longs */
-long mean_l(size_t count, long *values);
+uint16_t mean_u(size_t count, uint16_t *values);
 #include "../HardwareProfile.h"
 
 #endif

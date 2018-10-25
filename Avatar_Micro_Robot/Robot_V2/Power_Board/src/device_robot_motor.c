@@ -36,9 +36,6 @@ bool USBTimeOutTimerEnabled = true;
 bool StateMachineTimerEnabled = true;
 bool StateMachineTimerExpired = false;
 int StateMachineTimerCount = 0;
-bool RPMTimerExpired = false;
-bool RPMTimerEnabled = true;
-int RPMTimerCount = 0;
 bool CurrentFBTimerExpired = false;
 bool CurrentFBTimerEnabled = true;
 int CurrentFBTimerCount = 0;
@@ -70,17 +67,11 @@ bool uart_FanSpeedTimerEnabled = false;
 bool uart_fan_speed_expired = false;
 int uart_FanSpeedTimerCount = 0;
 
-long Encoder_Interrupt_Counter[2] = {0, 0};
-
-long EncoderFBInterval[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH] = {{0}};
-
-long MotorCurrentAD[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH] = {{0}};
+uint16_t MotorCurrentAD[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH] = {{0}};
 int MotorCurrentADPointer = 0;
-long RealTimeCurrent[MOTOR_CHANNEL_COUNT] = {0};
-long Current4Control[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH_CONTROL] = {{0}};
+uint16_t Current4Control[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH_CONTROL] = {{0}};
 int Current4ControlPointer[MOTOR_CHANNEL_COUNT] = {0};
-long ControlCurrent[MOTOR_CHANNEL_COUNT] = {0};
-long CurrentRPM[MOTOR_CHANNEL_COUNT] = {0};
+uint16_t ControlCurrent[MOTOR_CHANNEL_COUNT] = {0};
 
 int16_t motor_target_speed[MOTOR_CHANNEL_COUNT] = {0};
 
@@ -184,64 +175,13 @@ void DeviceRobotMotorInit() {
 }
 
 void GetCurrent(MotorChannel Channel) {
-    long temp = 0;
+    uint16_t temp = 0;
     // read the AD value
-    temp = mean_l(SAMPLE_LENGTH, MotorCurrentAD[Channel]);
-    RealTimeCurrent[Channel] = temp;
+    temp = mean(SAMPLE_LENGTH, MotorCurrentAD[Channel]);
     Current4Control[Channel][Current4ControlPointer[Channel]] = temp;
     Current4ControlPointer[Channel] = (Current4ControlPointer[Channel] + 1) % SAMPLE_LENGTH_CONTROL;
 }
 
-void GetRPM(MotorChannel Channel) {
-    static long ENRPM = 0;
-    static int ENDIR = 0;
-    static long LastEnCount[MOTOR_CHANNEL_COUNT] = {0, 0, 0};
-    long ltemp1 = 0;
-
-    ENRPM = 0;
-    ENDIR = 0;
-
-    // RPM Calculation
-    // encoder RPM Calculation
-    ltemp1 = mean_l(SAMPLE_LENGTH, EncoderFBInterval[Channel]);
-
-    if (ltemp1 > 0) {
-        ENRPM = 24000000 / ltemp1;
-        // T4
-
-    } else {
-        ENRPM = 0;
-    }
-
-    if (Channel == MOTOR_LEFT) {
-        if (M1_DIRO)
-            ENDIR = -1;
-        else
-            ENDIR = 1;
-    } else if (Channel == MOTOR_RIGHT) {
-        if (M2_DIRO)
-            ENDIR = 1;
-        else
-            ENDIR = -1;
-    }
-
-    CurrentRPM[Channel] = ENRPM * ENDIR;
-
-    // if the input capture interrupt hasn't been called, the motors are not moving
-    if (Encoder_Interrupt_Counter[Channel] == LastEnCount[Channel]) {
-        CurrentRPM[Channel] = 0;
-    }
-    // otherwise, update the RPM
-    else {
-        if (Channel == MOTOR_LEFT) {
-            REG_MOTOR_FB_RPM.left = CurrentRPM[MOTOR_LEFT];
-        } else if (Channel == MOTOR_RIGHT) {
-            REG_MOTOR_FB_RPM.right = CurrentRPM[MOTOR_RIGHT];
-        }
-    }
-
-    LastEnCount[Channel] = Encoder_Interrupt_Counter[Channel];
-}
 
 void Device_MotorController_Process() {
     MotorChannel i;
@@ -265,21 +205,16 @@ void Device_MotorController_Process() {
         uart_FanSpeedTimerCount = 0;
     }
 #endif
-////DEBUG CODE. DELETE ME WHEN DONE:
-    uart_has_new_data = true;
-	
-    uart_motor_velocity[MOTOR_LEFT] = 600;
-    uart_motor_velocity[MOTOR_RIGHT] = 0;
-    uart_motor_velocity[MOTOR_FLIPPER] = 0;
-////END DEBUG
 
     IC_UpdatePeriods();
     // Check Timer
     // Run control loop
+    
     if (IFS0bits.T1IF == SET) {
         PORTFbits.RF5 = !PORTFbits.RF5;
         // clear the flag
         IFS0bits.T1IF = CLEAR;
+        
         // check MOTOR_LEFT,MOTOR_RIGHT and MOTOR_FLIPPER
         // start counting all the timers
         if (StateMachineTimerEnabled) {
@@ -295,9 +230,6 @@ void Device_MotorController_Process() {
         }
         if (CurrentFBTimerEnabled) {
             CurrentFBTimerCount++;
-        }
-        if (RPMTimerEnabled) {
-            RPMTimerCount++;
         }
         if (USBTimeOutTimerEnabled) {
             USBTimeOutTimerCount++;
@@ -360,11 +292,6 @@ void Device_MotorController_Process() {
             SpeedUpdateTimerCount[i] = 0;
         }
     }
-    if (RPMTimerCount >= RPMTimer) {
-        RPMTimerExpired = true;
-        RPMTimerCount = 0;
-        RPMTimerEnabled = false;
-    }
     if (CurrentFBTimerCount >= CurrentFBTimer) {
         CurrentFBTimerExpired = true;
         CurrentFBTimerCount = 0;
@@ -406,7 +333,6 @@ void Device_MotorController_Process() {
         uart_fan_speed_expired = true;
         uart_FanSpeedTimerCount = 0;
         uart_FanSpeedTimerEnabled = false;
-        // printf("fan speed timer expired!");
     }
 #endif
 
@@ -419,16 +345,7 @@ void Device_MotorController_Process() {
             // 	 	 	test();
         }
     }
-    // t3
-
-    if (RPMTimerExpired) {
-        RPMTimerEnabled = true;
-        RPMTimerExpired = false;
-        GetRPM(MOTOR_LEFT);
-        GetRPM(MOTOR_RIGHT);
-    }
     // T6
-
     if (CurrentFBTimerExpired) {
         // clear CurrentFBTimerExpired
         CurrentFBTimerExpired = false;
@@ -472,13 +389,15 @@ void Device_MotorController_Process() {
         REG_MOTOR_FB_CURRENT.right = ControlCurrent[MOTOR_RIGHT];
         REG_MOTOR_FB_CURRENT.flipper = ControlCurrent[MOTOR_FLIPPER];
         // update the encodercount for two driving motors
-        REG_MOTOR_ENCODER_COUNT.left = Encoder_Interrupt_Counter[MOTOR_LEFT];
-        REG_MOTOR_ENCODER_COUNT.right = Encoder_Interrupt_Counter[MOTOR_RIGHT];
+        // TODO: FIX THIS
+        // REG_MOTOR_ENCODER_COUNT.left = ...
+        // REG_MOTOR_ENCODER_COUNT.right = ...
+        
         // update the mosfet driving fault flag pin 1-good 2-fault
         REG_MOTOR_FAULT_FLAG.left = PORTDbits.RD1;
         REG_MOTOR_FAULT_FLAG.right = PORTEbits.RE5;
-        // update temperatures for two motors
-        // done in I2C code
+        // update temperatures for two motors done in I2C code
+        
         // update battery voltage
         REG_PWR_BAT_VOLTAGE.a = mean(SAMPLE_LENGTH, CellVoltageArray[Cell_A]);
         REG_PWR_BAT_VOLTAGE.b = mean(SAMPLE_LENGTH, CellVoltageArray[Cell_B]);
@@ -541,7 +460,6 @@ void Device_MotorController_Process() {
         uart_has_new_fan_speed = 0;
     }
 #endif
-
     // T5
 
     USBInput();
@@ -714,7 +632,7 @@ int GetDuty(long Target, MotorChannel Channel) {
 void UpdateSpeed(MotorChannel Channel, int State) {
     int Dutycycle;
 
-    ControlCurrent[Channel] = mean_l(SAMPLE_LENGTH_CONTROL, Current4Control[Channel]);
+    ControlCurrent[Channel] = mean_u(SAMPLE_LENGTH_CONTROL, Current4Control[Channel]);
 
     switch (Channel) {
     case MOTOR_LEFT:
@@ -1150,15 +1068,12 @@ void MC_Ini(void) // initialzation for the whole program
 void InterruptIni() {
     // remap all the interrupt routines
     T3InterruptUserFunction = Motor_T3Interrupt;
-    ADC1InterruptUserFunction = Motor_ADC1Interrupt;
+    _ADC1Interrupt = Motor_ADC1Interrupt;
 #ifdef UART_CONTROL
     U1TXInterruptUserFunction = Motor_U1TXInterrupt;
     U1RXInterruptUserFunction = Motor_U1RXInterrupt;
 #endif
 }
-
-#define FCY 16000000UL // instruction clock
-#include "libpic30.h"
 
 void FANCtrlIni() {
     uint8_t a_byte;
@@ -1264,16 +1179,15 @@ void PWM3Duty(int Duty) { OC3R = Duty * 2; }
 void IniTimer1() {
     T1CON = 0x0000;         // clear register
     T1CONbits.TCKPS = 0b00; // 1:1 prescale
-    // T1CONbits.TCKPS=0b01;//timer stops,1:8 prescale,
     TMR1 = 0;           // clear timer1 register
-    PR1 = Period1000Hz; // interrupt every 1ms
-    T1CONbits.TON = SET;
+    PR1 = -1; // interrupt every 1ms
+    T1CONbits.TON = SET; // timer on
 }
 
 void IniTimer2() {
     T2CON = 0x0000;         // stops timer2,16 bit timer,internal clock (Fosc/2)
     T2CONbits.TCKPS = 0b00; // 1:1 prescale
-    TMR2 = 0;               // clear timer1 register
+    TMR2 = 0;              
     PR2 = Period30000Hz;
     IFS0bits.T2IF = CLEAR; // clear the flag
     // IEC0bits.T2IE=SET;// enable the interrupt

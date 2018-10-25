@@ -64,6 +64,7 @@ file_036=microchip
 file_037=microchip
 file_038=.
 file_039=microchip
+file_040=.
 [GENERATED_FILES]
 file_000=no
 file_001=no
@@ -105,6 +106,7 @@ file_036=no
 file_037=no
 file_038=no
 file_039=no
+file_040=no
 [OTHER_FILES]
 file_000=no
 file_001=no
@@ -146,6 +148,7 @@ file_036=no
 file_037=no
 file_038=no
 file_039=no
+file_040=no
 [FILE_INFO]
 file_000=src\main.c
 file_001=src\usb_descriptors.c
@@ -187,6 +190,7 @@ file_036=microchip\usb\usb_device.h
 file_037=usb_config.h
 file_038=src\stdhdr.h
 file_039=microchip\Compiler.h
+file_040=..\..\..\..\..\..\..\..\program files (x86)\microchip\mplab c30\support\PIC24F\h\p24FJ256GB106.h
 [SUITE_INFO]
 suite_guid={479DDE59-4D56-455E-855E-FFF59A3DB57E}
 suite_state=

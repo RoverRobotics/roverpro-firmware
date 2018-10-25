@@ -13,8 +13,8 @@
 
 int clamp(int value, int lo, int hi) { return (value < lo ? lo : value > hi ? hi : value); }
 
-int mean(size_t count, int *values) {
-    long total = 0;
+int16_t mean(size_t count, int16_t *values) {
+    int32_t total = 0;
     size_t i;
     for (i = 0; i < count; i++) {
         total += values[i];
@@ -22,14 +22,16 @@ int mean(size_t count, int *values) {
     return total / count;
 }
 
-long mean_l(size_t count, long *values) {
-    // Note: I would total into a long long instead, but performance was surprisingly bad on PIC24!
-    long total = 0;
+uint16_t mean_u(size_t count, uint16_t *values) {
+    // Note: I would total into a long long instead, 
+    // but performance was surprisingly bad (560 us for division) on PIC24
+    uint32_t total = 0;
     size_t i;
     for (i = 0; i < count; i++) {
         total += values[i];
     }
-    return total / count;
+    total = total/count;
+    return total;
 }
 
 void block_ms(uint16_t ms) {

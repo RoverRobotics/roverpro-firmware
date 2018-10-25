@@ -159,9 +159,6 @@ void IC_UpdatePeriods(void) {
         if ((timeouts[i] * T4_TICKS_PER_MS) < elapsed_times[i]) {
             periods[i] = 0;
             elapsed_times[i] = 0;
-            if (i == 0) {
-                Nop();
-            }
         }
     }
     last_time = current_time;
