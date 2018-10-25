@@ -177,7 +177,7 @@ void DeviceRobotMotorInit() {
 void GetCurrent(MotorChannel Channel) {
     uint16_t temp = 0;
     // read the AD value
-    temp = mean(SAMPLE_LENGTH, MotorCurrentAD[Channel]);
+    temp = mean_u(SAMPLE_LENGTH, MotorCurrentAD[Channel]);
     Current4Control[Channel][Current4ControlPointer[Channel]] = temp;
     Current4ControlPointer[Channel] = (Current4ControlPointer[Channel] + 1) % SAMPLE_LENGTH_CONTROL;
 }
@@ -1068,7 +1068,7 @@ void MC_Ini(void) // initialzation for the whole program
 void InterruptIni() {
     // remap all the interrupt routines
     T3InterruptUserFunction = Motor_T3Interrupt;
-    _ADC1Interrupt = Motor_ADC1Interrupt;
+    ADC1InterruptUserFunction = Motor_ADC1Interrupt;
 #ifdef UART_CONTROL
     U1TXInterruptUserFunction = Motor_U1TXInterrupt;
     U1RXInterruptUserFunction = Motor_U1RXInterrupt;
