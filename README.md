@@ -149,6 +149,7 @@ firmware.mcp = main project file. Open this with MPLab IDE v8.89
 ### Call Diagram of Important functions
 
 ```mermaid
+%% This is a Mermaid diagram. If it does not render as a diagram, use a supporting Markdown editor like Typora (https://typora.io/#download) or paste into the live editor (https://mermaidjs.github.io/mermaid-live-editor/)
 graph LR
 
 subgraph PID.c
