@@ -3,18 +3,21 @@ Firmware
 
 ## Installation
 
-Released hex files can be found at https://github.com/RoverRobotics/OpenRoverFirmware-dan/releases
+Released hex files can be found at https://github.com/RoverRobotics/OpenRoverFirmware-dan/releases and may be deployed with the PICkit3 standalone programmer application.
 
-Given a hex file, deploy to the robot power board with [MPLAB IDE 8.92](https://www.microchip.com/development-tools/pic-and-dspic-downloads-archive) (*not* MPLAB X, only available for Windows) using a PICKit 3.
+### Deployment instructions with PICkit3 standalone
 
-1. File -> Import... -> (choose hex file)
-2. Programmer -> Select Programmer -> PICKit 3
-3. (Only needed if the target rover has no battery. If it has a power source, this step will fail) Programmer -> Settings -> Power tab -> Power Target circuit from PICKit3 -> OK
-4. Programmer -> Program
+If you are not using MPLAB IDE, you can deploy a hex file with the standalone [PICkit 3 Programmer Application v3.10](http://ww1.microchip.com/downloads/en/DeviceDoc/PICkit3%20Programmer%20Application%20v3.10.zip).
+
+1. If the program says "The PICkit 3 has no Operating System" browse to select an OS hex file for PicKit3. Mine is at `C:\Program Files (x86)\Microchip\PICkit 3 v3\PK3OSV020005.hex`
+2. File -> Import Hex -> (choose hex file)
+3. Click the Write button
+
+If you want to use MPLAB afterwards, go to Tools -> Revert to MPLAB mode
 
 ## Development
 
-The MCP files can be opened in [MPLAB IDE v8.92](https://www.microchip.com/development-tools/pic-and-dspic-downloads-archive) (not MPLAB X) and should be built with the Microchip C30 Toolsuite.
+The MCP files can be opened in [MPLAB IDE v8.92](http://ww1.microchip.com/downloads/en/DeviceDoc/MPLAB_IDE_8_92.zip) (not MPLAB X) and should be built with the  [MIcrochip C30 Toolsuite v3.31](http://ww1.microchip.com/downloads/en/DeviceDoc/mplabc30-v3_31-windows-installer.exe). This contains not only a compiler/linker/assembler but also standard libraries for the PIC24F MCU's.
 
 To build, use the Debug mode (if you're attaching a PICKit) or Release mode (if you're using this with other things). Note that if you build in Debug mode and you hit a breakpoint (`BREAKPOINT()` macro), execution will halt and wait for the debugger. If no debugger is attached, the [Watchdog Timer](http://ww1.microchip.com/downloads/en/devicedoc/39697a.pdf) will restart the device.
 
@@ -47,6 +50,15 @@ Code tips for debuggability as of MPLAB v8.92:
   #define SIZE 10; //< Do this instead
   unsigned int my_array[SIZE];
   ```
+
+### Deployment instructions with MPLAB
+
+Given a released hex file, you can deploy to the robot power board with MPLAB instead of the PICKit3 standalone tool.
+
+1. File -> Import... -> (choose hex file)
+2. Programmer -> Select Programmer -> PICKit 3
+3. (Only needed if the target rover has no battery. If it has a power source, this step will fail) Programmer -> Settings -> Power tab -> Power Target circuit from PICKit3 -> OK
+4. Programmer -> Program
 
 ## Power Board Firmware Development
 

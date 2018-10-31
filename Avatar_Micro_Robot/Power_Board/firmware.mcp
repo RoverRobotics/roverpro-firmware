@@ -19,7 +19,7 @@ filter_lib=*.a
 filter_lkr=*.gld
 [CAT_SUBFOLDERS]
 subfolder_src=USB Stack;closed_loop_control;devices;microchip
-subfolder_inc=closed_loop_control;devices;library;microchip
+subfolder_inc=closed_loop_control;devices;library;microchip;mplab c30
 subfolder_obj=
 subfolder_lib=
 subfolder_lkr=
@@ -64,7 +64,18 @@ file_036=microchip
 file_037=microchip
 file_038=.
 file_039=microchip
-file_040=.
+file_040=mplab c30
+file_041=mplab c30
+file_042=mplab c30
+file_043=mplab c30
+file_044=mplab c30
+file_045=mplab c30
+file_046=mplab c30
+file_047=mplab c30
+file_048=mplab c30
+file_049=mplab c30
+file_050=mplab c30
+file_051=mplab c30
 [GENERATED_FILES]
 file_000=no
 file_001=no
@@ -107,6 +118,17 @@ file_037=no
 file_038=no
 file_039=no
 file_040=no
+file_041=no
+file_042=no
+file_043=no
+file_044=no
+file_045=no
+file_046=no
+file_047=no
+file_048=no
+file_049=no
+file_050=no
+file_051=no
 [OTHER_FILES]
 file_000=no
 file_001=no
@@ -149,6 +171,17 @@ file_037=no
 file_038=no
 file_039=no
 file_040=no
+file_041=no
+file_042=no
+file_043=no
+file_044=no
+file_045=no
+file_046=no
+file_047=no
+file_048=no
+file_049=no
+file_050=no
+file_051=no
 [FILE_INFO]
 file_000=src\main.c
 file_001=src\usb_descriptors.c
@@ -190,14 +223,25 @@ file_036=microchip\usb\usb_device.h
 file_037=usb_config.h
 file_038=src\stdhdr.h
 file_039=microchip\Compiler.h
-file_040=..\..\..\..\..\..\..\..\program files (x86)\microchip\mplab c30\support\PIC24F\h\p24FJ256GB106.h
+file_040=c:\program files (x86)\microchip\mplab c30\support\PIC24F\h\p24FJ256GB106.h
+file_041=c:\program files (x86)\microchip\mplab c30\support\peripheral_24F\GenericTypeDefs.h
+file_042=c:\program files (x86)\microchip\mplab c30\support\PIC24F\h\p24fxxxx.h
+file_043=c:\program files (x86)\microchip\mplab c30\include\stdarg.h
+file_044=c:\program files (x86)\microchip\mplab c30\include\stdbool.h
+file_045=c:\program files (x86)\microchip\mplab c30\include\stddef.h
+file_046=c:\program files (x86)\microchip\mplab c30\include\stdint.h
+file_047=c:\program files (x86)\microchip\mplab c30\include\stdio.h
+file_048=c:\program files (x86)\microchip\mplab c30\include\stdlib.h
+file_049=c:\program files (x86)\microchip\mplab c30\include\string.h
+file_050=c:\program files (x86)\microchip\mplab c30\include\limits.h
+file_051=c:\program files (x86)\microchip\mplab c30\support\generic\h\libpic30.h
 [SUITE_INFO]
 suite_guid={479DDE59-4D56-455E-855E-FFF59A3DB57E}
 suite_state=
 [TOOL_SETTINGS]
 TS{7D9C6ECE-785D-44CB-BA22-17BF2E119622}=-g
 TS{25AC22BD-2378-4FDB-BFB6-7345A15512D3}=-g -Wall
-TS{7DAC9A1D-4C45-45D6-B25A-D117C74E8F5A}=-Map="$(BINDIR_)$(TARGETBASE).map" --report-mem -o"$(BINDIR_)$(TARGETBASE).$(TARGETSUFFIX)"
+TS{7DAC9A1D-4C45-45D6-B25A-D117C74E8F5A}=-o"$(BINDIR_)$(TARGETBASE).$(TARGETSUFFIX)" -Map="$(BINDIR_)$(TARGETBASE).map" --report-mem
 TS{509E5861-1E2A-483B-8B6B-CA8DB7F2DD78}=
 [INSTRUMENTED_TRACE]
 enable=0
