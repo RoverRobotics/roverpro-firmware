@@ -65,7 +65,7 @@ Given a released hex file, you can deploy to the robot power board with MPLAB in
 The main robot firmware code is the Power Board. This is responsible for communicating with the motors / batteries / fans / serial port.
 
 ```
-$ cd ~/Documents/firmware/Avatar_Micro_Robot/Power_Board
+$ cd ~/Documents/firmware/Power_Board
 $ tree -h
 .
 ├── [3.4K]  CMakeLists.txt
