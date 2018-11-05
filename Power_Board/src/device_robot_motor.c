@@ -211,7 +211,7 @@ void Device_MotorController_Process() {
     // Run control loop
     
     if (IFS0bits.T1IF == SET) {
-        PORTFbits.RF5 = !PORTFbits.RF5;
+
         // clear the flag
         IFS0bits.T1IF = CLEAR;
         
