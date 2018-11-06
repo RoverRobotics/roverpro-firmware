@@ -15,6 +15,30 @@ If you are not using MPLAB IDE, you can deploy a hex file with the standalone [P
 
 If you want to use MPLAB afterwards, go to Tools -> Revert to MPLAB mode
 
+## Release Notes
+
+(:sunny: = feature, :umbrella: = bugfix, :snowflake: = nonfunctional change)
+
+### unreleased
+
+* :snowflake: Delete even more unused code (robot accessories, controllers)
+* :snowflake: Lots of documentation improvements
+
+### 1.2.1
+
+* :snowflake: unify I<sup>2</sup>C code under a single API
+* :umbrella: Re-enable motor control over UART, which were broken due to a 1.2.0 firmware bug
+
+
+### 1.2.0
+
+* :sunny: Add Battery Status, Mode, Temp for both batteries to data driver can request over UART
+* :snowflake: Delete much unused code, reorganize existing code
+* :snowflake: Add coding standards, readme
+
+### 1.0.3
+* :snowflake: No functional changes. This is identical to the Robotex Firmware.
+
 ## Development
 
 The MCP files can be opened in [MPLAB IDE v8.92](http://ww1.microchip.com/downloads/en/DeviceDoc/MPLAB_IDE_8_92.zip) (not MPLAB X) and should be built with the  [MIcrochip C30 Toolsuite v3.31](http://ww1.microchip.com/downloads/en/DeviceDoc/mplabc30-v3_31-windows-installer.exe). This contains not only a compiler/linker/assembler but also standard libraries for the PIC24F MCU's.
@@ -329,3 +353,4 @@ I2C3Update:
   - Get battery status
   - Get battery mode
   - Get temperature
+
