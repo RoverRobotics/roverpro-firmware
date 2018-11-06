@@ -3,7 +3,6 @@ File: Filters.c
 ==============================================================================*/
 /*---------------------------Dependencies-------------------------------------*/
 #include "Filters.h"
-#include <stdlib.h> // for abs() function
 #include "stdhdr.h"
 
 /*---------------------------Public Function Definitions----------------------*/

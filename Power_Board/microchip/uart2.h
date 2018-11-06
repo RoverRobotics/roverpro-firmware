@@ -25,7 +25,7 @@ Microchip Technology Inc. ("Microchip") licenses to you the right to use, copy,
 modify and distribute the software - including source code - only for use with
 Microchip microcontrollers or Microchip digital signal controllers; provided
 that no open source or free software is incorporated into the Source Code
-without Microchip’s prior written consent in each instance.
+without Microchipâ€™s prior written consent in each instance.
 
 The software is owned by Microchip and its licensors, and is protected under
 applicable copyright laws.  All rights reserved.

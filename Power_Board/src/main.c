@@ -220,11 +220,9 @@ void ProcessIO(void) {
                 PWM1Duty(0);
                 M3_BRAKE = Clear_ActiveLO;
 
-                send_debug_uart_string("Initial motor velocities out of bounds!\r\n", 41);
-                block_ms(100);
-                send_debug_uart_string("Stopping motors forever.\r\n", 26);
-
+				BREAKPOINT();  // Initial motor velocities out of bounds!
                 while (1) {
+					// Stop motors forever
                     ClrWdt();
                 }
             }

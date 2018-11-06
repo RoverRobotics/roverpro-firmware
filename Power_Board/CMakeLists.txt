@@ -21,16 +21,11 @@ include_directories(.)
 include_directories("${C30}/include")
 include_directories("${C30}/support/PIC24F/h")
 
-include_directories(closed_loop_control)
-include_directories(closed_loop_control/core)
 include_directories(microchip)
-include_directories(microchip/USB)
-include_directories(src)
-include_directories(src/robotex)
+include_directories(include)
 
 add_executable(Power_Board
         closed_loop_control/core/InputCapture.c
-        closed_loop_control/core/InputCapture.h
         closed_loop_control/Filters.c
         closed_loop_control/Filters.h
         closed_loop_control/PID.c

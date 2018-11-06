@@ -2,12 +2,12 @@
 #include "stdhdr.h"
 #include "device_robot_motor_loop.h"
 #include "device_robot_motor.h"
-#include "../closed_loop_control/core/InputCapture.h"
+#include "InputCapture.h"
 
 #define M1_TACHO_RPN 12 // RP12
 #define M2_TACHO_RPN 16
 
-#include "../closed_loop_control/PID.h"
+#include "PID.h"
 
 /*---------------------------Helper Function Prototypes-----------------------*/
 /*---------------------------IC Related---------------------------------------*/

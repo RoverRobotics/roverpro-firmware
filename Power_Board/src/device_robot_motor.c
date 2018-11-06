@@ -3,12 +3,11 @@
 #include "device_robot_motor.h"
 #include "interrupt_switch.h"
 #include "testing.h"
-#include "debug_uart.h"
 #include "device_robot_motor_i2c.h"
 #include "DEE Emulation 16-bit.h"
 #include "i2clib.h"
 #include "device_robot_motor_loop.h"
-#include "../closed_loop_control/core/InputCapture.h"
+#include "InputCapture.h"
 
 #define UART_CONTROL
 #define BATProtectionON
@@ -39,15 +38,6 @@ int StateMachineTimerCount = 0;
 bool CurrentFBTimerExpired = false;
 bool CurrentFBTimerEnabled = true;
 int CurrentFBTimerCount = 0;
-bool CurrentProtectionTimerEnabled = true;
-bool CurrentProtectionTimerExpired = false;
-int CurrentProtectionTimerCount = 0;
-bool MotorOffTimerEnabled = false;
-bool MotorOffTimerExpired = false;
-int MotorOffTimerCount = 0;
-bool CurrentSurgeRecoverTimerEnabled = false;
-bool CurrentSurgeRecoverTimerExpired = false;
-int CurrentSurgeRecoverTimerCount = 0;
 bool I2C2TimerEnabled = true;
 int I2C2TimerCount = 0;
 bool I2C3TimerEnabled = true;
@@ -165,8 +155,6 @@ void DeviceRobotMotorInit() {
     ProtectHB(MOTOR_RIGHT);
     ProtectHB(MOTOR_FLIPPER);
 
-    test_function();
-
     // read flipper position from flash, and put it into a module variable
     read_stored_angle_offset();
 
@@ -234,15 +222,6 @@ void Device_MotorController_Process() {
         if (USBTimeOutTimerEnabled) {
             USBTimeOutTimerCount++;
         }
-        if (CurrentProtectionTimerEnabled) {
-            CurrentProtectionTimerCount++;
-        }
-        if (MotorOffTimerEnabled) {
-            MotorOffTimerCount++;
-        }
-        if (CurrentSurgeRecoverTimerEnabled) {
-            CurrentSurgeRecoverTimerCount++;
-        }
         if (I2C2TimerEnabled) {
             I2C2TimerCount++;
         }
@@ -274,9 +253,6 @@ void Device_MotorController_Process() {
         closed_loop_control_timer_count = 0;
         handle_closed_loop_control(OverCurrent);
     }
-    if (CurrentProtectionTimerCount >= CurrentProtectionTimer) {
-        CurrentProtectionTimerExpired = true;
-    }
     if (USBTimeOutTimerCount >= USBTimeOutTimer) {
         USBTimeOutTimerExpired = true;
     }
@@ -299,12 +275,6 @@ void Device_MotorController_Process() {
     }
     if (StateMachineTimerCount >= StateMachineTimer) {
         StateMachineTimerExpired = true;
-    }
-    if (MotorOffTimerCount >= MotorOffTimer) {
-        MotorOffTimerExpired = true;
-    }
-    if (CurrentSurgeRecoverTimerCount >= CurrentSurgeRecoverTimer) {
-        CurrentSurgeRecoverTimerExpired = true;
     }
     if (I2C2TimerCount >= I2C2Timer) {
         I2C2TimerExpired = true;
@@ -345,7 +315,6 @@ void Device_MotorController_Process() {
             // 	 	 	test();
         }
     }
-    // T6
     if (CurrentFBTimerExpired) {
         // clear CurrentFBTimerExpired
         CurrentFBTimerExpired = false;
@@ -353,20 +322,6 @@ void Device_MotorController_Process() {
         for (EACH_MOTOR_CHANNEL(i)) {
             GetCurrent(i);
         }
-    }
-    if (MotorOffTimerExpired) {
-        OverCurrent = false;
-        MotorOffTimerExpired = false;
-        MotorOffTimerEnabled = false;
-        MotorOffTimerCount = 0;
-        CurrentSurgeRecoverTimerEnabled = true;
-        CurrentSurgeRecoverTimerCount = 0;
-        CurrentSurgeRecoverTimerExpired = false;
-    }
-    if (CurrentSurgeRecoverTimerExpired) {
-        CurrentSurgeRecoverTimerEnabled = false;
-        CurrentSurgeRecoverTimerCount = 0;
-        CurrentSurgeRecoverTimerExpired = false;
     }
     if (I2C2TimerExpired) {
         I2C2Update();
@@ -463,11 +418,6 @@ void Device_MotorController_Process() {
     // T5
 
     USBInput();
-    if (CurrentProtectionTimerExpired) {
-        CurrentProtectionTimerCount = 0;
-        CurrentProtectionTimerExpired = false;
-    }
-    // T4
 
     // update state machine
     if (StateMachineTimerExpired) {
@@ -1712,8 +1662,6 @@ void handle_power_bus(void) {
                            sizeof(DEVICE_NAME_OLD_BATTERY)) ||
         check_string_match(DEVICE_NAME_OLD_BATTERY, battery_data2,
                            sizeof(DEVICE_NAME_OLD_BATTERY))) {
-        send_debug_uart_string("BATTERY:  BB-2590\r\n", 19);
-        block_ms(10);
         turn_on_power_bus_old_method();
         return;
     }
@@ -1723,8 +1671,6 @@ void handle_power_bus(void) {
                            sizeof(DEVICE_NAME_NEW_BATTERY)) ||
         check_string_match(DEVICE_NAME_NEW_BATTERY, battery_data2,
                            sizeof(DEVICE_NAME_NEW_BATTERY))) {
-        send_debug_uart_string("BATTERY:  BT-70791B\r\n", 21);
-        block_ms(10);
         turn_on_power_bus_new_method();
         return;
     }
@@ -1732,8 +1678,6 @@ void handle_power_bus(void) {
     // If we're using Bren-Tronics BT-70791C
     if (check_string_match(DEVICE_NAME_BT70791_CK, battery_data1, sizeof(DEVICE_NAME_BT70791_CK)) ||
         check_string_match(DEVICE_NAME_BT70791_CK, battery_data2, sizeof(DEVICE_NAME_BT70791_CK))) {
-        send_debug_uart_string("BATTERY:  BT-70791C\r\n", 21);
-        block_ms(10);
         turn_on_power_bus_new_method();
         return;
     }
@@ -1743,17 +1687,11 @@ void handle_power_bus(void) {
                            sizeof(DEVICE_NAME_CUSTOM_BATTERY)) ||
         check_string_match(DEVICE_NAME_CUSTOM_BATTERY, battery_data2,
                            sizeof(DEVICE_NAME_CUSTOM_BATTERY))) {
-        send_debug_uart_string("BATTERY:  ROBOTEX\r\n", 19);
-        block_ms(10);
         turn_on_power_bus_old_method();
         return;
     }
 
     // if we're using an unknown battery
-    send_debug_uart_string("UNKNOWN BATTERY\r\n", 17);
-    block_ms(10);
-    send_debug_uart_string((char *)battery_data1, 20);
-    block_ms(10);
 
     turn_on_power_bus_hybrid_method();
 }

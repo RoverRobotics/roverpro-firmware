@@ -1,7 +1,6 @@
 #include <p24fxxxx.h>
 #include "stdhdr.h"
 #include "device_robot_motor.h"
-#include "debug_uart.h"
 #include "i2clib.h"
 #include "device_robot_motor_i2c.h"
 

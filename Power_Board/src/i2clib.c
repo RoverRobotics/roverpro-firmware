@@ -485,7 +485,7 @@ I2CResult i2c_synchronously_await(I2CBus bus, I2COperationDef op) {
     I2CResult result;
     do {
         result = i2c_tick(bus, &op, &progress);
-        block_ms(2);
+        block_ms(1);
     } while (result == I2C_NOTYET);
     return result;
 }

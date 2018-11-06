@@ -37,6 +37,6 @@ int clamp(int value, int lo, int hi);
 int16_t mean(size_t count, int16_t *values);
 /** compute the mean of an array of longs */
 uint16_t mean_u(size_t count, uint16_t *values);
-#include "../HardwareProfile.h"
+#include "HardwareProfile.h"
 
 #endif
