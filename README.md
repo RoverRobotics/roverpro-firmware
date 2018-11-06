@@ -239,26 +239,27 @@ st=>start: Start
 BatVolChecking Timer enabled
 BatRecovery Timer disabled
 SpeedUpdate Timer depends on motor commands
-op=>operation: Increment enabled timers
+op=>operation: Wait for 1ms timer tick
+Increment enabled timers
 batvolchecking=>condition: Is BATVolChecking Timer elapsed?
 c3a=>operation: Increment Overcurrent Counter
-hicurrent=>condition: Are battery currents both high (>512)?
+hicurrent=>condition: Is either battery current high (>512)?
 hicurrent_yes=>operation: Increment Overcurrent Counter
-locurrent=>condition: Are battery currents both low (<341)?
+locurrent=>condition: Is either battery current low (<341)?
 locurrent_yes=>operation: Reset Overcurrent Counter to 0
 long_overcurrent=>condition: Is Overcurrent Counter > 10?
 long_overcurrent_yes=>operation: Set duty to all motors to 0
-Set Overcurrent Flag = true
+Set Overcurrent Flag
 Start BATRecoveryTimer
 bat_recovery=>condition: is BatRecovery Timer expired?
-bat_recovery_yes=>operation: Enable both batteries
-Disable the OverCurrent flag
+bat_recovery_yes=>operation: Clear OverCurrent flag
 Disable the battery recovery timer
 motor_speeds=>condition: Is SpeedUpdate Timer expired? (for each motor)
 update_speed_oc=>condition: Is Overcurrent Flag set?
 update_speed_oc_yes=>operation: set duty cycle to 0
 update_speed_oc_no=>operation: set duty cycle to commanded speed
 cond=>condition: Yes or No?
+etc=>subroutine: more main loop stuff
 todo=>end: Todo...
 
 st->op->batvolchecking
@@ -274,9 +275,10 @@ locurrent(no)->bat_recovery
 bat_recovery(yes)->bat_recovery_yes->motor_speeds
 bat_recovery(no)->motor_speeds
 motor_speeds(yes)->update_speed_oc
-update_speed_oc(yes)->update_speed_oc_yes->op
-update_speed_oc(no)->update_speed_oc_no->op
-motor_speeds(no)->op
+update_speed_oc(yes)->update_speed_oc_yes->etc
+update_speed_oc(no)->update_speed_oc_no->etc
+motor_speeds(no)->etc
+etc->op
 ```
 
 

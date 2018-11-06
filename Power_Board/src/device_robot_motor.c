@@ -10,8 +10,6 @@
 #include "InputCapture.h"
 
 #define UART_CONTROL
-#define BATProtectionON
-
 // variables
 // sub system variables
 static long int Period1;
@@ -61,8 +59,6 @@ uint16_t MotorCurrentAD[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH] = {{0}};
 int MotorCurrentADPointer = 0;
 uint16_t Current4Control[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH_CONTROL] = {{0}};
 int Current4ControlPointer[MOTOR_CHANNEL_COUNT] = {0};
-uint16_t ControlCurrent[MOTOR_CHANNEL_COUNT] = {0};
-
 int16_t motor_target_speed[MOTOR_CHANNEL_COUNT] = {0};
 
 int Timer3Count = 0;
@@ -199,8 +195,7 @@ void Device_MotorController_Process() {
     // Run control loop
     
     if (IFS0bits.T1IF == SET) {
-
-        // clear the flag
+		// Clear interrupt flag
         IFS0bits.T1IF = CLEAR;
         
         // check MOTOR_LEFT,MOTOR_RIGHT and MOTOR_FLIPPER
@@ -312,7 +307,6 @@ void Device_MotorController_Process() {
         if (SpeedUpdateTimerExpired[i]) {
             UpdateSpeed(i, StateLevel01[i]);
             SpeedUpdateTimerExpired[i] = false;
-            // 	 	 	test();
         }
     }
     if (CurrentFBTimerExpired) {
@@ -340,9 +334,9 @@ void Device_MotorController_Process() {
         REG_MOTOR_FLIPPER_ANGLE = return_calibrated_pot_angle(temp1, temp2);
 
         // update current for all three motors
-        REG_MOTOR_FB_CURRENT.left = ControlCurrent[MOTOR_LEFT];
-        REG_MOTOR_FB_CURRENT.right = ControlCurrent[MOTOR_RIGHT];
-        REG_MOTOR_FB_CURRENT.flipper = ControlCurrent[MOTOR_FLIPPER];
+        REG_MOTOR_FB_CURRENT.left = mean_u(SAMPLE_LENGTH_CONTROL, Current4Control[MOTOR_LEFT]);
+        REG_MOTOR_FB_CURRENT.right = mean_u(SAMPLE_LENGTH_CONTROL, Current4Control[MOTOR_RIGHT])
+        REG_MOTOR_FB_CURRENT.flipper = mean_u(SAMPLE_LENGTH_CONTROL, Current4Control[MOTOR_FLIPPER]);
         // update the encodercount for two driving motors
         // TODO: FIX THIS
         // REG_MOTOR_ENCODER_COUNT.left = ...
@@ -370,12 +364,9 @@ void Device_MotorController_Process() {
         REG_PWR_B_CURRENT = temp2;
 
         BATVolCheckingTimerExpired = false;
-#ifdef BATProtectionON
         //.01*.001mV/A * 11000 ohms = .11 V/A = 34.13 ADC counts/A
         // set at 10A per side
-        if ((temp1 >= 512) || (temp2 >= 512)) {
-            // Cell_Ctrl(Cell_A,Cell_OFF);
-            // Cell_Ctrl(Cell_B,Cell_OFF);
+        if (temp1 >= 512 || temp2 >= 512) {
             overcurrent_counter++;
             if (overcurrent_counter > 10) {
                 PWM1Duty(0);
@@ -393,12 +384,8 @@ void Device_MotorController_Process() {
         } else if (temp1 <= 341 || temp2 <= 341) {
             overcurrent_counter = 0;
         }
-
-#endif
     }
     if (BATRecoveryTimerExpired) {
-        Cell_Ctrl(Cell_A, Cell_ON);
-        Cell_Ctrl(Cell_B, Cell_ON);
         OverCurrent = false;
         BATRecoveryTimerExpired = false;
         BATRecoveryTimerCount = 0;
@@ -412,10 +399,9 @@ void Device_MotorController_Process() {
         uart_FanSpeedTimerCount = 0;
         // clear all the fan command
         REG_MOTOR_SIDE_FAN_SPEED = 0;
-        uart_has_new_fan_speed = 0;
+        uart_has_new_fan_speed = false;
     }
 #endif
-    // T5
 
     USBInput();
 
@@ -516,8 +502,6 @@ void Device_MotorController_Process() {
             }
         }
     }
-
-    // test();//run testing code
 }
 
 //**Motor control functions
@@ -581,8 +565,6 @@ int GetDuty(long Target, MotorChannel Channel) {
 
 void UpdateSpeed(MotorChannel Channel, int State) {
     int Dutycycle;
-
-    ControlCurrent[Channel] = mean_u(SAMPLE_LENGTH_CONTROL, Current4Control[Channel]);
 
     switch (Channel) {
     case MOTOR_LEFT:
