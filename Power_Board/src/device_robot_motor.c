@@ -335,7 +335,7 @@ void Device_MotorController_Process() {
 
         // update current for all three motors
         REG_MOTOR_FB_CURRENT.left = mean_u(SAMPLE_LENGTH_CONTROL, Current4Control[MOTOR_LEFT]);
-        REG_MOTOR_FB_CURRENT.right = mean_u(SAMPLE_LENGTH_CONTROL, Current4Control[MOTOR_RIGHT])
+        REG_MOTOR_FB_CURRENT.right = mean_u(SAMPLE_LENGTH_CONTROL, Current4Control[MOTOR_RIGHT]);
         REG_MOTOR_FB_CURRENT.flipper = mean_u(SAMPLE_LENGTH_CONTROL, Current4Control[MOTOR_FLIPPER]);
         // update the encodercount for two driving motors
         // TODO: FIX THIS
