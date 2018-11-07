@@ -3,7 +3,6 @@ project(Power_Board)
 
 set(CMAKE_C_STANDARD 90)
 
-
 SET (C30 "/mnt/c/Program Files (x86)/Microchip/MPLAB C30")
 SET ( CMAKE_CROSSCOMPILING ON )
 
@@ -67,8 +66,6 @@ add_executable(Power_Board
         microchip/USB/usb_printer_pos_seiko_mpu_l465.h
         microchip/Compiler.h
         microchip/uart2.h
-        src/robotex/periph_adc.c
-        src/robotex/periph_adc.h
         src/debug_uart.c
         src/debug_uart.h
         "src/DEE Emulation 16-bit.c"
@@ -89,6 +86,7 @@ add_executable(Power_Board
         src/stdhdr.h
         src/testing.c
         src/testing.h
+        include/device_robot_motor.h
         src/usb_descriptors.c
         src/usb_device.c
         HardwareProfile.h

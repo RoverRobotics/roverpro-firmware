@@ -182,10 +182,7 @@ typedef enum {
 } MotorChannel;
 #define MOTOR_CHANNEL_COUNT 3
 /** Helper macro for iterating all motors and storing the result in variable i */
-#define EACH_MOTOR_CHANNEL(i)                                                                      \
-    i = 0;                                                                                         \
-    i < MOTOR_CHANNEL_COUNT;                                                                       \
-    i++
+#define EACH_MOTOR_CHANNEL(i)   i = 0; i < MOTOR_CHANNEL_COUNT; i++
 
 /// Number of samples to keep of running metrics for power management, like battery temperature and
 /// voltage

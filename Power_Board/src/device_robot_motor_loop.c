@@ -32,8 +32,6 @@ float IIRFilter(uint8_t i, float x, float alpha, bool should_reset);
 #define K_I 0.00003  // integral gain
 #define K_D 0.000000 // differential gain
 
-#define UART_CONTROL
-
 // OCU speed filter-related values
 #define MAX_DESIRED_SPEED 900 // [au], caps incoming signal from OCU
 #define MIN_ACHEIVABLE_SPEED 50

@@ -78,6 +78,8 @@ void IC1_ISR(void) {
         periods[0] = current_value - last_value;
     else
         periods[0] = (UINT_MAX - last_value) + current_value;
+	
+	REG_MOTOR_FB_PERIOD_LEFT = periods[0];
     last_value = current_value;
 }
 
@@ -92,6 +94,7 @@ void IC2_ISR(void) {
         periods[1] = (current_value - last_value);
     else
         periods[1] = (UINT_MAX - last_value) + current_value;
+	REG_MOTOR_FB_PERIOD_RIGHT = periods[1];
     last_value = current_value;
 }
 

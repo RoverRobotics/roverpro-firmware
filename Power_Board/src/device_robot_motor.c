@@ -8,8 +8,8 @@
 #include "i2clib.h"
 #include "device_robot_motor_loop.h"
 #include "InputCapture.h"
+#include "uart_control.h"
 
-#define UART_CONTROL
 // variables
 // sub system variables
 static long int Period1;
@@ -51,9 +51,7 @@ bool BATRecoveryTimerExpired = true; // for initial powering of the power bus
 int BATRecoveryTimerCount = 0;
 int closed_loop_control_timer_count = 0;
 int closed_loop_control_timer = 10;
-bool uart_FanSpeedTimerEnabled = false;
-bool uart_fan_speed_expired = false;
-int uart_FanSpeedTimerCount = 0;
+int UARTTimerCount = 0;
 
 uint16_t MotorCurrentAD[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH] = {{0}};
 int MotorCurrentADPointer = 0;
@@ -85,32 +83,6 @@ bool check_string_match(const unsigned char *string1, const unsigned char *strin
 
 static void alternate_power_bus(void);
 
-#ifdef UART_CONTROL
-#define UART_RECEIVE_BUFFER_LENGTH 6
-typedef enum UARTState { UART_STATE_IDLE, UART_STATE_PROCESSING } UArtState;
-int16_t uart_receive_buffer[UART_RECEIVE_BUFFER_LENGTH];
-int i_uart_receive_buffer = 0;
-// no more than 5 bytes based on 57600 baud and 1ms system loop
-#define UART_SEND_BUFFER_LENGTH 4
-uint8_t uart_send_buffer[UART_SEND_BUFFER_LENGTH];
-uint8_t i_uart_send_buffer = 0;
-uint8_t uart_data_identifier = 0;
-int16_t uart_motor_velocity[3];
-uint8_t uart_incoming_cmd[2];
-
-bool uart_has_new_data = false;
-const uint8_t UART_START_BYTE = 253;
-uint16_t EncoderInterval[MOTOR_CHANNEL_COUNT]; // Encoder time interval
-uint16_t BuildNO = 40621;
-bool uart_has_new_fan_speed = false;
-typedef enum UARTCommand {
-    UART_COMMAND_GET = 10,
-    UART_COMMAND_SET_FAN_SPEED = 20,
-    UART_COMMAND_SET_MOTOR_SLOW_SPEED = 240,
-    UART_COMMAND_FLIPPER_CALIBRATE = 250,
-} UARTCommand;
-bool uart_flipper_calibrate_requested = false;
-#endif
 
 void PWM1Duty(int Duty);
 void PWM2Duty(int Duty);
@@ -177,6 +149,8 @@ void Device_MotorController_Process() {
         calibrate_flipper_angle_sensor();
     }
 #endif
+// TODO
+/* 
 
 #ifdef UART_CONTROL
     if (uart_flipper_calibrate_requested) {
@@ -189,6 +163,7 @@ void Device_MotorController_Process() {
         uart_FanSpeedTimerCount = 0;
     }
 #endif
+*/
 
     IC_UpdatePeriods();
     // Check Timer
@@ -232,11 +207,10 @@ void Device_MotorController_Process() {
         if (BATRecoveryTimerEnabled) {
             BATRecoveryTimerCount++;
         }
-#ifdef UART_CONTROL
-        if (uart_FanSpeedTimerEnabled) {
-            uart_FanSpeedTimerCount++;
-        }
-#endif
+//TODO:
+      //  if (uart_FanSpeedTimerEnabled) {
+       //     uart_FanSpeedTimerCount++;
+        //}
 
         // this should run every 1ms
         closed_loop_control_timer_count++;
@@ -293,13 +267,14 @@ void Device_MotorController_Process() {
         BATRecoveryTimerExpired = true;
         BATRecoveryTimerCount = 0;
     }
-#ifdef UART_CONTROL
-    if (uart_FanSpeedTimerCount >= UART_FAN_SPEED_TIMER) {
-        uart_fan_speed_expired = true;
-        uart_FanSpeedTimerCount = 0;
-        uart_FanSpeedTimerEnabled = false;
-    }
-#endif
+// TODO:
+//#ifdef UART_CONTROL
+//    if (uart_FanSpeedTimerCount >= UART_FAN_SPEED_TIMER) {
+//        uart_fan_speed_expired = true;
+//        uart_FanSpeedTimerCount = 0;
+//        uart_FanSpeedTimerEnabled = false;
+//    }
+//#endif
 
     // if any of the timers expired, execute relative codes
     // Control timer expired
@@ -392,6 +367,8 @@ void Device_MotorController_Process() {
         BATRecoveryTimerEnabled = false;
     }
 
+// TODO:
+/*
 #ifdef UART_CONTROL
     if (uart_fan_speed_expired) {
         uart_fan_speed_expired = false;
@@ -402,7 +379,7 @@ void Device_MotorController_Process() {
         uart_has_new_fan_speed = false;
     }
 #endif
-
+*/
     USBInput();
 
     // update state machine
@@ -1214,191 +1191,40 @@ void Motor_T3Interrupt(void) {
 }
 
 void Motor_ADC1Interrupt(void) {
+    IFS0bits.AD1IF = CLEAR;
     AD1CON1bits.ASAM = CLEAR;
     // clear the flag
-    IFS0bits.AD1IF = CLEAR;
+
     // load the value
 
     M3_POSFB_Array[0][M3_POSFB_ArrayPointer] = ADC1BUF4;
     M3_POSFB_Array[1][M3_POSFB_ArrayPointer] = ADC1BUF5;
-    MotorCurrentAD[MOTOR_LEFT][MotorCurrentADPointer] = ADC1BUF3;
+ 	M3_POSFB_ArrayPointer = (M3_POSFB_ArrayPointer + 1) % SAMPLE_LENGTH;
+
+    MotorCurrentAD[MOTOR_LEFT][MotorCurrentADPointer] = ADC1BUF3;;
     MotorCurrentAD[MOTOR_RIGHT][MotorCurrentADPointer] = ADC1BUF1;
     MotorCurrentAD[MOTOR_FLIPPER][MotorCurrentADPointer] = ADC1BUFB;
+	MotorCurrentADPointer = (MotorCurrentADPointer + 1) % SAMPLE_LENGTH;
+
     Cell_A_Current[Total_Cell_Current_ArrayPointer] = ADC1BUF8;
     Cell_B_Current[Total_Cell_Current_ArrayPointer] = ADC1BUF9;
     Total_Cell_Current_Array[Total_Cell_Current_ArrayPointer] =
         Cell_A_Current[Total_Cell_Current_ArrayPointer] +
         Cell_B_Current[Total_Cell_Current_ArrayPointer];
+	Total_Cell_Current_ArrayPointer = (Total_Cell_Current_ArrayPointer + 1) % SAMPLE_LENGTH;
 
     CellVoltageArray[Cell_A][CellVoltageArrayPointer] = ADC1BUF6;
     CellVoltageArray[Cell_B][CellVoltageArrayPointer] = ADC1BUF7;
-    // increase array pointer, prevent over flow
     CellVoltageArrayPointer = (CellVoltageArrayPointer + 1) % SAMPLE_LENGTH;
-    Total_Cell_Current_ArrayPointer = (Total_Cell_Current_ArrayPointer + 1) % SAMPLE_LENGTH;
-    M3_POSFB_ArrayPointer = (M3_POSFB_ArrayPointer + 1) % SAMPLE_LENGTH;
-    MotorCurrentADPointer = (MotorCurrentADPointer + 1) % SAMPLE_LENGTH;
-
-#ifdef UART_CONTROL
-    EncoderInterval[MOTOR_LEFT] = IC_period(kIC01);    // left motor encoder time interval
-    EncoderInterval[MOTOR_RIGHT] = IC_period(kIC02);   // right motor encoder time interval
-    EncoderInterval[MOTOR_FLIPPER] = IC_period(kIC03); // Encoder motor encoder time interval
-    // if transmit reg is empty and last packet is sent
-    if (uart_incoming_cmd[0] == UART_COMMAND_GET && U1STAbits.UTXBF == 0 &&
-        i_uart_send_buffer == 0) // if transmit reg is empty and last packet is sent
-    {
-        U1TXREG = UART_START_BYTE; // send out the index
-        uart_data_identifier = uart_incoming_cmd[1];
-        uart_send_buffer[0] = uart_data_identifier;
-
-// CASE(n, REGISTER) populates the UART output buffer with the 16-bit integer value of the given
-// register and breaks out of the switch statement
-#define CASE(n, REGISTER)                                                                          \
-    case (n):                                                                                      \
-        uart_send_buffer[1] = (uint8_t)((REGISTER) >> 8 & 0xff);                                   \
-        uart_send_buffer[2] = (uint8_t)(REGISTER & 0xff);                                          \
-        break;
-
-        switch (uart_data_identifier) {
-            CASE(0, REG_PWR_TOTAL_CURRENT)
-            CASE(2, REG_MOTOR_FB_RPM.left)
-            CASE(4, REG_MOTOR_FB_RPM.right)
-            CASE(6, REG_FLIPPER_FB_POSITION.pot1)
-            CASE(8, REG_FLIPPER_FB_POSITION.pot2)
-            CASE(10, REG_MOTOR_FB_CURRENT.left)
-            CASE(12, REG_MOTOR_FB_CURRENT.right)
-            CASE(14, REG_MOTOR_ENCODER_COUNT.left)
-            CASE(16, REG_MOTOR_ENCODER_COUNT.right)
-        case 18: // 18-REG_MOTOR_FAULT_FLAG
-            uart_send_buffer[1] = REG_MOTOR_FAULT_FLAG.left;
-            uart_send_buffer[2] = REG_MOTOR_FAULT_FLAG.right;
-            break;
-            CASE(20, REG_MOTOR_TEMP.left)
-            CASE(22, REG_MOTOR_TEMP.right)
-            CASE(24, REG_PWR_BAT_VOLTAGE.a)
-            CASE(26, REG_PWR_BAT_VOLTAGE.b)
-            CASE(28, EncoderInterval[MOTOR_LEFT])
-            CASE(30, EncoderInterval[MOTOR_RIGHT])
-            CASE(32, EncoderInterval[MOTOR_FLIPPER])
-            CASE(34, REG_ROBOT_REL_SOC_A)
-            CASE(36, REG_ROBOT_REL_SOC_B)
-            CASE(38, REG_MOTOR_CHARGER_STATE)
-            CASE(40, BuildNO)
-            CASE(42, REG_PWR_A_CURRENT)
-            CASE(44, REG_PWR_B_CURRENT)
-            CASE(46, REG_MOTOR_FLIPPER_ANGLE)
-            CASE(48, REG_MOTOR_SIDE_FAN_SPEED)
-            CASE(50, REG_MOTOR_SLOW_SPEED)
-            CASE(52, REG_BATTERY_STATUS_A)
-            CASE(54, REG_BATTERY_STATUS_B)
-            CASE(56, REG_BATTERY_MODE_A)
-            CASE(58, REG_BATTERY_MODE_B)
-            CASE(60, REG_BATTERY_TEMP_A)
-            CASE(62, REG_BATTERY_TEMP_B)
-            CASE(64, REG_BATTERY_VOLTAGE_A)
-            CASE(66, REG_BATTERY_VOLTAGE_B)
-            CASE(68, REG_BATTERY_CURRENT_A)
-            CASE(70, REG_BATTERY_CURRENT_B)
-
-        default:
-            uart_send_buffer[0] = 0;
-            uart_send_buffer[1] = 0;
-            break;
-        }
-#undef CASE
-        // add checksum of the package
-        uart_send_buffer[3] =
-            255 - (uart_send_buffer[0] + uart_send_buffer[1] + uart_send_buffer[2]) % 255;
-        // clear incoming command
-        uart_incoming_cmd[0] = 0;
-        uart_incoming_cmd[1] = 0;
-    }
-#endif
 }
 
-#ifdef UART_CONTROL
 void Motor_U1TXInterrupt(void) {
-    // clear the flag
-    IFS0bits.U1TXIF = 0;
-
-    // transmit data
-    if (i_uart_send_buffer < UART_SEND_BUFFER_LENGTH) {
-        U1TXREG = uart_send_buffer[i_uart_send_buffer];
-        i_uart_send_buffer++;
-    } else {
-        i_uart_send_buffer = 0;
-    }
+	uart_tx_isf();
 }
-#endif
 
-#ifdef UART_CONTROL
 void Motor_U1RXInterrupt(void) {
-    static UArtState uart_state;
-    uint8_t a_byte;
-    // clear the flag
-    IFS0bits.U1RXIF = 0;
-    // UART_CONTROL code only
-
-    int i = 0;
-    a_byte = U1RXREG;
-    switch (uart_state) {
-    case UART_STATE_IDLE:
-        if (a_byte == UART_START_BYTE) {
-            uart_state = UART_STATE_PROCESSING;
-        }
-        break;
-    case UART_STATE_PROCESSING:
-        uart_receive_buffer[i_uart_receive_buffer] = a_byte;
-        i_uart_receive_buffer++;
-        if (i_uart_receive_buffer >= UART_RECEIVE_BUFFER_LENGTH) // end of the package
-        {
-            // if all bytes add up together equals 255, it is a good pack, then process
-            int SumBytes = 0;
-            for (i = 0; i < UART_RECEIVE_BUFFER_LENGTH; i++) {
-                // printf("%d:%d  ",i,uart_receive_buffer[i]);
-                SumBytes += uart_receive_buffer[i];
-            }
-            // printf("Sum:%d\n",SumBytes);
-            if (SumBytes % 255 == 0) {
-                // input data range 0~250, 125 is stop, 0 is backwards full speed, 250 is forward
-                // full speed for Marge, the right and left is flipped, so left and right need to be
-                // flipped
-                uart_motor_velocity[MOTOR_LEFT] = (uart_receive_buffer[0] * 8 - 1000);
-                uart_motor_velocity[MOTOR_RIGHT] = (uart_receive_buffer[1] * 8 - 1000);
-                uart_motor_velocity[MOTOR_FLIPPER] = (uart_receive_buffer[2] * 8 - 1000);
-                uart_incoming_cmd[0] = uart_receive_buffer[3];
-                uart_incoming_cmd[1] = uart_receive_buffer[4];
-                // see if this is a fan cmd
-                switch (uart_incoming_cmd[0]) {
-                case UART_COMMAND_SET_FAN_SPEED: // new fan command coming in
-                    REG_MOTOR_SIDE_FAN_SPEED = uart_incoming_cmd[1];
-                    uart_has_new_fan_speed = true;
-                    // Enable fan speed timer
-                    uart_FanSpeedTimerEnabled = true;
-                    uart_FanSpeedTimerCount = 0;
-                    // printf("fan data received!");
-                    break;
-                case UART_COMMAND_SET_MOTOR_SLOW_SPEED:
-                    REG_MOTOR_SLOW_SPEED = uart_incoming_cmd[1];
-                    break;
-                case UART_COMMAND_FLIPPER_CALIBRATE:
-                    if (uart_incoming_cmd[1] == UART_COMMAND_FLIPPER_CALIBRATE) {
-                        uart_flipper_calibrate_requested = true;
-                    }
-                    break;
-                }
-                // REG_MOTOR_VELOCITY.left=300;
-                // REG_MOTOR_VELOCITY.right=800;
-                // REG_MOTOR_VELOCITY.flipper=400;
-                uart_has_new_data = true;
-            }
-            // clear all the local buffer
-            i_uart_receive_buffer = 0;
-            uart_state = UART_STATE_IDLE;
-            break;
-        }
-    }
+	uart_rx_isf();
 }
-#endif
 
 static unsigned int return_calibrated_pot_angle(unsigned int pot_1_value,
                                                 unsigned int pot_2_value) {
