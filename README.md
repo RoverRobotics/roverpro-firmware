@@ -41,21 +41,38 @@ If you want to use MPLAB afterwards, go to Tools -> Revert to MPLAB mode
 
 ## Development
 
+### IDE and built tools
+
 The MCP files can be opened in [MPLAB IDE v8.92](http://ww1.microchip.com/downloads/en/DeviceDoc/MPLAB_IDE_8_92.zip) (not MPLAB X) and should be built with the  [MIcrochip C30 Toolsuite v3.31](http://ww1.microchip.com/downloads/en/DeviceDoc/mplabc30-v3_31-windows-installer.exe). This contains not only a compiler/linker/assembler but also standard libraries for the PIC24F MCU's.
 
 To build, use the Debug mode (if you're attaching a PICKit) or Release mode (if you're using this with other things). Note that if you build in Debug mode and you hit a breakpoint (`BREAKPOINT()` macro), execution will halt and wait for the debugger. If no debugger is attached, the [Watchdog Timer](http://ww1.microchip.com/downloads/en/devicedoc/39697a.pdf) will restart the device.
 
-To tidy up code, I like using **[clang-format 6](http://releases.llvm.org/6.0.1/tools/clang/docs/ClangFormat.html)**, and have provided a .clang-format file. Clang 6 is currently the latest release for Ubuntu, but feel free to use newer. Ubuntu installation:
+### Code style tools
+
+To tidy up code, I like using **[clang-format 6](http://releases.llvm.org/6.0.1/tools/clang/docs/ClangFormat.html)**, and have provided a .clang-format file. Clang 6 is currently the latest release for Ubuntu, but feel free to use newer.
+
+#### Ubuntu installation of clang-format
 
 ```bash
 sudo apt install clang-format-6.0
 sudo ln -s `which clang-format-6.0` /usr/local/bin/clang-format
 ```
-Before committing, please run:
+#### Windows installation of clang-format and git
+
+```
+choco install git llvm
+```
+
+Before committing, please run the following to clang-format all uncommitted c files:
 
 ```bash
-git diff --name-only --cached --relative --diff-filter=d -- '*.h' '*.c' | xargs clang-format -style=file -i
+git diff HEAD --name-only --relative --diff-filter=d -- **.h **.c | xargs clang-format -style=file -i
 ```
+```batch
+set PATH=C:\Program Files\Git\usr\bin;%PATH%
+git diff HEAD --name-only --relative --diff-filter=d -- **.h **.c | xargs clang-format -style=file -i
+```
+
 This will tidy up all locally modified files. You can make this a precommit hook if you like.
 
 Code tips for debuggability as of MPLAB v8.92:
