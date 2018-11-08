@@ -1,9 +1,9 @@
 /*==============================================================================
 File: Filters.h
- 
+
 Description: This module encapsulates several digital signal processing
   algorithms.  It is still very much a work in progress...
-  
+
 Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
 ==============================================================================*/
 #ifndef FILTERS_H

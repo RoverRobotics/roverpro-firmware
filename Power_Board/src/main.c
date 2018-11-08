@@ -13,6 +13,7 @@
  *
  */
 
+#include "p24Fxxxx.h"
 #include "stdhdr.h"
 #include "device_robot_motor.h"
 
