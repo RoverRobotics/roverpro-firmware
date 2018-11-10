@@ -19,7 +19,7 @@ typedef enum I2CState {
 } I2CState;
 
 #ifdef __PIC24FJ256GB106__
-#include <p24fxxxx.h>
+#include <p24Fxxxx.h>
 
 /** I2C Control Register, based on the PIC24 MCU documentation */
 typedef struct I2CControlBits {
@@ -510,7 +510,7 @@ I2COperationDef i2c_op_read_word(uint8_t address, uint8_t command_byte, uint16_t
     return result;
 }
 
-I2COperationDef i2c_op_read_block(uint8_t address, uint8_t command_byte, uint8_t *block_to_read,
+I2COperationDef i2c_op_read_block(uint8_t address, uint8_t command_byte, void *block_to_read,
                                   uint8_t maxlen) {
     I2COperationDef result = {
         .address = address,
@@ -544,7 +544,7 @@ I2COperationDef i2c_op_write_word(uint8_t address, uint8_t command_byte,
     return result;
 }
 
-I2COperationDef i2c_op_write_block(uint8_t address, uint8_t command_byte, uint8_t *block_to_write,
+I2COperationDef i2c_op_write_block(uint8_t address, uint8_t command_byte, void *block_to_write,
                                    uint8_t maxlen) {
     I2COperationDef result = {
         .address = address,

@@ -8,13 +8,13 @@ File: InputCapture.c
 #include <stdbool.h> // for 'bool' boolean data type
 #include "stdhdr.h"
 #include <p24Fxxxx.h>
+#include <device_robot_motor.h>
 
 /*---------------------------Macros-------------------------------------------*/
 #define MAX_NUM_IC_PINS 9
 
-#define T4_TICKS_PER_MS                                                                            \
-    4 // milliseconds per timer4 tick
-      // TODO: IS THIS RIGHT????
+#define T4_TICKS_PER_MS 4 // milliseconds per timer4 tick
+// TODO: IS THIS RIGHT????
 
 /*---------------------------Helper Function Prototypes-----------------------*/
 static void InitTimer4(void);
@@ -71,16 +71,21 @@ void IC1_ISR(void) {
 
     static uint16_t last_value = 0;
     uint16_t current_value = IC1BUF; // current running Timer3 tick value
-                                     // (you must subtract off last value)
+    // (you must subtract off last value)
 
     // handle rollover, remove old offset
     if (last_value < current_value)
         periods[0] = current_value - last_value;
     else
         periods[0] = (UINT_MAX - last_value) + current_value;
-	
-	REG_MOTOR_FB_PERIOD_LEFT = periods[0];
+
+    REG_MOTOR_FB_PERIOD_LEFT = periods[0];
     last_value = current_value;
+    // increase encoder count if motor is moving forward, decrease if backward
+    if (M1_DIRO)
+        REG_MOTOR_ENCODER_COUNT.left++;
+    else
+        REG_MOTOR_ENCODER_COUNT.left--;
 }
 
 void IC2_ISR(void) {
@@ -94,8 +99,13 @@ void IC2_ISR(void) {
         periods[1] = (current_value - last_value);
     else
         periods[1] = (UINT_MAX - last_value) + current_value;
-	REG_MOTOR_FB_PERIOD_RIGHT = periods[1];
+    REG_MOTOR_FB_PERIOD_RIGHT = periods[1];
     last_value = current_value;
+    // increase encoder count if motor is moving forward, decrease if backward
+    if (M2_DIRO)
+        REG_MOTOR_ENCODER_COUNT.right++;
+    else
+        REG_MOTOR_ENCODER_COUNT.right--;
 }
 
 /*---------------------------Public Function Definitions----------------------*/

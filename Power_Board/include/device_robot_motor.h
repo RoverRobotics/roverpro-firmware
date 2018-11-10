@@ -46,12 +46,6 @@
 #define Period50000Hz 319
 
 /*****************************************************************************/
-//*----------------------------------UART1------------------------------------*/
-// based on 32MHz system clock rate
-#define BaudRate_9600_LOW 103 // BRGH=0
-#define BaudRate_57600_LOW 16 // BRGH=0
-#define BaudRate_57600_HI 68  // BRGH=1
-#define BaudRate_115200_HI 34 // BRGH=1
 
 typedef enum MotorEvent {
     Stop = 0xFF01,
@@ -74,6 +68,7 @@ typedef enum MotorState2 {
 
 // constant for timer.
 // Since these are on timer1, they are in multiples of PR1
+
 #define SpeedUpdateTimer 5          // 200Hz
 #define CurrentSurgeRecoverTimer 10 // 10ms
 #define USBTimeOutTimer 333         // 3Hz--333ms
@@ -92,12 +87,12 @@ typedef enum MotorState2 {
 
 // constant for special usage
 typedef enum BatteryState {
-    Cell_OFF = 0,
-    Cell_ON = 1,
+    CELL_OFF = 0,
+    CELL_ON = 1,
 } BatteryState;
 typedef enum BatteryChannel {
-    Cell_A = 0,
-    Cell_B,
+    CELL_A = 0,
+    CELL_B = 1,
 } BatteryChannel;
 #define BATTERY_CHANNEL_COUNT 2
 // constant for pins
@@ -182,7 +177,10 @@ typedef enum {
 } MotorChannel;
 #define MOTOR_CHANNEL_COUNT 3
 /** Helper macro for iterating all motors and storing the result in variable i */
-#define EACH_MOTOR_CHANNEL(i)   i = 0; i < MOTOR_CHANNEL_COUNT; i++
+#define EACH_MOTOR_CHANNEL(i)                                                                      \
+    i = 0;                                                                                         \
+    i < MOTOR_CHANNEL_COUNT;                                                                       \
+    i++
 
 /// Number of samples to keep of running metrics for power management, like battery temperature and
 /// voltage
@@ -212,17 +210,15 @@ enum I2CDeviceAddress {
 /////variable
 extern bool USB_New_Data_Received;
 
-/////function
-void PWM1Ini(void);
-void PWM1Duty(int Duty);
+void PWM1Ini(void);           ///<  Initialize PWM channel 1 (left motor)
+void PWM1Duty(uint16_t Duty); ///< Set duty cycle for channel 1 (left motor). 0 <= Duty <= 1000
 
-void PWM2Ini(void);      // initialize PWM channel 2
-void PWM2Duty(int Duty); // set duty cycle for PWM channel 2
-// Duty is 0~1024, 1024-100% duty cycle,0-0% duty cycle
+void PWM2Ini(void);           ///< initialize PWM channel 2 (right motor)
+void PWM2Duty(uint16_t Duty); ///< Set duty cycle for channel 2 (right motor).  0 <= Duty <= 1000
 
-void PWM3Ini(void);      // initialize PWM channel 3
-void PWM3Duty(int Duty); // set duty cycle for PWM channel 3
-// Duty is 0~1024, 1024-100% duty cycle,0-0% duty cycle
+void PWM3Ini(void); ///< initialize PWM channel 3 (flipper motor)
+void PWM3Duty(
+    uint16_t Duty); ///< Set duty cycle for pwm channel 3 (flipper motor). 0 <= Duty <= 1000
 
 /*****************************************************************************/
 
@@ -247,8 +243,7 @@ void Braking(MotorChannel Channel);
 void UpdateSpeed(MotorChannel Channel, int State);
 void DeviceRobotMotorInit();
 void Device_MotorController_Process();
-int GetDuty(long Target, MotorChannel Channel);
-void UART1Ini();
+uint16_t GetDuty(long Target, MotorChannel Channel);
 void GetCurrent(MotorChannel Channel);
 void ClearSpeedCtrlData(MotorChannel Channel);
 void ClearCurrentCtrlData(MotorChannel Channel);
@@ -270,8 +265,8 @@ void TestPWM(void);
 void TestIC2();
 void TestOC();
 
-extern int Cell_A_Current[SAMPLE_LENGTH];
-extern int Cell_B_Current[SAMPLE_LENGTH];
+extern uint16_t Cell_A_Current[SAMPLE_LENGTH];
+extern uint16_t Cell_B_Current[SAMPLE_LENGTH];
 extern int16_t uart_motor_velocity[MOTOR_CHANNEL_COUNT];
 extern bool uart_has_new_fan_speed;
 

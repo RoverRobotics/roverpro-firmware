@@ -1,4 +1,4 @@
-#include <p24fxxxx.h>
+#include <p24Fxxxx.h>
 #include "stdhdr.h"
 #include "device_robot_motor_loop.h"
 #include "device_robot_motor.h"
@@ -26,8 +26,8 @@ float IIRFilter(uint8_t i, float x, float alpha, bool should_reset);
 #define LEFT_CONTROLLER 0
 #define RIGHT_CONTROLLER 1
 
-#define MAX_EFFORT 1.00 // maximum control effort magnitude (can also be -1000)
-#define MIN_EFFORT -1.00
+#define MAX_EFFORT 1.00f // maximum control effort magnitude (can also be -1000)
+#define MIN_EFFORT -1.00f
 #define K_P 0.0005   // proportional gain
 #define K_I 0.00003  // integral gain
 #define K_D 0.000000 // differential gain
@@ -67,7 +67,8 @@ void handle_closed_loop_control(bool OverCurrent) {
 
     // Filter drive motor speeds
     float desired_speed_left = IIRFilter(LMOTOR_FILTER, GetDesiredSpeed(MOTOR_LEFT), ALPHA, false);
-    float desired_speed_right = IIRFilter(RMOTOR_FILTER, GetDesiredSpeed(MOTOR_RIGHT), ALPHA, false);
+    float desired_speed_right =
+        IIRFilter(RMOTOR_FILTER, GetDesiredSpeed(MOTOR_RIGHT), ALPHA, false);
 #ifndef UART_CONTROL
     // if the user releases the joystick, come to a relatively quick stop by clearing the integral
     // term
@@ -100,7 +101,7 @@ void handle_closed_loop_control(bool OverCurrent) {
 #endif
 
     // update the flipper
-    float desired_flipper_speed = desired_velocity_flipper / 1200.0;
+    float desired_flipper_speed = desired_velocity_flipper / 1200.0f;
 
     closed_loop_effort[MOTOR_FLIPPER] = desired_flipper_speed;
 
@@ -182,9 +183,9 @@ static float GetNominalDriveEffort(const float desired_speed) {
     if (desired_speed == 0)
         return 0;
     else if (desired_speed < 0)
-        return ((0.0007 * desired_speed) - 0.0067);
+        return ((0.0007f * desired_speed) - 0.0067f);
     else
-        return ((0.0007 * desired_speed) + 0.0067);
+        return ((0.0007f * desired_speed) + 0.0067f);
 }
 
 // Description: Maps the incoming control data to suitable values

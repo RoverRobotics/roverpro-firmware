@@ -80,14 +80,14 @@ typedef struct I2COperationDef {
 
 I2COperationDef i2c_op_read_byte(uint8_t address, uint8_t command_byte, uint8_t *byte_to_read);
 I2COperationDef i2c_op_read_word(uint8_t address, uint8_t command_byte, uint16_t *word_to_read);
-I2COperationDef i2c_op_read_block(uint8_t address, uint8_t command_byte, uint8_t *block_to_read,
+I2COperationDef i2c_op_read_block(uint8_t address, uint8_t command_byte, void *block_to_read,
                                   uint8_t maxlen);
 
 I2COperationDef i2c_op_write_byte(uint8_t address, uint8_t command_byte,
                                   const uint8_t *byte_to_write);
 I2COperationDef i2c_op_write_word(uint8_t address, uint8_t command_byte,
                                   const uint16_t *word_to_write);
-I2COperationDef i2c_op_write_block(uint8_t address, uint8_t command_byte, uint8_t *block_to_write,
+I2COperationDef i2c_op_write_block(uint8_t address, uint8_t command_byte, void *block_to_write,
                                    uint8_t maxlen);
 /** A logical step of the I2C protocol. */
 typedef enum I2CResumeAt {

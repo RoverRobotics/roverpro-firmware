@@ -9,49 +9,61 @@
 #include "device_robot_motor_loop.h"
 #include "InputCapture.h"
 #include "uart_control.h"
+#include <string.h>
 
-// variables
-// sub system variables
-static long int Period1;
-static long int Period2;
-static long int Period3;
 //****************************************************
 
 MotorEvent Event[MOTOR_CHANNEL_COUNT] = {Stop, Stop, Stop};
 MotorState StateLevel01[MOTOR_CHANNEL_COUNT] = {Protection, Protection, Protection};
 MotorState2 StateLevel02[MOTOR_CHANNEL_COUNT] = {Locked, Locked, Locked};
 
+typedef enum CounterState {
+    COUNTER_RUNNING,
+    COUNTER_PAUSED,
+    COUNTER_EXPIRED,
+} CounterState;
+
+typedef struct Counter {
+    uint16_t count;
+    uint16_t max;
+    bool is_paused : 1;
+    bool pause_on_expired : 1;
+} Counter;
+
+CounterState tick_counter(Counter *c) {
+    if (c->is_paused)
+        return COUNTER_PAUSED;
+    c->count++;
+    if (c->count < c->max) {
+        return COUNTER_RUNNING;
+    } else {
+        c->count = 0;
+        if (c->pause_on_expired)
+            c->is_paused = true;
+        return COUNTER_EXPIRED;
+    }
+}
+
 bool SwitchDirectionTimerExpired[MOTOR_CHANNEL_COUNT] = {false, false, false};
 bool SwitchDirectionTimerEnabled[MOTOR_CHANNEL_COUNT] = {false, false, false};
 int SwitchDirectionTimerCount[MOTOR_CHANNEL_COUNT] = {0, 0, 0};
+
 bool SpeedUpdateTimerExpired[MOTOR_CHANNEL_COUNT] = {false, false, false};
 bool SpeedUpdateTimerEnabled[MOTOR_CHANNEL_COUNT] = {false, false, false};
 int SpeedUpdateTimerCount[MOTOR_CHANNEL_COUNT] = {0, 0, 0};
-bool USBTimeOutTimerExpired = false;
-long USBTimeOutTimerCount = 0;
-bool USBTimeOutTimerEnabled = true;
-bool StateMachineTimerEnabled = true;
-bool StateMachineTimerExpired = false;
-int StateMachineTimerCount = 0;
-bool CurrentFBTimerExpired = false;
-bool CurrentFBTimerEnabled = true;
-int CurrentFBTimerCount = 0;
+
+Counter usb_timeout = {.max = USBTimeOutTimer, .pause_on_expired = true, .is_paused = true};
+Counter state_machine = {.max = StateMachineTimer};
+Counter current_fb = {.max = CurrentFBTimer};
+
 bool I2C2TimerEnabled = true;
 int I2C2TimerCount = 0;
 bool I2C3TimerEnabled = true;
 int I2C3TimerCount = 0;
-bool SFREGUpdateTimerEnabled = true;
-bool SFREGUpdateTimerExpired = false;
-int SFREGUpdateTimerCount = 0;
-bool BATVolCheckingTimerEnabled = true;
-bool BATVolCheckingTimerExpired = false;
-int BATVolCheckingTimerCount = 0;
-bool BATRecoveryTimerEnabled = false;
-bool BATRecoveryTimerExpired = true; // for initial powering of the power bus
-int BATRecoveryTimerCount = 0;
-int closed_loop_control_timer_count = 0;
-int closed_loop_control_timer = 10;
-int UARTTimerCount = 0;
+Counter SFREGUpdate = {.max = SFREGUpdateTimer};
+Counter BATVolChecking = {.max = BATVolCheckingTimer};
+Counter BATRecovery = {.max = BATRecoveryTimer, .pause_on_expired = true};
+Counter closed_loop_control = {.max = 10};
 
 uint16_t MotorCurrentAD[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH] = {{0}};
 int MotorCurrentADPointer = 0;
@@ -62,12 +74,12 @@ int16_t motor_target_speed[MOTOR_CHANNEL_COUNT] = {0};
 int Timer3Count = 0;
 int M3_POSFB_Array[2][SAMPLE_LENGTH] = {{0}}; ///< Flipper Motor positional feedback data
 int M3_POSFB_ArrayPointer = 0;
-int Total_Cell_Current_Array[SAMPLE_LENGTH] = {0};
+uint16_t Total_Cell_Current_Array[SAMPLE_LENGTH] = {0};
 int Total_Cell_Current_ArrayPointer = 0;
 int CellVoltageArray[BATTERY_CHANNEL_COUNT][SAMPLE_LENGTH];
 int CellVoltageArrayPointer = 0;
-int Cell_A_Current[SAMPLE_LENGTH];
-int Cell_B_Current[SAMPLE_LENGTH];
+uint16_t Cell_A_Current[SAMPLE_LENGTH];
+uint16_t Cell_B_Current[SAMPLE_LENGTH];
 
 bool OverCurrent = false;
 int MaxDuty = 1000;
@@ -78,15 +90,9 @@ static void read_stored_angle_offset(void);
 void turn_on_power_bus_new_method(void);
 void turn_on_power_bus_old_method(void);
 void turn_on_power_bus_hybrid_method(void);
-bool check_string_match(const unsigned char *string1, const unsigned char *string2,
-                        unsigned char length);
 
 static void alternate_power_bus(void);
 
-
-void PWM1Duty(int Duty);
-void PWM2Duty(int Duty);
-void PWM3Duty(int Duty);
 void PWM1Ini(void);
 void PWM2Ini(void);
 void PWM3Ini(void);
@@ -109,7 +115,7 @@ void handle_power_bus(void);
 //**chief functions
 
 /** returns the given angle, normalized to between 0 and 360 */
-int wrap_angle(int value) { return (value % 360 + 360) % 360; }
+uint16_t wrap_angle(int16_t value) { return (uint16_t)((value % 360 + 360) % 360); }
 
 void DeviceRobotMotorInit() {
     // local variables
@@ -138,46 +144,27 @@ void GetCurrent(MotorChannel Channel) {
     Current4ControlPointer[Channel] = (Current4ControlPointer[Channel] + 1) % SAMPLE_LENGTH_CONTROL;
 }
 
-
 void Device_MotorController_Process() {
     MotorChannel i;
     long temp1, temp2;
     static int overcurrent_counter = 0;
     // check if software wants to calibrate flipper position
-#ifndef UART_CONTROL
-    if (REG_MOTOR_VELOCITY.flipper == 12345) {
-        calibrate_flipper_angle_sensor();
-    }
-#endif
-// TODO
-/* 
 
-#ifdef UART_CONTROL
     if (uart_flipper_calibrate_requested) {
+        // note flipper calibration never returns.
         calibrate_flipper_angle_sensor();
-        // clear the flag just for safe
-        uart_flipper_calibrate_requested = false;
-        REG_MOTOR_SIDE_FAN_SPEED = 240;
-        uart_has_new_fan_speed = true;
-        uart_FanSpeedTimerEnabled = true;
-        uart_FanSpeedTimerCount = 0;
     }
-#endif
-*/
 
     IC_UpdatePeriods();
     // Check Timer
     // Run control loop
-    
+
     if (IFS0bits.T1IF == SET) {
-		// Clear interrupt flag
+        // Clear interrupt flag
         IFS0bits.T1IF = CLEAR;
-        
+
         // check MOTOR_LEFT,MOTOR_RIGHT and MOTOR_FLIPPER
         // start counting all the timers
-        if (StateMachineTimerEnabled) {
-            StateMachineTimerCount++;
-        }
         for (EACH_MOTOR_CHANNEL(i)) {
             if (SwitchDirectionTimerEnabled[i]) {
                 SwitchDirectionTimerCount[i]++;
@@ -186,96 +173,52 @@ void Device_MotorController_Process() {
                 SpeedUpdateTimerCount[i]++;
             }
         }
-        if (CurrentFBTimerEnabled) {
-            CurrentFBTimerCount++;
-        }
-        if (USBTimeOutTimerEnabled) {
-            USBTimeOutTimerCount++;
-        }
         if (I2C2TimerEnabled) {
             I2C2TimerCount++;
         }
         if (I2C3TimerEnabled) {
             I2C3TimerCount++;
         }
-        if (SFREGUpdateTimerEnabled) {
-            SFREGUpdateTimerCount++;
-        }
-        if (BATVolCheckingTimerEnabled) {
-            BATVolCheckingTimerCount++;
-        }
-        if (BATRecoveryTimerEnabled) {
-            BATRecoveryTimerCount++;
-        }
-//TODO:
-      //  if (uart_FanSpeedTimerEnabled) {
-       //     uart_FanSpeedTimerCount++;
-        //}
 
         // this should run every 1ms
-        closed_loop_control_timer_count++;
         alternate_power_bus();
-    }
 
-    // check if any timers are expired
-    if (closed_loop_control_timer_count >= closed_loop_control_timer) {
-        closed_loop_control_timer_count = 0;
-        handle_closed_loop_control(OverCurrent);
-    }
-    if (USBTimeOutTimerCount >= USBTimeOutTimer) {
-        USBTimeOutTimerExpired = true;
-    }
-    for (EACH_MOTOR_CHANNEL(i)) {
-        // check SwitchDirectionTimer
-        if (SwitchDirectionTimerCount[i] >= SwitchDirectionTimer) {
-            SwitchDirectionTimerExpired[i] = true;
-            SwitchDirectionTimerEnabled[i] = false; // stop the timer
-            SwitchDirectionTimerCount[i] = 0;       // clear the timer
+        // check if any timers are expired
+        if (tick_counter(&closed_loop_control) == COUNTER_EXPIRED) {
+            handle_closed_loop_control(OverCurrent);
         }
-        if (SpeedUpdateTimerCount[i] >= SpeedUpdateTimer) {
-            SpeedUpdateTimerExpired[i] = true;
-            SpeedUpdateTimerCount[i] = 0;
+        for (EACH_MOTOR_CHANNEL(i)) {
+            // check SwitchDirectionTimer
+            if (SwitchDirectionTimerCount[i] >= SwitchDirectionTimer) {
+                SwitchDirectionTimerExpired[i] = true;
+                SwitchDirectionTimerEnabled[i] = false; // stop the timer
+                SwitchDirectionTimerCount[i] = 0;       // clear the timer
+            }
+            if (SpeedUpdateTimerCount[i] >= SpeedUpdateTimer) {
+                SpeedUpdateTimerExpired[i] = true;
+                SpeedUpdateTimerCount[i] = 0;
+            }
+        }
+        if (I2C2TimerCount >= I2C2Timer) {
+            I2C2TimerExpired = true;
+            I2C2TimerCount = 0;
+            I2C2XmitReset = true;
+        }
+        if (I2C3TimerCount >= I2C3Timer) {
+            I2C3TimerExpired = true;
+            I2C3TimerCount = 0;
+            I2C3XmitReset = true;
         }
     }
-    if (CurrentFBTimerCount >= CurrentFBTimer) {
-        CurrentFBTimerExpired = true;
-        CurrentFBTimerCount = 0;
-        CurrentFBTimerEnabled = false;
-    }
-    if (StateMachineTimerCount >= StateMachineTimer) {
-        StateMachineTimerExpired = true;
-    }
-    if (I2C2TimerCount >= I2C2Timer) {
-        I2C2TimerExpired = true;
-        I2C2TimerCount = 0;
-        I2C2XmitReset = true;
-    }
-    if (I2C3TimerCount >= I2C3Timer) {
-        I2C3TimerExpired = true;
-        I2C3TimerCount = 0;
-        I2C3XmitReset = true;
-    }
-    if (SFREGUpdateTimerCount >= SFREGUpdateTimer) {
-        SFREGUpdateTimerExpired = true;
-        SFREGUpdateTimerCount = 0;
-    }
-    if (BATVolCheckingTimerCount >= BATVolCheckingTimer) {
-        BATVolCheckingTimerExpired = true;
-        BATVolCheckingTimerCount = 0;
-    }
-    if (BATRecoveryTimerCount >= BATRecoveryTimer) {
-        BATRecoveryTimerExpired = true;
-        BATRecoveryTimerCount = 0;
-    }
-// TODO:
-//#ifdef UART_CONTROL
-//    if (uart_FanSpeedTimerCount >= UART_FAN_SPEED_TIMER) {
-//        uart_fan_speed_expired = true;
-//        uart_FanSpeedTimerCount = 0;
-//        uart_FanSpeedTimerEnabled = false;
-//    }
-//#endif
-
+    /* TODO:
+    #ifdef UART_CONTROL
+        if (uart_FanSpeedTimerCount >= UART_FAN_SPEED_TIMER) {
+            uart_fan_speed_expired = true;
+            uart_FanSpeedTimerCount = 0;
+            uart_FanSpeedTimerEnabled = false;
+        }
+    #endif
+    */
     // if any of the timers expired, execute relative codes
     // Control timer expired
     for (EACH_MOTOR_CHANNEL(i)) {
@@ -284,10 +227,7 @@ void Device_MotorController_Process() {
             SpeedUpdateTimerExpired[i] = false;
         }
     }
-    if (CurrentFBTimerExpired) {
-        // clear CurrentFBTimerExpired
-        CurrentFBTimerExpired = false;
-        CurrentFBTimerEnabled = true;
+    if (tick_counter(&current_fb) == COUNTER_EXPIRED) {
         for (EACH_MOTOR_CHANNEL(i)) {
             GetCurrent(i);
         }
@@ -298,9 +238,7 @@ void Device_MotorController_Process() {
     if (I2C3TimerExpired) {
         I2C3Update();
     }
-    if (SFREGUpdateTimerExpired) {
-        SFREGUpdateTimerExpired = false;
-
+    if (tick_counter(&SFREGUpdate) == COUNTER_EXPIRED) {
         // update flipper motor position
         temp1 = mean(SAMPLE_LENGTH, M3_POSFB_Array[0]);
         temp2 = mean(SAMPLE_LENGTH, M3_POSFB_Array[1]);
@@ -311,37 +249,31 @@ void Device_MotorController_Process() {
         // update current for all three motors
         REG_MOTOR_FB_CURRENT.left = mean_u(SAMPLE_LENGTH_CONTROL, Current4Control[MOTOR_LEFT]);
         REG_MOTOR_FB_CURRENT.right = mean_u(SAMPLE_LENGTH_CONTROL, Current4Control[MOTOR_RIGHT]);
-        REG_MOTOR_FB_CURRENT.flipper = mean_u(SAMPLE_LENGTH_CONTROL, Current4Control[MOTOR_FLIPPER]);
-        // update the encodercount for two driving motors
-        // TODO: FIX THIS
-        // REG_MOTOR_ENCODER_COUNT.left = ...
-        // REG_MOTOR_ENCODER_COUNT.right = ...
-        
+        REG_MOTOR_FB_CURRENT.flipper =
+            mean_u(SAMPLE_LENGTH_CONTROL, Current4Control[MOTOR_FLIPPER]);
+
         // update the mosfet driving fault flag pin 1-good 2-fault
         REG_MOTOR_FAULT_FLAG.left = PORTDbits.RD1;
         REG_MOTOR_FAULT_FLAG.right = PORTEbits.RE5;
         // update temperatures for two motors done in I2C code
-        
+
         // update battery voltage
-        REG_PWR_BAT_VOLTAGE.a = mean(SAMPLE_LENGTH, CellVoltageArray[Cell_A]);
-        REG_PWR_BAT_VOLTAGE.b = mean(SAMPLE_LENGTH, CellVoltageArray[Cell_B]);
+        REG_PWR_BAT_VOLTAGE.a = mean(SAMPLE_LENGTH, CellVoltageArray[CELL_A]);
+        REG_PWR_BAT_VOLTAGE.b = mean(SAMPLE_LENGTH, CellVoltageArray[CELL_B]);
 
         // update total current (out of battery)
-        REG_PWR_TOTAL_CURRENT = mean(SAMPLE_LENGTH, Total_Cell_Current_Array);
+        REG_PWR_TOTAL_CURRENT = mean_u(SAMPLE_LENGTH, Total_Cell_Current_Array);
     }
-    if (BATVolCheckingTimerExpired) {
+
+    if (tick_counter(&BATVolChecking) == COUNTER_EXPIRED) {
 
         // added this so that we check voltage faster
-        temp1 = mean(SAMPLE_LENGTH, Cell_A_Current);
-        temp2 = mean(SAMPLE_LENGTH, Cell_B_Current);
+        REG_PWR_A_CURRENT = mean_u(SAMPLE_LENGTH, Cell_A_Current);
+        REG_PWR_B_CURRENT = mean_u(SAMPLE_LENGTH, Cell_B_Current);
 
-        REG_PWR_A_CURRENT = temp1;
-        REG_PWR_B_CURRENT = temp2;
-
-        BATVolCheckingTimerExpired = false;
         //.01*.001mV/A * 11000 ohms = .11 V/A = 34.13 ADC counts/A
         // set at 10A per side
-        if (temp1 >= 512 || temp2 >= 512) {
+        if (REG_PWR_A_CURRENT >= 512 || REG_PWR_B_CURRENT >= 512) {
             overcurrent_counter++;
             if (overcurrent_counter > 10) {
                 PWM1Duty(0);
@@ -351,42 +283,35 @@ void Device_MotorController_Process() {
                 ProtectHB(MOTOR_RIGHT);
                 ProtectHB(MOTOR_FLIPPER);
                 OverCurrent = true;
-                BATRecoveryTimerCount = 0;
-                BATRecoveryTimerEnabled = true;
-                BATRecoveryTimerExpired = false;
+                BATRecovery.is_paused = false;
             }
 
-        } else if (temp1 <= 341 || temp2 <= 341) {
+        } else if (REG_PWR_A_CURRENT <= 341 || REG_PWR_B_CURRENT <= 341) {
             overcurrent_counter = 0;
         }
     }
-    if (BATRecoveryTimerExpired) {
+    if (tick_counter(&BATRecovery) == COUNTER_EXPIRED) {
         OverCurrent = false;
-        BATRecoveryTimerExpired = false;
-        BATRecoveryTimerCount = 0;
-        BATRecoveryTimerEnabled = false;
     }
 
-// TODO:
-/*
-#ifdef UART_CONTROL
-    if (uart_fan_speed_expired) {
-        uart_fan_speed_expired = false;
-        uart_FanSpeedTimerEnabled = false;
-        uart_FanSpeedTimerCount = 0;
-        // clear all the fan command
-        REG_MOTOR_SIDE_FAN_SPEED = 0;
-        uart_has_new_fan_speed = false;
-    }
-#endif
-*/
+    uart_tick();
     USBInput();
+    // TODO:
+    /*
+    #ifdef UART_CONTROL
+        if (uart_fan_speed_expired) {
+            uart_fan_speed_expired = false;
+            uart_FanSpeedTimerEnabled = false;
+            uart_FanSpeedTimerCount = 0;
+            // clear all the fan command
+            REG_MOTOR_SIDE_FAN_SPEED = 0;
+            uart_has_new_fan_speed = false;
+        }
+    #endif
+    */
 
     // update state machine
-    if (StateMachineTimerExpired) {
-        // clear the flag
-        StateMachineTimerExpired = false;
-        StateMachineTimerCount = 0;
+    if (tick_counter(&state_machine) == COUNTER_EXPIRED) {
         for (EACH_MOTOR_CHANNEL(i)) {
             // update state machine
             switch (StateLevel01[i]) {
@@ -532,7 +457,7 @@ void ProtectHB(MotorChannel Channel) {
     }
 }
 
-int GetDuty(long Target, MotorChannel Channel) {
+uint16_t GetDuty(long Target, MotorChannel Channel) {
     if (Channel == MOTOR_FLIPPER) {
         return Target;
     } else {
@@ -729,11 +654,8 @@ void USBInput() {
     }
 
     // long time no data, clear everything and stop moving
-    if (USBTimeOutTimerExpired) {
+    if (tick_counter(&usb_timeout) == COUNTER_EXPIRED) {
         // printf("USB Timer Expired!");
-        USBTimeOutTimerExpired = false;
-        USBTimeOutTimerEnabled = false;
-        USBTimeOutTimerCount = 0;
         REG_MOTOR_VELOCITY.left = 0;
         REG_MOTOR_VELOCITY.right = 0;
         REG_MOTOR_VELOCITY.flipper = 0;
@@ -757,9 +679,9 @@ void USBInput() {
         USB_New_Data_Received = false;
 #endif
         // if there is new data coming in, update all the data
-        USBTimeOutTimerCount = 0;
-        USBTimeOutTimerEnabled = true;
-        USBTimeOutTimerExpired = false;
+        usb_timeout.is_paused = false;
+        usb_timeout.count = 0;
+
         for (EACH_MOTOR_CHANNEL(i)) {
             if (motor_target_speed[i] == 0)
                 Event[i] = Stop;
@@ -774,29 +696,6 @@ void USBInput() {
 //**********************************************
 
 void PinRemap(void) {
-    // Unlock Registers
-    // clear the bit 6 of OSCCONL to
-    // unlock Pin Re-map
-    /*asm volatile	("push	w1				\n"
-                                    "push	w2				\n"
-                                    "push	w3				\n"
-                                    "mov	#OSCCON, w1		\n"
-                                    "mov	#0x46, w2		\n"
-                                    "mov	#0x57, w3		\n"
-                                    "mov.b	w2, [w1]		\n"
-                                    "mov.b	w3, [w1]		\n"
-                                    "bclr	OSCCON, #6		\n"
-                                    "pop	w3				\n"
-                                    "pop	w2				\n"
-                                    "pop	w1");*/
-
-    // Configure Input Functions
-    // function=pin
-    // Assign IC1 To L_Encoder_A
-    // RPINR7bits.IC1R = M1_TACHO_RPn;
-
-    // Assign IC3 To Encoder_R1A
-    // RPINR8bits.IC3R = M2_TACHO_RPn;
 
 #ifdef UART_CONTROL
     // Assign U1RX To U1RX, Uart receive channnel
@@ -815,54 +714,19 @@ void PinRemap(void) {
     // Assign OC3 To Pin M2_AHI
     M3_PWM = 20; // 20 represents OC3
 
-    // Assign OC4 To Pin M2_BHI
-    // M2_BLO_RPn = 21; //21 represents OC4
-
-    // Assign OC5 To Pin M3_AHI
-    // M3_ALO_RPn = 22; //22 represents OC5
-
-    // Assign OC6 To Pin M3_BHI
-    // M3_BLO_RPn = 23; //23 represents OC6
-
-    /*
-            // Assign I2C Clock (SPI1 Clock Output) to Pin I2C_CLK
-            I2C_CLK_RPn = 8; //8 represents SPI1 Clock Output
-
-            // Assign I2C Data (SPI1 Date Output) to Pin I2C_DAT
-            I2C_DAT_RPn = 7; //7 represents SPI1 Data Output
-    */
-
 #ifdef UART_CONTROL
     // Assign U1TX To U1TX/Uart Tx
     U1TX_RPn = 3; // 3 represents U1TX
 #endif
-    //***************************
-    // Lock Registers
-    //__builtin_write_OSCCONL(OSCCON | 0x40); //set the bit 6 of OSCCONL to
-    // lock Pin Re-map
 }
 
 void Cell_Ctrl(BatteryChannel Channel, BatteryState state) {
     switch (Channel) {
-    case Cell_A:
-        switch (state) {
-        case Cell_ON:
-            Cell_A_MOS = 1;
-            break;
-        case Cell_OFF:
-            Cell_A_MOS = 0;
-            break;
-        }
+    case CELL_A:
+        Cell_A_MOS = state;
         break;
-    case Cell_B:
-        switch (state) {
-        case Cell_ON:
-            Cell_B_MOS = 1;
-            break;
-        case Cell_OFF:
-            Cell_B_MOS = 0;
-            break;
-        }
+    case CELL_B:
+        Cell_B_MOS = state;
         break;
     }
 }
@@ -967,9 +831,7 @@ void MC_Ini(void) // initialzation for the whole program
     i2c_enable(I2C_BUS2);
     i2c_enable(I2C_BUS3);
 
-#ifdef UART_CONTROL
-    UART1Ini();
-#endif
+    uart_init();
 
     set_firmware_build_time();
 }
@@ -1015,7 +877,6 @@ void FANCtrlIni() {
 
 //*-----------------------------------PWM------------------------------------*/
 
-// initialize PWM channel 1
 void PWM1Ini(void) {
     // 1. Configure the OCx output for one of the
     // available Peripheral Pin Select pins.
@@ -1025,34 +886,36 @@ void PWM1Ini(void) {
     OC1R = 0;
     // 3. Calculate the desired period and load it into the
     // OCxRS register.
+    /// period in units of ticks of the timer specified by the clock source OCTSEL
     OC1RS = 2000;
     // 4. Select the current OCx as the sync source by writing
     // 0x1F to SYNCSEL<4:0> (OCxCON2<4:0>),
     // and clearing OCTRIG (OCxCON2<7>).
+    /// 0b11111 = This OC1 Module
     OC1CON2bits.SYNCSEL = 0x1F;
+    /// 0 = Synchronize OC1 with Source designated with SYNCSEL1 bits
     OC1CON2bits.OCTRIG = CLEAR;
     // 5. Select a clock source by writing the
     // OCTSEL<2:0> (OCxCON<12:10>) bits.
-    OC1CON1bits.OCTSEL = 0b000; // Timer2
+    /// 0b000 = Timer2
+    OC1CON1bits.OCTSEL = 0b000;
     // 6. Enable interrupts, if required, for the timer and
     // output compare modules. The output compare
     // interrupt is required for PWM Fault pin utilization.
     // No interrupt needed
     // 7. Select the desired PWM mode in the OCM<2:0>
     //(OCxCON1<2:0>) bits.
+    /// 0b110 = Edge-Aligned PWM mode: Output set high when OCxTMR = 0 and set low when OCxTMR =
+    /// OCxR
     OC1CON1bits.OCM = 0b110;
     // 8. If a timer is selected as a clock source, set the
     // TMRy prescale value and enable the time base by
     // setting the TON (TxCON<15>) bit.
     // Done in timer Init.
-    Period1 = Period30000Hz; // Period is used for all the other PWMxDuty() functions
 }
 
-// set duty cycle for PWM channel 2
-void PWM1Duty(int Duty) { OC1R = Duty * 2; }
-//****************************************************
+void PWM1Duty(uint16_t Duty) { OC1R = Duty * 2; }
 
-// initialize PWM channel 2
 void PWM2Ini(void) {
     OC2R = 0;
     OC2RS = 2000;
@@ -1060,15 +923,10 @@ void PWM2Ini(void) {
     OC2CON2bits.OCTRIG = CLEAR;
     OC2CON1bits.OCTSEL = 0b000; // Timer2
     OC2CON1bits.OCM = 0b110;
-    Period2 = Period30000Hz; // Period is used for all the other PWMxDuty() functions
 }
 
-// set duty cycle for PWM channel 2
-void PWM2Duty(int Duty) { OC2R = Duty * 2; }
-//****************************************************
+void PWM2Duty(uint16_t Duty) { OC2R = Duty * 2; }
 
-//****************************************************
-// initialize PWM channel 3
 void PWM3Ini(void) {
     OC3R = 0;
     OC3RS = 2000;
@@ -1076,11 +934,9 @@ void PWM3Ini(void) {
     OC3CON2bits.OCTRIG = CLEAR;
     OC3CON1bits.OCTSEL = 0b000; // Timer2
     OC3CON1bits.OCM = 0b110;
-    Period3 = Period30000Hz; // Period is used for all the other PWMxDuty() functions
 }
 
-// set duty cycle for PWM channel 3
-void PWM3Duty(int Duty) { OC3R = Duty * 2; }
+void PWM3Duty(uint16_t Duty) { OC3R = Duty * 2; }
 
 /*****************************************************************************/
 //*-----------------------------------Timer----------------------------------*/
@@ -1088,22 +944,21 @@ void PWM3Duty(int Duty) { OC3R = Duty * 2; }
 void IniTimer1() {
     T1CON = 0x0000;         // clear register
     T1CONbits.TCKPS = 0b00; // 1:1 prescale
-    TMR1 = 0;           // clear timer1 register
-    PR1 = -1; // interrupt every 1ms
-    T1CONbits.TON = SET; // timer on
+    TMR1 = 0;               // clear timer1 register
+    PR1 = Period1000Hz;     // interrupt every 1ms
+    T1CONbits.TON = SET;    // timer on
 }
 
 void IniTimer2() {
     T2CON = 0x0000;         // stops timer2,16 bit timer,internal clock (Fosc/2)
     T2CONbits.TCKPS = 0b00; // 1:1 prescale
-    TMR2 = 0;              
+    TMR2 = 0;
     PR2 = Period30000Hz;
     IFS0bits.T2IF = CLEAR; // clear the flag
     // IEC0bits.T2IE=SET;// enable the interrupt
     T2CONbits.TON = SET;
 }
 void IniTimer3() {
-    // timer 3 initialize
     // A/D triger timer, for back emf feedback
 
     T3CON = 0x0010;        // stops timer3,1:8 prescale,16 bit timer,internal clock (Fosc/2)
@@ -1112,8 +967,6 @@ void IniTimer3() {
     IFS0bits.T3IF = CLEAR; // clear interrupt flag
     IEC0bits.T3IE = SET;   // enable the interrupt
     T3CONbits.TON = SET;   // start clock
-
-    // end timer 3 initialize
 }
 /*****************************************************************************/
 
@@ -1152,26 +1005,6 @@ void IniAD() {
     IFS0bits.AD1IF = CLEAR;
     // b) Select A/D interrupt priority.
 }
-
-/*****************************************************************************/
-
-/*****************************************************************************/
-//*-----------------------------------UART------------------------------------*/
-void UART1Ini() {
-    // Write appropriate baud rate value to the UxBRG register.
-    U1BRG = BaudRate_57600_HI;
-    // Enable the UART.
-    U1MODE = 0x0000;
-    // hight speed mode
-    U1MODEbits.BRGH = 1;
-    U1STA = 0x0000;
-    U1MODEbits.UARTEN = 1; // UART1 is enabled
-    U1STAbits.UTXEN = 1;   // transmit enabled
-    IFS0bits.U1TXIF = 0;   // clear the transmit flag
-    IEC0bits.U1TXIE = 1;   // enable UART1 transmit interrupt
-    IEC0bits.U1RXIE = 1;   // enable UART1 receive interrupt
-}
-
 /*****************************************************************************/
 
 /***************************Interrupt routines***********************************/
@@ -1199,32 +1032,29 @@ void Motor_ADC1Interrupt(void) {
 
     M3_POSFB_Array[0][M3_POSFB_ArrayPointer] = ADC1BUF4;
     M3_POSFB_Array[1][M3_POSFB_ArrayPointer] = ADC1BUF5;
- 	M3_POSFB_ArrayPointer = (M3_POSFB_ArrayPointer + 1) % SAMPLE_LENGTH;
+    M3_POSFB_ArrayPointer = (M3_POSFB_ArrayPointer + 1) % SAMPLE_LENGTH;
 
-    MotorCurrentAD[MOTOR_LEFT][MotorCurrentADPointer] = ADC1BUF3;;
+    MotorCurrentAD[MOTOR_LEFT][MotorCurrentADPointer] = ADC1BUF3;
+    ;
     MotorCurrentAD[MOTOR_RIGHT][MotorCurrentADPointer] = ADC1BUF1;
     MotorCurrentAD[MOTOR_FLIPPER][MotorCurrentADPointer] = ADC1BUFB;
-	MotorCurrentADPointer = (MotorCurrentADPointer + 1) % SAMPLE_LENGTH;
+    MotorCurrentADPointer = (MotorCurrentADPointer + 1) % SAMPLE_LENGTH;
 
     Cell_A_Current[Total_Cell_Current_ArrayPointer] = ADC1BUF8;
     Cell_B_Current[Total_Cell_Current_ArrayPointer] = ADC1BUF9;
     Total_Cell_Current_Array[Total_Cell_Current_ArrayPointer] =
         Cell_A_Current[Total_Cell_Current_ArrayPointer] +
         Cell_B_Current[Total_Cell_Current_ArrayPointer];
-	Total_Cell_Current_ArrayPointer = (Total_Cell_Current_ArrayPointer + 1) % SAMPLE_LENGTH;
+    Total_Cell_Current_ArrayPointer = (Total_Cell_Current_ArrayPointer + 1) % SAMPLE_LENGTH;
 
-    CellVoltageArray[Cell_A][CellVoltageArrayPointer] = ADC1BUF6;
-    CellVoltageArray[Cell_B][CellVoltageArrayPointer] = ADC1BUF7;
+    CellVoltageArray[CELL_A][CellVoltageArrayPointer] = ADC1BUF6;
+    CellVoltageArray[CELL_B][CellVoltageArrayPointer] = ADC1BUF7;
     CellVoltageArrayPointer = (CellVoltageArrayPointer + 1) % SAMPLE_LENGTH;
 }
 
-void Motor_U1TXInterrupt(void) {
-	uart_tx_isf();
-}
+void Motor_U1TXInterrupt(void) { uart_tx_isf(); }
 
-void Motor_U1RXInterrupt(void) {
-	uart_rx_isf();
-}
+void Motor_U1RXInterrupt(void) { uart_rx_isf(); }
 
 static unsigned int return_calibrated_pot_angle(unsigned int pot_1_value,
                                                 unsigned int pot_2_value) {
@@ -1369,12 +1199,12 @@ void turn_on_power_bus_new_method(void) {
 
     for (i = 0; i < 300; i++) {
 
-        Cell_Ctrl(Cell_A, Cell_ON);
-        Cell_Ctrl(Cell_B, Cell_ON);
+        Cell_Ctrl(CELL_A, CELL_ON);
+        Cell_Ctrl(CELL_B, CELL_ON);
         for (j = 0; j < k; j++)
             Nop();
-        Cell_Ctrl(Cell_A, Cell_OFF);
-        Cell_Ctrl(Cell_B, Cell_OFF);
+        Cell_Ctrl(CELL_A, CELL_OFF);
+        Cell_Ctrl(CELL_B, CELL_OFF);
 
         block_ms(10);
 
@@ -1382,8 +1212,8 @@ void turn_on_power_bus_new_method(void) {
         // k+=10;
     }
 
-    Cell_Ctrl(Cell_A, Cell_ON);
-    Cell_Ctrl(Cell_B, Cell_ON);
+    Cell_Ctrl(CELL_A, CELL_ON);
+    Cell_Ctrl(CELL_B, CELL_ON);
 }
 
 void turn_on_power_bus_old_method(void) {
@@ -1391,16 +1221,16 @@ void turn_on_power_bus_old_method(void) {
     unsigned int i;
 
     for (i = 0; i < 20; i++) {
-        Cell_Ctrl(Cell_A, Cell_ON);
-        Cell_Ctrl(Cell_B, Cell_ON);
+        Cell_Ctrl(CELL_A, CELL_ON);
+        Cell_Ctrl(CELL_B, CELL_ON);
         block_ms(10);
-        Cell_Ctrl(Cell_A, Cell_OFF);
-        Cell_Ctrl(Cell_B, Cell_OFF);
+        Cell_Ctrl(CELL_A, CELL_OFF);
+        Cell_Ctrl(CELL_B, CELL_OFF);
         block_ms(40);
     }
 
-    Cell_Ctrl(Cell_A, Cell_ON);
-    Cell_Ctrl(Cell_B, Cell_ON);
+    Cell_Ctrl(CELL_A, CELL_ON);
+    Cell_Ctrl(CELL_B, CELL_ON);
 }
 
 void turn_on_power_bus_hybrid_method(void) {
@@ -1415,12 +1245,12 @@ void turn_on_power_bus_hybrid_method(void) {
     for (i = 0; i < 200; i++) {
 
         for (l = 0; l < 3; l++) {
-            Cell_Ctrl(Cell_A, Cell_ON);
-            Cell_Ctrl(Cell_B, Cell_ON);
+            Cell_Ctrl(CELL_A, CELL_ON);
+            Cell_Ctrl(CELL_B, CELL_ON);
             for (j = 0; j < k; j++)
                 Nop();
-            Cell_Ctrl(Cell_A, Cell_OFF);
-            Cell_Ctrl(Cell_B, Cell_OFF);
+            Cell_Ctrl(CELL_A, CELL_OFF);
+            Cell_Ctrl(CELL_B, CELL_OFF);
             break;
         }
 
@@ -1430,17 +1260,18 @@ void turn_on_power_bus_hybrid_method(void) {
             k = 20000;
     }
 
-    Cell_Ctrl(Cell_A, Cell_ON);
-    Cell_Ctrl(Cell_B, Cell_ON);
+    Cell_Ctrl(CELL_A, CELL_ON);
+    Cell_Ctrl(CELL_B, CELL_ON);
 }
 
 void handle_power_bus(void) {
-#define BATTERY_DATA_LEN 20
-    unsigned char battery_data1[BATTERY_DATA_LEN], battery_data2[BATTERY_DATA_LEN];
-    unsigned char DEVICE_NAME_OLD_BATTERY[7] = {'B', 'B', '-', '2', '5', '9', '0'};
-    unsigned char DEVICE_NAME_NEW_BATTERY[9] = {'B', 'T', '-', '7', '0', '7', '9', '1', 'B'};
-    unsigned char DEVICE_NAME_BT70791_CK[9] = {'B', 'T', '-', '7', '0', '7', '9', '1', 'C'};
-    unsigned char DEVICE_NAME_CUSTOM_BATTERY[7] = {'R', 'O', 'B', 'O', 'T', 'E', 'X'};
+#define BATTERY_DATA_LEN 10
+    char battery_data1[BATTERY_DATA_LEN] = {0};
+    char battery_data2[BATTERY_DATA_LEN] = {0};
+    char DEVICE_NAME_OLD_BATTERY[7] = "BB-2590";
+    char DEVICE_NAME_NEW_BATTERY[9] = "BT-70791B";
+    char DEVICE_NAME_BT70791_CK[9] = "BT-70791C";
+    char DEVICE_NAME_CUSTOM_BATTERY[7] = "ROBOTEX";
     unsigned int j;
     I2CResult result;
     I2COperationDef op;
@@ -1466,53 +1297,35 @@ void handle_power_bus(void) {
     }
 
     // If we're using the old battery (BB-2590)
-    if (check_string_match(DEVICE_NAME_OLD_BATTERY, battery_data1,
-                           sizeof(DEVICE_NAME_OLD_BATTERY)) ||
-        check_string_match(DEVICE_NAME_OLD_BATTERY, battery_data2,
-                           sizeof(DEVICE_NAME_OLD_BATTERY))) {
+    if (strcmp(DEVICE_NAME_OLD_BATTERY, battery_data1) == 0 ||
+        strcmp(DEVICE_NAME_OLD_BATTERY, battery_data2) == 0) {
         turn_on_power_bus_old_method();
         return;
     }
 
     // If we're using the new battery (BT-70791B)
-    if (check_string_match(DEVICE_NAME_NEW_BATTERY, battery_data1,
-                           sizeof(DEVICE_NAME_NEW_BATTERY)) ||
-        check_string_match(DEVICE_NAME_NEW_BATTERY, battery_data2,
-                           sizeof(DEVICE_NAME_NEW_BATTERY))) {
+    if (strcmp(DEVICE_NAME_NEW_BATTERY, battery_data1) == 0 ||
+        strcmp(DEVICE_NAME_NEW_BATTERY, battery_data2) == 0) {
         turn_on_power_bus_new_method();
         return;
     }
 
     // If we're using Bren-Tronics BT-70791C
-    if (check_string_match(DEVICE_NAME_BT70791_CK, battery_data1, sizeof(DEVICE_NAME_BT70791_CK)) ||
-        check_string_match(DEVICE_NAME_BT70791_CK, battery_data2, sizeof(DEVICE_NAME_BT70791_CK))) {
+    if (strcmp(DEVICE_NAME_BT70791_CK, battery_data1) == 0 ||
+        strcmp(DEVICE_NAME_BT70791_CK, battery_data2) == 0) {
         turn_on_power_bus_new_method();
         return;
     }
 
     // if we're using the low lithium custom Matthew's battery
-    if (check_string_match(DEVICE_NAME_CUSTOM_BATTERY, battery_data1,
-                           sizeof(DEVICE_NAME_CUSTOM_BATTERY)) ||
-        check_string_match(DEVICE_NAME_CUSTOM_BATTERY, battery_data2,
-                           sizeof(DEVICE_NAME_CUSTOM_BATTERY))) {
+    if (strcmp(DEVICE_NAME_CUSTOM_BATTERY, battery_data1) == 0 ||
+        strcmp(DEVICE_NAME_CUSTOM_BATTERY, battery_data2) == 0) {
         turn_on_power_bus_old_method();
         return;
     }
 
     // if we're using an unknown battery
-
     turn_on_power_bus_hybrid_method();
-}
-
-bool check_string_match(const unsigned char *string1, const unsigned char *string2,
-                        unsigned char length) {
-    unsigned int i;
-    for (i = 0; i < length; i++) {
-        if (string1[i] != string2[i])
-            return false;
-    }
-
-    return true;
 }
 
 // When robot is on the charger, only leave one side of the power bus on at a time.
@@ -1526,8 +1339,8 @@ static void alternate_power_bus(void) {
         // if we're on the dock, immediately turn off one side of the power bus
         if (toggle_state == 0) {
             toggle_state = 1;
-            Cell_Ctrl(Cell_B, Cell_ON);
-            Cell_Ctrl(Cell_A, Cell_OFF);
+            Cell_Ctrl(CELL_B, CELL_ON);
+            Cell_Ctrl(CELL_A, CELL_OFF);
         }
 
         alternate_counter++;
@@ -1538,14 +1351,14 @@ static void alternate_power_bus(void) {
             // turn off side B, turn on side A
             if (toggle_state == 1) {
                 toggle_state = 2;
-                Cell_Ctrl(Cell_A, Cell_ON);
-                Cell_Ctrl(Cell_B, Cell_OFF);
+                Cell_Ctrl(CELL_A, CELL_ON);
+                Cell_Ctrl(CELL_B, CELL_OFF);
             }
             // turn on side B, turn off side A
             else if (toggle_state == 2) {
                 toggle_state = 1;
-                Cell_Ctrl(Cell_B, Cell_ON);
-                Cell_Ctrl(Cell_A, Cell_OFF);
+                Cell_Ctrl(CELL_B, CELL_ON);
+                Cell_Ctrl(CELL_A, CELL_OFF);
             } else {
                 toggle_state = 0;
             }
@@ -1553,8 +1366,8 @@ static void alternate_power_bus(void) {
     }
     // robot has left the charger -- turn both cells on
     else {
-        Cell_Ctrl(Cell_A, Cell_ON);
-        Cell_Ctrl(Cell_B, Cell_ON);
+        Cell_Ctrl(CELL_A, CELL_ON);
+        Cell_Ctrl(CELL_B, CELL_ON);
         toggle_state = 0;
     }
 }

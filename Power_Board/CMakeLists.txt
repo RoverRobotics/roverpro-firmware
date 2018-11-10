@@ -53,8 +53,6 @@ add_executable(Power_Board
     src/usb_device.c
     "src/DEE Emulation 16-bit.c"
 
-    "src/Flash Operations.s"
-
     include/Filters.h
     include/HardwareProfile.h
     include/InputCapture.h
