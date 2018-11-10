@@ -21,7 +21,9 @@ If you want to use MPLAB afterwards, go to Tools -> Revert to MPLAB mode
 
 ### unreleased
 
-* :snowflake: Delete even more unused code (robot accessories, controllers)
+* :umbrella: Fix race condition where UART can send corrupted data
+* :sunny: Add encoder counts to queryable robot metrics (14, 16)
+* :snowflake: Delete even more unused code (robot accessories, controllers) and improve code clarity
 * :snowflake: Lots of documentation improvements
 
 ### 1.2.1
@@ -49,7 +51,7 @@ To build, use the Debug mode (if you're attaching a PICKit) or Release mode (if 
 
 ### Code style tools
 
-To tidy up code, I like using **[clang-format 6](http://releases.llvm.org/6.0.1/tools/clang/docs/ClangFormat.html)**, and have provided a .clang-format file. Clang 6 is currently the latest release for Ubuntu, but feel free to use newer.
+To tidy up code, I like using **[clang-format](https://clang.llvm.org/docs/ClangFormat.html)**, and have provided a .clang-format file. Clang 6 is currently the latest release for Ubuntu, but feel free to use newer.
 
 #### Ubuntu installation of clang-format
 
