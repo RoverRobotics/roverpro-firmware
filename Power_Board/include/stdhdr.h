@@ -32,6 +32,8 @@ void block_ms(uint16_t ms);
 
 /** return the nearest integer within the given range */
 int clamp(int value, int lo, int hi);
+/** return the nearest float within the given range */
+float clamp_f(float value, float lo, float hi);
 
 /** compute the mean of an array of ints */
 int16_t mean(size_t count, int16_t *values);

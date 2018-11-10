@@ -89,95 +89,94 @@ Given a released hex file, you can deploy to the robot power board with MPLAB in
 The main robot firmware code is the Power Board. This is responsible for communicating with the motors / batteries / fans / serial port.
 
 ```
-$ cd ~/Documents/firmware/Power_Board
+$ cd /mnt/c/Users/dan/Documents/OpenRoverFirmware-dan/Power_Board#
 $ tree -h
 .
-├── [3.4K]  CMakeLists.txt
-├── [1.1K]  HardwareProfile.h
-├── [ 224]  closed_loop_control
-│   ├── [ 850]  Filters.c
-│   ├── [1.4K]  Filters.h
-│   ├── [3.8K]  PID.c
-│   ├── [3.5K]  PID.h
-│   └── [ 128]  core
-│       ├── [6.8K]  InputCapture.c
-│       └── [2.9K]  InputCapture.h
-├── [ 256]  doc
-│   ├── [106K]  2011Arm_Base_Datasheet.doc
-│   ├── [107K]  2011Arm_Link1_Datasheet.doc
-│   ├── [ 17K]  2011Robot_PowerBoard_AssistantCalculationSheet.xlsx
-│   ├── [ 31K]  2011_Robot_PowerBoard200_Evaluation_Datasheet.docx
-│   ├── [ 63K]  2011_Robot_PowerBoardDatasheet.docx
-│   └── [  62]  XbeeModuleConfiguration.txt
-├── [4.1K]  firmware.mcp
-├── [ 160]  microchip
-│   ├── [5.7K]  Compiler.h
-│   ├── [1.2K]  USB
-│   │   ├── [5.9K]  usb.h
-│   │   ├── [ 28K]  usb_ch9.h
-│   │   ├── [ 23K]  usb_common.h
-│   │   ├── [ 47K]  usb_device.h
-│   │   ├── [8.3K]  usb_function_audio.h
-│   │   ├── [6.1K]  usb_function_ccid.h
-│   │   ├── [ 22K]  usb_function_cdc.h
-│   │   ├── [8.9K]  usb_function_generic.h
-│   │   ├── [ 12K]  usb_function_hid.h
-│   │   ├── [4.6K]  usb_function_midi.h
-│   │   ├── [ 20K]  usb_function_msd.h
-│   │   ├── [ 21K]  usb_hal.h
-│   │   ├── [ 17K]  usb_hal_pic18.h
-│   │   ├── [ 16K]  usb_hal_pic24.h
-│   │   ├── [ 15K]  usb_hal_pic32.h
-│   │   ├── [ 56K]  usb_host.h
-│   │   ├── [ 24K]  usb_host_audio_v1.h
-│   │   ├── [ 31K]  usb_host_cdc.h
-│   │   ├── [8.7K]  usb_host_cdc_interface.h
-│   │   ├── [ 11K]  usb_host_charger.h
-│   │   ├── [ 23K]  usb_host_generic.h
-│   │   ├── [ 32K]  usb_host_hid.h
-│   │   ├── [ 24K]  usb_host_hid_parser.h
-│   │   ├── [ 21K]  usb_host_msd.h
-│   │   ├── [ 14K]  usb_host_msd_scsi.h
-│   │   ├── [105K]  usb_host_printer.h
-│   │   ├── [ 16K]  usb_host_printer_esc_pos.h
-│   │   ├── [ 11K]  usb_host_printer_pcl_5.h
-│   │   ├── [8.7K]  usb_host_printer_postscript.h
-│   │   ├── [7.3K]  usb_host_printer_primitives.h
-│   │   ├── [ 22K]  usb_otg.h
-│   │   ├── [6.0K]  usb_printer_pos_bixolon_srp_270.h
-│   │   ├── [5.8K]  usb_printer_pos_epson_tm_t88iv.h
-│   │   ├── [5.9K]  usb_printer_pos_seiko_dpu_v445.h
-│   │   └── [5.8K]  usb_printer_pos_seiko_mpu_l465.h
-│   └── [7.4K]  uart2.h
-├── [ 15K]  registers.h
-├── [ 800]  src
-│   ├── [ 25K]  DEE\ Emulation\ 16-bit.c
-│   ├── [5.2K]  DEE\ Emulation\ 16-bit.h
-│   ├── [2.6K]  Flash\ Operations.s
-│   ├── [3.9K]  debug_uart.c
-│   ├── [ 228]  debug_uart.h
-│   ├── [ 58K]  device_robot_motor.c
-│   ├── [8.5K]  device_robot_motor.h
-│   ├── [7.4K]  device_robot_motor_i2c.c
-│   ├── [ 234]  device_robot_motor_i2c.h
-│   ├── [8.0K]  device_robot_motor_loop.c
-│   ├── [ 241]  device_robot_motor_loop.h
-│   ├── [ 17K]  i2clib.c
-│   ├── [5.7K]  i2clib.h
-│   ├── [2.6K]  interrupt_switch.c
-│   ├── [ 812]  interrupt_switch.h
-│   ├── [8.5K]  main.c
-│   ├── [ 128]  robotex
-│   │   ├── [1.9K]  periph_adc.c
-│   │   └── [ 947]  periph_adc.h
-│   ├── [1.0K]  stdfunctions.c
-│   ├── [1.2K]  stdhdr.h
-│   ├── [6.9K]  testing.c
-│   ├── [  56]  testing.h
-│   ├── [3.8K]  usb_descriptors.c
-│   └── [ 97K]  usb_device.c
-├── [1.2K]  usb_config.c
-└── [3.3K]  usb_config.h
+├── [3.1K]  CMakeLists.txt
+├── [ 512]  cmake-build-debug
+├── [ 512]  doc
+│   ├── [106K]  2011Arm_Base_Datasheet.doc
+│   ├── [107K]  2011Arm_Link1_Datasheet.doc
+│   ├── [ 17K]  2011Robot_PowerBoard_AssistantCalculationSheet.xlsx
+│   ├── [ 31K]  2011_Robot_PowerBoard200_Evaluation_Datasheet.docx
+│   ├── [ 63K]  2011_Robot_PowerBoardDatasheet.docx
+│   └── [  62]  XbeeModuleConfiguration.txt
+├── [5.4K]  firmware.mcp
+├── [ 512]  include
+│   ├── [1.5K]  Filters.h
+│   ├── [1.1K]  HardwareProfile.h
+│   ├── [2.9K]  InputCapture.h
+│   ├── [3.5K]  PID.h
+│   ├── [8.6K]  device_robot_motor.h
+│   ├── [ 234]  device_robot_motor_i2c.h
+│   ├── [ 242]  device_robot_motor_loop.h
+│   ├── [5.7K]  i2clib.h
+│   ├── [ 812]  interrupt_switch.h
+│   ├── [ 16K]  registers.h
+│   ├── [1.3K]  stdhdr.h
+│   ├── [  56]  testing.h
+│   ├── [ 726]  uart_control.h
+│   └── [3.3K]  usb_config.h
+├── [ 512]  microchip
+│   ├── [5.7K]  Compiler.h
+│   ├── [5.3K]  DEE Emulation 16-bit.h
+│   ├── [ 512]  USB
+│   │   ├── [5.9K]  usb.h
+│   │   ├── [ 28K]  usb_ch9.h
+│   │   ├── [ 23K]  usb_common.h
+│   │   ├── [ 47K]  usb_device.h
+│   │   ├── [8.3K]  usb_function_audio.h
+│   │   ├── [6.1K]  usb_function_ccid.h
+│   │   ├── [ 22K]  usb_function_cdc.h
+│   │   ├── [8.9K]  usb_function_generic.h
+│   │   ├── [ 12K]  usb_function_hid.h
+│   │   ├── [4.6K]  usb_function_midi.h
+│   │   ├── [ 20K]  usb_function_msd.h
+│   │   ├── [ 22K]  usb_hal.h
+│   │   ├── [ 17K]  usb_hal_pic18.h
+│   │   ├── [ 17K]  usb_hal_pic24.h
+│   │   ├── [ 15K]  usb_hal_pic32.h
+│   │   ├── [ 56K]  usb_host.h
+│   │   ├── [ 24K]  usb_host_audio_v1.h
+│   │   ├── [ 31K]  usb_host_cdc.h
+│   │   ├── [8.7K]  usb_host_cdc_interface.h
+│   │   ├── [ 11K]  usb_host_charger.h
+│   │   ├── [ 23K]  usb_host_generic.h
+│   │   ├── [ 32K]  usb_host_hid.h
+│   │   ├── [ 24K]  usb_host_hid_parser.h
+│   │   ├── [ 21K]  usb_host_msd.h
+│   │   ├── [ 14K]  usb_host_msd_scsi.h
+│   │   ├── [105K]  usb_host_printer.h
+│   │   ├── [ 16K]  usb_host_printer_esc_pos.h
+│   │   ├── [ 11K]  usb_host_printer_pcl_5.h
+│   │   ├── [8.7K]  usb_host_printer_postscript.h
+│   │   ├── [7.3K]  usb_host_printer_primitives.h
+│   │   ├── [ 22K]  usb_otg.h
+│   │   ├── [6.0K]  usb_printer_pos_bixolon_srp_270.h
+│   │   ├── [5.8K]  usb_printer_pos_epson_tm_t88iv.h
+│   │   ├── [5.9K]  usb_printer_pos_seiko_dpu_v445.h
+│   │   └── [5.8K]  usb_printer_pos_seiko_mpu_l465.h
+│   └── [7.4K]  uart2.h
+└── [ 512]  src
+    ├── [ 25K]  DEE Emulation 16-bit.c
+    ├── [ 831]  Filters.c
+    ├── [2.6K]  Flash Operations.s
+    ├── [7.4K]  InputCapture.c
+    ├── [3.7K]  PID.c
+    ├── [ 43K]  device_robot_motor.c
+    ├── [7.3K]  device_robot_motor_i2c.c
+    ├── [7.9K]  device_robot_motor_loop.c
+    ├── [ 17K]  i2clib.c
+    ├── [2.6K]  interrupt_switch.c
+    ├── [8.7K]  main.c
+    ├── [1.1K]  stdfunctions.c
+    ├── [   0]  testing.c
+    ├── [7.9K]  uart_control.c
+    ├── [1.2K]  usb_config.c
+    ├── [3.8K]  usb_descriptors.c
+    └── [ 97K]  usb_device.c
+
+6 directories, 77 files
 ```
 
 firmware.mcp = main project file. Open this with MPLab IDE v8.89

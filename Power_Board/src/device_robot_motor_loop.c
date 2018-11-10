@@ -138,7 +138,7 @@ int return_closed_loop_control_effort(MotorChannel motor) {
 }
 
 float DT_speed(const MotorChannel motor) {
-#define HZ_16US 100000.0
+#define HZ_16US 100000.0f
 
     float period = 0;
     switch (motor) {
@@ -211,12 +211,8 @@ static int16_t GetDesiredSpeed(const MotorChannel motor) {
                 return -500;
         }
 
-        if (MAX_DESIRED_SPEED < temp_left)
-            return MAX_DESIRED_SPEED;
-        else if (temp_left < -MAX_DESIRED_SPEED)
-            return -MAX_DESIRED_SPEED;
-        else
-            return temp_left;
+        return clamp(temp_left, -MAX_DESIRED_SPEED, +MAX_DESIRED_SPEED);
+
     case MOTOR_RIGHT:
         if (abs(temp_right) < MIN_ACHEIVABLE_SPEED) {
             return 0;
@@ -230,12 +226,8 @@ static int16_t GetDesiredSpeed(const MotorChannel motor) {
                 return -500;
         }
 
-        if (MAX_DESIRED_SPEED < temp_right)
-            return MAX_DESIRED_SPEED;
-        else if (temp_right < -MAX_DESIRED_SPEED)
-            return -MAX_DESIRED_SPEED;
-        else
-            return temp_right;
+        return clamp(temp_right, -MAX_DESIRED_SPEED, +MAX_DESIRED_SPEED);
+
     case MOTOR_FLIPPER:
         return REG_MOTOR_VELOCITY.flipper;
     }
