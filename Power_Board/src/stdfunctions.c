@@ -11,7 +11,9 @@
 #define FCY 16000000UL // instruction clock
 #include "libpic30.h"
 
-int16_t clamp(int16_t value, int16_t lo, int16_t hi) { return (value < lo ? lo : value > hi ? hi : value); }
+int16_t clamp(int16_t value, int16_t lo, int16_t hi) {
+    return (value < lo ? lo : value > hi ? hi : value);
+}
 float clamp_f(float value, float lo, float hi) {
     return (value < lo ? lo : value > hi ? hi : value);
 }

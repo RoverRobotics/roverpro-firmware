@@ -55,7 +55,6 @@ void uart_init() {
     U1MODEbits.BRGH = 1; // High Baud Rate Select bit = High speed (low speed = 16x BRG)
     U1STA = 0x0000;
     U1MODEbits.UARTEN = 1; // UART1 is enabled
-    U1STAbits.UTXEN = 1;   // transmit enabled
     IEC0bits.U1TXIE = 1;   // enable UART1 transmit interrupt
     IEC0bits.U1RXIE = 1;   // enable UART1 receive interrupt
 }
@@ -109,6 +108,7 @@ void uart_tx_isf() {
             // No data to send
             // Disable transmission (it will be re-enabled if we receive a new data command)
             U1STAbits.UTXEN = 0;
+			return;
         }
     }
 }
