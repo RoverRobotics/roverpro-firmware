@@ -66,8 +66,8 @@ Counter speed_update_timer[MOTOR_CHANNEL_COUNT] = {
     {.max = INTERVAL_MS_SPEED_UPDATE, .pause_on_expired = true},
 };
 
-Counter usb_timeout = {.max = TIMEOUT_MS_USB, .pause_on_expired = true, .is_paused = true};
-Counter state_machine = {.max = INTERVAL_MS_STATE_MACHINE};
+Counter usb_timeout = {.max = INTERVAL_MS_USB_TIMEOUT, .pause_on_expired = true, .is_paused = true};
+Counter motor_direction_state_machine = {.max = INTERVAL_MS_STATE_MACHINE};
 Counter current_fb = {.max = INTERVAL_MS_CURRENT_FEEDBACK};
 Counter i2c2_timeout = {.max = INTERVAL_MS_I2C2};
 Counter i2c3_timeout = {.max = INTERVAL_MS_I2C3};
@@ -84,7 +84,6 @@ uint16_t current_for_control[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH_CONTROL] = {{0}}
 int current_for_control_pointer[MOTOR_CHANNEL_COUNT] = {0};
 int16_t motor_target_speed[MOTOR_CHANNEL_COUNT] = {0};
 
-int timer3_count = 0;
 int m3_posfb_array[2][SAMPLE_LENGTH] = {{0}}; ///< Flipper Motor positional feedback data
 int m3_posfb_array_pointer = 0;
 uint16_t total_cell_current_array[SAMPLE_LENGTH] = {0};
@@ -188,7 +187,6 @@ void DeviceRobotMotorInit() {
     //*******************************************
 
     InterruptIni();
-    // initialize AD
     IniAD();
 
     // initialize timers
@@ -376,12 +374,12 @@ void Device_MotorController_Process() {
                 motor_event[i] = GO;
         }
 
-        // update state machine
+        // update motor direction state machine
         // If the new motor commands reverse or brake a motor, coast that motor for a few ticks
         // (SWITCH_DIRECTION mode) Then once the switch direction timer elapses, start the motor in
         // that new direction If we are moving forward or in reverse and the intended speed changes,
         // update the pwm command to the motor
-        if (counter_tick(&state_machine) == COUNTER_EXPIRED) {
+        if (counter_tick(&motor_direction_state_machine) == COUNTER_EXPIRED) {
             for (EACH_MOTOR_CHANNEL(i)) {
                 // update state machine
                 switch (motor_state[i]) {
@@ -561,23 +559,23 @@ void USBInput() {
 
     typedef enum {
         /// We are in normal control mode
-        HIGH_SPEED = 0,
+        OPEN_LOOP = 0,
         /// We were in normal control mode and have received a request to change to low speed mode
-        DECEL_AFTER_HIGH_SPEED,
+        OPEN_TO_CLOSED_LOOP,
         /// We are in low speed (PID) mode
-        LOW_SPEED,
+        CLOSED_LOOP,
         /// We were in low speed mode and have received a request to switch to normal control mode
-        DECEL_AFTER_LOW_SPEED
-    } motor_speed_state;
+        CLOSED_TO_OPEN_LOOP
+    } motor_control_scheme;
 
-    static motor_speed_state state = HIGH_SPEED;
+    static motor_control_scheme scheme = OPEN_LOOP;
 
-    // If switching between low speed mode and high speed mode (REG_MOTOR_SLOW_SPEED)
+    // If switching between open loop and closed loop control schemes (REG_MOTOR_CLOSED_LOOP)
     // Motors must decelerate upon switching speeds (if they're not already stopped.
     // Failure to do so could cause large current spikes which will trigger the
     // protection circuitry in the battery, cutting power to the robot
-    switch (state) {
-    case HIGH_SPEED:
+    switch (scheme) {
+    case OPEN_LOOP:
         control_loop_counter++;
         flipper_control_loop_counter++;
 
@@ -592,12 +590,12 @@ void USBInput() {
             motor_target_speed[MOTOR_FLIPPER] = REG_MOTOR_VELOCITY.flipper;
         }
 
-        if (REG_MOTOR_SLOW_SPEED)
-            state = DECEL_AFTER_HIGH_SPEED;
+        if (REG_MOTOR_CLOSED_LOOP)
+            scheme = OPEN_TO_CLOSED_LOOP;
 
         break;
 
-    case DECEL_AFTER_HIGH_SPEED:
+    case OPEN_TO_CLOSED_LOOP:
         control_loop_counter++;
 
         if (control_loop_counter > 3) {
@@ -613,11 +611,11 @@ void USBInput() {
         if ((abs(motor_target_speed[MOTOR_LEFT]) < 10) &&
             (abs(motor_target_speed[MOTOR_RIGHT]) < 10) &&
             (abs(motor_target_speed[MOTOR_FLIPPER]) < 10))
-            state = LOW_SPEED;
+            scheme = CLOSED_LOOP;
 
         break;
 
-    case LOW_SPEED:
+    case CLOSED_LOOP:
         set_desired_velocities(REG_MOTOR_VELOCITY.left, REG_MOTOR_VELOCITY.right,
                                REG_MOTOR_VELOCITY.flipper);
         motor_target_speed[MOTOR_LEFT] = return_closed_loop_control_effort(MOTOR_LEFT);
@@ -627,12 +625,12 @@ void USBInput() {
         control_loop_counter = 0;
         flipper_control_loop_counter = 0;
 
-        if (!REG_MOTOR_SLOW_SPEED)
-            state = DECEL_AFTER_LOW_SPEED;
+        if (!REG_MOTOR_CLOSED_LOOP)
+            scheme = CLOSED_TO_OPEN_LOOP;
 
         break;
 
-    case DECEL_AFTER_LOW_SPEED:
+    case CLOSED_TO_OPEN_LOOP:
         set_desired_velocities(0, 0, 0);
 
         motor_target_speed[MOTOR_LEFT] = return_closed_loop_control_effort(MOTOR_LEFT);
@@ -643,7 +641,7 @@ void USBInput() {
         if ((abs(motor_target_speed[MOTOR_LEFT]) < 10) &&
             (abs(motor_target_speed[MOTOR_RIGHT]) < 10) &&
             (abs(motor_target_speed[MOTOR_FLIPPER]) < 10))
-            state = HIGH_SPEED;
+            scheme = OPEN_LOOP;
 
         break;
     }
@@ -705,8 +703,6 @@ void InterruptIni() {
     // remap all the interrupt routines
     T3InterruptUserFunction = Motor_T3Interrupt;
     ADC1InterruptUserFunction = Motor_ADC1Interrupt;
-    U1TXInterruptUserFunction = uart_tx_isf;
-    U1RXInterruptUserFunction = uart_rx_isf;
 }
 
 void FANCtrlIni() {
@@ -872,14 +868,9 @@ void Motor_T3Interrupt(void) {
     // I think this isn't needed as long as SSRC = 0b111
 
     // PORTCbits.RC13=~PORTCbits.RC13;
-    // clear timer3 flage
+    // clear timer3 flag
     IFS0bits.T3IF = CLEAR; // clear interrupt flag
-    timer3_count++;
-
-    if (timer3_count >= 0) {
-        timer3_count = 0;
-        AD1CON1bits.ASAM = SET;
-    }
+    AD1CON1bits.ASAM = SET;
 }
 
 void Motor_ADC1Interrupt(void) {
@@ -932,7 +923,6 @@ static uint16_t return_calibrated_pot_angle(uint16_t pot_1_value, uint16_t pot_2
 }
 
 static uint16_t return_combined_pot_angle(uint16_t pot_1_value, uint16_t pot_2_value) {
-    // unsigned int pot_1_value, pot_2_value = 0;
     int combined_pot_angle = 0;
     int pot_angle_1 = 0;
     int pot_angle_2 = 0;

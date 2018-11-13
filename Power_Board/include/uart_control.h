@@ -8,7 +8,7 @@ typedef struct UARTTickResult {
   bool uart_flipper_calibrate_requested;
   bool uart_fan_speed_requested;
   bool uart_motor_speed_requested;
-  bool uart_motor_slow_speed_requested;
+  bool uart_motor_control_scheme_requested;
 } UArtTickResult;
 
 /// Initialize UART module

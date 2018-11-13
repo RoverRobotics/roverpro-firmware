@@ -70,7 +70,7 @@ typedef enum MotorState {
 // constant for timer.
 // Since these are on timer1, they are in multiples of PR1
 #define INTERVAL_MS_SPEED_UPDATE 5             // 200Hz
-#define TIMEOUT_MS_USB 333                     // 3Hz--333ms
+#define INTERVAL_MS_USB_TIMEOUT 333                     // 3Hz--333ms
 #define INTERVAL_MS_UART_FAN_SPEED_TIMEOUT 333 // 3Hz--333ms
 #define INTERVAL_MS_SWITCH_DIRECTION 10        // 10ms
 #define INTERVAL_MS_STATE_MACHINE 1            // 1KHz
@@ -170,6 +170,7 @@ typedef enum {
     MOTOR_RIGHT,
     MOTOR_FLIPPER,
 } MotorChannel;
+
 #define MOTOR_CHANNEL_COUNT 3
 /// Helper macro for iterating all motors and storing the result in variable i.
 /// e.g. int k; for (EACH_MOTOR_CHANNEL(k))
@@ -241,7 +242,7 @@ void PWM3Ini(void); ///< Initialize PWM channel 3 (flipper motor)
 
 // BEGIN utility functions
 void PWM1Duty(uint16_t duty); ///< Set duty cycle for channel 1 (left motor). 0 <= Duty <= 1000
-void PWM2Duty(uint16_t duty); ///< Set duty cycle for channel 2 (right motor).  0 <= Duty <= 1000
+void PWM2Duty(uint16_t duty); ///< Set duty cycle for channel 2 (right motor). 0 <= Duty <= 1000
 void PWM3Duty(
     uint16_t duty); ///< Set duty cycle for pwm channel 3 (flipper motor). 0 <= Duty <= 1000
 

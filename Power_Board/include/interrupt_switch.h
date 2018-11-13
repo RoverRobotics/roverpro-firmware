@@ -22,5 +22,3 @@ extern void (*IC4InterruptUserFunction)(void);
 extern void (*IC5InterruptUserFunction)(void);
 extern void (*IC6InterruptUserFunction)(void);
 extern void (*ADC1InterruptUserFunction)(void);
-extern void (*U1TXInterruptUserFunction)(void);
-extern void (*U1RXInterruptUserFunction)(void);
