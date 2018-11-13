@@ -1,14 +1,7 @@
-#include <p24fxxxx.h>
 #include "stdhdr.h"
 #include "device_robot_motor.h"
 #include "i2clib.h"
 #include "device_robot_motor_i2c.h"
-
-bool I2C2XmitReset = false;
-bool I2C3XmitReset = false;
-
-bool I2C2TimerExpired = false;
-bool I2C3TimerExpired = false;
 
 // A step may be reached by either falling through into it (first try)
 // Or by jumping back to it (every retry)
@@ -26,21 +19,19 @@ bool I2C3TimerExpired = false;
         BREAKPOINT_IF(i2c_result == I2C_ILLEGAL);                                                  \
         // fallthrough to next case
 
-void I2C2Update(void) {
+void i2c2_tick(bool should_reset, bool *did_finish) {
     const I2CBus BUS = I2C_BUS2;
 
     static I2COperationDef op;
-    static I2CProgress progress;
     static int resume_at = 0;
+    static I2CProgress progress;
     static uint16_t a_word;
     static uint8_t a_byte;
+
     I2CResult i2c_result;
 
-    if (I2C2XmitReset) {
-        I2C2XmitReset = false;
+    if (should_reset) {
         if (resume_at != 0) {
-            // i.e. we didn't reach the end last time
-            BREAKPOINT();
             re_init_i2c2();
         }
         resume_at = 0; // start from the beginning
@@ -59,13 +50,7 @@ void I2C2Update(void) {
         REG_MOTOR_TEMP.right = a_byte;
 
         // Fan Controller write PWM1 target duty cycle
-        if (uart_has_new_fan_speed) {
-            a_byte = REG_MOTOR_SIDE_FAN_SPEED;
-        } else if (abs(uart_motor_velocity[0]) + abs(uart_motor_velocity[1]) > 10) {
-            a_byte = REG_MOTOR_SIDE_FAN_SPEED = 240;
-        } else {
-            a_byte = REG_MOTOR_SIDE_FAN_SPEED = 0;
-        }
+        a_byte = REG_MOTOR_SIDE_FAN_SPEED;
         I2C_ASYNCHRONOUSLY(i2c_op_write_byte(FAN_CONTROLLER_ADDRESS, 0x0b, &a_byte));
 
         // Smart Battery read RelativeStateOfCharge
@@ -104,26 +89,22 @@ void I2C2Update(void) {
             REG_BATTERY_CURRENT_A = a_word;
         }
 
-        I2C2TimerExpired = false; // reset the I2C2 update timer
+        *did_finish = true;
         resume_at = 0;
     }
 }
 
-void I2C3Update(void) {
+void i2c3_tick(bool should_reset, bool *did_finish) {
     const I2CBus BUS = I2C_BUS3;
 
     static I2COperationDef op;
-    static I2CProgress progress;
-
     static int resume_at = 0;
+    static I2CProgress progress;
     static uint16_t a_word;
     I2CResult i2c_result;
 
-    if (I2C3XmitReset) {
-        I2C3XmitReset = false;
+    if (should_reset) {
         if (resume_at != 0) {
-            // i.e. we didn't reach the end last time
-            BREAKPOINT();
             re_init_i2c3();
         }
         resume_at = 0; //  start from the beginning
@@ -175,7 +156,7 @@ void I2C3Update(void) {
             REG_BATTERY_CURRENT_B = a_word;
         }
 
-        I2C3TimerExpired = false; // reset the I2C3 update timer
+        *did_finish = true; // reset the I2C3 update timer
         resume_at = 0;
     }
 }

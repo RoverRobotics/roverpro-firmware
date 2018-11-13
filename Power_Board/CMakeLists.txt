@@ -1,12 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 project(Power_Board)
 
-
-#lots of help from https://github.com/Elemecca/cmake-microchip/blob/master/toolchain.cmake
-# and https://github.com/Elemecca/cmake-microchip/blob/master/Modules/Platform/MicrochipMCU-C-XC16.cmake
-# and https://github.com/Elemecca/cmake-microchip/blob/master/Modules/Platform/MicrochipMCU.cmake
-
-
 set(CMAKE_SYSTEM_INCLUDE_PATH /include)
 set(CMAKE_SYSTEM_LIBRARY_PATH /lib)
 set(CMAKE_SYSTEM_PROGRAM_PATH /bin)
@@ -16,7 +10,8 @@ if (APPLE)
 endif(APPLE)
 
 if (WIN32)
-    set(tools "C:/Program Files (x86)/Microchip/MPLAB C30/")
+    #set(tools "C:/Program Files (x86)/Microchip/MPLAB C30/")
+    set(tools "C:/Program Files (x86)/Microchip/xc16/v1.35/")
 endif(WIN32)
 
 
@@ -26,15 +21,17 @@ set(CMAKE_C_STANDARD_COMPUTED_DEFAULT 90)
 set(CMAKE_C_STANDARD 90)
 set(CMAKE_CROSSCOMPILING ON)
 
-
 add_definitions(-D__PIC24F__ -D__PIC24FJ256GB106__)
 
 include_directories(
-        "${tools}/support/PIC24F/h"
-        "${tools}/include"
-        "${tools}/support/peripheral_24F"
+        include
         microchip
-        include)
+
+        "${tools}/include"
+        "${tools}/support/PIC24F/h"
+        "${tools}/support/generic/h"
+        "${tools}/support/peripheral_24F"
+        )
 
 add_executable(Power_Board
     src/Filters.c
@@ -47,11 +44,9 @@ add_executable(Power_Board
     src/interrupt_switch.c
     src/main.c
     src/stdfunctions.c
-    src/testing.c
     src/usb_config.c
     src/usb_descriptors.c
     src/usb_device.c
-    "src/DEE Emulation 16-bit.c"
 
     include/Filters.h
     include/HardwareProfile.h
@@ -64,9 +59,10 @@ add_executable(Power_Board
     include/interrupt_switch.h
     include/registers.h
     include/stdhdr.h
-    include/testing.h
     include/usb_config.h
+
     microchip/Compiler.h
+    "microchip/DEE Emulation 16-bit.c"
     microchip/USB/usb.h
     microchip/USB/usb_ch9.h
     microchip/USB/usb_common.h

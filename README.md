@@ -301,8 +301,6 @@ etc->op
 
 
 
-
-
 ### registers.h
 
 This file contains metadata about global variables which are used to communicate to and from the robot. Though not truly CPU registers, we call them registers anyway. e.g.:

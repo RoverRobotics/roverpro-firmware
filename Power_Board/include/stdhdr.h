@@ -31,7 +31,7 @@
 void block_ms(uint16_t ms);
 
 /** return the nearest integer within the given range */
-int clamp(int value, int lo, int hi);
+int16_t clamp(int16_t value, int16_t lo, int16_t hi);
 /** return the nearest float within the given range */
 float clamp_f(float value, float lo, float hi);
 

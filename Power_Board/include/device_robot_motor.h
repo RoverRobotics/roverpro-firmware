@@ -13,77 +13,73 @@
 #define Clear_ActiveLO 1
 
 /*****************************************************************************/
-
-/*****************************************************************************/
 //*-----------------------------------PWM------------------------------------*/
 /////constant
-//****define frequency value for PRy, based on 1:1 prescale
-#define Period50Hz 533332
-#define Period67Hz 319999 // 15ms
-#define Period200Hz 79999
-#define Period300Hz 53332
-#define Period400Hz 39999
-#define Period500Hz 31999
-#define Period600Hz 26666
-#define Period700Hz 22856
-#define Period800Hz 19999
-#define Period900Hz 17777
-#define Period1000Hz 15999
-#define Period1100Hz 14544
-#define Period1200Hz 13332
-#define Period1300Hz 12307
-#define Period1400Hz 11428
-#define Period1500Hz 10666
-#define Period1600Hz 9999
-#define Period1700Hz 9411
-#define Period1800Hz 8888
-#define Period1900Hz 8420
-#define Period2000Hz 7999
-#define Period2100Hz 7618
-#define Period10000Hz 1599
-#define Period20000Hz 799
-#define Period30000Hz 532
-#define Period50000Hz 319
+/// Period for PR# when prescale is 1:1
+/// = (FCY / period / prescale) -1
+/// e.g. Period 1000Hz = (16000000 / 1000 / 1) - 1
+typedef enum TimerPeriod {
+    PERIOD_50HZ = 533332,
+    PERIOD_67HZ = 319999,
+    PERIOD_200HZ = 79999,
+    PERIOD_300HZ = 53332,
+    PERIOD_400HZ = 39999,
+    PERIOD_500HZ = 31999,
+    PERIOD_600HZ = 26666,
+    PERIOD_700HZ = 22856,
+    PERIOD_800HZ = 19999,
+    PERIOD_900HZ = 17777,
+    PERIOD_1000HZ = 15999,
+    PERIOD_1100HZ = 14544,
+    PERIOD_1200HZ = 13332,
+    PERIOD_1300HZ = 12307,
+    PERIOD_1400HZ = 11428,
+    PERIOD_1500HZ = 10666,
+    PERIOD_1600HZ = 9999,
+    PERIOD_1700HZ = 9411,
+    PERIOD_1800HZ = 8888,
+    PERIOD_1900HZ = 8420,
+    PERIOD_2000HZ = 7999,
+    PERIOD_2100HZ = 7618,
+    PERIOD_10000HZ = 1599,
+    PERIOD_20000HZ = 799,
+    PERIOD_30000HZ = 532,
+    PERIOD_50000HZ = 319,
+} TimerPeriod;
 
 /*****************************************************************************/
 
 typedef enum MotorEvent {
-    Stop = 0xFF01,
-    Go = 0xFF02,
-    Back = 0xFF03,
-    NoEvent = 0xFF00,
+    STOP = 0xFF01,
+    GO = 0xFF02,
+    BACK = 0xFF03,
+    NO_EVENT = 0xFF00,
 } MotorEvent;
 
 typedef enum MotorState {
-    Forward = 0xEE00,
-    Brake = 0xEE01,
-    Protection = 0xEE02,
-    Backward = 0xEE03,
+    /// Motor is moving in forward direction
+    FORWARD = 0xEE00,
+    /// Motor is applying break
+    BRAKE = 0xEE01,
+    /// Motor is transitioning between states
+    SWITCH_DIRECTION = 0xEE02,
+    /// Motor is moving backward
+    BACKWARD = 0xEE03,
 } MotorState;
-
-typedef enum MotorState2 {
-    Locked = 0xEE04,
-    Unlocked = 0xEE05,
-} MotorState2;
 
 // constant for timer.
 // Since these are on timer1, they are in multiples of PR1
-
-#define SpeedUpdateTimer 5          // 200Hz
-#define CurrentSurgeRecoverTimer 10 // 10ms
-#define USBTimeOutTimer 333         // 3Hz--333ms
-#define UART_FAN_SPEED_TIMER 333    // 3Hz--333ms
-#define SwitchDirectionTimer 10     // 10ms
-#define StateMachineTimer 1         // 1KHz
-#define RPMTimer 1                  // 1KHz
-#define CurrentFBTimer 1            // 1KHz
-#define CurrentProtectionTimer 1    // 1KHz
-#define I2C2Timer 100
-#define I2C3Timer 100
-#define SFREGUpdateTimer 4    // 250Hz
-#define BATVolCheckingTimer 1 // 1KHz
-#define BATRecoveryTimer 100  // 100ms
-#define MotorOffTimer 35      // 35ms motor off if there is a surge
+#define INTERVAL_MS_SPEED_UPDATE 5             // 200Hz
+#define TIMEOUT_MS_USB 333                     // 3Hz--333ms
+#define INTERVAL_MS_UART_FAN_SPEED_TIMEOUT 333 // 3Hz--333ms
+#define INTERVAL_MS_SWITCH_DIRECTION 10        // 10ms
+#define INTERVAL_MS_STATE_MACHINE 1            // 1KHz
+#define INTERVAL_MS_CURRENT_FEEDBACK 1         // 1KHz
+#define INTERVAL_MS_I2C2 100
+#define INTERVAL_MS_I2C3 100
+#define INTERVAL_MS_SFREG 4             // 250Hz
+#define INTERVAL_MS_BATTERY_CHECK 1     // 1KHz
+#define INTERVAL_MS_BATTERY_RECOVER 100 // 100ms
 
 // constant for special usage
 typedef enum BatteryState {
@@ -102,10 +98,9 @@ typedef enum BatteryChannel {
 #define M2_PWM _RP2R
 #define M3_PWM _RP25R
 
-// UART_CONTROL Only
+// UART pins
 #define U1RX_RPn 6
 #define U1TX_RPn _RP7R
-// UART_CONTROL End
 
 // Analog pins
 #define M1_TEMP_EN(a) _PCFG2 = !(a)
@@ -176,7 +171,8 @@ typedef enum {
     MOTOR_FLIPPER,
 } MotorChannel;
 #define MOTOR_CHANNEL_COUNT 3
-/** Helper macro for iterating all motors and storing the result in variable i */
+/// Helper macro for iterating all motors and storing the result in variable i.
+/// e.g. int k; for (EACH_MOTOR_CHANNEL(k))
 #define EACH_MOTOR_CHANNEL(i)                                                                      \
     i = 0;                                                                                         \
     i < MOTOR_CHANNEL_COUNT;                                                                       \
@@ -207,67 +203,67 @@ enum I2CDeviceAddress {
     BATTERY_CHARGER_ADDRESS = 0b0001100,
 };
 
-/////variable
-extern bool USB_New_Data_Received;
+extern bool usb_new_data_received;
 
-void PWM1Ini(void);           ///<  Initialize PWM channel 1 (left motor)
-void PWM1Duty(uint16_t Duty); ///< Set duty cycle for channel 1 (left motor). 0 <= Duty <= 1000
-
-void PWM2Ini(void);           ///< initialize PWM channel 2 (right motor)
-void PWM2Duty(uint16_t Duty); ///< Set duty cycle for channel 2 (right motor).  0 <= Duty <= 1000
-
-void PWM3Ini(void); ///< initialize PWM channel 3 (flipper motor)
-void PWM3Duty(
-    uint16_t Duty); ///< Set duty cycle for pwm channel 3 (flipper motor). 0 <= Duty <= 1000
-
-/*****************************************************************************/
-
-/*****************************************************************************/
-//*-----------------------------------Timer----------------------------------*/
-void IniTimer1();
-void IniTimer2();
-void IniTimer3();
-/*****************************************************************************/
-
-/*****************************************************************************/
-//*-----------------------------------A/D------------------------------------*/
-void IniAD();
+// INTERRUPTS:
+/// Timer interrupt to enable ADC every tick
+void Motor_T3Interrupt(void);
+/// Analog/digital converter interrupt.
+void Motor_ADC1Interrupt(void);
 
 /*****************************************************************************/
 //*--------------------------------General Functions-------------------------*/
+// BEGIN initialization routines
 
-void MC_Ini(void);
-void ProtectHB(MotorChannel Channel);
-void PinRemap(void);
-void Braking(MotorChannel Channel);
-void UpdateSpeed(MotorChannel Channel, int State);
+/// Perform initialization of this module
 void DeviceRobotMotorInit();
-void Device_MotorController_Process();
-uint16_t GetDuty(long Target, MotorChannel Channel);
-void GetCurrent(MotorChannel Channel);
-void ClearSpeedCtrlData(MotorChannel Channel);
-void ClearCurrentCtrlData(MotorChannel Channel);
-void Cell_Ctrl(BatteryChannel Channel, BatteryState state);
-void USBInput();
-void FANCtrlIni();
+/// Initialize interrupts
 void InterruptIni();
+/// Remaps pins for UART and PWM
+void PinRemap(void);
 
-void Motor_T3Interrupt(void);
 
-void Motor_ADC1Interrupt(void);
+/// Configure fan controller with I2C commands
+void FANCtrlIni();
+/// Configure and start analog/digital converter
+void IniAD();
+/// Set up and start Timer1: 1 kHz, no interrupts
+void IniTimer1();
+/// Set up and start Timer2: 30 kHz, no interrupts.
+/// Timer2 is used as the clock source for motor PWM
+void IniTimer2();
+/// Set up and start Timer3: 50 kHz, Interrupts enabled
+/// Timer3 is used as the trigger source for ADC and back emf feedback
+void IniTimer3();
+void PWM1Ini(void); ///< Initialize PWM channel 1 (left motor)
+void PWM2Ini(void); ///< Initialize PWM channel 2 (right motor)
+void PWM3Ini(void); ///< Initialize PWM channel 3 (flipper motor)
 
-// Testing functions
-void Motor_U1TXInterrupt(void);
-void Motor_U1RXInterrupt(void);
-void TestIO(void);
-void TestIC1();
-void TestPWM(void);
-void TestIC2();
-void TestOC();
+// BEGIN utility functions
+void PWM1Duty(uint16_t duty); ///< Set duty cycle for channel 1 (left motor). 0 <= Duty <= 1000
+void PWM2Duty(uint16_t duty); ///< Set duty cycle for channel 2 (right motor).  0 <= Duty <= 1000
+void PWM3Duty(
+    uint16_t duty); ///< Set duty cycle for pwm channel 3 (flipper motor). 0 <= Duty <= 1000
 
-extern uint16_t Cell_A_Current[SAMPLE_LENGTH];
-extern uint16_t Cell_B_Current[SAMPLE_LENGTH];
-extern int16_t uart_motor_velocity[MOTOR_CHANNEL_COUNT];
-extern bool uart_has_new_fan_speed;
+/// Tell motor controller to coast motor
+void Coasting(MotorChannel channel);
+/// Tell motor controller to brake motor
+void Braking(MotorChannel channel);
+/// If overcurrent, Communicate new motor speeds to the motor controller.
+void UpdateSpeed(MotorChannel channel, MotorState state);
+
+void Device_MotorController_Process();
+uint16_t GetDuty(int16_t target, MotorChannel channel);
+
+/// Compute the current used by a given motor and populate it in current_for_control
+/// Note this is computed as a windowed average of the values in motor_current_ad
+void GetCurrent(MotorChannel Channel);
+
+/// Enable/disable a particular battery on the power bus
+void Cell_Ctrl(BatteryChannel Channel, BatteryState state);
+
+/// Take the motor speed values from USB/UART and populate motor_target_speed.
+/// If we are using PID, the PID effort is computed here
+void USBInput();
 
 #endif

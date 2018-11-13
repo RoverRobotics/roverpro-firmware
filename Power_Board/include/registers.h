@@ -20,7 +20,6 @@ Responsible Engineer(s):
 #define REGISTERS_H
 
 /*---------------------------Macros------------------------------------------*/
-#define BUTTON_DEPRESSED 1
 #define REGISTER_START()
 #define REGISTER_END()
 
@@ -39,9 +38,9 @@ typedef struct { float   data[4][3]; } MOTOR_DATA_CTRL;
 typedef struct { int16_t a,b; } BATTERY_DATA_2EL_16BI;
 typedef struct { uint16_t deg, min, sec; } GPS_VECT;
 typedef struct { GPS_VECT lat, lon; } GPS_DATA;
-typedef struct {uint8_t data[100]; } GPS_MESSAGE;
-typedef struct {uint8_t data[24]; } FIRMWARE_BUILD_STRING;
-typedef struct {uint8_t data[79]; } BOARD_DATA;
+typedef struct { uint8_t data[100]; } GPS_MESSAGE;
+typedef struct { uint8_t data[24]; } FIRMWARE_BUILD_STRING;
+typedef struct { uint8_t data[79]; } BOARD_DATA;
 typedef struct { uint32_t length, magic; } UPDATE_FIRMWARE; // magic = 0x2345BCDE
 
 typedef struct { int16_t tilt, zoom; } REG_CAMERA_VEL_ROT_2EL_16BI;
@@ -97,6 +96,7 @@ REGISTER( REG_HOME_BUTTON,         DEVICE_READ,  DEVICE_OCU,     SYNC,    uint8_
 REGISTER( REG_AUX_BUTTON1,         DEVICE_READ,  DEVICE_OCU,     SYNC,    uint8_t )
 REGISTER( REG_AUX_BUTTON2,         DEVICE_READ,  DEVICE_OCU,     SYNC,    uint8_t )
 
+/// The commanded motor speed
 REGISTER( REG_MOTOR_VELOCITY,      DEVICE_WRITE, DEVICE_MOTOR,   SYNC,    MOTOR_DATA_3EL_16BI)
 
 //REGISTER INDEX: 0x0020 (32)

@@ -14,7 +14,8 @@ File: InputCapture.c
 #define MAX_NUM_IC_PINS 9
 
 #define T4_TICKS_PER_MS 4 // milliseconds per timer4 tick
-// TODO: IS THIS RIGHT????
+// TODO: dan: I think this is wrong. Based on PR4 = 4048,
+// timer period 4048 = (4048+1) * T_CY * 1 = 3953 Hz
 
 /*---------------------------Helper Function Prototypes-----------------------*/
 static void InitTimer4(void);
@@ -182,7 +183,7 @@ static void InitTimer4(void) {
     T4InterruptUserFunction = T4_ISR;
     T4CONbits.TON = 0; // turn off the timer while we configure it
     T4CONbits.TCS = 0; // use the internal, system clock
-    PR4 = 0x0fd0;
+    PR4 = 4048;
     T4CONbits.TCKPS = 0b00; // configure prescaler to divide-by-1
     _T4IF = 0;              // begin with the interrupt flag cleared
     _T4IE = 1;              // enable the interrupt

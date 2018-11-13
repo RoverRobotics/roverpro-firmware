@@ -56,7 +56,7 @@ void PF FIRST_PROGRAMMABLE_FUNC callFunc(COMMAND command, void *params) { return
 // GLOBAL VARIABLES
 // -------------------------------------------------------------------------
 
-bool USB_New_Data_Received;
+bool usb_new_data_received;
 int gpio_id = 0;
 int gRegisterCount = 0;
 // uint8_t OutPacket[OUT_PACKET_LENGTH];
@@ -143,7 +143,7 @@ void ProcessIO(void) {
         return;
 
     if (!USBHandleBusy(USBGenericOutHandle)) {
-        USB_New_Data_Received = true;
+        usb_new_data_received = true;
         i = 0; // reset IN packet pointer
 
         // PARSE INCOMING PACKET ----------------------------------------------
@@ -221,9 +221,9 @@ void ProcessIO(void) {
                 PWM1Duty(0);
                 M3_BRAKE = Clear_ActiveLO;
 
-				BREAKPOINT();  // Initial motor velocities out of bounds!
+                BREAKPOINT(); // Initial motor velocities out of bounds!
                 while (1) {
-					// Stop motors forever
+                    // Stop motors forever
                     ClrWdt();
                 }
             }

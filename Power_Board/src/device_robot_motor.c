@@ -2,7 +2,6 @@
 #include "stdhdr.h"
 #include "device_robot_motor.h"
 #include "interrupt_switch.h"
-#include "testing.h"
 #include "device_robot_motor_i2c.h"
 #include "DEE Emulation 16-bit.h"
 #include "i2clib.h"
@@ -13,9 +12,11 @@
 
 //****************************************************
 
-MotorEvent Event[MOTOR_CHANNEL_COUNT] = {Stop, Stop, Stop};
-MotorState StateLevel01[MOTOR_CHANNEL_COUNT] = {Protection, Protection, Protection};
-MotorState2 StateLevel02[MOTOR_CHANNEL_COUNT] = {Locked, Locked, Locked};
+/// The requested motor state based in inbound motor speed commands.
+MotorEvent motor_event[MOTOR_CHANNEL_COUNT] = {STOP, STOP, STOP};
+/// The outbound commands we are sending to the motor
+MotorState motor_state[MOTOR_CHANNEL_COUNT] = {SWITCH_DIRECTION, SWITCH_DIRECTION,
+                                               SWITCH_DIRECTION};
 
 typedef enum CounterState {
     COUNTER_RUNNING,
@@ -30,60 +31,71 @@ typedef struct Counter {
     bool pause_on_expired : 1;
 } Counter;
 
-CounterState tick_counter(Counter *c) {
+void counter_restart(Counter *c) {
+    c->is_paused = false;
+    c->count = 0;
+}
+void counter_stop(Counter *c) {
+    c->is_paused = true;
+    c->count = 0;
+}
+CounterState counter_tick(Counter *c) {
     if (c->is_paused)
         return COUNTER_PAUSED;
     c->count++;
     if (c->count < c->max) {
         return COUNTER_RUNNING;
     } else {
-        c->count = 0;
         if (c->pause_on_expired)
-            c->is_paused = true;
+            counter_stop(c);
+        else
+            counter_restart(c);
         return COUNTER_EXPIRED;
     }
 }
 
-bool SwitchDirectionTimerExpired[MOTOR_CHANNEL_COUNT] = {false, false, false};
-bool SwitchDirectionTimerEnabled[MOTOR_CHANNEL_COUNT] = {false, false, false};
-int SwitchDirectionTimerCount[MOTOR_CHANNEL_COUNT] = {0, 0, 0};
+Counter motor_switch_direction_timer[MOTOR_CHANNEL_COUNT] = {
+    {.max = INTERVAL_MS_SWITCH_DIRECTION / INTERVAL_MS_STATE_MACHINE, .pause_on_expired = true, .is_paused = true},
+    {.max = INTERVAL_MS_SWITCH_DIRECTION / INTERVAL_MS_STATE_MACHINE, .pause_on_expired = true, .is_paused = true},
+    {.max = INTERVAL_MS_SWITCH_DIRECTION / INTERVAL_MS_STATE_MACHINE, .pause_on_expired = true, .is_paused = true},
+};
 
-bool SpeedUpdateTimerExpired[MOTOR_CHANNEL_COUNT] = {false, false, false};
-bool SpeedUpdateTimerEnabled[MOTOR_CHANNEL_COUNT] = {false, false, false};
-int SpeedUpdateTimerCount[MOTOR_CHANNEL_COUNT] = {0, 0, 0};
+Counter speed_update_timer[MOTOR_CHANNEL_COUNT] = {
+    {.max = INTERVAL_MS_SPEED_UPDATE, .pause_on_expired = true},
+    {.max = INTERVAL_MS_SPEED_UPDATE, .pause_on_expired = true},
+    {.max = INTERVAL_MS_SPEED_UPDATE, .pause_on_expired = true},
+};
 
-Counter usb_timeout = {.max = USBTimeOutTimer, .pause_on_expired = true, .is_paused = true};
-Counter state_machine = {.max = StateMachineTimer};
-Counter current_fb = {.max = CurrentFBTimer};
-
-bool I2C2TimerEnabled = true;
-int I2C2TimerCount = 0;
-bool I2C3TimerEnabled = true;
-int I2C3TimerCount = 0;
-Counter SFREGUpdate = {.max = SFREGUpdateTimer};
-Counter BATVolChecking = {.max = BATVolCheckingTimer};
-Counter BATRecovery = {.max = BATRecoveryTimer, .pause_on_expired = true};
+Counter usb_timeout = {.max = TIMEOUT_MS_USB, .pause_on_expired = true, .is_paused = true};
+Counter state_machine = {.max = INTERVAL_MS_STATE_MACHINE};
+Counter current_fb = {.max = INTERVAL_MS_CURRENT_FEEDBACK};
+Counter i2c2_timeout = {.max = INTERVAL_MS_I2C2};
+Counter i2c3_timeout = {.max = INTERVAL_MS_I2C3};
+Counter sfreg_update = {.max = INTERVAL_MS_SFREG};
+Counter bat_vol_checking = {.max = INTERVAL_MS_BATTERY_CHECK};
+Counter bat_recovery = {.max = INTERVAL_MS_BATTERY_RECOVER, .pause_on_expired = true, .is_paused = true};
 Counter closed_loop_control = {.max = 10};
+Counter uart_fan_speed_timeout = {
+    .max = INTERVAL_MS_UART_FAN_SPEED_TIMEOUT, .pause_on_expired = true, .is_paused = true};
 
-uint16_t MotorCurrentAD[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH] = {{0}};
-int MotorCurrentADPointer = 0;
-uint16_t Current4Control[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH_CONTROL] = {{0}};
-int Current4ControlPointer[MOTOR_CHANNEL_COUNT] = {0};
+uint16_t motor_current_ad[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH] = {{0}};
+int motor_current_ad_pointer = 0;
+uint16_t current_for_control[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH_CONTROL] = {{0}};
+int current_for_control_pointer[MOTOR_CHANNEL_COUNT] = {0};
 int16_t motor_target_speed[MOTOR_CHANNEL_COUNT] = {0};
 
-int Timer3Count = 0;
-int M3_POSFB_Array[2][SAMPLE_LENGTH] = {{0}}; ///< Flipper Motor positional feedback data
-int M3_POSFB_ArrayPointer = 0;
-uint16_t Total_Cell_Current_Array[SAMPLE_LENGTH] = {0};
-int Total_Cell_Current_ArrayPointer = 0;
-int CellVoltageArray[BATTERY_CHANNEL_COUNT][SAMPLE_LENGTH];
-int CellVoltageArrayPointer = 0;
-uint16_t Cell_A_Current[SAMPLE_LENGTH];
-uint16_t Cell_B_Current[SAMPLE_LENGTH];
+int timer3_count = 0;
+int m3_posfb_array[2][SAMPLE_LENGTH] = {{0}}; ///< Flipper Motor positional feedback data
+int m3_posfb_array_pointer = 0;
+uint16_t total_cell_current_array[SAMPLE_LENGTH] = {0};
+int total_cell_current_array_pointer = 0;
+int cell_voltage_array[BATTERY_CHANNEL_COUNT][SAMPLE_LENGTH];
+int cell_voltage_array_pointer = 0;
+uint16_t cell_current[BATTERY_CHANNEL_COUNT][SAMPLE_LENGTH];
 
-bool OverCurrent = false;
-int MaxDuty = 1000;
-unsigned int flipper_angle_offset = 0;
+bool over_current = false;
+const uint16_t MAX_DUTY = 1000;
+uint16_t flipper_angle_offset = 0;
 void calibrate_flipper_angle_sensor(void);
 static void read_stored_angle_offset(void);
 
@@ -91,18 +103,14 @@ void turn_on_power_bus_new_method(void);
 void turn_on_power_bus_old_method(void);
 void turn_on_power_bus_hybrid_method(void);
 
-static void alternate_power_bus(void);
-
-void PWM1Ini(void);
-void PWM2Ini(void);
-void PWM3Ini(void);
+static void power_bus_tick(void);
 
 void set_firmware_build_time(void);
 
-static unsigned int return_combined_pot_angle(unsigned int pot_1_value, unsigned int pot_2_value);
-static unsigned int return_calibrated_pot_angle(unsigned int pot_1_value, unsigned int pot_2_value);
+static uint16_t return_combined_pot_angle(uint16_t pot_1_value, uint16_t pot_2_value);
+static uint16_t return_calibrated_pot_angle(uint16_t pot_1_value, uint16_t pot_2_value);
 
-void handle_power_bus(void);
+void power_bus_init(void);
 
 // invalid flipper pot thresholds.  These are very wide because the flipper pots are on a
 // different 3.3V supply than the PIC If the flipper pot is below this threshold, it is invalid
@@ -112,647 +120,11 @@ void handle_power_bus(void);
 #define FLIPPER_POT_OFFSET -55
 
 //*********************************************//
-//**chief functions
 
 /** returns the given angle, normalized to between 0 and 360 */
 uint16_t wrap_angle(int16_t value) { return (uint16_t)((value % 360 + 360) % 360); }
 
 void DeviceRobotMotorInit() {
-    // local variables
-
-    MC_Ini();
-
-    handle_power_bus();
-    FANCtrlIni();
-
-    ProtectHB(MOTOR_LEFT);
-    ProtectHB(MOTOR_RIGHT);
-    ProtectHB(MOTOR_FLIPPER);
-
-    // read flipper position from flash, and put it into a module variable
-    read_stored_angle_offset();
-
-    // init variables for closed loop control
-    closed_loop_control_init();
-}
-
-void GetCurrent(MotorChannel Channel) {
-    uint16_t temp = 0;
-    // read the AD value
-    temp = mean_u(SAMPLE_LENGTH, MotorCurrentAD[Channel]);
-    Current4Control[Channel][Current4ControlPointer[Channel]] = temp;
-    Current4ControlPointer[Channel] = (Current4ControlPointer[Channel] + 1) % SAMPLE_LENGTH_CONTROL;
-}
-
-void Device_MotorController_Process() {
-    MotorChannel i;
-    long temp1, temp2;
-    static int overcurrent_counter = 0;
-    // check if software wants to calibrate flipper position
-
-    if (uart_flipper_calibrate_requested) {
-        // note flipper calibration never returns.
-        calibrate_flipper_angle_sensor();
-    }
-
-    IC_UpdatePeriods();
-    // Check Timer
-    // Run control loop
-
-    if (IFS0bits.T1IF == SET) {
-        // Clear interrupt flag
-        IFS0bits.T1IF = CLEAR;
-
-        // check MOTOR_LEFT,MOTOR_RIGHT and MOTOR_FLIPPER
-        // start counting all the timers
-        for (EACH_MOTOR_CHANNEL(i)) {
-            if (SwitchDirectionTimerEnabled[i]) {
-                SwitchDirectionTimerCount[i]++;
-            }
-            if (SpeedUpdateTimerEnabled[i]) {
-                SpeedUpdateTimerCount[i]++;
-            }
-        }
-        if (I2C2TimerEnabled) {
-            I2C2TimerCount++;
-        }
-        if (I2C3TimerEnabled) {
-            I2C3TimerCount++;
-        }
-
-        // this should run every 1ms
-        alternate_power_bus();
-
-        // check if any timers are expired
-        if (tick_counter(&closed_loop_control) == COUNTER_EXPIRED) {
-            handle_closed_loop_control(OverCurrent);
-        }
-        for (EACH_MOTOR_CHANNEL(i)) {
-            // check SwitchDirectionTimer
-            if (SwitchDirectionTimerCount[i] >= SwitchDirectionTimer) {
-                SwitchDirectionTimerExpired[i] = true;
-                SwitchDirectionTimerEnabled[i] = false; // stop the timer
-                SwitchDirectionTimerCount[i] = 0;       // clear the timer
-            }
-            if (SpeedUpdateTimerCount[i] >= SpeedUpdateTimer) {
-                SpeedUpdateTimerExpired[i] = true;
-                SpeedUpdateTimerCount[i] = 0;
-            }
-        }
-        if (I2C2TimerCount >= I2C2Timer) {
-            I2C2TimerExpired = true;
-            I2C2TimerCount = 0;
-            I2C2XmitReset = true;
-        }
-        if (I2C3TimerCount >= I2C3Timer) {
-            I2C3TimerExpired = true;
-            I2C3TimerCount = 0;
-            I2C3XmitReset = true;
-        }
-    }
-    /* TODO:
-    #ifdef UART_CONTROL
-        if (uart_FanSpeedTimerCount >= UART_FAN_SPEED_TIMER) {
-            uart_fan_speed_expired = true;
-            uart_FanSpeedTimerCount = 0;
-            uart_FanSpeedTimerEnabled = false;
-        }
-    #endif
-    */
-    // if any of the timers expired, execute relative codes
-    // Control timer expired
-    for (EACH_MOTOR_CHANNEL(i)) {
-        if (SpeedUpdateTimerExpired[i]) {
-            UpdateSpeed(i, StateLevel01[i]);
-            SpeedUpdateTimerExpired[i] = false;
-        }
-    }
-    if (tick_counter(&current_fb) == COUNTER_EXPIRED) {
-        for (EACH_MOTOR_CHANNEL(i)) {
-            GetCurrent(i);
-        }
-    }
-    if (I2C2TimerExpired) {
-        I2C2Update();
-    }
-    if (I2C3TimerExpired) {
-        I2C3Update();
-    }
-    if (tick_counter(&SFREGUpdate) == COUNTER_EXPIRED) {
-        // update flipper motor position
-        temp1 = mean(SAMPLE_LENGTH, M3_POSFB_Array[0]);
-        temp2 = mean(SAMPLE_LENGTH, M3_POSFB_Array[1]);
-        REG_FLIPPER_FB_POSITION.pot1 = temp1;
-        REG_FLIPPER_FB_POSITION.pot2 = temp2;
-        REG_MOTOR_FLIPPER_ANGLE = return_calibrated_pot_angle(temp1, temp2);
-
-        // update current for all three motors
-        REG_MOTOR_FB_CURRENT.left = mean_u(SAMPLE_LENGTH_CONTROL, Current4Control[MOTOR_LEFT]);
-        REG_MOTOR_FB_CURRENT.right = mean_u(SAMPLE_LENGTH_CONTROL, Current4Control[MOTOR_RIGHT]);
-        REG_MOTOR_FB_CURRENT.flipper =
-            mean_u(SAMPLE_LENGTH_CONTROL, Current4Control[MOTOR_FLIPPER]);
-
-        // update the mosfet driving fault flag pin 1-good 2-fault
-        REG_MOTOR_FAULT_FLAG.left = PORTDbits.RD1;
-        REG_MOTOR_FAULT_FLAG.right = PORTEbits.RE5;
-        // update temperatures for two motors done in I2C code
-
-        // update battery voltage
-        REG_PWR_BAT_VOLTAGE.a = mean(SAMPLE_LENGTH, CellVoltageArray[CELL_A]);
-        REG_PWR_BAT_VOLTAGE.b = mean(SAMPLE_LENGTH, CellVoltageArray[CELL_B]);
-
-        // update total current (out of battery)
-        REG_PWR_TOTAL_CURRENT = mean_u(SAMPLE_LENGTH, Total_Cell_Current_Array);
-    }
-
-    if (tick_counter(&BATVolChecking) == COUNTER_EXPIRED) {
-
-        // added this so that we check voltage faster
-        REG_PWR_A_CURRENT = mean_u(SAMPLE_LENGTH, Cell_A_Current);
-        REG_PWR_B_CURRENT = mean_u(SAMPLE_LENGTH, Cell_B_Current);
-
-        //.01*.001mV/A * 11000 ohms = .11 V/A = 34.13 ADC counts/A
-        // set at 10A per side
-        if (REG_PWR_A_CURRENT >= 512 || REG_PWR_B_CURRENT >= 512) {
-            overcurrent_counter++;
-            if (overcurrent_counter > 10) {
-                PWM1Duty(0);
-                PWM2Duty(0);
-                PWM3Duty(0);
-                ProtectHB(MOTOR_LEFT);
-                ProtectHB(MOTOR_RIGHT);
-                ProtectHB(MOTOR_FLIPPER);
-                OverCurrent = true;
-                BATRecovery.is_paused = false;
-            }
-
-        } else if (REG_PWR_A_CURRENT <= 341 || REG_PWR_B_CURRENT <= 341) {
-            overcurrent_counter = 0;
-        }
-    }
-    if (tick_counter(&BATRecovery) == COUNTER_EXPIRED) {
-        OverCurrent = false;
-    }
-
-    uart_tick();
-    USBInput();
-    // TODO:
-    /*
-    #ifdef UART_CONTROL
-        if (uart_fan_speed_expired) {
-            uart_fan_speed_expired = false;
-            uart_FanSpeedTimerEnabled = false;
-            uart_FanSpeedTimerCount = 0;
-            // clear all the fan command
-            REG_MOTOR_SIDE_FAN_SPEED = 0;
-            uart_has_new_fan_speed = false;
-        }
-    #endif
-    */
-
-    // update state machine
-    if (tick_counter(&state_machine) == COUNTER_EXPIRED) {
-        for (EACH_MOTOR_CHANNEL(i)) {
-            // update state machine
-            switch (StateLevel01[i]) {
-            case Brake:
-                // brake motor
-                Braking(i);
-                switch (Event[i]) {
-                case Go:
-                    ProtectHB(i);
-                    StateLevel01[i] = Protection;
-                    StateLevel02[i] = Locked;
-                    break;
-                case Back:
-                    ProtectHB(i);
-                    StateLevel01[i] = Protection;
-                    StateLevel02[i] = Locked;
-                    break;
-                case Stop:
-                    Event[i] = NoEvent;
-                    break;
-                case NoEvent:
-                    break;
-                }
-                break;
-            case Forward:
-                switch (Event[i]) {
-                case Go:
-                    SpeedUpdateTimerEnabled[i] = true;
-                    break;
-                case Back:
-                    ProtectHB(i);
-                    StateLevel01[i] = Protection;
-                    StateLevel02[i] = Locked;
-                    break;
-                case Stop:
-                    ProtectHB(i);
-                    StateLevel01[i] = Protection;
-                    StateLevel02[i] = Locked;
-                    break;
-                case NoEvent:
-                    break;
-                }
-                break;
-            case Backward:
-                switch (Event[i]) {
-                case Go:
-                    ProtectHB(i);
-                    StateLevel01[i] = Protection;
-                    StateLevel02[i] = Locked;
-                    break;
-                case Back:
-                    SpeedUpdateTimerEnabled[i] = true;
-                    break;
-                case Stop:
-                    ProtectHB(i);
-                    StateLevel01[i] = Protection;
-                    StateLevel02[i] = Locked;
-                    break;
-                case NoEvent:
-                    break;
-                }
-                break;
-            case Protection:
-                if (StateLevel02[i] == Locked) {
-                    if (SwitchDirectionTimerExpired[i]) {
-                        StateLevel02[i] = Unlocked;
-                        SwitchDirectionTimerExpired[i] = false;
-                        SwitchDirectionTimerCount[i] = 0;
-                    }
-                }
-                if (StateLevel02[i] == Unlocked) {
-                    switch (Event[i]) {
-                    case Stop:
-                        Braking(i);
-                        StateLevel01[i] = Brake;
-                        break;
-                    case Go:
-                        SpeedUpdateTimerEnabled[i] = true;
-                        StateLevel01[i] = Forward;
-                        break;
-                    case Back:
-                        SpeedUpdateTimerEnabled[i] = true;
-                        StateLevel01[i] = Backward;
-                        break;
-                    case NoEvent:
-                        break;
-                    }
-                }
-                break;
-            }
-        }
-    }
-}
-
-//**Motor control functions
-
-void Braking(MotorChannel Channel) {
-    switch (Channel) {
-    case MOTOR_LEFT:
-        PWM1Duty(0);
-        M1_COAST = Clear_ActiveLO;
-        Nop();
-        M1_BRAKE = Set_ActiveLO;
-        break;
-    case MOTOR_RIGHT:
-        PWM2Duty(0);
-        M2_COAST = Clear_ActiveLO;
-        Nop();
-        M2_BRAKE = Set_ActiveLO;
-        break;
-    case MOTOR_FLIPPER:
-        PWM3Duty(0);
-        M3_COAST = Clear_ActiveLO;
-        Nop();
-        M3_BRAKE = Set_ActiveLO;
-        break;
-    }
-}
-
-// disable the corresponding transistors preparing a direction switch
-void ProtectHB(MotorChannel Channel) {
-    SpeedUpdateTimerEnabled[Channel] = false;
-    SpeedUpdateTimerCount[Channel] = 0;
-    // start timer
-    SwitchDirectionTimerEnabled[Channel] = true;
-    // coast the motor
-    switch (Channel) {
-    case MOTOR_LEFT:
-        M1_COAST = Set_ActiveLO;
-        PWM1Duty(0);
-        M1_BRAKE = Clear_ActiveLO;
-        break;
-    case MOTOR_RIGHT:
-        M2_COAST = Set_ActiveLO;
-        PWM2Duty(0);
-        M2_BRAKE = Clear_ActiveLO;
-        break;
-    case MOTOR_FLIPPER:
-        M3_COAST = Set_ActiveLO;
-        PWM3Duty(0);
-        M3_BRAKE = Clear_ActiveLO;
-        break;
-    }
-}
-
-uint16_t GetDuty(long Target, MotorChannel Channel) {
-    if (Channel == MOTOR_FLIPPER) {
-        return Target;
-    } else {
-        return min(labs(Target), MaxDuty);
-    }
-}
-
-void UpdateSpeed(MotorChannel Channel, int State) {
-    int Dutycycle;
-
-    switch (Channel) {
-    case MOTOR_LEFT:
-        if (State == Forward) {
-            if (OverCurrent) {
-                Dutycycle = 0;
-                M1_COAST = Set_ActiveLO;
-            } else {
-                Dutycycle = GetDuty(motor_target_speed[Channel], Channel);
-                M1_COAST = Clear_ActiveLO;
-            }
-            M1_BRAKE = Clear_ActiveLO;
-            M1_DIR = HI;
-            PWM1Duty(Dutycycle);
-        } else if (State == Backward) {
-            if (OverCurrent) {
-                Dutycycle = 0;
-                M1_COAST = Set_ActiveLO;
-            } else {
-                Dutycycle = GetDuty(motor_target_speed[Channel], Channel);
-                M1_COAST = Clear_ActiveLO;
-            }
-            M1_BRAKE = Clear_ActiveLO;
-            M1_DIR = LO;
-            PWM1Duty(Dutycycle);
-        }
-        break;
-    case MOTOR_RIGHT:
-        if (State == Forward) {
-            if (OverCurrent) {
-                Dutycycle = 0;
-                M2_COAST = Set_ActiveLO;
-            } else {
-                Dutycycle = GetDuty(motor_target_speed[Channel], Channel);
-                M2_COAST = Clear_ActiveLO;
-            }
-            M2_BRAKE = Clear_ActiveLO;
-            M2_DIR = LO;
-            PWM2Duty(Dutycycle);
-        } else if (State == Backward) {
-            if (OverCurrent) {
-                Dutycycle = 0;
-                M2_COAST = Set_ActiveLO;
-            } else {
-                Dutycycle = GetDuty(motor_target_speed[Channel], Channel);
-                M2_COAST = Clear_ActiveLO;
-            }
-            M2_BRAKE = Clear_ActiveLO;
-            M2_DIR = HI;
-            PWM2Duty(Dutycycle);
-        }
-        break;
-    case MOTOR_FLIPPER:
-        if (State == Forward) {
-            Dutycycle = GetDuty(motor_target_speed[Channel], Channel);
-            M3_COAST = Clear_ActiveLO;
-            Nop();
-            M3_BRAKE = Clear_ActiveLO;
-            Nop();
-            M3_DIR = HI;
-            PWM3Duty(Dutycycle);
-        } else if (State == Backward) {
-            Dutycycle = GetDuty(-motor_target_speed[Channel], Channel);
-            M3_COAST = Clear_ActiveLO;
-            Nop();
-            M3_BRAKE = Clear_ActiveLO;
-            Nop();
-            M3_DIR = LO;
-            PWM3Duty(Dutycycle);
-        }
-        break;
-    }
-}
-
-//*********************************************//
-
-void USBInput() {
-    MotorChannel i;
-    static bool USB_New_Data_Received;
-    static unsigned int control_loop_counter = 0;
-    static unsigned int flipper_control_loop_counter = 0;
-
-    typedef enum {
-        HIGH_SPEED = 0,
-        DECEL_AFTER_HIGH_SPEED,
-        LOW_SPEED,
-        DECEL_AFTER_LOW_SPEED
-    } motor_speed_state;
-
-    static motor_speed_state state = HIGH_SPEED;
-
-    // Motors must decelerate upon switching speeds (if they're not already stopped.
-    // Failure to do so could cause large current spikes which will trigger the
-    // protection circuitry in the battery, cutting power to the robot
-    switch (state) {
-    case HIGH_SPEED:
-
-        control_loop_counter++;
-        flipper_control_loop_counter++;
-
-        if (control_loop_counter > 5) {
-            control_loop_counter = 0;
-#ifndef UART_CONTROL
-            motor_target_speed[MOTOR_LEFT] = REG_MOTOR_VELOCITY.left;
-            motor_target_speed[MOTOR_RIGHT] = REG_MOTOR_VELOCITY.right;
-#endif
-#ifdef UART_CONTROL
-            motor_target_speed[MOTOR_LEFT] = uart_motor_velocity[MOTOR_LEFT];
-            motor_target_speed[MOTOR_RIGHT] = uart_motor_velocity[MOTOR_RIGHT];
-#endif
-        }
-
-        if (flipper_control_loop_counter > 15) {
-            flipper_control_loop_counter = 0;
-#ifndef UART_CONTROL
-            motor_target_speed[MOTOR_FLIPPER] = REG_MOTOR_VELOCITY.flipper;
-#endif
-#ifdef UART_CONTROL
-            motor_target_speed[MOTOR_FLIPPER] = uart_motor_velocity[MOTOR_FLIPPER];
-#endif
-        }
-
-        if (REG_MOTOR_SLOW_SPEED)
-            state = DECEL_AFTER_HIGH_SPEED;
-
-        break;
-
-    case DECEL_AFTER_HIGH_SPEED:
-
-        control_loop_counter++;
-
-        if (control_loop_counter > 3) {
-            control_loop_counter = 0;
-
-            // set speed to 1 (speed of 0 immediately stops motors)
-            motor_target_speed[MOTOR_LEFT] = 1;
-            motor_target_speed[MOTOR_RIGHT] = 1;
-            motor_target_speed[MOTOR_FLIPPER] = 1;
-        }
-
-        // motors are stopped if speed falls below 1%
-        if ((abs(motor_target_speed[MOTOR_LEFT]) < 10) &&
-            (abs(motor_target_speed[MOTOR_RIGHT]) < 10) &&
-            (abs(motor_target_speed[MOTOR_FLIPPER]) < 10))
-            state = LOW_SPEED;
-
-        break;
-
-    case LOW_SPEED:
-#ifndef UART_CONTROL
-        set_desired_velocities(REG_MOTOR_VELOCITY.left, REG_MOTOR_VELOCITY.right,
-                               REG_MOTOR_VELOCITY.flipper);
-#endif
-#ifdef UART_CONTROL
-        set_desired_velocities(uart_motor_velocity[MOTOR_LEFT], uart_motor_velocity[MOTOR_RIGHT],
-                               uart_motor_velocity[MOTOR_FLIPPER]);
-#endif
-        motor_target_speed[MOTOR_LEFT] = return_closed_loop_control_effort(MOTOR_LEFT);
-        motor_target_speed[MOTOR_RIGHT] = return_closed_loop_control_effort(MOTOR_RIGHT);
-        motor_target_speed[MOTOR_FLIPPER] = return_closed_loop_control_effort(MOTOR_FLIPPER);
-
-        control_loop_counter = 0;
-        flipper_control_loop_counter = 0;
-
-        if (!REG_MOTOR_SLOW_SPEED)
-            state = DECEL_AFTER_LOW_SPEED;
-
-        break;
-
-    case DECEL_AFTER_LOW_SPEED:
-
-        set_desired_velocities(0, 0, 0);
-
-        motor_target_speed[MOTOR_LEFT] = return_closed_loop_control_effort(MOTOR_LEFT);
-        motor_target_speed[MOTOR_RIGHT] = return_closed_loop_control_effort(MOTOR_RIGHT);
-        motor_target_speed[MOTOR_FLIPPER] = return_closed_loop_control_effort(MOTOR_FLIPPER);
-
-        // motors are stopped if speed falls below 1%
-        if ((abs(motor_target_speed[MOTOR_LEFT]) < 10) &&
-            (abs(motor_target_speed[MOTOR_RIGHT]) < 10) &&
-            (abs(motor_target_speed[MOTOR_FLIPPER]) < 10))
-            state = HIGH_SPEED;
-
-        break;
-    }
-
-    // long time no data, clear everything and stop moving
-    if (tick_counter(&usb_timeout) == COUNTER_EXPIRED) {
-        // printf("USB Timer Expired!");
-        REG_MOTOR_VELOCITY.left = 0;
-        REG_MOTOR_VELOCITY.right = 0;
-        REG_MOTOR_VELOCITY.flipper = 0;
-#ifdef UART_CONTROL
-        uart_motor_velocity[MOTOR_LEFT] = 0;
-        uart_motor_velocity[MOTOR_RIGHT] = 0;
-        uart_motor_velocity[MOTOR_FLIPPER] = 0;
-#endif
-
-        for (EACH_MOTOR_CHANNEL(i)) {
-            motor_target_speed[i] = 0;
-            Event[i] = Stop;
-        }
-    }
-
-#ifdef UART_CONTROL
-    if (uart_has_new_data) {
-        uart_has_new_data = false;
-#else
-    if (USB_New_Data_Received) {
-        USB_New_Data_Received = false;
-#endif
-        // if there is new data coming in, update all the data
-        usb_timeout.is_paused = false;
-        usb_timeout.count = 0;
-
-        for (EACH_MOTOR_CHANNEL(i)) {
-            if (motor_target_speed[i] == 0)
-                Event[i] = Stop;
-            else if (-1024 < motor_target_speed[i] && motor_target_speed[i] < 0)
-                Event[i] = Back;
-            else if (0 < motor_target_speed[i] && motor_target_speed[i] < 1024)
-                Event[i] = Go;
-        }
-    }
-}
-
-//**********************************************
-
-void PinRemap(void) {
-
-#ifdef UART_CONTROL
-    // Assign U1RX To U1RX, Uart receive channnel
-    RPINR18bits.U1RXR = U1RX_RPn;
-#endif
-
-    //***************************
-    // Configure Output Functions
-    // pin->function
-    // Assign OC1 To Pin M1_AHI
-    M1_PWM = 18; // 18 represents OC1
-
-    // Assign OC2 To Pin M1_BHI
-    M2_PWM = 19; // 19 represents OC2
-
-    // Assign OC3 To Pin M2_AHI
-    M3_PWM = 20; // 20 represents OC3
-
-#ifdef UART_CONTROL
-    // Assign U1TX To U1TX/Uart Tx
-    U1TX_RPn = 3; // 3 represents U1TX
-#endif
-}
-
-void Cell_Ctrl(BatteryChannel Channel, BatteryState state) {
-    switch (Channel) {
-    case CELL_A:
-        Cell_A_MOS = state;
-        break;
-    case CELL_B:
-        Cell_B_MOS = state;
-        break;
-    }
-}
-
-void set_firmware_build_time(void) {
-
-    const unsigned char build_date[12] = __DATE__;
-    const unsigned char build_time[12] = __TIME__;
-    unsigned int i;
-
-    for (i = 0; i < 12; i++) {
-        if (build_date[i] == 0) {
-            REG_MOTOR_FIRMWARE_BUILD.data[i] = ' ';
-        } else {
-            REG_MOTOR_FIRMWARE_BUILD.data[i] = build_date[i];
-        }
-        if (build_time[i] == 0) {
-            REG_MOTOR_FIRMWARE_BUILD.data[i + 12] = ' ';
-        } else {
-            REG_MOTOR_FIRMWARE_BUILD.data[i + 12] = build_time[i];
-        }
-    }
-}
-
-void MC_Ini(void) // initialzation for the whole program
-{
     // make sure we start off in a default state
     AD1CON1 = 0x0000;
     AD1CON2 = 0x0000;
@@ -814,11 +186,12 @@ void MC_Ini(void) // initialzation for the whole program
     M2_MODE = 1;
     M3_MODE = 1;
     //*******************************************
+
     InterruptIni();
     // initialize AD
     IniAD();
 
-    // initialize timer
+    // initialize timers
     IniTimer2();
     IniTimer3();
     IniTimer1();
@@ -834,16 +207,506 @@ void MC_Ini(void) // initialzation for the whole program
     uart_init();
 
     set_firmware_build_time();
+
+    power_bus_init();
+    FANCtrlIni();
+
+    Coasting(MOTOR_LEFT);
+    Coasting(MOTOR_RIGHT);
+    Coasting(MOTOR_FLIPPER);
+
+    // read flipper position from flash, and put it into a module variable
+    read_stored_angle_offset();
+
+    // init variables for closed loop control
+    closed_loop_control_init();
+}
+
+void GetCurrent(MotorChannel Channel) {
+    uint16_t temp = 0;
+    temp = mean_u(SAMPLE_LENGTH, motor_current_ad[Channel]);
+    current_for_control[Channel][current_for_control_pointer[Channel]] = temp;
+    current_for_control_pointer[Channel] =
+        (current_for_control_pointer[Channel] + 1) % SAMPLE_LENGTH;
+}
+
+void Device_MotorController_Process() {
+    UArtTickResult uart_tick_result;
+    MotorChannel i;
+    long temp1, temp2;
+    static int overcurrent_counter = 0;
+    // check if software wants to calibrate flipper position
+
+    IC_UpdatePeriods();
+    // Check Timer
+    // Run control loop
+
+    if (IFS0bits.T1IF == SET) {
+        // Clear interrupt flag
+        IFS0bits.T1IF = CLEAR;
+
+        // this should run every 1ms
+        power_bus_tick();
+
+        // check if any timers are expired
+        if (counter_tick(&closed_loop_control) == COUNTER_EXPIRED) {
+            handle_closed_loop_control(over_current);
+        }
+
+        // if any of the timers expired, execute relative codes
+        // Control timer expired
+        for (EACH_MOTOR_CHANNEL(i)) {
+            if (counter_tick(&speed_update_timer[i]) == COUNTER_EXPIRED) {
+                UpdateSpeed(i, motor_state[i]);
+            }
+        }
+        if (counter_tick(&current_fb) == COUNTER_EXPIRED) {
+            for (EACH_MOTOR_CHANNEL(i)) {
+                GetCurrent(i);
+            }
+        }
+
+        if (counter_tick(&sfreg_update) == COUNTER_EXPIRED) {
+            // update flipper motor position
+            temp1 = mean(SAMPLE_LENGTH, m3_posfb_array[0]);
+            temp2 = mean(SAMPLE_LENGTH, m3_posfb_array[1]);
+            REG_FLIPPER_FB_POSITION.pot1 = temp1;
+            REG_FLIPPER_FB_POSITION.pot2 = temp2;
+            REG_MOTOR_FLIPPER_ANGLE = return_calibrated_pot_angle(temp1, temp2);
+
+            // update current for all three motors
+            REG_MOTOR_FB_CURRENT.left =
+                mean_u(SAMPLE_LENGTH_CONTROL, current_for_control[MOTOR_LEFT]);
+            REG_MOTOR_FB_CURRENT.right =
+                mean_u(SAMPLE_LENGTH_CONTROL, current_for_control[MOTOR_RIGHT]);
+            REG_MOTOR_FB_CURRENT.flipper =
+                mean_u(SAMPLE_LENGTH_CONTROL, current_for_control[MOTOR_FLIPPER]);
+
+            // update the mosfet driving fault flag pin 1-good 2-fault
+            REG_MOTOR_FAULT_FLAG.left = PORTDbits.RD1;
+            REG_MOTOR_FAULT_FLAG.right = PORTEbits.RE5;
+            // update temperatures for two motors done in I2C code
+
+            // update battery voltage
+            REG_PWR_BAT_VOLTAGE.a = mean(SAMPLE_LENGTH, cell_voltage_array[CELL_A]);
+            REG_PWR_BAT_VOLTAGE.b = mean(SAMPLE_LENGTH, cell_voltage_array[CELL_B]);
+
+            // update total current (out of battery)
+            REG_PWR_TOTAL_CURRENT = mean_u(SAMPLE_LENGTH, total_cell_current_array);
+        }
+
+        if (counter_tick(&bat_vol_checking) == COUNTER_EXPIRED) {
+            // added this so that we check voltage faster
+            REG_PWR_A_CURRENT = mean_u(SAMPLE_LENGTH, cell_current[CELL_A]);
+            REG_PWR_B_CURRENT = mean_u(SAMPLE_LENGTH, cell_current[CELL_B]);
+
+            //.01*.001mV/A * 11000 ohms = .11 V/A = 34.13 ADC counts/A
+            // set at 10A per side
+            if (REG_PWR_A_CURRENT >= 512 || REG_PWR_B_CURRENT >= 512) {
+                overcurrent_counter++;
+                if (overcurrent_counter > 10) {
+                    PWM1Duty(0);
+                    PWM2Duty(0);
+                    PWM3Duty(0);
+                    Coasting(MOTOR_LEFT);
+                    Coasting(MOTOR_RIGHT);
+                    Coasting(MOTOR_FLIPPER);
+                    over_current = true;
+                    bat_recovery.is_paused = false;
+                }
+
+            } else if (REG_PWR_A_CURRENT <= 341 || REG_PWR_B_CURRENT <= 341) {
+                overcurrent_counter = 0;
+            }
+        }
+        if (counter_tick(&bat_recovery) == COUNTER_EXPIRED) {
+            over_current = false;
+        }
+
+        {
+            bool should_reset = (counter_tick(&i2c2_timeout) == COUNTER_EXPIRED);
+            bool did_finish = false;
+            i2c2_tick(should_reset, &did_finish);
+            if (did_finish) {
+                counter_restart(&i2c2_timeout);
+            }
+        }
+        {
+            bool should_reset = (counter_tick(&i2c3_timeout) == COUNTER_EXPIRED);
+            bool did_finish = false;
+            i2c3_tick(should_reset, &did_finish);
+            if (did_finish) {
+                counter_restart(&i2c3_timeout);
+            }
+        }
+        uart_tick_result = uart_tick();
+        USBInput();
+
+        if (uart_tick_result.uart_flipper_calibrate_requested) {
+            // note flipper calibration never returns.
+            calibrate_flipper_angle_sensor();
+        }
+        if (uart_tick_result.uart_fan_speed_requested) {
+            counter_restart(&uart_fan_speed_timeout);
+        }
+        if (counter_tick(&uart_fan_speed_timeout) == COUNTER_EXPIRED) {
+            // clear all the fan command
+            REG_MOTOR_SIDE_FAN_SPEED = 0;
+        }
+        if (uart_tick_result.uart_motor_speed_requested) {
+            counter_restart(&usb_timeout);
+        }
+        // long time no data, clear everything and stop moving
+        if (counter_tick(&usb_timeout) == COUNTER_EXPIRED) {
+            REG_MOTOR_VELOCITY.left = 0;
+            REG_MOTOR_VELOCITY.right = 0;
+            REG_MOTOR_VELOCITY.flipper = 0;
+
+            for (EACH_MOTOR_CHANNEL(i)) {
+                motor_target_speed[i] = 0;
+            }
+        }
+
+        for (EACH_MOTOR_CHANNEL(i)) {
+            if (motor_target_speed[i] == 0)
+                motor_event[i] = STOP;
+            else if (-1024 < motor_target_speed[i] && motor_target_speed[i] < 0)
+                motor_event[i] = BACK;
+            else if (0 < motor_target_speed[i] && motor_target_speed[i] < 1024)
+                motor_event[i] = GO;
+        }
+
+        // update state machine
+        // If the new motor commands reverse or brake a motor, coast that motor for a few ticks
+        // (SWITCH_DIRECTION mode) Then once the switch direction timer elapses, start the motor in
+        // that new direction If we are moving forward or in reverse and the intended speed changes,
+        // update the pwm command to the motor
+        if (counter_tick(&state_machine) == COUNTER_EXPIRED) {
+            for (EACH_MOTOR_CHANNEL(i)) {
+                // update state machine
+                switch (motor_state[i]) {
+                case BRAKE:
+                    // brake motor
+                    Braking(i);
+                    switch (motor_event[i]) {
+                    case GO:
+                        // fallthrough
+                    case BACK:
+                        motor_state[i] = SWITCH_DIRECTION;
+                        counter_stop(&speed_update_timer[i]);
+                        counter_restart(&motor_switch_direction_timer[i]);
+                        Coasting(i);
+                        break;
+                    case STOP:
+                        motor_event[i] = NO_EVENT;
+                        break;
+                    case NO_EVENT:
+                        break;
+                    }
+                    break;
+                case FORWARD:
+                    switch (motor_event[i]) {
+                    case GO:
+                        speed_update_timer[i].is_paused = false;
+                        break;
+                    case BACK:
+                        // fallthrough
+                    case STOP:
+                        motor_state[i] = SWITCH_DIRECTION;
+                        counter_stop(&speed_update_timer[i]);
+                        counter_restart(&motor_switch_direction_timer[i]);
+                        break;
+                    case NO_EVENT:
+                        break;
+                    }
+                    break;
+                case BACKWARD:
+                    switch (motor_event[i]) {
+                    case GO:
+                        // fallthrough
+                    case STOP:
+                        motor_state[i] = SWITCH_DIRECTION;
+                        counter_stop(&speed_update_timer[i]);
+                        counter_restart(&motor_switch_direction_timer[i]);
+                        break;
+                    case BACK:
+                        speed_update_timer[i].is_paused = false;
+                        break;
+                    case NO_EVENT:
+                        break;
+                    }
+                    break;
+                case SWITCH_DIRECTION:
+                    if (counter_tick(&motor_switch_direction_timer[i]) == COUNTER_EXPIRED) {
+                        switch (motor_event[i]) {
+                        case STOP:
+                            Braking(i);
+                            motor_state[i] = BRAKE;
+                            break;
+                        case GO:
+                            counter_restart(&speed_update_timer[i]);
+                            motor_state[i] = FORWARD;
+                            break;
+                        case BACK:
+                            counter_restart(&speed_update_timer[i]);
+                            motor_state[i] = BACKWARD;
+                            break;
+                        case NO_EVENT:
+                            break;
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    }
+}
+
+//**Motor control functions
+
+void Braking(MotorChannel Channel) {
+    switch (Channel) {
+    case MOTOR_LEFT:
+        PWM1Duty(0);
+        M1_COAST = Clear_ActiveLO;
+        Nop();
+        M1_BRAKE = Set_ActiveLO;
+        break;
+    case MOTOR_RIGHT:
+        PWM2Duty(0);
+        M2_COAST = Clear_ActiveLO;
+        Nop();
+        M2_BRAKE = Set_ActiveLO;
+        break;
+    case MOTOR_FLIPPER:
+        PWM3Duty(0);
+        M3_COAST = Clear_ActiveLO;
+        Nop();
+        M3_BRAKE = Set_ActiveLO;
+        break;
+    }
+}
+
+// disable the corresponding transistors preparing a direction switch
+void Coasting(MotorChannel channel) {
+    switch (channel) {
+    case MOTOR_LEFT:
+        M1_COAST = Set_ActiveLO;
+        PWM1Duty(0);
+        M1_BRAKE = Clear_ActiveLO;
+        break;
+    case MOTOR_RIGHT:
+        M2_COAST = Set_ActiveLO;
+        PWM2Duty(0);
+        M2_BRAKE = Clear_ActiveLO;
+        break;
+    case MOTOR_FLIPPER:
+        M3_COAST = Set_ActiveLO;
+        PWM3Duty(0);
+        M3_BRAKE = Clear_ActiveLO;
+        break;
+    }
+}
+
+uint16_t GetDuty(int16_t target, MotorChannel channel) {
+    if (channel == MOTOR_FLIPPER) {
+        return (uint16_t)abs(target);
+    } else {
+        return min(abs(target), MAX_DUTY);
+    }
+}
+
+void UpdateSpeed(MotorChannel channel, MotorState state) {
+    uint16_t duty;
+
+    switch (channel) {
+    case MOTOR_LEFT:
+        if (over_current) {
+            duty = 0;
+            M1_COAST = Set_ActiveLO;
+        } else {
+            duty = GetDuty(motor_target_speed[channel], channel);
+            M1_COAST = Clear_ActiveLO;
+        }
+        M1_BRAKE = Clear_ActiveLO;
+        M1_DIR = (state == FORWARD) ? HI : LO;
+        PWM1Duty(duty);
+        break;
+    case MOTOR_RIGHT:
+        if (over_current) {
+            duty = 0;
+            M2_COAST = Set_ActiveLO;
+        } else {
+            duty = GetDuty(motor_target_speed[channel], channel);
+            M2_COAST = Clear_ActiveLO;
+        }
+        M2_BRAKE = Clear_ActiveLO;
+        M2_DIR = (state == FORWARD) ? HI : LO;
+        PWM2Duty(duty);
+        break;
+    case MOTOR_FLIPPER:
+        duty = GetDuty(motor_target_speed[channel], channel);
+        M3_COAST = Clear_ActiveLO;
+        M3_BRAKE = Clear_ActiveLO;
+        M3_DIR = (state == FORWARD) ? HI : LO;
+        PWM3Duty(duty);
+        break;
+    }
+}
+
+//*********************************************//
+
+void USBInput() {
+    static uint16_t control_loop_counter = 0, flipper_control_loop_counter = 0;
+
+    typedef enum {
+        /// We are in normal control mode
+        HIGH_SPEED = 0,
+        /// We were in normal control mode and have received a request to change to low speed mode
+        DECEL_AFTER_HIGH_SPEED,
+        /// We are in low speed (PID) mode
+        LOW_SPEED,
+        /// We were in low speed mode and have received a request to switch to normal control mode
+        DECEL_AFTER_LOW_SPEED
+    } motor_speed_state;
+
+    static motor_speed_state state = HIGH_SPEED;
+
+    // If switching between low speed mode and high speed mode (REG_MOTOR_SLOW_SPEED)
+    // Motors must decelerate upon switching speeds (if they're not already stopped.
+    // Failure to do so could cause large current spikes which will trigger the
+    // protection circuitry in the battery, cutting power to the robot
+    switch (state) {
+    case HIGH_SPEED:
+        control_loop_counter++;
+        flipper_control_loop_counter++;
+
+        if (control_loop_counter > 5) {
+            control_loop_counter = 0;
+            motor_target_speed[MOTOR_LEFT] = REG_MOTOR_VELOCITY.left;
+            motor_target_speed[MOTOR_RIGHT] = REG_MOTOR_VELOCITY.right;
+        }
+
+        if (flipper_control_loop_counter > 15) {
+            flipper_control_loop_counter = 0;
+            motor_target_speed[MOTOR_FLIPPER] = REG_MOTOR_VELOCITY.flipper;
+        }
+
+        if (REG_MOTOR_SLOW_SPEED)
+            state = DECEL_AFTER_HIGH_SPEED;
+
+        break;
+
+    case DECEL_AFTER_HIGH_SPEED:
+        control_loop_counter++;
+
+        if (control_loop_counter > 3) {
+            control_loop_counter = 0;
+
+            // set speed to 1 (speed of 0 immediately stops motors)
+            motor_target_speed[MOTOR_LEFT] = 1;
+            motor_target_speed[MOTOR_RIGHT] = 1;
+            motor_target_speed[MOTOR_FLIPPER] = 1;
+        }
+
+        // motors are stopped if speed falls below 1%
+        if ((abs(motor_target_speed[MOTOR_LEFT]) < 10) &&
+            (abs(motor_target_speed[MOTOR_RIGHT]) < 10) &&
+            (abs(motor_target_speed[MOTOR_FLIPPER]) < 10))
+            state = LOW_SPEED;
+
+        break;
+
+    case LOW_SPEED:
+        set_desired_velocities(REG_MOTOR_VELOCITY.left, REG_MOTOR_VELOCITY.right,
+                               REG_MOTOR_VELOCITY.flipper);
+        motor_target_speed[MOTOR_LEFT] = return_closed_loop_control_effort(MOTOR_LEFT);
+        motor_target_speed[MOTOR_RIGHT] = return_closed_loop_control_effort(MOTOR_RIGHT);
+        motor_target_speed[MOTOR_FLIPPER] = return_closed_loop_control_effort(MOTOR_FLIPPER);
+
+        control_loop_counter = 0;
+        flipper_control_loop_counter = 0;
+
+        if (!REG_MOTOR_SLOW_SPEED)
+            state = DECEL_AFTER_LOW_SPEED;
+
+        break;
+
+    case DECEL_AFTER_LOW_SPEED:
+        set_desired_velocities(0, 0, 0);
+
+        motor_target_speed[MOTOR_LEFT] = return_closed_loop_control_effort(MOTOR_LEFT);
+        motor_target_speed[MOTOR_RIGHT] = return_closed_loop_control_effort(MOTOR_RIGHT);
+        motor_target_speed[MOTOR_FLIPPER] = return_closed_loop_control_effort(MOTOR_FLIPPER);
+
+        // motors are stopped if speed falls below 1%
+        if ((abs(motor_target_speed[MOTOR_LEFT]) < 10) &&
+            (abs(motor_target_speed[MOTOR_RIGHT]) < 10) &&
+            (abs(motor_target_speed[MOTOR_FLIPPER]) < 10))
+            state = HIGH_SPEED;
+
+        break;
+    }
+}
+
+//**********************************************
+
+void PinRemap(void) {
+    // Assign U1RX To U1RX, Uart receive channnel
+    RPINR18bits.U1RXR = U1RX_RPn;
+    // Assign U1TX To U1TX/Uart Tx
+    U1TX_RPn = 3; // 3 represents U1TX
+
+    //***************************
+    // Configure Output Functions
+    // pin->function
+    // Assign OC1 To Pin M1_AHI
+    M1_PWM = 18; // 18 represents OC1
+
+    // Assign OC2 To Pin M1_BHI
+    M2_PWM = 19; // 19 represents OC2
+
+    // Assign OC3 To Pin M2_AHI
+    M3_PWM = 20; // 20 represents OC3
+}
+
+void Cell_Ctrl(BatteryChannel Channel, BatteryState state) {
+    switch (Channel) {
+    case CELL_A:
+        Cell_A_MOS = state;
+        break;
+    case CELL_B:
+        Cell_B_MOS = state;
+        break;
+    }
+}
+
+void set_firmware_build_time(void) {
+    const unsigned char build_date[12] = __DATE__;
+    const unsigned char build_time[12] = __TIME__;
+    unsigned int i;
+
+    for (i = 0; i < 12; i++) {
+        if (build_date[i] == 0) {
+            REG_MOTOR_FIRMWARE_BUILD.data[i] = ' ';
+        } else {
+            REG_MOTOR_FIRMWARE_BUILD.data[i] = build_date[i];
+        }
+        if (build_time[i] == 0) {
+            REG_MOTOR_FIRMWARE_BUILD.data[i + 12] = ' ';
+        } else {
+            REG_MOTOR_FIRMWARE_BUILD.data[i + 12] = build_time[i];
+        }
+    }
 }
 
 void InterruptIni() {
+    // TODO: delete this. We don't need to dynamically remap interrupts
     // remap all the interrupt routines
     T3InterruptUserFunction = Motor_T3Interrupt;
     ADC1InterruptUserFunction = Motor_ADC1Interrupt;
-#ifdef UART_CONTROL
-    U1TXInterruptUserFunction = Motor_U1TXInterrupt;
-    U1RXInterruptUserFunction = Motor_U1RXInterrupt;
-#endif
+    U1TXInterruptUserFunction = uart_tx_isf;
+    U1RXInterruptUserFunction = uart_rx_isf;
 }
 
 void FANCtrlIni() {
@@ -943,30 +806,27 @@ void PWM3Duty(uint16_t Duty) { OC3R = Duty * 2; }
 
 void IniTimer1() {
     T1CON = 0x0000;         // clear register
-    T1CONbits.TCKPS = 0b00; // 1:1 prescale
+    T1CONbits.TCKPS = 0b00; // 0b00 = 1:1 prescale
     TMR1 = 0;               // clear timer1 register
-    PR1 = Period1000Hz;     // interrupt every 1ms
-    T1CONbits.TON = SET;    // timer on
+    PR1 = PERIOD_1000HZ;    // interrupt every 1ms
+    T1CONbits.TON = SET;    // start timer
 }
 
 void IniTimer2() {
     T2CON = 0x0000;         // stops timer2,16 bit timer,internal clock (Fosc/2)
-    T2CONbits.TCKPS = 0b00; // 1:1 prescale
+    T2CONbits.TCKPS = 0b00; // 0b00 = 1:1 prescale
     TMR2 = 0;
-    PR2 = Period30000Hz;
-    IFS0bits.T2IF = CLEAR; // clear the flag
-    // IEC0bits.T2IE=SET;// enable the interrupt
-    T2CONbits.TON = SET;
+    PR2 = PERIOD_30000HZ;
+    IFS0bits.T2IF = CLEAR; // clear interrupt flag
+    T2CONbits.TON = SET;   // start timer
 }
 void IniTimer3() {
-    // A/D triger timer, for back emf feedback
-
     T3CON = 0x0010;        // stops timer3,1:8 prescale,16 bit timer,internal clock (Fosc/2)
     TMR3 = 0;              // clear timer1 register
-    PR3 = Period50000Hz;   // timer 3 is 50 times faster than PWM timer (timer 2)
+    PR3 = PERIOD_50000HZ;  // 50k hz / 8 prescale = 6250 Hz
     IFS0bits.T3IF = CLEAR; // clear interrupt flag
     IEC0bits.T3IE = SET;   // enable the interrupt
-    T3CONbits.TON = SET;   // start clock
+    T3CONbits.TON = SET;   // start timer
 }
 /*****************************************************************************/
 
@@ -1005,61 +865,54 @@ void IniAD() {
     IFS0bits.AD1IF = CLEAR;
     // b) Select A/D interrupt priority.
 }
-/*****************************************************************************/
-
-/***************************Interrupt routines***********************************/
 
 void Motor_T3Interrupt(void) {
+    // TODO: I think the purpose here is just to enable the auto-sample bit ASAM
+    // so that we don't have to set the SAMP bit and potentially set it at the wrong time.
+    // I think this isn't needed as long as SSRC = 0b111
+
     // PORTCbits.RC13=~PORTCbits.RC13;
     // clear timer3 flage
     IFS0bits.T3IF = CLEAR; // clear interrupt flag
-    Timer3Count++;
+    timer3_count++;
 
-    // TODO: turn on timer
-
-    if (Timer3Count >= 0) {
-        Timer3Count = 0;
+    if (timer3_count >= 0) {
+        timer3_count = 0;
         AD1CON1bits.ASAM = SET;
     }
 }
 
 void Motor_ADC1Interrupt(void) {
+    // Clear interrupt flag
     IFS0bits.AD1IF = CLEAR;
+    // disable auto-sample
     AD1CON1bits.ASAM = CLEAR;
-    // clear the flag
 
-    // load the value
+    // harvest all the values from the ADC converter
+    m3_posfb_array[0][m3_posfb_array_pointer] = ADC1BUF4;
+    m3_posfb_array[1][m3_posfb_array_pointer] = ADC1BUF5;
+    m3_posfb_array_pointer = (m3_posfb_array_pointer + 1) % SAMPLE_LENGTH;
 
-    M3_POSFB_Array[0][M3_POSFB_ArrayPointer] = ADC1BUF4;
-    M3_POSFB_Array[1][M3_POSFB_ArrayPointer] = ADC1BUF5;
-    M3_POSFB_ArrayPointer = (M3_POSFB_ArrayPointer + 1) % SAMPLE_LENGTH;
+    motor_current_ad[MOTOR_LEFT][motor_current_ad_pointer] = ADC1BUF3;
+    motor_current_ad[MOTOR_RIGHT][motor_current_ad_pointer] = ADC1BUF1;
+    motor_current_ad[MOTOR_FLIPPER][motor_current_ad_pointer] = ADC1BUFB;
+    motor_current_ad_pointer = (motor_current_ad_pointer + 1) % SAMPLE_LENGTH;
 
-    MotorCurrentAD[MOTOR_LEFT][MotorCurrentADPointer] = ADC1BUF3;
-    ;
-    MotorCurrentAD[MOTOR_RIGHT][MotorCurrentADPointer] = ADC1BUF1;
-    MotorCurrentAD[MOTOR_FLIPPER][MotorCurrentADPointer] = ADC1BUFB;
-    MotorCurrentADPointer = (MotorCurrentADPointer + 1) % SAMPLE_LENGTH;
+    cell_current[CELL_A][total_cell_current_array_pointer] = ADC1BUF8;
+    cell_current[CELL_B][total_cell_current_array_pointer] = ADC1BUF9;
+    total_cell_current_array[total_cell_current_array_pointer] =
+        cell_current[CELL_A][total_cell_current_array_pointer] +
+        cell_current[CELL_B][total_cell_current_array_pointer];
+    total_cell_current_array_pointer = (total_cell_current_array_pointer + 1) % SAMPLE_LENGTH;
 
-    Cell_A_Current[Total_Cell_Current_ArrayPointer] = ADC1BUF8;
-    Cell_B_Current[Total_Cell_Current_ArrayPointer] = ADC1BUF9;
-    Total_Cell_Current_Array[Total_Cell_Current_ArrayPointer] =
-        Cell_A_Current[Total_Cell_Current_ArrayPointer] +
-        Cell_B_Current[Total_Cell_Current_ArrayPointer];
-    Total_Cell_Current_ArrayPointer = (Total_Cell_Current_ArrayPointer + 1) % SAMPLE_LENGTH;
-
-    CellVoltageArray[CELL_A][CellVoltageArrayPointer] = ADC1BUF6;
-    CellVoltageArray[CELL_B][CellVoltageArrayPointer] = ADC1BUF7;
-    CellVoltageArrayPointer = (CellVoltageArrayPointer + 1) % SAMPLE_LENGTH;
+    cell_voltage_array[CELL_A][cell_voltage_array_pointer] = ADC1BUF6;
+    cell_voltage_array[CELL_B][cell_voltage_array_pointer] = ADC1BUF7;
+    cell_voltage_array_pointer = (cell_voltage_array_pointer + 1) % SAMPLE_LENGTH;
 }
 
-void Motor_U1TXInterrupt(void) { uart_tx_isf(); }
-
-void Motor_U1RXInterrupt(void) { uart_rx_isf(); }
-
-static unsigned int return_calibrated_pot_angle(unsigned int pot_1_value,
-                                                unsigned int pot_2_value) {
-    unsigned int combined_pot_angle = 0;
-    int calibrated_pot_angle = 0;
+static uint16_t return_calibrated_pot_angle(uint16_t pot_1_value, uint16_t pot_2_value) {
+    uint16_t combined_pot_angle = 0;
+    uint16_t calibrated_pot_angle = 0;
 
     combined_pot_angle = return_combined_pot_angle(pot_1_value, pot_2_value);
 
@@ -1078,7 +931,7 @@ static unsigned int return_calibrated_pot_angle(unsigned int pot_1_value,
     return calibrated_pot_angle;
 }
 
-static unsigned int return_combined_pot_angle(unsigned int pot_1_value, unsigned int pot_2_value) {
+static uint16_t return_combined_pot_angle(uint16_t pot_1_value, uint16_t pot_2_value) {
     // unsigned int pot_1_value, pot_2_value = 0;
     int combined_pot_angle = 0;
     int pot_angle_1 = 0;
@@ -1174,16 +1027,12 @@ void calibrate_flipper_angle_sensor(void) {
     PWM3Duty(0);
 
     DataEEInit();
-    Nop();
 
     DataEEWrite((flipper_angle_offset >> 8), 0);
-    Nop();
     DataEEWrite((flipper_angle_offset & 0xff), 1);
-    Nop();
 
     // write 0xaa to index 2, so we can tell if this robot has been calibrated yet
     DataEEWrite(0xaa, 2);
-    Nop();
 
     // don't do anything again ever
     while (1) {
@@ -1209,7 +1058,6 @@ void turn_on_power_bus_new_method(void) {
         block_ms(10);
 
         k = k0 + i * i / 4;
-        // k+=10;
     }
 
     Cell_Ctrl(CELL_A, CELL_ON);
@@ -1217,7 +1065,6 @@ void turn_on_power_bus_new_method(void) {
 }
 
 void turn_on_power_bus_old_method(void) {
-
     unsigned int i;
 
     for (i = 0; i < 20; i++) {
@@ -1234,7 +1081,6 @@ void turn_on_power_bus_old_method(void) {
 }
 
 void turn_on_power_bus_hybrid_method(void) {
-
     unsigned int i;
     unsigned int j;
     // k=20,000 is about 15ms
@@ -1264,14 +1110,15 @@ void turn_on_power_bus_hybrid_method(void) {
     Cell_Ctrl(CELL_B, CELL_ON);
 }
 
-void handle_power_bus(void) {
+const char DEVICE_NAME_OLD_BATTERY[7] = "BB-2590";
+const char DEVICE_NAME_NEW_BATTERY[9] = "BT-70791B";
+const char DEVICE_NAME_BT70791_CK[9] = "BT-70791C";
+const char DEVICE_NAME_CUSTOM_BATTERY[7] = "ROBOTEX";
+
+void power_bus_init(void) {
 #define BATTERY_DATA_LEN 10
     char battery_data1[BATTERY_DATA_LEN] = {0};
     char battery_data2[BATTERY_DATA_LEN] = {0};
-    char DEVICE_NAME_OLD_BATTERY[7] = "BB-2590";
-    char DEVICE_NAME_NEW_BATTERY[9] = "BT-70791B";
-    char DEVICE_NAME_BT70791_CK[9] = "BT-70791C";
-    char DEVICE_NAME_CUSTOM_BATTERY[7] = "ROBOTEX";
     unsigned int j;
     I2CResult result;
     I2COperationDef op;
@@ -1330,44 +1177,30 @@ void handle_power_bus(void) {
 
 // When robot is on the charger, only leave one side of the power bus on at a time.
 // This is so that one side of a battery doesn't charge the other side through the power bus.
-static void alternate_power_bus(void) {
-    static unsigned int alternate_counter = 0;
-    static unsigned int toggle_state = 0;
+static void power_bus_tick(void) {
+    static BatteryChannel active_battery = CELL_A;
+    static Counter counter = {.max = 10000};
 
     if (REG_MOTOR_CHARGER_STATE == 0xdada) {
+        if (counter_tick(&counter) == COUNTER_EXPIRED) {
+            // Toggle active battery
+            active_battery = (active_battery == CELL_A ? CELL_B : CELL_A);
+        }
 
-        // if we're on the dock, immediately turn off one side of the power bus
-        if (toggle_state == 0) {
-            toggle_state = 1;
+        // if we're on the dock, turn off one side of the power bus
+        switch (active_battery) {
+        case CELL_A:
+            Cell_Ctrl(CELL_A, CELL_ON);
+            Cell_Ctrl(CELL_B, CELL_OFF);
+            break;
+        case CELL_B:
             Cell_Ctrl(CELL_B, CELL_ON);
             Cell_Ctrl(CELL_A, CELL_OFF);
+            break;
         }
-
-        alternate_counter++;
-
-        if (alternate_counter > 10000) {
-            alternate_counter = 0;
-
-            // turn off side B, turn on side A
-            if (toggle_state == 1) {
-                toggle_state = 2;
-                Cell_Ctrl(CELL_A, CELL_ON);
-                Cell_Ctrl(CELL_B, CELL_OFF);
-            }
-            // turn on side B, turn off side A
-            else if (toggle_state == 2) {
-                toggle_state = 1;
-                Cell_Ctrl(CELL_B, CELL_ON);
-                Cell_Ctrl(CELL_A, CELL_OFF);
-            } else {
-                toggle_state = 0;
-            }
-        }
-    }
-    // robot has left the charger -- turn both cells on
-    else {
-        Cell_Ctrl(CELL_A, CELL_ON);
+    } else {
+        // Not charging. use both batteries
         Cell_Ctrl(CELL_B, CELL_ON);
-        toggle_state = 0;
+        Cell_Ctrl(CELL_A, CELL_OFF);
     }
 }

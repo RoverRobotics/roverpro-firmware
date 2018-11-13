@@ -9,9 +9,6 @@
 
 #include "PID.h"
 
-/*---------------------------Helper Function Prototypes-----------------------*/
-/*---------------------------IC Related---------------------------------------*/
-#define MAX_NUM_IC_PINS 2
 
 /*---------------------------PID Related--------------------------------------*/
 /*---------------------------Filter Related-----------------------------------*/
@@ -69,7 +66,7 @@ void handle_closed_loop_control(bool OverCurrent) {
     float desired_speed_left = IIRFilter(LMOTOR_FILTER, GetDesiredSpeed(MOTOR_LEFT), ALPHA, false);
     float desired_speed_right =
         IIRFilter(RMOTOR_FILTER, GetDesiredSpeed(MOTOR_RIGHT), ALPHA, false);
-#ifndef UART_CONTROL
+
     // if the user releases the joystick, come to a relatively quick stop by clearing the integral
     // term
     if ((abs(REG_MOTOR_VELOCITY.left) < 50) && (abs(REG_MOTOR_VELOCITY.right) < 50)) {
@@ -82,23 +79,6 @@ void handle_closed_loop_control(bool OverCurrent) {
         desired_speed_left = 0;
         desired_speed_right = 0;
     }
-#endif
-
-#ifdef UART_CONTROL
-    // if the user releases the joystick, come to a relatively quick stop by clearing the integral
-    // term
-    if ((abs(uart_motor_velocity[MOTOR_LEFT]) < 50) &&
-        (abs(uart_motor_velocity[MOTOR_RIGHT]) < 50)) {
-        PID_Reset_Integral(MOTOR_LEFT);
-        PID_Reset_Integral(MOTOR_RIGHT);
-
-        // If user releases joystick, reset the IIR filter
-        IIRFilter(LMOTOR_FILTER, 0, ALPHA, true);
-        IIRFilter(RMOTOR_FILTER, 0, ALPHA, true);
-        desired_speed_left = 0;
-        desired_speed_right = 0;
-    }
-#endif
 
     // update the flipper
     float desired_flipper_speed = desired_velocity_flipper / 1200.0f;
@@ -137,7 +117,7 @@ int return_closed_loop_control_effort(MotorChannel motor) {
     return (int)(closed_loop_effort[motor] * 1000.0);
 }
 
-float DT_speed(const MotorChannel motor) {
+float DT_speed(MotorChannel motor) {
 #define HZ_16US 100000.0f
 
     float period = 0;
@@ -178,7 +158,7 @@ float DT_speed(const MotorChannel motor) {
 
 // Description: Returns the approximate steady-state effort required to
 //   maintain the given desired speed of a drive motor.
-static float GetNominalDriveEffort(const float desired_speed) {
+static float GetNominalDriveEffort(float desired_speed) {
     // NB: transfer function found empirically (see spreadsheet for data)
     if (desired_speed == 0)
         return 0;
@@ -192,7 +172,7 @@ static float GetNominalDriveEffort(const float desired_speed) {
 // Notes:
 //   - special-cases turning in place to higher values to overcome
 //     the additional torque b/c software change has too much overhead right now
-static int16_t GetDesiredSpeed(const MotorChannel motor) {
+static int16_t GetDesiredSpeed(MotorChannel motor) {
     int16_t temp_left = desired_velocity_left / 4;
     int16_t temp_right = desired_velocity_right / 4;
 

@@ -13,25 +13,17 @@ enum UART_BAUD_RATE {
     BaudRate_57600_HI = 68,  // BRGH=1
     BaudRate_115200_HI = 34, // BRGH=1
 };
-bool uart_FanSpeedTimerEnabled = false;
-bool uart_fan_speed_expired = false;
-int uart_FanSpeedTimerCount = 0;
 
-typedef enum UARTState { UART_STATE_IDLE, UART_STATE_PROCESSING, UART_STATE_DONE } UARTState;
 uint8_t uart_receive_buffer[UART_RECEIVE_BUFFER_LENGTH];
-int16_t i_uart_receive_buffer = 0;
+int16_t i_uart_receive_buffer = -1;
 
 uint8_t uart_send_buffer[UART_SEND_BUFFER_LENGTH];
-int16_t i_uart_send_buffer = 0;
+int16_t i_uart_send_buffer = -1;
 
-uint8_t uart_data_identifier = 0;
 int16_t uart_motor_velocity[3];
-uint8_t uart_incoming_cmd[2];
 uint16_t UART_BUILD_NUMBER = 40621;
 bool uart_flipper_calibrate_requested = false;
-bool uart_has_new_fan_speed = false;
 bool uart_has_new_data = false;
-static bool has_seen_start_byte = false;
 
 typedef enum UARTCommand {
     UART_COMMAND_GET = 10,
@@ -106,7 +98,7 @@ void uart_tx_isf() {
     }
 }
 
-void uart_serialize_out_data(uint8_t arg) {
+void uart_serialize_out_data(uint8_t uart_data_identifier) {
 
 // CASE(n, REGISTER) populates the UART output buffer with the 16-bit integer value of the given
 // register and breaks out of the switch statement
@@ -165,7 +157,9 @@ void uart_serialize_out_data(uint8_t arg) {
 #undef CASE
 }
 
-void uart_tick() {
+UArtTickResult uart_tick() {
+    UArtTickResult result = {0};
+
     if (i_uart_receive_buffer >= UART_RECEIVE_BUFFER_LENGTH) // end of the package
     {
         int i;
@@ -177,35 +171,31 @@ void uart_tick() {
         }
         if (SumBytes % 255 != 0) {
             i_uart_receive_buffer = 0;
-            has_seen_start_byte = false;
             // checksum failed. Ignore this packet
-            return;
+            return result;
         }
 
-        uart_motor_velocity[MOTOR_LEFT] = (uart_receive_buffer[0] * 8 - 1000);
-        uart_motor_velocity[MOTOR_RIGHT] = (uart_receive_buffer[1] * 8 - 1000);
-        uart_motor_velocity[MOTOR_FLIPPER] = (uart_receive_buffer[2] * 8 - 1000);
+        REG_MOTOR_VELOCITY.left = (uart_receive_buffer[0] * 8 - 1000);
+        REG_MOTOR_VELOCITY.right = (uart_receive_buffer[1] * 8 - 1000);
+        REG_MOTOR_VELOCITY.flipper= (uart_receive_buffer[2] * 8 - 1000);
         command = uart_receive_buffer[3];
         arg = uart_receive_buffer[4];
 
         // reset the receive buffer
-        i_uart_receive_buffer = 0;
-        has_seen_start_byte = false;
+        i_uart_receive_buffer = -1;
 
         switch (command) {
         case UART_COMMAND_SET_FAN_SPEED: // new fan command coming in
             REG_MOTOR_SIDE_FAN_SPEED = arg;
-            uart_has_new_fan_speed = true;
-            // Enable fan speed timer
-            uart_FanSpeedTimerEnabled = true;
-            uart_FanSpeedTimerCount = 0;
+            result.uart_fan_speed_requested = true;
             break;
         case UART_COMMAND_SET_MOTOR_SLOW_SPEED:
             REG_MOTOR_SLOW_SPEED = arg;
+            result.uart_motor_slow_speed_requested = true;
             break;
         case UART_COMMAND_FLIPPER_CALIBRATE:
             if (arg == UART_COMMAND_FLIPPER_CALIBRATE) {
-                uart_flipper_calibrate_requested = true;
+                result.uart_flipper_calibrate_requested = true;
             }
             break;
         case UART_COMMAND_GET:
@@ -221,6 +211,7 @@ void uart_tick() {
         default:
             BREAKPOINT();
         }
-        uart_has_new_data = true;
+        result.uart_motor_speed_requested = true;
     }
+    return result;
 }
