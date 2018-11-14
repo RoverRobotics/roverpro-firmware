@@ -202,53 +202,78 @@ firmware.mcp = main project file. Open this with MPLab IDE v8.89
 
 ### Call Diagram of Important functions
 
-```mermaid
-%% This is a Mermaid diagram. If it does not render as a diagram, use a supporting Markdown editor like Typora (https://typora.io/#download) or paste into the live editor (https://mermaidjs.github.io/mermaid-live-editor/)
-graph LR
 
-subgraph PID.c
-	PID_Init
-	PID_ComputeEffort
-	PID_Reset
-	PID_Reset_Integral
-end
-subgraph device_robot_motor_i2c.c
-	I2C2Update
-	I2C3Update
-end
-subgraph device_robot_motor.c
- DeviceRobotMotorInit --> MC_Ini
- DeviceRobotMotorInit --> closed_loop_control_init
- closed_loop_control_init --> PID_Init
- Device_MotorController_Process --> I2C2Update
- Device_MotorController_Process --> I2C3Update
- Device_MotorController_Process --> handle_closed_loop_control
- handle_closed_loop_control --> PID_ComputeEffort
- handle_closed_loop_control --> PID_Reset
- handle_closed_loop_control --> PID_Reset_Integral
- MC_Ini --> InterruptIni
- MC_Ini --> IniAD
- subgraph called by Pic24 UART
- Motor_U1RXInterrupt
- Motor_U1TXInterrupt
- end
- subgraph called by Pic24 ADC
- Motor_ADC1Interrupt
- end
- subgraph called by Pic24 timer
- Motor_T3Interrupt
- end
-end
-subgraph main.c
-	main --> InitializeSystem
-	main --> ProcessIO
-	InitializeSystem --> USBDeviceInit
-	InitializeSystem --> USBDeviceAttach
-	InitializeSystem --> DeviceRobotMotorInit
- 	ProcessIO --> Device_MotorController_Process
- Device_MotorController_Process
-end
-```
+
+![Call diagram of important functions](https://g.gravizo.com/svg?digraph g {
+rankdir=LR;
+subgraph cluster_1 {
+  label = "main.c";
+  main -> InitializeSystem;
+  InitializeSystem -> USBDeviceInit;
+  InitializeSystem -> USBDeviceAttach;
+}
+subgraph cluster_2 {
+  label = "Pic24F hardware interrupts"
+  _U1RXInterrupt;
+  _U1TXInterrupt;
+  _ADCInterrupt;
+  _T3Interrupt;
+}
+subgraph cluster_3 {
+  label = "device_robot_motor.c";
+  IniAD;
+  Device_MotorController_Process;
+  closed_loop_control_init;
+  Motor_T3Interrupt;
+  Motor_ADC1Interrupt;
+  DeviceRobotMotorInit;
+  FANCtrlIni;
+  handle_closed_loop_control;
+}
+subgraph cluster_4 {
+  label = "pid.c";
+  PID_Init;
+  PID_ComputeEffort;
+  PID_Reset;
+  PID_Reset_Integral;
+}
+subgraph cluster_6 {
+  label = "uart_control.c";
+  uart_init;
+  uart_tick;
+  uart_tx_isf;
+  uart_rx_isf;
+}
+subgraph cluster_7 {
+  label = "device_power_bus.c";
+  power_bus_init;
+  power_bus_tick;
+}
+subgraph cluster_8 {
+  label = "device_robot_motor_i2c.c";
+  i2c2_tick -> re_init_i2c2;
+  i2c3_tick -> re_init_i2c3;
+}
+_ADCInterrupt -> Motor_ADC1Interrupt;
+_U1TXInterrupt -> uart_tx_isf;
+_U1RXInterrupt -> uart_rx_isf;
+_T3Interrupt -> Motor_T3Interrupt;
+InitializeSystem -> DeviceRobotMotorInit;
+closed_loop_control_init -> PID_Init;
+DeviceRobotMotorInit -> IniAD;
+DeviceRobotMotorInit -> uart_init;
+DeviceRobotMotorInit -> power_bus_init;
+DeviceRobotMotorInit -> FANCtrlIni;
+DeviceRobotMotorInit -> closed_loop_control_init;
+Device_MotorController_Process -> power_bus_tick;
+Device_MotorController_Process -> handle_closed_loop_control;
+Device_MotorController_Process -> i2c2_tick;
+Device_MotorController_Process -> i2c3_tick;
+Device_MotorController_Process -> uart_tick;
+handle_closed_loop_control -> PID_ComputeEffort;
+handle_closed_loop_control -> PID_Reset;
+handle_closed_loop_control -> PID_Reset_Integral;
+})
 
 ```flow
 # render with flowchart.js
@@ -298,8 +323,6 @@ update_speed_oc(no)->update_speed_oc_no->etc
 motor_speeds(no)->etc
 etc->op
 ```
-
-
 
 ### registers.h
 
