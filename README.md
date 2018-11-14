@@ -202,76 +202,79 @@ firmware.mcp = main project file. Open this with MPLab IDE v8.89
 
 ### Call Diagram of Important functions
 
-<img alt='call diagram of important functions' src='https://g.gravizo.com/svg?digraph g {
-rankdir=LR;
-subgraph cluster_1 {
-  label = "main.c";
-  main -> InitializeSystem;
-  InitializeSystem -> USBDeviceInit;
-  InitializeSystem -> USBDeviceAttach;
-}
-subgraph cluster_2 {
-  label = "Pic24F hardware interrupts"
-  _U1RXInterrupt;
-  _U1TXInterrupt;
-  _ADCInterrupt;
-  _T3Interrupt;
-}
-subgraph cluster_3 {
-  label = "device_robot_motor.c";
-  IniAD;
-  Device_MotorController_Process;
-  closed_loop_control_init;
-  Motor_T3Interrupt;
-  Motor_ADC1Interrupt;
-  DeviceRobotMotorInit;
-  FANCtrlIni;
-  handle_closed_loop_control;
-}
-subgraph cluster_4 {
-  label = "pid.c";
-  PID_Init;
-  PID_ComputeEffort;
-  PID_Reset;
-  PID_Reset_Integral;
-}
-subgraph cluster_6 {
-  label = "uart_control.c";
-  uart_init;
-  uart_tick;
-  uart_tx_isf;
-  uart_rx_isf;
-}
-subgraph cluster_7 {
-  label = "device_power_bus.c";
-  power_bus_init;
-  power_bus_tick;
-}
-subgraph cluster_8 {
-  label = "device_robot_motor_i2c.c";
-  i2c2_tick -> re_init_i2c2;
-  i2c3_tick -> re_init_i2c3;
-}
-_ADCInterrupt -> Motor_ADC1Interrupt;
-_U1TXInterrupt -> uart_tx_isf;
-_U1RXInterrupt -> uart_rx_isf;
-_T3Interrupt -> Motor_T3Interrupt;
-InitializeSystem -> DeviceRobotMotorInit;
-closed_loop_control_init -> PID_Init;
-DeviceRobotMotorInit -> IniAD;
-DeviceRobotMotorInit -> uart_init;
-DeviceRobotMotorInit -> power_bus_init;
-DeviceRobotMotorInit -> FANCtrlIni;
-DeviceRobotMotorInit -> closed_loop_control_init;
-Device_MotorController_Process -> power_bus_tick;
-Device_MotorController_Process -> handle_closed_loop_control;
-Device_MotorController_Process -> i2c2_tick;
-Device_MotorController_Process -> i2c3_tick;
-Device_MotorController_Process -> uart_tick;
-handle_closed_loop_control -> PID_ComputeEffort;
-handle_closed_loop_control -> PID_Reset;
-handle_closed_loop_control -> PID_Reset_Integral;
-})' />
+<script type='text/vnd.graphviz'>
+  digraph g {
+  rankdir=LR;
+  subgraph cluster_1 {
+    label = "main.c";
+    main -> InitializeSystem;
+    InitializeSystem -> USBDeviceInit;
+    InitializeSystem -> USBDeviceAttach;
+  }
+  subgraph cluster_2 {
+    label = "Pic24F hardware interrupts"
+    _U1RXInterrupt;
+    _U1TXInterrupt;
+    _ADCInterrupt;
+    _T3Interrupt;
+  }
+  subgraph cluster_3 {
+    label = "device_robot_motor.c";
+    IniAD;
+    Device_MotorController_Process;
+    closed_loop_control_init;
+    Motor_T3Interrupt;
+    Motor_ADC1Interrupt;
+    DeviceRobotMotorInit;
+    FANCtrlIni;
+    handle_closed_loop_control;
+  }
+  subgraph cluster_4 {
+    label = "pid.c";
+    PID_Init;
+    PID_ComputeEffort;
+    PID_Reset;
+    PID_Reset_Integral;
+  }
+  subgraph cluster_6 {
+    label = "uart_control.c";
+    uart_init;
+    uart_tick;
+    uart_tx_isf;
+    uart_rx_isf;
+  }
+  subgraph cluster_7 {
+    label = "device_power_bus.c";
+    power_bus_init;
+    power_bus_tick;
+  }
+  subgraph cluster_8 {
+    label = "device_robot_motor_i2c.c";
+    i2c2_tick -> re_init_i2c2;
+    i2c3_tick -> re_init_i2c3;
+  }
+  _ADCInterrupt -> Motor_ADC1Interrupt;
+  _U1TXInterrupt -> uart_tx_isf;
+  _U1RXInterrupt -> uart_rx_isf;
+  _T3Interrupt -> Motor_T3Interrupt;
+  InitializeSystem -> DeviceRobotMotorInit;
+  closed_loop_control_init -> PID_Init;
+  DeviceRobotMotorInit -> IniAD;
+  DeviceRobotMotorInit -> uart_init;
+  DeviceRobotMotorInit -> power_bus_init;
+  DeviceRobotMotorInit -> FANCtrlIni;
+  DeviceRobotMotorInit -> closed_loop_control_init;
+  Device_MotorController_Process -> power_bus_tick;
+  Device_MotorController_Process -> handle_closed_loop_control;
+  Device_MotorController_Process -> i2c2_tick;
+  Device_MotorController_Process -> i2c3_tick;
+  Device_MotorController_Process -> uart_tick;
+  handle_closed_loop_control -> PID_ComputeEffort;
+  handle_closed_loop_control -> PID_Reset;
+  handle_closed_loop_control -> PID_Reset_Integral;
+  }
+</script>
+
 
 ```flow
 # render with flowchart.js
@@ -371,10 +374,6 @@ extern struct REGISTER registers[];
 #include "registers.h"
 ```
 
-
-
-
-
 ### device_robot_motor.c
 
 Weighing in at 3662 lines, this file is a scary mess.
@@ -447,4 +446,25 @@ I2C3Update:
   - Get battery status
   - Get battery mode
   - Get temperature
+
+<script type='application/javascript'>
+// NB: Typora does not like blank lines within HTML code blocks.
+//
+function gravizo(script_element) {
+    // gravizo is a great tool that renders graphviz, plantuml, and umlgraph
+    let img = document.createElement('img')
+    img.src = 'https://g.gravizo.com/svg?' + encodeURIComponent(script_element.innerText) 
+    script_element.parentNode.insertBefore(img, script_element)
+}
+//
+document.addEventListener('DOMContentLoaded', function(){
+    // turn all inline script tags into images
+    [...document.querySelectorAll('script[type="text/vnd.graphviz"]'),
+     ...document.querySelectorAll('script[type="text/x-plantuml"]'),
+     ...document.querySelectorAll('script[type="text/x-umlgraph"]'),
+    ].forEach(gravizo)
+})
+</script>
+
+
 
