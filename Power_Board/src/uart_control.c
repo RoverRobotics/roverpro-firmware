@@ -82,7 +82,7 @@ void uart_rx_isf() {
             i_uart_rx_buffer++;
         }
     }
-    // check Receive Buffer Overrun Error Status bit (
+    // check Receive Buffer Overrun Error Status bit
     if (U1STAbits.OERR ) {
         BREAKPOINT();
         // clear overflow error bit if it was set.
@@ -225,6 +225,13 @@ UArtTickResult uart_tick() {
                 // We have populated the send buffer
                 // Mark the send buffer as ready to be sent
                 i_uart_tx_buffer = -1;
+				
+				// If Transmit Shift Register is Empty, we aren't waiting on an interrupt and should start
+				// the transmission now.
+				if (U1STAbits.TRMT) {
+					// Start the transmission
+					uart_tx_isf();
+				}
             }
             break;
         default:
