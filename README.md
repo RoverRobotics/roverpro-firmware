@@ -202,9 +202,7 @@ firmware.mcp = main project file. Open this with MPLab IDE v8.89
 
 ### Call Diagram of Important functions
 
-
-
-![Call diagram of important functions](https://g.gravizo.com/svg?digraph g {
+<img alt='call diagram of important functions' src='https://g.gravizo.com/svg?digraph g {
 rankdir=LR;
 subgraph cluster_1 {
   label = "main.c";
@@ -273,7 +271,7 @@ Device_MotorController_Process -> uart_tick;
 handle_closed_loop_control -> PID_ComputeEffort;
 handle_closed_loop_control -> PID_Reset;
 handle_closed_loop_control -> PID_Reset_Integral;
-})
+})' />
 
 ```flow
 # render with flowchart.js
