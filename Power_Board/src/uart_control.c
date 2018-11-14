@@ -71,12 +71,12 @@ void uart_rx_isf() {
     // While new received data is available
     while (U1STAbits.URXDA && i_uart_rx_buffer < UART_RX_BUFFER_LENGTH) {
         // Pop the next byte of the read queue
-        uint8_t a_byte = (uint8_t)U1RXREG;
+        uint8_t a_byte = (uint8_t) U1RXREG;
         if (i_uart_rx_buffer == -1 && a_byte == UART_START_BYTE) {
             // If we have not seen a start byte and the next byte is a start byte,
             // Throw out the newly read byte and move to the beginning of the read buffer
             i_uart_rx_buffer = 0;
-        } else if (i_uart_rx_buffer) {
+        } else if (i_uart_rx_buffer > -1) {
             // If we are getting a data byte, save it to the read buffer and increment the value
             uart_rx_buffer[i_uart_rx_buffer] = a_byte;
             i_uart_rx_buffer++;
@@ -106,8 +106,6 @@ void uart_tx_isf() {
             i_uart_tx_buffer++;
         } else {
             // No data to send
-            // Disable transmission (it will be re-enabled if we receive a new data command)
-            U1STAbits.UTXEN = 0;
 			return;
         }
     }
@@ -185,7 +183,7 @@ UArtTickResult uart_tick() {
             sum_bytes += uart_rx_buffer[i];
         }
         if (sum_bytes % 255 != 0) {
-            i_uart_rx_buffer = 0;
+            i_uart_rx_buffer = -1;
             // checksum failed. Ignore this packet
             return result;
         }
@@ -228,8 +226,6 @@ UArtTickResult uart_tick() {
                 // Mark the send buffer as ready to be sent
                 i_uart_tx_buffer = -1;
             }
-            // Enable transmission
-            U1STAbits.UTXEN = 1;
             break;
         default:
             BREAKPOINT();
