@@ -98,4 +98,4 @@ add_executable(Power_Board
     microchip/USB/usb_printer_pos_epson_tm_t88iv.h
     microchip/USB/usb_printer_pos_seiko_dpu_v445.h
     microchip/USB/usb_printer_pos_seiko_mpu_l465.h
-    microchip/uart2.h)
+    microchip/uart2.h src/counter.c include/counter.h src/device_power_bus.c include/device_power_bus.h include/hardware_definitions.h)
