@@ -4,14 +4,6 @@
 #include "stdhdr.h"
 #include "hardware_definitions.h"
 
-/*****************************************************************************/
-//*-----------------------------General Purpose------------------------------*/
-#define CLEAR 0
-#define SET 1
-#define HI 1
-#define LO 0
-#define Set_ActiveLO 0
-#define Clear_ActiveLO 1
 
 /*****************************************************************************/
 //*-----------------------------------PWM------------------------------------*/
@@ -48,28 +40,11 @@ typedef enum MotorState {
 #define INTERVAL_MS_BATTERY_CHECK 1     // 1KHz
 #define INTERVAL_MS_BATTERY_RECOVER 100 // 100ms
 
-// other constant
-typedef enum {
-    MOTOR_LEFT = 0,
-    MOTOR_RIGHT,
-    MOTOR_FLIPPER,
-} MotorChannel;
-
-#define MOTOR_CHANNEL_COUNT 3
-/// Helper macro for iterating all motors and storing the result in variable i.
-/// e.g. int k; for (EACH_MOTOR_CHANNEL(k))
-#define EACH_MOTOR_CHANNEL(i)                                                                      \
-    i = 0;                                                                                         \
-    i < MOTOR_CHANNEL_COUNT;                                                                       \
-    i++
-
 /// Number of samples to keep of running metrics for power management, like battery temperature and
 /// voltage
 #define SAMPLE_LENGTH 4
 /// Number of samples to keep of running metrics for speed control
 #define SAMPLE_LENGTH_CONTROL 8
-
-
 
 extern bool usb_new_data_received;
 
@@ -104,33 +79,12 @@ void IniTimer2();
 /// Timer3 is used as the trigger source for ADC and back emf feedback
 void IniTimer3();
 
-/// Initialize PWM channel 1 (left motor)
-void PWM1Ini(void);
-/// Initialize PWM channel 2 (right motor)
-void PWM2Ini(void);
-///< Initialize PWM channel 3 (flipper motor)
-void PWM3Ini(void);
-
-/// Set duty cycle for channel 1 (left motor). 0 <= Duty <= 1000
-void PWM1Duty(uint16_t duty);
-/// Set duty cycle for channel 2 (right motor). 0 <= Duty <= 1000
-void PWM2Duty(uint16_t duty);
-/// Set duty cycle for pwm channel 3 (flipper motor). 0 <= Duty <= 1000
-void PWM3Duty(uint16_t duty);
-
-/// Tell motor controller to coast motor
-void Coasting(MotorChannel channel);
-/// Tell motor controller to brake motor
-void Braking(MotorChannel channel);
-/// Communicate new motor speeds/direction to the motor controller.
-/// effort = signed effort to apply (-1000 : +1000)
-void UpdateSpeed(MotorChannel channel, int16_t effort);
-
 /// Tick process which does a lot more than just control the motor
 void Device_MotorController_Process();
 
 /// Take the motor speed values from USB/UART and populate motor_target_speed.
-/// If we are using PID, the PID effort is computed here
+/// If we are using closed loop control scheme, the PID effort is computed here.
+/// either way we set motor_efforts based on REG_MOTOR_VELOCITY
 void set_motor_control_scheme();
 
 #endif

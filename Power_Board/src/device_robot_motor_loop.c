@@ -1,14 +1,9 @@
 #include <p24Fxxxx.h>
 #include "stdhdr.h"
 #include "device_robot_motor_loop.h"
-#include "device_robot_motor.h"
-#include "InputCapture.h"
-
-#define M1_TACHO_RPN 12 // RP12
-#define M2_TACHO_RPN 16
+#include "motor.h"
 
 #include "PID.h"
-
 
 /*---------------------------PID Related--------------------------------------*/
 /*---------------------------Filter Related-----------------------------------*/
@@ -44,14 +39,13 @@ static int desired_velocity_right = 0;
 static int desired_velocity_flipper = 0;
 
 void closed_loop_control_init(void) {
-    IC_Init(kIC01, M1_TACHO_RPN, 1000);
-    IC_Init(kIC02, M2_TACHO_RPN, 1000);
+    motor_tach_init();
     PID_Init(LEFT_CONTROLLER, MAX_EFFORT, MIN_EFFORT, K_P, K_I, K_D);
     PID_Init(RIGHT_CONTROLLER, MAX_EFFORT, MIN_EFFORT, K_P, K_I, K_D);
 }
 
 // this runs every 10ms
-void handle_closed_loop_control(bool OverCurrent) {
+void pid_tick(bool OverCurrent) {
 
     static unsigned int stop_counter = 0;
 
@@ -121,39 +115,10 @@ float DT_speed(MotorChannel motor) {
 #define HZ_16US 100000.0f
 
     float period = 0;
-    switch (motor) {
-    case MOTOR_LEFT: {
-        period = IC_period(kIC01);
-        if (period != 0) {
-            if (M1_DIRO)
-                return -(HZ_16US / period);
-            else
-                return (HZ_16US / period);
-        }
-        break;
+    period = motor_tach_get_period(motor);
+    if (period != 0) {
+        return (HZ_16US / period);
     }
-    case MOTOR_RIGHT: {
-        period = IC_period(kIC02);
-        if (period != 0) {
-            if (M2_DIRO)
-                return (HZ_16US / period);
-            else
-                return -(HZ_16US / period);
-        }
-        break;
-    }
-    case MOTOR_FLIPPER: {
-        period = IC_period(kIC03);
-        if (period != 0) {
-            if (M3_DIR)
-                return (HZ_16US / period);
-            else
-                return -(HZ_16US / period);
-        }
-        break;
-    }
-    }
-    return 0;
 }
 
 // Description: Returns the approximate steady-state effort required to
@@ -215,7 +180,7 @@ static int16_t GetDesiredSpeed(MotorChannel motor) {
     return 0;
 }
 
-void set_desired_velocities(int left, int right, int flipper) {
+void pid_set_desired_velocities(int left, int right, int flipper) {
     desired_velocity_left = left;
     desired_velocity_right = right;
     desired_velocity_flipper = flipper;

@@ -1,3 +1,6 @@
+/// @file high-level motor control and main event loop.
+
+
 #include <p24Fxxxx.h>
 #include "stdhdr.h"
 #include "device_robot_motor.h"
@@ -6,10 +9,11 @@
 #include "DEE Emulation 16-bit.h"
 #include "i2clib.h"
 #include "device_robot_motor_loop.h"
-#include "InputCapture.h"
+#include "motor.h"
 #include "uart_control.h"
 #include "counter.h"
 #include "device_power_bus.h"
+#include "math.h"
 
 //****************************************************
 Counter speed_update_timer[MOTOR_CHANNEL_COUNT] = {
@@ -34,9 +38,11 @@ Counter i2c2_timeout = {.max = INTERVAL_MS_I2C2};
 Counter i2c3_timeout = {.max = INTERVAL_MS_I2C3};
 /// count of how many millis since we have updated various outbound diagnostic data registers
 Counter sfreg_update = {.max = INTERVAL_MS_SFREG};
-/// count of how many millis since we have checked the battery currents and whether we are drawing too much current
+/// count of how many millis since we have checked the battery currents and whether we are drawing
+/// too much current
 Counter battery_check = {.max = INTERVAL_MS_BATTERY_CHECK};
-/// how many millis since we entered an overcurrent condition. Disable the overcurrent condition when this expires
+/// how many millis since we entered an overcurrent condition. Disable the overcurrent condition
+/// when this expires
 Counter over_current_recovery = {
     .max = INTERVAL_MS_BATTERY_RECOVER, .pause_on_expired = true, .is_paused = true};
 /// how many millis since we last ran the PID filter to compute motor effort for closed loop control
@@ -116,27 +122,10 @@ void DeviceRobotMotorInit() {
     M3_POS_FB_1_EN(1);
     M3_POS_FB_2_EN(1);
 
-    M1_DIR_EN(1);
-    M1_BRAKE_EN(1);
-    M1_MODE_EN(1);
-    M1_COAST_EN(1);
-
-    M2_DIR_EN(1);
-    M2_BRAKE_EN(1);
-    M2_MODE_EN(1);
-    M2_COAST_EN(1);
-
-    M3_DIR_EN(1);
-    M3_BRAKE_EN(1);
-    M3_MODE_EN(1);
-    M3_COAST_EN(1);
 
     // I/O initializing complete
 
     // Initialize motor drivers
-    M1_MODE = 1;
-    M2_MODE = 1;
-    M3_MODE = 1;
     //*******************************************
 
     InterruptIni();
@@ -148,9 +137,7 @@ void DeviceRobotMotorInit() {
     IniTimer1();
 
     // initialize PWM sub module
-    PWM1Ini();
-    PWM2Ini();
-    PWM3Ini();
+    MotorsInit();
 
     i2c_enable(I2C_BUS2);
     i2c_enable(I2C_BUS3);
@@ -162,9 +149,6 @@ void DeviceRobotMotorInit() {
     power_bus_init();
     FANCtrlIni();
 
-    Coasting(MOTOR_LEFT);
-    Coasting(MOTOR_RIGHT);
-    Coasting(MOTOR_FLIPPER);
 
     // read flipper position from flash, and put it into a module variable
     read_stored_angle_offset();
@@ -177,11 +161,6 @@ void Device_MotorController_Process() {
     UArtTickResult uart_tick_result;
     MotorChannel i;
     long temp1, temp2;
-    // check if software wants to calibrate flipper position
-
-    IC_UpdatePeriods();
-    // Check Timer
-    // Run control loop
 
     if (IFS0bits.T1IF == SET) {
         // Clear interrupt flag
@@ -193,7 +172,7 @@ void Device_MotorController_Process() {
         // check if any timers are expired
 
         if (counter_tick(&closed_loop_control) == COUNTER_EXPIRED) {
-            handle_closed_loop_control(over_current);
+            pid_tick(over_current);
         }
 
         // if any of the timers expired, execute relative codes
@@ -244,6 +223,10 @@ void Device_MotorController_Process() {
 
         // update total current (out of battery)
         REG_PWR_TOTAL_CURRENT = mean_u(SAMPLE_LENGTH, total_cell_current_array);
+
+        // read out measured motor periods.
+        REG_MOTOR_FB_PERIOD_LEFT = (uint16_t)fabs(motor_tach_get_period(0));
+        REG_MOTOR_FB_PERIOD_RIGHT = (uint16_t)fabs(motor_tach_get_period(1));
     }
 
     if (counter_tick(&battery_check) == COUNTER_EXPIRED) {
@@ -430,71 +413,6 @@ void Device_MotorController_Process() {
     }
 }
 
-void Braking(MotorChannel Channel) {
-    switch (Channel) {
-    case MOTOR_LEFT:
-        PWM1Duty(0);
-        M1_COAST = Clear_ActiveLO;
-        M1_BRAKE = Set_ActiveLO;
-        break;
-    case MOTOR_RIGHT:
-        PWM2Duty(0);
-        M2_COAST = Clear_ActiveLO;
-        M2_BRAKE = Set_ActiveLO;
-        break;
-    case MOTOR_FLIPPER:
-        PWM3Duty(0);
-        M3_COAST = Clear_ActiveLO;
-        M3_BRAKE = Set_ActiveLO;
-        break;
-    }
-}
-
-void Coasting(MotorChannel channel) {
-    switch (channel) {
-    case MOTOR_LEFT:
-        PWM1Duty(0);
-        M1_COAST = Set_ActiveLO;
-        M1_BRAKE = Clear_ActiveLO;
-        break;
-    case MOTOR_RIGHT:
-        PWM2Duty(0);
-        M2_COAST = Set_ActiveLO;
-        M2_BRAKE = Clear_ActiveLO;
-        break;
-    case MOTOR_FLIPPER:
-        PWM3Duty(0);
-        M3_COAST = Set_ActiveLO;
-        M3_BRAKE = Clear_ActiveLO;
-        break;
-    }
-}
-
-void UpdateSpeed(MotorChannel channel, int16_t effort) {
-    uint16_t duty = abs(effort);
-
-    switch (channel) {
-    case MOTOR_LEFT:
-        M1_COAST = Clear_ActiveLO;
-        M1_BRAKE = Clear_ActiveLO;
-        M1_DIR = (effort >= 0) ? HI : LO;
-        PWM1Duty(duty);
-        break;
-    case MOTOR_RIGHT:
-        M2_COAST = Clear_ActiveLO;
-        M2_BRAKE = Clear_ActiveLO;
-        M2_DIR = (effort >= 0) ? HI : LO;
-        PWM2Duty(duty);
-        break;
-    case MOTOR_FLIPPER:
-        M3_COAST = Clear_ActiveLO;
-        M3_BRAKE = Clear_ActiveLO;
-        M3_DIR = (effort >= 0) ? HI : LO;
-        PWM3Duty(duty);
-        break;
-    }
-}
-
 //*********************************************//
 
 void set_motor_control_scheme() {
@@ -511,6 +429,9 @@ void set_motor_control_scheme() {
         CLOSED_TO_OPEN_LOOP
     } motor_control_scheme;
 
+    /// The motor control scheme we are currently using.
+    /// Contrast with REG_MOTOR_CLOSED_LOOP, which is the control scheme we have last been requested
+    /// to use.
     static motor_control_scheme scheme = OPEN_LOOP;
 
     // If switching between open loop and closed loop control schemes (REG_MOTOR_CLOSED_LOOP)
@@ -519,26 +440,13 @@ void set_motor_control_scheme() {
     // protection circuitry in the battery, cutting power to the robot
     switch (scheme) {
     case OPEN_LOOP:
-        counter_stop(&closed_loop_control);
-        control_loop_counter++;
-        flipper_control_loop_counter++;
-
-        if (control_loop_counter > 5) {
-            control_loop_counter = 0;
-            motor_efforts[MOTOR_LEFT] = REG_MOTOR_VELOCITY.left;
-            motor_efforts[MOTOR_RIGHT] = REG_MOTOR_VELOCITY.right;
-        }
-
-        if (flipper_control_loop_counter > 15) {
-            flipper_control_loop_counter = 0;
-            motor_efforts[MOTOR_FLIPPER] = REG_MOTOR_VELOCITY.flipper;
-        }
+        motor_efforts[MOTOR_LEFT] = REG_MOTOR_VELOCITY.left;
+        motor_efforts[MOTOR_RIGHT] = REG_MOTOR_VELOCITY.right;
+        motor_efforts[MOTOR_FLIPPER] = REG_MOTOR_VELOCITY.flipper;
 
         if (REG_MOTOR_CLOSED_LOOP)
             scheme = OPEN_TO_CLOSED_LOOP;
-
         break;
-
     case OPEN_TO_CLOSED_LOOP:
         control_loop_counter++;
 
@@ -557,11 +465,9 @@ void set_motor_control_scheme() {
             scheme = CLOSED_LOOP;
 
         break;
-
     case CLOSED_LOOP:
-        counter_resume(&closed_loop_control);
-        set_desired_velocities(REG_MOTOR_VELOCITY.left, REG_MOTOR_VELOCITY.right,
-                               REG_MOTOR_VELOCITY.flipper);
+        pid_set_desired_velocities(REG_MOTOR_VELOCITY.left, REG_MOTOR_VELOCITY.right,
+                                   REG_MOTOR_VELOCITY.flipper);
         motor_efforts[MOTOR_LEFT] = return_closed_loop_control_effort(MOTOR_LEFT);
         motor_efforts[MOTOR_RIGHT] = return_closed_loop_control_effort(MOTOR_RIGHT);
         motor_efforts[MOTOR_FLIPPER] = return_closed_loop_control_effort(MOTOR_FLIPPER);
@@ -575,7 +481,7 @@ void set_motor_control_scheme() {
         break;
 
     case CLOSED_TO_OPEN_LOOP:
-        set_desired_velocities(0, 0, 0);
+        pid_set_desired_velocities(0, 0, 0);
 
         motor_efforts[MOTOR_LEFT] = return_closed_loop_control_effort(MOTOR_LEFT);
         motor_efforts[MOTOR_RIGHT] = return_closed_loop_control_effort(MOTOR_RIGHT);
@@ -610,7 +516,6 @@ void PinRemap(void) {
     // Assign OC3 To Pin M2_AHI
     M3_PWM = 20; // 20 represents OC3
 }
-
 
 void set_firmware_build_time(void) {
     const unsigned char build_date[12] = __DATE__;
@@ -663,72 +568,6 @@ void FANCtrlIni() {
     a_byte = 0;
     i2c_synchronously_await(I2C_BUS2, i2c_op_write_byte(FAN_CONTROLLER_ADDRESS, 0x0b, &a_byte));
 }
-
-/*****************************************************************************/
-//*-----------------------------------Sub system-----------------------------*/
-
-//*-----------------------------------PWM------------------------------------*/
-
-void PWM1Ini(void) {
-    // 1. Configure the OCx output for one of the
-    // available Peripheral Pin Select pins.
-    // done in I/O Init.
-    // 2. Calculate the desired duty cycles and load them
-    // into the OCxR register.
-    OC1R = 0;
-    // 3. Calculate the desired period and load it into the
-    // OCxRS register.
-    /// period in units of ticks of the timer specified by the clock source OCTSEL
-    OC1RS = 2000;
-    // 4. Select the current OCx as the sync source by writing
-    // 0x1F to SYNCSEL<4:0> (OCxCON2<4:0>),
-    // and clearing OCTRIG (OCxCON2<7>).
-    /// 0b11111 = This OC1 Module
-    OC1CON2bits.SYNCSEL = 0x1F;
-    /// 0 = Synchronize OC1 with Source designated with SYNCSEL1 bits
-    OC1CON2bits.OCTRIG = CLEAR;
-    // 5. Select a clock source by writing the
-    // OCTSEL<2:0> (OCxCON<12:10>) bits.
-    /// 0b000 = Timer2
-    OC1CON1bits.OCTSEL = 0b000;
-    // 6. Enable interrupts, if required, for the timer and
-    // output compare modules. The output compare
-    // interrupt is required for PWM Fault pin utilization.
-    // No interrupt needed
-    // 7. Select the desired PWM mode in the OCM<2:0>
-    //(OCxCON1<2:0>) bits.
-    /// 0b110 = Edge-Aligned PWM mode: Output set high when OCxTMR = 0 and set low when OCxTMR =
-    /// OCxR
-    OC1CON1bits.OCM = 0b110;
-    // 8. If a timer is selected as a clock source, set the
-    // TMRy prescale value and enable the time base by
-    // setting the TON (TxCON<15>) bit.
-    // Done in timer Init.
-}
-
-void PWM1Duty(uint16_t Duty) { OC1R = Duty * 2; }
-
-void PWM2Ini(void) {
-    OC2R = 0;
-    OC2RS = 2000;
-    OC2CON2bits.SYNCSEL = 0x1F;
-    OC2CON2bits.OCTRIG = CLEAR;
-    OC2CON1bits.OCTSEL = 0b000; // Timer2
-    OC2CON1bits.OCM = 0b110;
-}
-
-void PWM2Duty(uint16_t Duty) { OC2R = Duty * 2; }
-
-void PWM3Ini(void) {
-    OC3R = 0;
-    OC3RS = 2000;
-    OC3CON2bits.SYNCSEL = 0x1F;
-    OC3CON2bits.OCTRIG = CLEAR;
-    OC3CON1bits.OCTSEL = 0b000; // Timer2
-    OC3CON1bits.OCM = 0b110;
-}
-
-void PWM3Duty(uint16_t Duty) { OC3R = Duty * 2; }
 
 /*****************************************************************************/
 //*-----------------------------------Timer----------------------------------*/
@@ -927,10 +766,8 @@ static void read_stored_angle_offset(void) {
     unsigned char angle_data[3];
     unsigned int i;
     DataEEInit();
-    Nop();
     for (i = 0; i < 3; i++) {
         angle_data[i] = DataEERead(i);
-        Nop();
     }
 
     // only use stored values if we have stored the calibrated values before.
@@ -941,13 +778,13 @@ static void read_stored_angle_offset(void) {
 }
 
 void calibrate_flipper_angle_sensor(void) {
+    MotorChannel i;
+    // Coast all the motors
+    for (EACH_MOTOR_CHANNEL(i)){
+        Coasting(i);
+    }
     flipper_angle_offset =
         return_combined_pot_angle(REG_FLIPPER_FB_POSITION.pot1, REG_FLIPPER_FB_POSITION.pot2);
-
-    // set motor speeds to 0
-    PWM1Duty(0);
-    PWM2Duty(0);
-    PWM3Duty(0);
 
     DataEEInit();
 
@@ -962,4 +799,3 @@ void calibrate_flipper_angle_sensor(void) {
         ClrWdt();
     }
 }
-

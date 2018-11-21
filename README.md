@@ -9,7 +9,7 @@ Released hex files can be found at https://github.com/RoverRobotics/OpenRoverFir
 
 If you are not using MPLAB IDE, you can deploy a hex file with the standalone [PICkit 3 Programmer Application v3.10](http://ww1.microchip.com/downloads/en/DeviceDoc/PICkit3%20Programmer%20Application%20v3.10.zip).
 
-1. If the program says "The PICkit 3 has no Operating System" browse to select an OS hex file for PicKit3. Mine is at `C:\Program Files (x86)\Microchip\PICkit 3 v3\PK3OSV020005.hex`
+1. If the program says "The PICkit 3 has no Operating System", unplug it from the rover and browse to select an OS hex file for PicKit3Mine is at `C:\Program Files (x86)\Microchip\PICkit 3 v3\PK3OSV020005.hex`
 2. File -> Import Hex -> (choose hex file)
 3. Click the Write button
 
@@ -43,7 +43,7 @@ If you want to use MPLAB afterwards, go to Tools -> Revert to MPLAB mode
 
 ## Development
 
-### IDE and built tools
+### IDE and build tools
 
 The MCP files can be opened in [MPLAB IDE v8.92](http://ww1.microchip.com/downloads/en/DeviceDoc/MPLAB_IDE_8_92.zip) (not MPLAB X) and should be built with the  [MIcrochip C30 Toolsuite v3.31](http://ww1.microchip.com/downloads/en/DeviceDoc/mplabc30-v3_31-windows-installer.exe). This contains not only a compiler/linker/assembler but also standard libraries for the PIC24F MCU's.
 
@@ -108,11 +108,10 @@ Given a released hex file, you can deploy to the robot power board with MPLAB in
 The main robot firmware code is the Power Board. This is responsible for communicating with the motors / batteries / fans / serial port.
 
 ```
-$ cd /mnt/c/Users/dan/Documents/OpenRoverFirmware-dan/Power_Board#
+$ cd /mnt/c/Users/dan/Documents/OpenRoverFirmware-dan/Power_Board
 $ tree -h
 .
 ├── [3.1K]  CMakeLists.txt
-├── [ 512]  cmake-build-debug
 ├── [ 512]  doc
 │   ├── [106K]  2011Arm_Base_Datasheet.doc
 │   ├── [107K]  2011Arm_Link1_Datasheet.doc
@@ -120,25 +119,29 @@ $ tree -h
 │   ├── [ 31K]  2011_Robot_PowerBoard200_Evaluation_Datasheet.docx
 │   ├── [ 63K]  2011_Robot_PowerBoardDatasheet.docx
 │   └── [  62]  XbeeModuleConfiguration.txt
-├── [5.4K]  firmware.mcp
+├── [5.7K]  firmware.mcp
 ├── [ 512]  include
 │   ├── [1.5K]  Filters.h
 │   ├── [1.1K]  HardwareProfile.h
-│   ├── [2.9K]  InputCapture.h
 │   ├── [3.5K]  PID.h
-│   ├── [8.6K]  device_robot_motor.h
-│   ├── [ 234]  device_robot_motor_i2c.h
-│   ├── [ 242]  device_robot_motor_loop.h
-│   ├── [5.7K]  i2clib.h
-│   ├── [ 812]  interrupt_switch.h
+│   ├── [ 550]  counter.h
+│   ├── [ 887]  device_power_bus.h
+│   ├── [3.0K]  device_robot_motor.h
+│   ├── [ 182]  device_robot_motor_i2c.h
+│   ├── [ 215]  device_robot_motor_loop.h
+│   ├── [4.2K]  hardware_definitions.h
+│   ├── [6.7K]  i2clib.h
+│   ├── [ 740]  interrupt_switch.h
+│   ├── [1.7K]  motor.h
 │   ├── [ 16K]  registers.h
-│   ├── [1.3K]  stdhdr.h
-│   ├── [  56]  testing.h
-│   ├── [ 726]  uart_control.h
+│   ├── [1.7K]  stdhdr.h
+│   ├── [ 813]  uart_control.h
 │   └── [3.3K]  usb_config.h
 ├── [ 512]  microchip
 │   ├── [5.7K]  Compiler.h
+│   ├── [ 25K]  DEE Emulation 16-bit.c
 │   ├── [5.3K]  DEE Emulation 16-bit.h
+│   ├── [2.6K]  Flash Operations.s
 │   ├── [ 512]  USB
 │   │   ├── [5.9K]  usb.h
 │   │   ├── [ 28K]  usb_ch9.h
@@ -177,25 +180,24 @@ $ tree -h
 │   │   └── [5.8K]  usb_printer_pos_seiko_mpu_l465.h
 │   └── [7.4K]  uart2.h
 └── [ 512]  src
-    ├── [ 25K]  DEE Emulation 16-bit.c
     ├── [ 831]  Filters.c
-    ├── [2.6K]  Flash Operations.s
-    ├── [7.4K]  InputCapture.c
     ├── [3.7K]  PID.c
-    ├── [ 43K]  device_robot_motor.c
-    ├── [7.3K]  device_robot_motor_i2c.c
-    ├── [7.9K]  device_robot_motor_loop.c
-    ├── [ 17K]  i2clib.c
-    ├── [2.6K]  interrupt_switch.c
-    ├── [8.7K]  main.c
-    ├── [1.1K]  stdfunctions.c
-    ├── [   0]  testing.c
-    ├── [7.9K]  uart_control.c
+    ├── [ 649]  counter.c
+    ├── [5.5K]  device_power_bus.c
+    ├── [ 30K]  device_robot_motor.c
+    ├── [6.7K]  device_robot_motor_i2c.c
+    ├── [6.3K]  device_robot_motor_loop.c
+    ├── [ 18K]  i2clib.c
+    ├── [1.6K]  interrupt_switch.c
+    ├── [8.5K]  main.c
+    ├── [ 10K]  motor.c
+    ├── [1.2K]  stdfunctions.c
+    ├── [9.6K]  uart_control.c
     ├── [1.2K]  usb_config.c
     ├── [3.8K]  usb_descriptors.c
     └── [ 97K]  usb_device.c
 
-6 directories, 77 files
+5 directories, 80 files
 ```
 
 firmware.mcp = main project file. Open this with MPLab IDE v8.89
@@ -217,6 +219,9 @@ firmware.mcp = main project file. Open this with MPLab IDE v8.89
     _U1TXInterrupt;
     _ADCInterrupt;
     _T3Interrupt;
+    _IC1Interrupt;
+_IC2Interrupt;
+_IC3Interrupt;
   }
   subgraph cluster_3 {
     label = "device_robot_motor.c";
@@ -253,6 +258,15 @@ firmware.mcp = main project file. Open this with MPLab IDE v8.89
     i2c2_tick -> re_init_i2c2;
     i2c3_tick -> re_init_i2c3;
   }
+subgraph cluster_9 {
+    label = "motor.c";
+    motor_tach_init;
+    motor_tach_event_capture;
+    motor_tach_get_period;
+  }
+_IC1Interrupt-> motor_tach_event_capture;
+_IC2Interrupt-> motor_tach_event_capture;
+_IC3Interrupt-> motor_tach_event_capture;
   _ADCInterrupt -> Motor_ADC1Interrupt;
   _U1TXInterrupt -> uart_tx_isf;
   _U1RXInterrupt -> uart_rx_isf;
@@ -274,6 +288,7 @@ firmware.mcp = main project file. Open this with MPLab IDE v8.89
   handle_closed_loop_control -> PID_Reset_Integral;
   }
 </script>
+
 
 
 ```flow
@@ -376,7 +391,7 @@ extern struct REGISTER registers[];
 
 ### device_robot_motor.c
 
-Weighing in at 3662 lines, this file is a scary mess.
+This file has the main robot logic. It is structured around a synchronous 1 millisecond timer, and just about everything in it runs on a multiple of that timer.
 
 #### Motor_ADC1Interrupt
 

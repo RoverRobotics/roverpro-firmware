@@ -1,7 +1,3 @@
-//
-// Created by dan on 2018-11-13.
-//
-
 #include "counter.h"
 
 

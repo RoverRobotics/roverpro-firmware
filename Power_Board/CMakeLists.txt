@@ -1,24 +1,23 @@
 cmake_minimum_required(VERSION 3.5)
 project(Power_Board)
 
-set(CMAKE_SYSTEM_INCLUDE_PATH /include)
-set(CMAKE_SYSTEM_LIBRARY_PATH /lib)
-set(CMAKE_SYSTEM_PROGRAM_PATH /bin)
+set(CMAKE_C_STANDARD 90)
+
+#set(CMAKE_SYSTEM_INCLUDE_PATH /include)
+#set(CMAKE_SYSTEM_LIBRARY_PATH /lib)
+#set(CMAKE_SYSTEM_PROGRAM_PATH /bin)
 
 if (APPLE)
     set(tools /Applications/microchip/xc16/v1.34)
 endif(APPLE)
 
 if (WIN32)
-    #set(tools "C:/Program Files (x86)/Microchip/MPLAB C30/")
-    set(tools "C:/Program Files (x86)/Microchip/xc16/v1.35/")
+    set(tools "C:/Program Files (x86)/Microchip/MPLAB C30/")
+    #set(tools "C:/Program Files (x86)/Microchip/xc16/v1.35/")
 endif(WIN32)
 
-
-# bypass CMake compiler detection
-set(CMAKE_C_COMPILER_ID_RUN 1)
-set(CMAKE_C_STANDARD_COMPUTED_DEFAULT 90)
-set(CMAKE_C_STANDARD 90)
+# set(CMAKE_C_COMPILER "${tools}/bin/pic30-gcc.exe")
+# set(CMAKE_CXX_COMPILER ${tools}/bin/pic30-gcc.exe)
 set(CMAKE_CROSSCOMPILING ON)
 
 add_definitions(-D__PIC24F__ -D__PIC24FJ256GB106__)
@@ -26,7 +25,6 @@ add_definitions(-D__PIC24F__ -D__PIC24FJ256GB106__)
 include_directories(
         include
         microchip
-
         "${tools}/include"
         "${tools}/support/PIC24F/h"
         "${tools}/support/generic/h"
@@ -34,8 +32,10 @@ include_directories(
         )
 
 add_executable(Power_Board
+    src/counter.c
+    src/device_power_bus.c
     src/Filters.c
-    src/InputCapture.c
+        src/motor.c
     src/PID.c
     src/device_robot_motor.c
     src/device_robot_motor_i2c.c
@@ -48,9 +48,12 @@ add_executable(Power_Board
     src/usb_descriptors.c
     src/usb_device.c
 
+    include/counter.h
+    include/device_power_bus.h
+    include/hardware_definitions.h
     include/Filters.h
     include/HardwareProfile.h
-    include/InputCapture.h
+        include/motor.h
     include/PID.h
     include/device_robot_motor.h
     include/device_robot_motor_i2c.h
@@ -98,4 +101,5 @@ add_executable(Power_Board
     microchip/USB/usb_printer_pos_epson_tm_t88iv.h
     microchip/USB/usb_printer_pos_seiko_dpu_v445.h
     microchip/USB/usb_printer_pos_seiko_mpu_l465.h
-    microchip/uart2.h src/counter.c include/counter.h src/device_power_bus.c include/device_power_bus.h include/hardware_definitions.h)
+    microchip/uart2.h
+    )

@@ -16,6 +16,7 @@
 #include "p24Fxxxx.h"
 #include "stdhdr.h"
 #include "device_robot_motor.h"
+#include "motor.h"
 
 // -------------------------------------------------------------------------
 // PIC24FJ256GB106 FLASH CONFIGURATION
@@ -209,17 +210,9 @@ void ProcessIO(void) {
 
                 // Stop motors
                 // coast left motor
-                M1_COAST = Set_ActiveLO;
-                PWM1Duty(0);
-                M1_BRAKE = Clear_ActiveLO;
-                // coast right motor
-                M2_COAST = Set_ActiveLO;
-                PWM2Duty(0);
-                M2_BRAKE = Clear_ActiveLO;
-                // coast flipper
-                M3_COAST = Set_ActiveLO;
-                PWM1Duty(0);
-                M3_BRAKE = Clear_ActiveLO;
+                Coasting(MOTOR_LEFT);
+                Coasting(MOTOR_RIGHT);
+                Coasting(MOTOR_FLIPPER);
 
                 BREAKPOINT(); // Initial motor velocities out of bounds!
                 while (1) {

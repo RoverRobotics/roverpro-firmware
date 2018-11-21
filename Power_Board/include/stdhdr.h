@@ -18,13 +18,19 @@
 #include <stdbool.h>
 
 // PIC24-specific breakpoint command:
-#define BREAKPOINT() __asm__ __volatile__(".pword 0xDA4000")
+#if __DEBUG
+/// Halt execution for the attached debugger to catch up
+// note the NOP prevents a problem with `switch{default: BREAKPOINT()}`, which would otherwise crash
+#define BREAKPOINT() { __asm__ __volatile__(".pword 0xDA4000"); __asm__ __volatile__("NOP"); }
 #define BREAKPOINT_IF(condition)                                                                   \
     if (condition) {                                                                               \
-        BREAKPOINT();                                                                              \
+        BREAKPOINT();                                                                             \
     }
-
-// PROTOTYPES FOR PROJECT stdfunction.h
+#else
+// when not debugging, BREAKPOINT and BREAKPOINT_IF should do nothing
+#define BREAKPOINT() ((void)0)
+#define BREAKPOINT_IF(condition) ((void)0)
+#endif
 
 /// Block for the specified amount of time. Prevents a Watchdog Timer reset in the event of a long
 /// wait.

@@ -1,6 +1,3 @@
-//
-// Created by dan on 2018-11-13.
-//
 #ifndef COUNTER_H
 #define COUNTER_H
 
@@ -25,4 +22,5 @@ void counter_restart(Counter *c);
 void counter_stop(Counter *c);
 /// Increment the given counter, if it's not paused.
 CounterState counter_tick(Counter *c);
+
 #endif //COUNTER_H

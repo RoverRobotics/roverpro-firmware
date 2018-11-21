@@ -1,6 +1,3 @@
-//
-// Created by dan on 2018-11-13.
-//
 #include "stdhdr.h"
 #include "device_power_bus.h"
 #include "Compiler.h"
