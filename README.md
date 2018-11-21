@@ -19,11 +19,12 @@ If you want to use MPLAB afterwards, go to Tools -> Revert to MPLAB mode
 
 (:sunny: = feature, :umbrella: = bugfix, :snowflake: = nonfunctional change)
 
-### unreleased
+### 1.3.0
 
 * :umbrella: Fix race condition where UART can send corrupted data
 * :sunny: Add encoder counts to queryable robot metrics (14, 16)
 * :snowflake: Delete even more unused code (robot accessories, controllers) and improve code clarity
+* :snowflake: Verified firmware behavior using [Python3 OpenRover driver](https://pypi.org/project/openrover/)
 * :snowflake: Lots of documentation improvements
 
 ### 1.2.1
