@@ -41,10 +41,10 @@ typedef struct {
 } EncoderEvent;
 
 size_t i_next_event[MOTOR_CHANNEL_COUNT];
-static EncoderEvent event_buffer[MOTOR_CHANNEL_COUNT][CAPTURE_BUFFER_COUNT];
+static EncoderEvent event_ring_buffer[MOTOR_CHANNEL_COUNT][CAPTURE_BUFFER_COUNT];
 
 /*---------------------------Interrupt Service Routines (ISRs)----------------*/
-void motor_tach_event_capture(uint8_t which, MotorDir dir, uint16_t captured_value_lo) {
+void motor_tach_event_capture(MotorChannel channel, MotorDir dir, uint16_t captured_value_lo) {
     uint16_t captured_value_hi;
 
     // note reading TMR4 saves the value of TMR5 into TMR5HLD.
@@ -59,11 +59,11 @@ void motor_tach_event_capture(uint8_t which, MotorDir dir, uint16_t captured_val
         captured_value_hi = TMR5HLD - 1;
     }
 
-    event_buffer[which][i_next_event[which]].timestamp =
+    event_ring_buffer[channel][i_next_event[channel]].timestamp =
         ((uint32_t)captured_value_hi << 16) | captured_value_lo;
-    event_buffer[which][i_next_event[which]].dir = dir;
+    event_ring_buffer[channel][i_next_event[channel]].dir = dir;
 
-    i_next_event[which] = (i_next_event[which] + 1) % CAPTURE_BUFFER_COUNT;
+    i_next_event[channel] = (i_next_event[channel] + 1) % CAPTURE_BUFFER_COUNT;
 }
 
 // Interrupt function for PIC24 Input Capture module 1
@@ -71,7 +71,7 @@ void __attribute__((__interrupt__, auto_psv)) _IC1Interrupt(void) {
     _IC1IF = 0; // clear the source of the interrupt
     MotorDir dir = M1_DIRO;
     while (IC1CON1bits.ICBNE) {
-        motor_tach_event_capture(0, dir, IC1BUF);
+        motor_tach_event_capture(MOTOR_LEFT, dir, IC1BUF);
 
         // increase encoder count if motor is moving forward, decrease if backward
         if (dir == MOTOR_DIR_REVERSE)
@@ -86,7 +86,7 @@ void __attribute__((__interrupt__, auto_psv)) _IC2Interrupt(void) {
     _IC2IF = 0;
     MotorDir dir = M2_DIRO;
     while (IC2CON1bits.ICBNE) {
-        motor_tach_event_capture(1, dir, IC2BUF);
+        motor_tach_event_capture(MOTOR_RIGHT, dir, IC2BUF);
 
         if (dir == MOTOR_DIR_REVERSE)
             REG_MOTOR_ENCODER_COUNT.right--;
@@ -100,12 +100,16 @@ void __attribute__((__interrupt__, auto_psv)) _IC3Interrupt(void) {
     _IC3IF = 0;
     MotorDir dir = M3_DIRO;
     while (IC2CON1bits.ICBNE) {
-        motor_tach_event_capture(2, dir, IC3BUF);
+        motor_tach_event_capture(MOTOR_FLIPPER, dir, IC3BUF);
     }
 }
 
 /*---------------------------Public Function Definitions----------------------*/
 void motor_tach_init() {
+    /// We use Timer4 + Timer5 as the basis of our tachometry.
+    /// with a 16 MHz instruction clock a 256 prescale, and a 16 bit input capture, we can measure
+    /// as fast as 1/(16MHz) * 256 = 16 us ~= 3.8 M RPM
+    /// as slow as 1/(16MHz) * 256 * 2**16  = 1.1 s ~= 57 RPM
     InitTimer4Timer5();
 
     InitIC1(M1_TACHO_RPN);
@@ -115,28 +119,34 @@ void motor_tach_init() {
 
 float motor_tach_get_period(MotorChannel channel) {
     BREAKPOINT_IF(channel > MOTOR_CHANNEL_COUNT);
-
     // We are betting we can get through this before the data we're interested in is clobbered.
+
+    // index of second-most-recent event
     size_t i = (i_next_event[channel] - 2 + CAPTURE_BUFFER_COUNT) % CAPTURE_BUFFER_COUNT;
-    size_t j = (i_next_event[channel] + 1) % CAPTURE_BUFFER_COUNT;
-    uint32_t timestamp = event_buffer[channel][j].timestamp;
-    int32_t timestamp_interval = (int32_t)(timestamp - event_buffer[channel][i].timestamp);
-    MotorDir dir = event_buffer[channel][j].dir;
+    // index of most recent event
+    size_t j = (i + 1) % CAPTURE_BUFFER_COUNT;
+
+    uint32_t timestamp = event_ring_buffer[channel][j].timestamp;
+    // even if the integer wrapped around, the difference should be a small integer
+    int32_t timestamp_interval = (int32_t)(timestamp - event_ring_buffer[channel][i].timestamp);
+    MotorDir dir = event_ring_buffer[channel][j].dir;
 
     // if motor changed direction, can't trust encoder
-    if (dir != event_buffer[channel][i].dir)
+    if (dir != event_ring_buffer[channel][i].dir)
         return 0;
 
     // if it's been too long since last timestamp, can't trust encoder
     if (TMR5 - (timestamp >> 16) > 1)
         return 0;
 
-    // adjust the sign according to the direction of motion
-    if (dir)
-        timestamp_interval = -timestamp_interval;
+    // if the motor is moving very slowly (
+    if (timestamp_interval > UINT16_MAX)
+        return 0;
 
-    // scale down to units of 16us
-    return timestamp_interval / 256.f;
+    if (dir == MOTOR_DIR_REVERSE)
+        return -timestamp_interval;
+    else
+        return timestamp_interval;
 }
 
 /*---------------------------Private Function Definitions---------------------*/
@@ -144,6 +154,7 @@ static void InitTimer4Timer5(void) {
     T4CON = T5CON = 0x00;   // clear timers configuration
     TMR4 = TMR5 = 0;        // reset both timers to 0
     PR4 = PR5 = UINT16_MAX; // set timer maximum count.
+    T4CONbits.TCKPS = 0b11; // prescale by 1:256
     T4CONbits.T32 = 1;      // mark timers as forming a 32-bit timer pair
     T4CONbits.TON = 1; // turn on the timer (don't need to enable T5, it is automatically enabled)
 }
