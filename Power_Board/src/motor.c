@@ -35,56 +35,54 @@ typedef enum {
 /*---------------------------Module Variables---------------------------------*/
 typedef struct {
     /// high precision timestamp
-    uint32_t timestamp;
+    uint16_t hi;
+    uint16_t lo;
     /// direction that the motor is spinning
     MotorDir dir;
 } EncoderEvent;
 
-size_t i_next_event[MOTOR_CHANNEL_COUNT];
-static EncoderEvent event_ring_buffer[MOTOR_CHANNEL_COUNT][CAPTURE_BUFFER_COUNT];
+static volatile size_t i_next_event[MOTOR_CHANNEL_COUNT];
+static volatile EncoderEvent event_ring_buffer[MOTOR_CHANNEL_COUNT][CAPTURE_BUFFER_COUNT];
 
 /*---------------------------Interrupt Service Routines (ISRs)----------------*/
 void motor_tach_event_capture(MotorChannel channel, MotorDir dir, uint16_t captured_value_lo) {
-    uint16_t captured_value_hi;
+    EncoderEvent event;
 
+    event.lo = captured_value_lo;
     // note reading TMR4 saves the value of TMR5 into TMR5HLD.
     // This is needed since reading TMR4 then TMR5 is not atomic
-    if (TMR4 > captured_value_lo) {
+    if (TMR4 >= captured_value_lo) {
         // TMR4 did not yet carry into TMR5
-        captured_value_hi = TMR5HLD;
+        event.hi = TMR5HLD;
     } else {
         // TMR4 did carry into TMR5
         // We assume it only overflowed once, that is timer4 did not go through a whole
         // 2**16 * PCY = 2**16 / 16 MHz = 4 milliseconds cycle
-        captured_value_hi = TMR5HLD - 1;
+        event.hi = TMR5HLD - 1;
     }
 
-    event_ring_buffer[channel][i_next_event[channel]].timestamp =
-        ((uint32_t)captured_value_hi << 16) | captured_value_lo;
-    event_ring_buffer[channel][i_next_event[channel]].dir = dir;
-
-    i_next_event[channel] = (i_next_event[channel] + 1) % CAPTURE_BUFFER_COUNT;
+    event.dir = dir;
+    event_ring_buffer[channel][i_next_event[channel]] = event;
+    i_next_event[channel] = (i_next_event[channel] + 1u) % CAPTURE_BUFFER_COUNT;
 }
 
 // Interrupt function for PIC24 Input Capture module 1
 void __attribute__((__interrupt__, auto_psv)) _IC1Interrupt(void) {
-    _IC1IF = 0; // clear the source of the interrupt
-    MotorDir dir = M1_DIRO;
+    MotorDir dir = (M1_DIRO ? MOTOR_DIR_REVERSE : MOTOR_DIR_FORWARD);
     while (IC1CON1bits.ICBNE) {
         motor_tach_event_capture(MOTOR_LEFT, dir, IC1BUF);
 
-        // increase encoder count if motor is moving forward, decrease if backward
         if (dir == MOTOR_DIR_REVERSE)
             REG_MOTOR_ENCODER_COUNT.left--;
         else
             REG_MOTOR_ENCODER_COUNT.left++;
     }
+    _IC1IF = 0; // clear the source of the interrupt
 }
 
 // Interrupt function for PIC24 Input Capture module 2
 void __attribute__((__interrupt__, auto_psv)) _IC2Interrupt(void) {
-    _IC2IF = 0;
-    MotorDir dir = M2_DIRO;
+    MotorDir dir = (M2_DIRO ? MOTOR_DIR_REVERSE : MOTOR_DIR_FORWARD);
     while (IC2CON1bits.ICBNE) {
         motor_tach_event_capture(MOTOR_RIGHT, dir, IC2BUF);
 
@@ -93,15 +91,16 @@ void __attribute__((__interrupt__, auto_psv)) _IC2Interrupt(void) {
         else
             REG_MOTOR_ENCODER_COUNT.right++;
     }
+    _IC2IF = 0;
 }
 
 // Interrupt function for PIC24 Input Capture module 3
 void __attribute__((__interrupt__, auto_psv)) _IC3Interrupt(void) {
-    _IC3IF = 0;
-    MotorDir dir = M3_DIRO;
+    MotorDir dir = (M3_DIRO ? MOTOR_DIR_REVERSE : MOTOR_DIR_FORWARD);
     while (IC2CON1bits.ICBNE) {
         motor_tach_event_capture(MOTOR_FLIPPER, dir, IC3BUF);
     }
+    _IC3IF = 0;
 }
 
 /*---------------------------Public Function Definitions----------------------*/
@@ -122,38 +121,40 @@ float motor_tach_get_period(MotorChannel channel) {
     // We are betting we can get through this before the data we're interested in is clobbered.
 
     // index of second-most-recent event
-    size_t i = (i_next_event[channel] - 2 + CAPTURE_BUFFER_COUNT) % CAPTURE_BUFFER_COUNT;
-    // index of most recent event
-    size_t j = (i + 1) % CAPTURE_BUFFER_COUNT;
+    size_t i = (i_next_event[channel] + CAPTURE_BUFFER_COUNT - 2) % CAPTURE_BUFFER_COUNT;
 
-    uint32_t timestamp = event_ring_buffer[channel][j].timestamp;
-    // even if the integer wrapped around, the difference should be a small integer
-    int32_t timestamp_interval = (int32_t)(timestamp - event_ring_buffer[channel][i].timestamp);
-    MotorDir dir = event_ring_buffer[channel][j].dir;
+    EncoderEvent event0 = event_ring_buffer[channel][i];
+    EncoderEvent event1 = event_ring_buffer[channel][(i + 1) % CAPTURE_BUFFER_COUNT];
+    uint16_t interval = event1.lo - event0.lo;
 
     // if motor changed direction, can't trust encoder
-    if (dir != event_ring_buffer[channel][i].dir)
+    if (event0.dir != event1.dir)
         return 0;
 
     // if it's been too long since last timestamp, can't trust encoder
-    if (TMR5 - (timestamp >> 16) > 1)
+    if (TMR5 - event1.hi > 1)
         return 0;
 
-    // if the motor is moving very slowly (
-    if (timestamp_interval > UINT16_MAX)
+    // if the motor is moving very slowly (<~1hz)
+    if (event1.hi - event0.hi > 1)
         return 0;
 
-    if (dir == MOTOR_DIR_REVERSE)
-        return -timestamp_interval;
+    if (event1.hi - event0.hi == 1 && event1.lo > event0.lo)
+        return 0;
+
+    if (event1.dir == MOTOR_DIR_REVERSE)
+        return -(float)interval;
     else
-        return timestamp_interval;
+        return +(float)interval;
 }
 
 /*---------------------------Private Function Definitions---------------------*/
 static void InitTimer4Timer5(void) {
-    T4CON = T5CON = 0x00;   // clear timers configuration
-    TMR4 = TMR5 = 0;        // reset both timers to 0
-    PR4 = PR5 = UINT16_MAX; // set timer maximum count.
+    T4CON = T5CON = 0x00; // clear timers configuration
+    TMR4 = 0;             // reset both timers to 0
+    TMR5 = 0;
+    PR4 = UINT16_MAX; // set timer maximum count.
+    PR5 = UINT16_MAX;
     T4CONbits.TCKPS = 0b11; // prescale by 1:256
     T4CONbits.T32 = 1;      // mark timers as forming a 32-bit timer pair
     T4CONbits.TON = 1; // turn on the timer (don't need to enable T5, it is automatically enabled)
@@ -235,7 +236,7 @@ void PWM1Ini() {
     OC1R = 0;
     // 3. Calculate the desired period and load it into the
     // OCxRS register.
-    /// period in units of ticks of the timer specified by the clock source OCTSEL
+    /// period in units of ticks of the timer \ecified by the clock source OCTSEL
     OC1RS = 2000;
     // 4. Select the current OCx as the sync source by writing
     // 0x1F to SYNCSEL<4:0> (OCxCON2<4:0>),

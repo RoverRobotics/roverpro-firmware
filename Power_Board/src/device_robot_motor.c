@@ -1,6 +1,5 @@
 /// @file high-level motor control and main event loop.
 
-
 #include <p24Fxxxx.h>
 #include "stdhdr.h"
 #include "device_robot_motor.h"
@@ -122,7 +121,6 @@ void DeviceRobotMotorInit() {
     M3_POS_FB_1_EN(1);
     M3_POS_FB_2_EN(1);
 
-
     // I/O initializing complete
 
     // Initialize motor drivers
@@ -136,8 +134,10 @@ void DeviceRobotMotorInit() {
     IniTimer3();
     IniTimer1();
 
-    // initialize PWM sub module
+    // initialize motor control
     MotorsInit();
+    // initialize motor tachometer feedback
+    motor_tach_init();
 
     i2c_enable(I2C_BUS2);
     i2c_enable(I2C_BUS3);
@@ -148,7 +148,6 @@ void DeviceRobotMotorInit() {
 
     power_bus_init();
     FANCtrlIni();
-
 
     // read flipper position from flash, and put it into a module variable
     read_stored_angle_offset();
@@ -225,8 +224,8 @@ void Device_MotorController_Process() {
         REG_PWR_TOTAL_CURRENT = mean_u(SAMPLE_LENGTH, total_cell_current_array);
 
         // read out measured motor periods.
-        REG_MOTOR_FB_PERIOD_LEFT = (uint16_t)fabs(motor_tach_get_period(0));
-        REG_MOTOR_FB_PERIOD_RIGHT = (uint16_t)fabs(motor_tach_get_period(1));
+        REG_MOTOR_FB_PERIOD_LEFT = (uint16_t)fabs(motor_tach_get_period(MOTOR_LEFT));
+        REG_MOTOR_FB_PERIOD_RIGHT = (uint16_t)fabs(motor_tach_get_period(MOTOR_RIGHT));
     }
 
     if (counter_tick(&battery_check) == COUNTER_EXPIRED) {
@@ -780,7 +779,7 @@ static void read_stored_angle_offset(void) {
 void calibrate_flipper_angle_sensor(void) {
     MotorChannel i;
     // Coast all the motors
-    for (EACH_MOTOR_CHANNEL(i)){
+    for (EACH_MOTOR_CHANNEL(i)) {
         Coasting(i);
     }
     flipper_angle_offset =

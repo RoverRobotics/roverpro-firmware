@@ -39,7 +39,6 @@ static int desired_velocity_right = 0;
 static int desired_velocity_flipper = 0;
 
 void closed_loop_control_init(void) {
-    motor_tach_init();
     PID_Init(LEFT_CONTROLLER, MAX_EFFORT, MIN_EFFORT, K_P, K_I, K_D);
     PID_Init(RIGHT_CONTROLLER, MAX_EFFORT, MIN_EFFORT, K_P, K_I, K_D);
 }
@@ -113,12 +112,12 @@ int return_closed_loop_control_effort(MotorChannel motor) {
 
 float DT_speed(MotorChannel motor) {
 #define HZ_16US 100000.0f
-
     float period = 0;
     period = motor_tach_get_period(motor);
-    if (period != 0) {
+    if (period == 0)
+        return 0.0f;
+    else
         return (HZ_16US / period);
-    }
 }
 
 // Description: Returns the approximate steady-state effort required to
