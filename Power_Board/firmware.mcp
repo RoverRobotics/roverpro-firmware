@@ -78,6 +78,7 @@ file_050=include
 file_051=include
 file_052=mplab c30
 file_053=mplab c30
+file_054=mplab c30
 [GENERATED_FILES]
 file_000=no
 file_001=no
@@ -133,6 +134,7 @@ file_050=no
 file_051=no
 file_052=no
 file_053=no
+file_054=no
 [OTHER_FILES]
 file_000=no
 file_001=no
@@ -188,6 +190,7 @@ file_050=no
 file_051=no
 file_052=no
 file_053=no
+file_054=no
 [FILE_INFO]
 file_000=src\device_robot_motor.c
 file_001=src\device_robot_motor_i2c.c
@@ -243,6 +246,7 @@ file_050=include\hardware_definitions.h
 file_051=include\motor.h
 file_052=..\..\..\..\..\program files (x86)\microchip\mplab c30\support\PIC24F\h\p24FJ256GB106.h
 file_053=..\..\..\..\..\program files (x86)\microchip\mplab c30\support\PIC24F\h\p24Fxxxx.h
+file_054=..\..\..\..\..\program files (x86)\microchip\mplab c30\include\math.h
 [SUITE_INFO]
 suite_guid={479DDE59-4D56-455E-855E-FFF59A3DB57E}
 suite_state=

@@ -23,26 +23,28 @@ static void PWM2Duty(uint16_t duty);
 /// Set duty cycle for pwm channel 3 (flipper motor). 0 <= Duty <= 1000
 static void PWM3Duty(uint16_t duty);
 
+/// IC module constant: Clock source of Timer4 is the clock source of the capture counter
+static const uint16_t IC_SELECT_TIMER4 = 0b010;
+
+/// Motor direction constants for M1_DIR and M1_DIRO bits as well as other motors
 typedef enum {
-    IC_TIMER_SYSTEM = 0b111,
-    IC_TIMER1 = 0b100,
-    IC_TIMER2 = 0b001,
-    IC_TIMER3 = 0b000,
-    IC_TIMER4 = 0b010,
-    IC_TIMER5 = 0b011,
-} ICTimer;
+    MOTOR_DIR_FORWARD = 1,
+    MOTOR_DIR_REVERSE = 0,
+} MotorDir;
 
 /*---------------------------Module Variables---------------------------------*/
 typedef struct {
+    /// high precision timestamp
     uint32_t timestamp;
-    bool dir;
+    /// direction that the motor is spinning
+    MotorDir dir;
 } EncoderEvent;
 
 size_t i_next_event[MOTOR_CHANNEL_COUNT];
 static EncoderEvent event_buffer[MOTOR_CHANNEL_COUNT][CAPTURE_BUFFER_COUNT];
 
 /*---------------------------Interrupt Service Routines (ISRs)----------------*/
-void motor_tach_event_capture(uint8_t which, bool dir, uint16_t captured_value_lo) {
+void motor_tach_event_capture(uint8_t which, MotorDir dir, uint16_t captured_value_lo) {
     uint16_t captured_value_hi;
 
     // note reading TMR4 saves the value of TMR5 into TMR5HLD.
@@ -67,12 +69,12 @@ void motor_tach_event_capture(uint8_t which, bool dir, uint16_t captured_value_l
 // Interrupt function for PIC24 Input Capture module 1
 void __attribute__((__interrupt__, auto_psv)) _IC1Interrupt(void) {
     _IC1IF = 0; // clear the source of the interrupt
-    bool dir = M1_DIRO;
+    MotorDir dir = M1_DIRO;
     while (IC1CON1bits.ICBNE) {
         motor_tach_event_capture(0, dir, IC1BUF);
 
         // increase encoder count if motor is moving forward, decrease if backward
-        if (dir)
+        if (dir == MOTOR_DIR_REVERSE)
             REG_MOTOR_ENCODER_COUNT.left--;
         else
             REG_MOTOR_ENCODER_COUNT.left++;
@@ -82,12 +84,11 @@ void __attribute__((__interrupt__, auto_psv)) _IC1Interrupt(void) {
 // Interrupt function for PIC24 Input Capture module 2
 void __attribute__((__interrupt__, auto_psv)) _IC2Interrupt(void) {
     _IC2IF = 0;
-    bool dir = M2_DIRO;
+    MotorDir dir = M2_DIRO;
     while (IC2CON1bits.ICBNE) {
         motor_tach_event_capture(1, dir, IC2BUF);
 
-        // increase encoder count if motor is moving forward, decrease if backward
-        if (dir)
+        if (dir == MOTOR_DIR_REVERSE)
             REG_MOTOR_ENCODER_COUNT.right--;
         else
             REG_MOTOR_ENCODER_COUNT.right++;
@@ -97,7 +98,7 @@ void __attribute__((__interrupt__, auto_psv)) _IC2Interrupt(void) {
 // Interrupt function for PIC24 Input Capture module 3
 void __attribute__((__interrupt__, auto_psv)) _IC3Interrupt(void) {
     _IC3IF = 0;
-    bool dir = M3_DIRO;
+    MotorDir dir = M3_DIRO;
     while (IC2CON1bits.ICBNE) {
         motor_tach_event_capture(2, dir, IC3BUF);
     }
@@ -120,7 +121,7 @@ float motor_tach_get_period(MotorChannel channel) {
     size_t j = (i_next_event[channel] + 1) % CAPTURE_BUFFER_COUNT;
     uint32_t timestamp = event_buffer[channel][j].timestamp;
     int32_t timestamp_interval = (int32_t)(timestamp - event_buffer[channel][i].timestamp);
-    bool dir = event_buffer[channel][j].dir;
+    MotorDir dir = event_buffer[channel][j].dir;
 
     // if motor changed direction, can't trust encoder
     if (dir != event_buffer[channel][i].dir)
@@ -164,7 +165,7 @@ static void InitIC1(uint8_t RPn) {
 static void InitIC2(uint8_t RPn) {
     IC2CON1 = 0x00; // reset the input capture module
 
-    IC2CON1bits.ICTSEL = IC_TIMER4;
+    IC2CON1bits.ICTSEL = IC_SELECT_TIMER4;
     IC2CON1bits.ICI = 0b00;
     IC2CON1bits.ICM = 0b011;
 
@@ -176,7 +177,7 @@ static void InitIC2(uint8_t RPn) {
 static void InitIC3(uint8_t RPn) {
     IC3CON1 = 0x00; // reset the input capture module
 
-    IC3CON1bits.ICTSEL = IC_TIMER4;
+    IC3CON1bits.ICTSEL = IC_SELECT_TIMER4;
     IC3CON1bits.ICI = 0b00;
     IC3CON1bits.ICM = 0b011;
 
@@ -202,7 +203,6 @@ void MotorsInit() {
     M3_BRAKE_EN(1);
     M3_MODE_EN(1);
     M3_COAST_EN(1);
-
 
     MotorChannel i;
     for (EACH_MOTOR_CHANNEL(i))
@@ -323,19 +323,19 @@ void UpdateSpeed(MotorChannel channel, int16_t effort) {
     case MOTOR_LEFT:
         M1_COAST = Clear_ActiveLO;
         M1_BRAKE = Clear_ActiveLO;
-        M1_DIR = (effort >= 0) ? HI : LO;
+        M1_DIR = (effort >= 0) ? MOTOR_DIR_FORWARD : MOTOR_DIR_REVERSE;
         PWM1Duty(duty);
         break;
     case MOTOR_RIGHT:
         M2_COAST = Clear_ActiveLO;
         M2_BRAKE = Clear_ActiveLO;
-        M2_DIR = (effort >= 0) ? HI : LO;
+        M2_DIR = (effort >= 0) ? MOTOR_DIR_FORWARD : MOTOR_DIR_REVERSE;
         PWM2Duty(duty);
         break;
     case MOTOR_FLIPPER:
         M3_COAST = Clear_ActiveLO;
         M3_BRAKE = Clear_ActiveLO;
-        M3_DIR = (effort >= 0) ? HI : LO;
+        M3_DIR = (effort >= 0) ? MOTOR_DIR_FORWARD : MOTOR_DIR_REVERSE;
         PWM3Duty(duty);
         break;
     }
