@@ -8,21 +8,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-/** I2C ack bit. Transmitted in response to any data received. */
-typedef enum I2CAck {
-    ACK = 0,  ///< ACKnowledge: the byte was successfully received and another byte may be sent
-    NACK = 1, ///< Not ACKnowledge: either there is no receiver able to respond, the last command
-    ///< wasn't understood, the receiver can't process any more data. Upon receiving a NACK, the
-    ///< right thing to do is to stop.
-} I2CAck;
-
-/** I2C read/write bit. This always accompanies the address of a device and indicates whether we are
- * writing to or reading from the device*/
-typedef enum I2CReadWrite {
-    I2C_WRITE = 0, ///< The slave address is being opened in WRITE mode. We will transmit data.
-    I2C_READ = 1,  ///< The slave address is being opened in READ mode. We will receive data.
-} I2CReadWrite;
-
 /** The result of an I2C operation. */
 typedef enum I2CResult {
     I2C_NOTYET,  ///< Bus is still busy with the last operation. Try again in a bit.
@@ -40,57 +25,65 @@ typedef enum I2CResult {
                           ///< expected to send data. This means either the device is not present or
                           ///< we sent it more data than it was expecting.
     I2C_ERROR_NACK_READ, ///< Device NACKED when were expecting it to send data.
-
 } I2CResult;
 
+#ifdef __PIC24FJ256GB106__
 /// Reference to the I2C bus definition. The caller should treat this as an opaque type
 typedef const struct I2CBusDefinition *I2CBus;
-
-void i2c_enable(I2CBus bus);
-void i2c_disable(I2CBus bus);
-I2CResult i2c_start(I2CBus bus);
-I2CResult i2c_stop(I2CBus bus);
-I2CResult i2c_restart(I2CBus bus);
-I2CResult i2c_request_byte(I2CBus bus);
-I2CResult i2c_address(I2CBus bus, uint8_t addr, I2CReadWrite r);
-I2CResult i2c_transmit_byte(I2CBus bus, uint8_t data);
-I2CResult i2c_check_ack(I2CBus bus, I2CAck *ack);
-
 /** These are the I2C buses available on our hardware (PIC24). */
-#ifdef __PIC24FJ256GB106__
-
 extern const I2CBus I2C_BUS1;
 extern const I2CBus I2C_BUS2;
 extern const I2CBus I2C_BUS3;
-
 #endif
 
-/** Represents an asynchronous operation. */
+void i2c_enable(I2CBus bus);
+void i2c_disable(I2CBus bus);
+
+/// The definition of a particular I2C operation
 typedef struct I2COperationDef {
+    /// Target device address, excluding the RW flag (7 bits)
     uint8_t address;
+    /// If true, the operation does not require a command byte
     bool no_command_byte;
+    /// Ignored if `no_command_byte == true`. The command byte usually specifies which data element
+    /// we will read/write
     uint8_t command_byte;
+    /// If true, we prepend the write data with its length
     bool write_starts_with_len;
+    /// Size of the data we intend to write, in bytes. e.g. 2 for an I2C "Write Word"
     uint8_t size_writebuf;
+    /// Pointer to the data to write to the device. Should be at least as big as `size_writebuf`
     uint8_t *writebuf;
+    /// If true, we interpret the first received byte as the byte length of the inbound data.
     bool read_starts_with_len;
+    /// Size of the readbuf in bytes. e.g. 2 for an I2C "Read Word"
     uint8_t size_readbuf;
+    /// Pointer to a buffer to hold inbound data from the device. Should be at least as big as
+    /// `size_readbuf`
     uint8_t *readbuf;
 } I2COperationDef;
 
+/// Declare (but don't start) an I2C Read Byte operation
 I2COperationDef i2c_op_read_byte(uint8_t address, uint8_t command_byte, uint8_t *byte_to_read);
+/// Declare (but don't start) an I2C Read Word operation
 I2COperationDef i2c_op_read_word(uint8_t address, uint8_t command_byte, uint16_t *word_to_read);
-I2COperationDef i2c_op_read_block(uint8_t address, uint8_t command_byte, uint8_t *block_to_read,
+/// Declare (but don't start) an I2C Read Block operation
+I2COperationDef i2c_op_read_block(uint8_t address, uint8_t command_byte, void *block_to_read,
                                   uint8_t maxlen);
-
+/// Declare (but don't start) an I2C Write Byte operation
 I2COperationDef i2c_op_write_byte(uint8_t address, uint8_t command_byte,
                                   const uint8_t *byte_to_write);
+/// Declare (but don't start) an I2C Write Word operation
 I2COperationDef i2c_op_write_word(uint8_t address, uint8_t command_byte,
                                   const uint16_t *word_to_write);
-I2COperationDef i2c_op_write_block(uint8_t address, uint8_t command_byte, uint8_t *block_to_write,
+/// Declare (but don't start) an I2C Write Block operation
+I2COperationDef i2c_op_write_block(uint8_t address, uint8_t command_byte, void *block_to_write,
                                    uint8_t maxlen);
-/** A logical step of the I2C protocol. */
-typedef enum I2CResumeAt {
+
+/// A logical step of an I2C protocol.
+/// Not every stage is relevant to every I2C operation, and some stages may be executed multiple
+/// times. e.g. I2C_STEP_TRANSMIT is executed once for every sent byte
+typedef enum I2CProtocolStep {
     I2C_STEP_UNSTARTED = 0,
     I2C_STEP_START,
     I2C_STEP_ADDRESS_W,
@@ -106,29 +99,48 @@ typedef enum I2CResumeAt {
     I2C_STEP_RECEIVE,
     I2C_STEP_SEND_NACK,
     I2C_STEP_STOP,
-} I2CResumeAt;
+} I2CProtocolStep;
 
-/// Represents the progress of the I2C operation, not including the actual physical data already
-/// read
+/// The progress of the I2C operation.
 typedef struct I2CProgress {
-    I2CResumeAt resume_at;   ///< The next logical step of the I2C process
-    uint8_t nbytes_written;  ///< number of bytes we have already written. If the I2C operation ends
-                             ///< early, this may be less than nbytes_write_len
-    uint8_t nbytes_read_len; ///< number of bytes we intend to read. In the case of a block read,
-                             ///< this does not include the length byte
-    uint8_t nbytes_read;     ///< number of bytes we have already read.
-    I2CResult result_after_stop; ///< The result that we will eventually return. If we terminate the
-                                 ///< I2C operation early from an unexpected NACK or bus collision,
-                                 ///< this will hold that value while we issue a STOP condition.
+    /// The next logical step of the I2C process
+    I2CProtocolStep resume_at;
+    /// number of bytes we have already written. If the I2C operation ends early, this may be less
+    /// than nbytes_write_len
+    uint8_t nbytes_written;
+    /// number of bytes we intend to read. In the case of a block read, this does not include the
+    /// length byte
+    uint8_t nbytes_read_len;
+    /// number of bytes we have already read.
+    uint8_t nbytes_read;
+    /// The result that we will eventually return. If we terminate the I2C operation early from an
+    /// unexpected NACK or bus collision, this will hold that value while we issue a STOP condition.
+    I2CResult result_after_stop;
 } I2CProgress;
 
+/// The progress of an unstarted I2C transaction.
+/// When calling i2c_tick, create a copy of this value and pass it, by reference, as the `progress`
+/// argument
 static const I2CProgress I2C_PROGRESS_UNSTARTED = {.resume_at = I2C_STEP_UNSTARTED};
 
 /// Asynchronously do the given operation. This function will continuously return I2C_NOTYET until
 /// it's finished, then it will return either I2C_OKAY or I2C_ERROR
+/// @param bus Which I2C bus to perform the I2C operation. A bus is stateful and may NOT interleave
+/// different asynchronous operations on the same bus.
+/// @param op Operation definition to perform
+/// @param progress (in/out) status of the current I2C operation. Repeated calls to i2c_tick with a
+/// given bus should reuse the same progress struct until i2c_tick returns a value other than
+/// I2C_NOTYET
+/// @return * I2C_NOTYET if the operation is not yet complete.
+///         * I2C_OKAY if the operation completed successfully
+///         * other values if the operation failed
 I2CResult i2c_tick(I2CBus bus, const I2COperationDef *op, I2CProgress *progress);
 
 /// Synchronously force the operation to completion
+/// @param bus Which I2C bus to perform the I2C operation.
+/// @return I2C_NOTYET if the operation is not yet complete.
+///          I2C_OKAY if the operation completed successfully
+///          other values if the operation failed
 I2CResult i2c_synchronously_await(I2CBus bus, I2COperationDef op);
 
 #endif

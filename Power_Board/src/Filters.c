@@ -14,7 +14,7 @@ float IIRFilter(const uint8_t i, const float x, const float alpha, const bool sh
     static float y_lasts[MAX_N_FILTERS] = {0};
     if (should_reset)
         y_lasts[i] = 0;
-    float y = alpha * y_lasts[i] + (1.0 - alpha) * x;
+    float y = alpha * y_lasts[i] + (1.0f - alpha) * x;
     y_lasts[i] = y;
 
     return y;

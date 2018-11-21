@@ -1,17 +1,9 @@
-#include <p24fxxxx.h>
+#include <p24Fxxxx.h>
 #include "stdhdr.h"
 #include "device_robot_motor_loop.h"
-#include "device_robot_motor.h"
-#include "InputCapture.h"
-
-#define M1_TACHO_RPN 12 // RP12
-#define M2_TACHO_RPN 16
+#include "motor.h"
 
 #include "PID.h"
-
-/*---------------------------Helper Function Prototypes-----------------------*/
-/*---------------------------IC Related---------------------------------------*/
-#define MAX_NUM_IC_PINS 2
 
 /*---------------------------PID Related--------------------------------------*/
 /*---------------------------Filter Related-----------------------------------*/
@@ -26,13 +18,11 @@ float IIRFilter(uint8_t i, float x, float alpha, bool should_reset);
 #define LEFT_CONTROLLER 0
 #define RIGHT_CONTROLLER 1
 
-#define MAX_EFFORT 1.00 // maximum control effort magnitude (can also be -1000)
-#define MIN_EFFORT -1.00
+#define MAX_EFFORT 1.00f // maximum control effort magnitude (can also be -1000)
+#define MIN_EFFORT -1.00f
 #define K_P 0.0005   // proportional gain
 #define K_I 0.00003  // integral gain
 #define K_D 0.000000 // differential gain
-
-#define UART_CONTROL
 
 // OCU speed filter-related values
 #define MAX_DESIRED_SPEED 900 // [au], caps incoming signal from OCU
@@ -49,14 +39,12 @@ static int desired_velocity_right = 0;
 static int desired_velocity_flipper = 0;
 
 void closed_loop_control_init(void) {
-    IC_Init(kIC01, M1_TACHO_RPN, 1000);
-    IC_Init(kIC02, M2_TACHO_RPN, 1000);
     PID_Init(LEFT_CONTROLLER, MAX_EFFORT, MIN_EFFORT, K_P, K_I, K_D);
     PID_Init(RIGHT_CONTROLLER, MAX_EFFORT, MIN_EFFORT, K_P, K_I, K_D);
 }
 
 // this runs every 10ms
-void handle_closed_loop_control(bool OverCurrent) {
+void pid_tick(bool OverCurrent) {
 
     static unsigned int stop_counter = 0;
 
@@ -69,8 +57,9 @@ void handle_closed_loop_control(bool OverCurrent) {
 
     // Filter drive motor speeds
     float desired_speed_left = IIRFilter(LMOTOR_FILTER, GetDesiredSpeed(MOTOR_LEFT), ALPHA, false);
-    float desired_speed_right = IIRFilter(RMOTOR_FILTER, GetDesiredSpeed(MOTOR_RIGHT), ALPHA, false);
-#ifndef UART_CONTROL
+    float desired_speed_right =
+        IIRFilter(RMOTOR_FILTER, GetDesiredSpeed(MOTOR_RIGHT), ALPHA, false);
+
     // if the user releases the joystick, come to a relatively quick stop by clearing the integral
     // term
     if ((abs(REG_MOTOR_VELOCITY.left) < 50) && (abs(REG_MOTOR_VELOCITY.right) < 50)) {
@@ -83,26 +72,9 @@ void handle_closed_loop_control(bool OverCurrent) {
         desired_speed_left = 0;
         desired_speed_right = 0;
     }
-#endif
-
-#ifdef UART_CONTROL
-    // if the user releases the joystick, come to a relatively quick stop by clearing the integral
-    // term
-    if ((abs(uart_motor_velocity[MOTOR_LEFT]) < 50) &&
-        (abs(uart_motor_velocity[MOTOR_RIGHT]) < 50)) {
-        PID_Reset_Integral(MOTOR_LEFT);
-        PID_Reset_Integral(MOTOR_RIGHT);
-
-        // If user releases joystick, reset the IIR filter
-        IIRFilter(LMOTOR_FILTER, 0, ALPHA, true);
-        IIRFilter(RMOTOR_FILTER, 0, ALPHA, true);
-        desired_speed_left = 0;
-        desired_speed_right = 0;
-    }
-#endif
 
     // update the flipper
-    float desired_flipper_speed = desired_velocity_flipper / 1200.0;
+    float desired_flipper_speed = desired_velocity_flipper / 1200.0f;
 
     closed_loop_effort[MOTOR_FLIPPER] = desired_flipper_speed;
 
@@ -138,62 +110,33 @@ int return_closed_loop_control_effort(MotorChannel motor) {
     return (int)(closed_loop_effort[motor] * 1000.0);
 }
 
-float DT_speed(const MotorChannel motor) {
-#define HZ_16US 100000.0
-
+float DT_speed(MotorChannel motor) {
+#define HZ_16US 100000.0f
     float period = 0;
-    switch (motor) {
-    case MOTOR_LEFT: {
-        period = IC_period(kIC01);
-        if (period != 0) {
-            if (M1_DIRO)
-                return -(HZ_16US / period);
-            else
-                return (HZ_16US / period);
-        }
-        break;
-    }
-    case MOTOR_RIGHT: {
-        period = IC_period(kIC02);
-        if (period != 0) {
-            if (M2_DIRO)
-                return (HZ_16US / period);
-            else
-                return -(HZ_16US / period);
-        }
-        break;
-    }
-    case MOTOR_FLIPPER: {
-        period = IC_period(kIC03);
-        if (period != 0) {
-            if (M3_DIR)
-                return (HZ_16US / period);
-            else
-                return -(HZ_16US / period);
-        }
-        break;
-    }
-    }
-    return 0;
+    period = motor_tach_get_period(motor);
+    if (period == 0)
+        return 0.0f;
+    else
+        return (HZ_16US / period);
 }
 
 // Description: Returns the approximate steady-state effort required to
 //   maintain the given desired speed of a drive motor.
-static float GetNominalDriveEffort(const float desired_speed) {
+static float GetNominalDriveEffort(float desired_speed) {
     // NB: transfer function found empirically (see spreadsheet for data)
     if (desired_speed == 0)
         return 0;
     else if (desired_speed < 0)
-        return ((0.0007 * desired_speed) - 0.0067);
+        return ((0.0007f * desired_speed) - 0.0067f);
     else
-        return ((0.0007 * desired_speed) + 0.0067);
+        return ((0.0007f * desired_speed) + 0.0067f);
 }
 
 // Description: Maps the incoming control data to suitable values
 // Notes:
 //   - special-cases turning in place to higher values to overcome
 //     the additional torque b/c software change has too much overhead right now
-static int16_t GetDesiredSpeed(const MotorChannel motor) {
+static int16_t GetDesiredSpeed(MotorChannel motor) {
     int16_t temp_left = desired_velocity_left / 4;
     int16_t temp_right = desired_velocity_right / 4;
 
@@ -212,12 +155,8 @@ static int16_t GetDesiredSpeed(const MotorChannel motor) {
                 return -500;
         }
 
-        if (MAX_DESIRED_SPEED < temp_left)
-            return MAX_DESIRED_SPEED;
-        else if (temp_left < -MAX_DESIRED_SPEED)
-            return -MAX_DESIRED_SPEED;
-        else
-            return temp_left;
+        return clamp(temp_left, -MAX_DESIRED_SPEED, +MAX_DESIRED_SPEED);
+
     case MOTOR_RIGHT:
         if (abs(temp_right) < MIN_ACHEIVABLE_SPEED) {
             return 0;
@@ -231,12 +170,8 @@ static int16_t GetDesiredSpeed(const MotorChannel motor) {
                 return -500;
         }
 
-        if (MAX_DESIRED_SPEED < temp_right)
-            return MAX_DESIRED_SPEED;
-        else if (temp_right < -MAX_DESIRED_SPEED)
-            return -MAX_DESIRED_SPEED;
-        else
-            return temp_right;
+        return clamp(temp_right, -MAX_DESIRED_SPEED, +MAX_DESIRED_SPEED);
+
     case MOTOR_FLIPPER:
         return REG_MOTOR_VELOCITY.flipper;
     }
@@ -244,7 +179,7 @@ static int16_t GetDesiredSpeed(const MotorChannel motor) {
     return 0;
 }
 
-void set_desired_velocities(int left, int right, int flipper) {
+void pid_set_desired_velocities(int left, int right, int flipper) {
     desired_velocity_left = left;
     desired_velocity_right = right;
     desired_velocity_flipper = flipper;

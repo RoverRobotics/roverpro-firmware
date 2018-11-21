@@ -1,13 +1,7 @@
 #include <stdint.h>
 
-void I2C2Update(void);
-void I2C3Update(void);
+void i2c2_tick(bool should_reset, bool *did_finish);
+void i2c3_tick(bool should_reset, bool *out_did_finish);
 
 void re_init_i2c2(void);
 void re_init_i2c3(void);
-
-extern bool I2C2TimerExpired;
-extern bool I2C3TimerExpired;
-
-extern bool I2C2XmitReset;
-extern bool I2C3XmitReset;

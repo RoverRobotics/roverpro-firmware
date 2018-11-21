@@ -18,20 +18,28 @@
 #include <stdbool.h>
 
 // PIC24-specific breakpoint command:
-#define BREAKPOINT() __asm__ __volatile__(".pword 0xDA4000")
+#if __DEBUG
+/// Halt execution for the attached debugger to catch up
+// note the NOP prevents a problem with `switch{default: BREAKPOINT()}`, which would otherwise crash
+#define BREAKPOINT() { __asm__ __volatile__(".pword 0xDA4000"); __asm__ __volatile__("NOP"); }
 #define BREAKPOINT_IF(condition)                                                                   \
     if (condition) {                                                                               \
-        BREAKPOINT();                                                                              \
+        BREAKPOINT();                                                                             \
     }
-
-// PROTOTYPES FOR PROJECT stdfunction.h
+#else
+// when not debugging, BREAKPOINT and BREAKPOINT_IF should do nothing
+#define BREAKPOINT() ((void)0)
+#define BREAKPOINT_IF(condition) ((void)0)
+#endif
 
 /// Block for the specified amount of time. Prevents a Watchdog Timer reset in the event of a long
 /// wait.
 void block_ms(uint16_t ms);
 
 /** return the nearest integer within the given range */
-int clamp(int value, int lo, int hi);
+int16_t clamp(int16_t value, int16_t lo, int16_t hi);
+/** return the nearest float within the given range */
+float clamp_f(float value, float lo, float hi);
 
 /** compute the mean of an array of ints */
 int16_t mean(size_t count, int16_t *values);

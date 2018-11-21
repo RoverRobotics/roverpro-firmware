@@ -7,7 +7,7 @@ Notes:
 
 See also:
   - control system block diagram
-    
+
 Inpired By:
   - "PID without a PhD" by Tim Wescott
   - http://brettbeauregard.com/
@@ -62,10 +62,7 @@ float PID_ComputeEffort(const uint8_t i, const float y_desired, const float y_ac
     delta_Y = (y_actual - y_actual_lasts[i]);
 
     // limit the integral term independently (see Notes section)
-    if (controllers[i].y_max < integral_terms[i])
-        integral_terms[i] = controllers[i].y_max;
-    else if (integral_terms[i] < controllers[i].y_min)
-        integral_terms[i] = controllers[i].y_min;
+    integral_terms[i] = clamp_f(integral_terms[i], controllers[i].y_min, controllers[i].y_max);
 
     // compute the PID Output
     y_command =

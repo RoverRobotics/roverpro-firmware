@@ -20,7 +20,6 @@ Responsible Engineer(s):
 #define REGISTERS_H
 
 /*---------------------------Macros------------------------------------------*/
-#define BUTTON_DEPRESSED 1
 #define REGISTER_START()
 #define REGISTER_END()
 
@@ -39,9 +38,9 @@ typedef struct { float   data[4][3]; } MOTOR_DATA_CTRL;
 typedef struct { int16_t a,b; } BATTERY_DATA_2EL_16BI;
 typedef struct { uint16_t deg, min, sec; } GPS_VECT;
 typedef struct { GPS_VECT lat, lon; } GPS_DATA;
-typedef struct {uint8_t data[100]; } GPS_MESSAGE;
-typedef struct {uint8_t data[24]; } FIRMWARE_BUILD_STRING;
-typedef struct {uint8_t data[79]; } BOARD_DATA;
+typedef struct { uint8_t data[100]; } GPS_MESSAGE;
+typedef struct { uint8_t data[24]; } FIRMWARE_BUILD_STRING;
+typedef struct { uint8_t data[79]; } BOARD_DATA;
 typedef struct { uint32_t length, magic; } UPDATE_FIRMWARE; // magic = 0x2345BCDE
 
 typedef struct { int16_t tilt, zoom; } REG_CAMERA_VEL_ROT_2EL_16BI;
@@ -97,6 +96,7 @@ REGISTER( REG_HOME_BUTTON,         DEVICE_READ,  DEVICE_OCU,     SYNC,    uint8_
 REGISTER( REG_AUX_BUTTON1,         DEVICE_READ,  DEVICE_OCU,     SYNC,    uint8_t )
 REGISTER( REG_AUX_BUTTON2,         DEVICE_READ,  DEVICE_OCU,     SYNC,    uint8_t )
 
+/// The commanded motor speed
 REGISTER( REG_MOTOR_VELOCITY,      DEVICE_WRITE, DEVICE_MOTOR,   SYNC,    MOTOR_DATA_3EL_16BI)
 
 //REGISTER INDEX: 0x0020 (32)
@@ -207,7 +207,6 @@ REGISTER( REG_PWR_B_CURRENT,   DEVICE_READ,  DEVICE_MOTOR,   SYNC,    uint16_t)
 REGISTER( REG_ARM_MOTOR_VELOCITIES,   DEVICE_WRITE,  DEVICE_ARM_LINK2,   SYNC,    ARM_DATA_5EL_16BI )
 REGISTER( REG_ARM_JOINT_POSITIONS,   DEVICE_READ,  DEVICE_ARM_LINK2,   SYNC,    ARM_DATA_6EL_16BI )
 
-
 // Hitch Software Interface
 REGISTER(REG_HITCH_OPEN, DEVICE_WRITE, DEVICE_HITCH, SYNC, hitch_t)    // non-zero is software desire to open, zero is software's desire to latch 
 REGISTER(REG_HITCH_POSITION, DEVICE_READ, DEVICE_HITCH, SYNC, hitch_t) // 0 (unlatched) to 100 (latched)
@@ -252,8 +251,8 @@ REGISTER( REG_INITIATOR_STATE,	DEVICE_READ,	DEVICE_INITIATOR,	SYNC,	uint16_t )
 REGISTER( REG_REPEATER_RELEASE,	DEVICE_WRITE,	DEVICE_INITIATOR,	SYNC,	uint8_t )
 REGISTER( REG_REPEATER_POSITIONS,	DEVICE_READ,	DEVICE_INITIATOR,	SYNC,	uint8_t )
 
-//REG_MOTOR_SLOW_SPEED is 0 for normal drive motor operation, and 1 for slow drive motor operation
-REGISTER( REG_MOTOR_SLOW_SPEED,	DEVICE_WRITE,	DEVICE_MOTOR,	SYNC,	uint8_t )
+//REG_MOTOR_CLOSED_LOOP is 0 for open loop control mode, 1 for closed loop control mode
+REGISTER( REG_MOTOR_CLOSED_LOOP,	DEVICE_WRITE,	DEVICE_MOTOR,	SYNC,	uint8_t )
 
 REGISTER( REG_BATTERY_STATUS_A, DEVICE_READ,  DEVICE_MOTOR,   SYNC, uint16_t)
 REGISTER( REG_BATTERY_STATUS_B, DEVICE_READ,  DEVICE_MOTOR,   SYNC, uint16_t)
@@ -269,6 +268,10 @@ REGISTER(REG_BATTERY_CURRENT_B, DEVICE_READ,  DEVICE_MOTOR,   SYNC, int16_t)
 
 REGISTER(REG_BATTERY_VOLTAGE_A, DEVICE_READ,  DEVICE_MOTOR,   SYNC, uint16_t)
 REGISTER(REG_BATTERY_VOLTAGE_B, DEVICE_READ,  DEVICE_MOTOR,   SYNC, uint16_t)
+
+REGISTER( REG_MOTOR_FB_PERIOD_LEFT, DEVICE_READ, DEVICE_MOTOR,SYNC, uint16_t)
+REGISTER( REG_MOTOR_FB_PERIOD_RIGHT, DEVICE_READ, DEVICE_MOTOR,SYNC, uint16_t)
+REGISTER( REG_MOTOR_FB_PERIOD_FLIPPER, DEVICE_READ, DEVICE_MOTOR,SYNC, uint16_t)
 
 REGISTER_END()
 

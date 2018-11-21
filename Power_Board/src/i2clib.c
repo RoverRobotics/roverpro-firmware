@@ -1,6 +1,28 @@
 #include "i2clib.h"
-
 #include "stdhdr.h"
+
+/** I2C ack bit. Transmitted in response to any data received. */
+typedef enum I2CAck {
+    ACK = 0,  ///< ACKnowledge: the byte was successfully received and another byte may be sent
+    NACK = 1, ///< Not ACKnowledge: either there is no receiver able to respond, the last command
+    ///< wasn't understood, the receiver can't process any more data. Upon receiving a NACK, the
+    ///< right thing to do is to stop.
+} I2CAck;
+
+/** I2C read/write bit. This always accompanies the address of a device and indicates whether we are
+ * writing to or reading from the device*/
+typedef enum I2CReadWrite {
+    I2C_WRITE = 0, ///< The slave address is being opened in WRITE mode. We will transmit data.
+    I2C_READ = 1,  ///< The slave address is being opened in READ mode. We will receive data.
+} I2CReadWrite;
+
+// Helper functions. Low-level I2C functions with platform-specific implementations
+I2CResult i2c_start(I2CBus bus);
+I2CResult i2c_stop(I2CBus bus);
+I2CResult i2c_restart(I2CBus bus);
+I2CResult i2c_request_byte(I2CBus bus);
+I2CResult i2c_address(I2CBus bus, uint8_t addr, I2CReadWrite r);
+I2CResult i2c_transmit_byte(I2CBus bus, uint8_t data);
 
 /** State of an I2C bus. */
 typedef enum I2CState {
@@ -18,8 +40,8 @@ typedef enum I2CState {
     I2C_DISABLED,            ///< The I2C module is not running
 } I2CState;
 
-#ifdef __PIC24FJ256GB106__
-#include <p24fxxxx.h>
+#ifdef __PIC24F__
+#include <p24Fxxxx.h>
 
 /** I2C Control Register, based on the PIC24 MCU documentation */
 typedef struct I2CControlBits {
@@ -289,7 +311,6 @@ const I2CBus I2C_BUS3 = &I2C_BUS3_DEF;
 // Begin device-independent I2C Stuff.
 
 I2CResult i2c_tick(I2CBus bus, const I2COperationDef *op, I2CProgress *progress) {
-
     I2CResult result;
     while (true) {
         switch (progress->resume_at) {
@@ -485,73 +506,66 @@ I2CResult i2c_synchronously_await(I2CBus bus, I2COperationDef op) {
     I2CResult result;
     do {
         result = i2c_tick(bus, &op, &progress);
-        block_ms(1);
     } while (result == I2C_NOTYET);
     return result;
 }
 
 I2COperationDef i2c_op_read_byte(uint8_t address, uint8_t command_byte, uint8_t *byte_to_read) {
-    I2COperationDef result = {
+    return (I2COperationDef){
         .address = address,
         .command_byte = command_byte,
         .size_readbuf = sizeof(*byte_to_read),
         .readbuf = byte_to_read,
     };
-    return result;
 }
 
 I2COperationDef i2c_op_read_word(uint8_t address, uint8_t command_byte, uint16_t *word_to_read) {
-    I2COperationDef result = {
+    return (I2COperationDef){
         .address = address,
         .command_byte = command_byte,
         .size_readbuf = sizeof(*word_to_read),
         .readbuf = (uint8_t *)word_to_read,
     };
-    return result;
 }
 
-I2COperationDef i2c_op_read_block(uint8_t address, uint8_t command_byte, uint8_t *block_to_read,
+I2COperationDef i2c_op_read_block(uint8_t address, uint8_t command_byte, void *block_to_read,
                                   uint8_t maxlen) {
-    I2COperationDef result = {
+    return (I2COperationDef){
         .address = address,
         .command_byte = command_byte,
         .size_readbuf = maxlen,
         .readbuf = block_to_read,
         .read_starts_with_len = true,
     };
-    return result;
 }
 
 I2COperationDef i2c_op_write_byte(uint8_t address, uint8_t command_byte,
                                   const uint8_t *byte_to_write) {
-    I2COperationDef result = {
+    return (I2COperationDef){
         .address = address,
         .command_byte = command_byte,
         .size_writebuf = sizeof(*byte_to_write),
         .writebuf = (uint8_t *)byte_to_write,
     };
-    return result;
 }
 
 I2COperationDef i2c_op_write_word(uint8_t address, uint8_t command_byte,
                                   const uint16_t *word_to_write) {
-    I2COperationDef result = {
+    return (I2COperationDef){
         .address = address,
         .command_byte = command_byte,
         .size_writebuf = sizeof(*word_to_write),
         .writebuf = (uint8_t *)word_to_write,
     };
-    return result;
 }
 
-I2COperationDef i2c_op_write_block(uint8_t address, uint8_t command_byte, uint8_t *block_to_write,
+I2COperationDef i2c_op_write_block(uint8_t address, uint8_t command_byte, void *block_to_write,
                                    uint8_t maxlen) {
-    I2COperationDef result = {
+    return (I2COperationDef){
         .address = address,
         .command_byte = command_byte,
         .size_writebuf = maxlen,
         .writebuf = block_to_write,
         .write_starts_with_len = true,
     };
-    return result;
 }

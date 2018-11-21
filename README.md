@@ -9,7 +9,7 @@ Released hex files can be found at https://github.com/RoverRobotics/OpenRoverFir
 
 If you are not using MPLAB IDE, you can deploy a hex file with the standalone [PICkit 3 Programmer Application v3.10](http://ww1.microchip.com/downloads/en/DeviceDoc/PICkit3%20Programmer%20Application%20v3.10.zip).
 
-1. If the program says "The PICkit 3 has no Operating System" browse to select an OS hex file for PicKit3. Mine is at `C:\Program Files (x86)\Microchip\PICkit 3 v3\PK3OSV020005.hex`
+1. If the program says "The PICkit 3 has no Operating System", unplug it from the rover and browse to select an OS hex file for PicKit3Mine is at `C:\Program Files (x86)\Microchip\PICkit 3 v3\PK3OSV020005.hex`
 2. File -> Import Hex -> (choose hex file)
 3. Click the Write button
 
@@ -21,7 +21,9 @@ If you want to use MPLAB afterwards, go to Tools -> Revert to MPLAB mode
 
 ### unreleased
 
-* :snowflake: Delete even more unused code (robot accessories, controllers)
+* :umbrella: Fix race condition where UART can send corrupted data
+* :sunny: Add encoder counts to queryable robot metrics (14, 16)
+* :snowflake: Delete even more unused code (robot accessories, controllers) and improve code clarity
 * :snowflake: Lots of documentation improvements
 
 ### 1.2.1
@@ -41,7 +43,7 @@ If you want to use MPLAB afterwards, go to Tools -> Revert to MPLAB mode
 
 ## Development
 
-### IDE and built tools
+### IDE and build tools
 
 The MCP files can be opened in [MPLAB IDE v8.92](http://ww1.microchip.com/downloads/en/DeviceDoc/MPLAB_IDE_8_92.zip) (not MPLAB X) and should be built with the  [MIcrochip C30 Toolsuite v3.31](http://ww1.microchip.com/downloads/en/DeviceDoc/mplabc30-v3_31-windows-installer.exe). This contains not only a compiler/linker/assembler but also standard libraries for the PIC24F MCU's.
 
@@ -49,7 +51,7 @@ To build, use the Debug mode (if you're attaching a PICKit) or Release mode (if 
 
 ### Code style tools
 
-To tidy up code, I like using **[clang-format 6](http://releases.llvm.org/6.0.1/tools/clang/docs/ClangFormat.html)**, and have provided a .clang-format file. Clang 6 is currently the latest release for Ubuntu, but feel free to use newer.
+To tidy up code, I like using **[clang-format](https://clang.llvm.org/docs/ClangFormat.html)**, and have provided a .clang-format file. Clang 6 is currently the latest release for Ubuntu, but feel free to use newer.
 
 #### Ubuntu installation of clang-format
 
@@ -106,148 +108,188 @@ Given a released hex file, you can deploy to the robot power board with MPLAB in
 The main robot firmware code is the Power Board. This is responsible for communicating with the motors / batteries / fans / serial port.
 
 ```
-$ cd ~/Documents/firmware/Power_Board
+$ cd /mnt/c/Users/dan/Documents/OpenRoverFirmware-dan/Power_Board
 $ tree -h
 .
-├── [3.4K]  CMakeLists.txt
-├── [1.1K]  HardwareProfile.h
-├── [ 224]  closed_loop_control
-│   ├── [ 850]  Filters.c
-│   ├── [1.4K]  Filters.h
-│   ├── [3.8K]  PID.c
-│   ├── [3.5K]  PID.h
-│   └── [ 128]  core
-│       ├── [6.8K]  InputCapture.c
-│       └── [2.9K]  InputCapture.h
-├── [ 256]  doc
-│   ├── [106K]  2011Arm_Base_Datasheet.doc
-│   ├── [107K]  2011Arm_Link1_Datasheet.doc
-│   ├── [ 17K]  2011Robot_PowerBoard_AssistantCalculationSheet.xlsx
-│   ├── [ 31K]  2011_Robot_PowerBoard200_Evaluation_Datasheet.docx
-│   ├── [ 63K]  2011_Robot_PowerBoardDatasheet.docx
-│   └── [  62]  XbeeModuleConfiguration.txt
-├── [4.1K]  firmware.mcp
-├── [ 160]  microchip
-│   ├── [5.7K]  Compiler.h
-│   ├── [1.2K]  USB
-│   │   ├── [5.9K]  usb.h
-│   │   ├── [ 28K]  usb_ch9.h
-│   │   ├── [ 23K]  usb_common.h
-│   │   ├── [ 47K]  usb_device.h
-│   │   ├── [8.3K]  usb_function_audio.h
-│   │   ├── [6.1K]  usb_function_ccid.h
-│   │   ├── [ 22K]  usb_function_cdc.h
-│   │   ├── [8.9K]  usb_function_generic.h
-│   │   ├── [ 12K]  usb_function_hid.h
-│   │   ├── [4.6K]  usb_function_midi.h
-│   │   ├── [ 20K]  usb_function_msd.h
-│   │   ├── [ 21K]  usb_hal.h
-│   │   ├── [ 17K]  usb_hal_pic18.h
-│   │   ├── [ 16K]  usb_hal_pic24.h
-│   │   ├── [ 15K]  usb_hal_pic32.h
-│   │   ├── [ 56K]  usb_host.h
-│   │   ├── [ 24K]  usb_host_audio_v1.h
-│   │   ├── [ 31K]  usb_host_cdc.h
-│   │   ├── [8.7K]  usb_host_cdc_interface.h
-│   │   ├── [ 11K]  usb_host_charger.h
-│   │   ├── [ 23K]  usb_host_generic.h
-│   │   ├── [ 32K]  usb_host_hid.h
-│   │   ├── [ 24K]  usb_host_hid_parser.h
-│   │   ├── [ 21K]  usb_host_msd.h
-│   │   ├── [ 14K]  usb_host_msd_scsi.h
-│   │   ├── [105K]  usb_host_printer.h
-│   │   ├── [ 16K]  usb_host_printer_esc_pos.h
-│   │   ├── [ 11K]  usb_host_printer_pcl_5.h
-│   │   ├── [8.7K]  usb_host_printer_postscript.h
-│   │   ├── [7.3K]  usb_host_printer_primitives.h
-│   │   ├── [ 22K]  usb_otg.h
-│   │   ├── [6.0K]  usb_printer_pos_bixolon_srp_270.h
-│   │   ├── [5.8K]  usb_printer_pos_epson_tm_t88iv.h
-│   │   ├── [5.9K]  usb_printer_pos_seiko_dpu_v445.h
-│   │   └── [5.8K]  usb_printer_pos_seiko_mpu_l465.h
-│   └── [7.4K]  uart2.h
-├── [ 15K]  registers.h
-├── [ 800]  src
-│   ├── [ 25K]  DEE\ Emulation\ 16-bit.c
-│   ├── [5.2K]  DEE\ Emulation\ 16-bit.h
-│   ├── [2.6K]  Flash\ Operations.s
-│   ├── [3.9K]  debug_uart.c
-│   ├── [ 228]  debug_uart.h
-│   ├── [ 58K]  device_robot_motor.c
-│   ├── [8.5K]  device_robot_motor.h
-│   ├── [7.4K]  device_robot_motor_i2c.c
-│   ├── [ 234]  device_robot_motor_i2c.h
-│   ├── [8.0K]  device_robot_motor_loop.c
-│   ├── [ 241]  device_robot_motor_loop.h
-│   ├── [ 17K]  i2clib.c
-│   ├── [5.7K]  i2clib.h
-│   ├── [2.6K]  interrupt_switch.c
-│   ├── [ 812]  interrupt_switch.h
-│   ├── [8.5K]  main.c
-│   ├── [ 128]  robotex
-│   │   ├── [1.9K]  periph_adc.c
-│   │   └── [ 947]  periph_adc.h
-│   ├── [1.0K]  stdfunctions.c
-│   ├── [1.2K]  stdhdr.h
-│   ├── [6.9K]  testing.c
-│   ├── [  56]  testing.h
-│   ├── [3.8K]  usb_descriptors.c
-│   └── [ 97K]  usb_device.c
-├── [1.2K]  usb_config.c
-└── [3.3K]  usb_config.h
+├── [3.1K]  CMakeLists.txt
+├── [ 512]  doc
+│   ├── [106K]  2011Arm_Base_Datasheet.doc
+│   ├── [107K]  2011Arm_Link1_Datasheet.doc
+│   ├── [ 17K]  2011Robot_PowerBoard_AssistantCalculationSheet.xlsx
+│   ├── [ 31K]  2011_Robot_PowerBoard200_Evaluation_Datasheet.docx
+│   ├── [ 63K]  2011_Robot_PowerBoardDatasheet.docx
+│   └── [  62]  XbeeModuleConfiguration.txt
+├── [5.7K]  firmware.mcp
+├── [ 512]  include
+│   ├── [1.5K]  Filters.h
+│   ├── [1.1K]  HardwareProfile.h
+│   ├── [3.5K]  PID.h
+│   ├── [ 550]  counter.h
+│   ├── [ 887]  device_power_bus.h
+│   ├── [3.0K]  device_robot_motor.h
+│   ├── [ 182]  device_robot_motor_i2c.h
+│   ├── [ 215]  device_robot_motor_loop.h
+│   ├── [4.2K]  hardware_definitions.h
+│   ├── [6.7K]  i2clib.h
+│   ├── [ 740]  interrupt_switch.h
+│   ├── [1.7K]  motor.h
+│   ├── [ 16K]  registers.h
+│   ├── [1.7K]  stdhdr.h
+│   ├── [ 813]  uart_control.h
+│   └── [3.3K]  usb_config.h
+├── [ 512]  microchip
+│   ├── [5.7K]  Compiler.h
+│   ├── [ 25K]  DEE Emulation 16-bit.c
+│   ├── [5.3K]  DEE Emulation 16-bit.h
+│   ├── [2.6K]  Flash Operations.s
+│   ├── [ 512]  USB
+│   │   ├── [5.9K]  usb.h
+│   │   ├── [ 28K]  usb_ch9.h
+│   │   ├── [ 23K]  usb_common.h
+│   │   ├── [ 47K]  usb_device.h
+│   │   ├── [8.3K]  usb_function_audio.h
+│   │   ├── [6.1K]  usb_function_ccid.h
+│   │   ├── [ 22K]  usb_function_cdc.h
+│   │   ├── [8.9K]  usb_function_generic.h
+│   │   ├── [ 12K]  usb_function_hid.h
+│   │   ├── [4.6K]  usb_function_midi.h
+│   │   ├── [ 20K]  usb_function_msd.h
+│   │   ├── [ 22K]  usb_hal.h
+│   │   ├── [ 17K]  usb_hal_pic18.h
+│   │   ├── [ 17K]  usb_hal_pic24.h
+│   │   ├── [ 15K]  usb_hal_pic32.h
+│   │   ├── [ 56K]  usb_host.h
+│   │   ├── [ 24K]  usb_host_audio_v1.h
+│   │   ├── [ 31K]  usb_host_cdc.h
+│   │   ├── [8.7K]  usb_host_cdc_interface.h
+│   │   ├── [ 11K]  usb_host_charger.h
+│   │   ├── [ 23K]  usb_host_generic.h
+│   │   ├── [ 32K]  usb_host_hid.h
+│   │   ├── [ 24K]  usb_host_hid_parser.h
+│   │   ├── [ 21K]  usb_host_msd.h
+│   │   ├── [ 14K]  usb_host_msd_scsi.h
+│   │   ├── [105K]  usb_host_printer.h
+│   │   ├── [ 16K]  usb_host_printer_esc_pos.h
+│   │   ├── [ 11K]  usb_host_printer_pcl_5.h
+│   │   ├── [8.7K]  usb_host_printer_postscript.h
+│   │   ├── [7.3K]  usb_host_printer_primitives.h
+│   │   ├── [ 22K]  usb_otg.h
+│   │   ├── [6.0K]  usb_printer_pos_bixolon_srp_270.h
+│   │   ├── [5.8K]  usb_printer_pos_epson_tm_t88iv.h
+│   │   ├── [5.9K]  usb_printer_pos_seiko_dpu_v445.h
+│   │   └── [5.8K]  usb_printer_pos_seiko_mpu_l465.h
+│   └── [7.4K]  uart2.h
+└── [ 512]  src
+    ├── [ 831]  Filters.c
+    ├── [3.7K]  PID.c
+    ├── [ 649]  counter.c
+    ├── [5.5K]  device_power_bus.c
+    ├── [ 30K]  device_robot_motor.c
+    ├── [6.7K]  device_robot_motor_i2c.c
+    ├── [6.3K]  device_robot_motor_loop.c
+    ├── [ 18K]  i2clib.c
+    ├── [1.6K]  interrupt_switch.c
+    ├── [8.5K]  main.c
+    ├── [ 10K]  motor.c
+    ├── [1.2K]  stdfunctions.c
+    ├── [9.6K]  uart_control.c
+    ├── [1.2K]  usb_config.c
+    ├── [3.8K]  usb_descriptors.c
+    └── [ 97K]  usb_device.c
+
+5 directories, 80 files
 ```
 
 firmware.mcp = main project file. Open this with MPLab IDE v8.89
 
 ### Call Diagram of Important functions
 
-```mermaid
-%% This is a Mermaid diagram. If it does not render as a diagram, use a supporting Markdown editor like Typora (https://typora.io/#download) or paste into the live editor (https://mermaidjs.github.io/mermaid-live-editor/)
-graph LR
+<script type='text/vnd.graphviz'>
+  digraph g {
+  rankdir=LR;
+  subgraph cluster_1 {
+    label = "main.c";
+    main -> InitializeSystem;
+    InitializeSystem -> USBDeviceInit;
+    InitializeSystem -> USBDeviceAttach;
+  }
+  subgraph cluster_2 {
+    label = "Pic24F hardware interrupts"
+    _U1RXInterrupt;
+    _U1TXInterrupt;
+    _ADCInterrupt;
+    _T3Interrupt;
+    _IC1Interrupt;
+_IC2Interrupt;
+_IC3Interrupt;
+  }
+  subgraph cluster_3 {
+    label = "device_robot_motor.c";
+    IniAD;
+    Device_MotorController_Process;
+    closed_loop_control_init;
+    Motor_T3Interrupt;
+    Motor_ADC1Interrupt;
+    DeviceRobotMotorInit;
+    FANCtrlIni;
+    handle_closed_loop_control;
+  }
+  subgraph cluster_4 {
+    label = "pid.c";
+    PID_Init;
+    PID_ComputeEffort;
+    PID_Reset;
+    PID_Reset_Integral;
+  }
+  subgraph cluster_6 {
+    label = "uart_control.c";
+    uart_init;
+    uart_tick;
+    uart_tx_isf;
+    uart_rx_isf;
+  }
+  subgraph cluster_7 {
+    label = "device_power_bus.c";
+    power_bus_init;
+    power_bus_tick;
+  }
+  subgraph cluster_8 {
+    label = "device_robot_motor_i2c.c";
+    i2c2_tick -> re_init_i2c2;
+    i2c3_tick -> re_init_i2c3;
+  }
+subgraph cluster_9 {
+    label = "motor.c";
+    motor_tach_init;
+    motor_tach_event_capture;
+    motor_tach_get_period;
+  }
+_IC1Interrupt-> motor_tach_event_capture;
+_IC2Interrupt-> motor_tach_event_capture;
+_IC3Interrupt-> motor_tach_event_capture;
+  _ADCInterrupt -> Motor_ADC1Interrupt;
+  _U1TXInterrupt -> uart_tx_isf;
+  _U1RXInterrupt -> uart_rx_isf;
+  _T3Interrupt -> Motor_T3Interrupt;
+  InitializeSystem -> DeviceRobotMotorInit;
+  closed_loop_control_init -> PID_Init;
+  DeviceRobotMotorInit -> IniAD;
+  DeviceRobotMotorInit -> uart_init;
+  DeviceRobotMotorInit -> power_bus_init;
+  DeviceRobotMotorInit -> FANCtrlIni;
+  DeviceRobotMotorInit -> closed_loop_control_init;
+  Device_MotorController_Process -> power_bus_tick;
+  Device_MotorController_Process -> handle_closed_loop_control;
+  Device_MotorController_Process -> i2c2_tick;
+  Device_MotorController_Process -> i2c3_tick;
+  Device_MotorController_Process -> uart_tick;
+  handle_closed_loop_control -> PID_ComputeEffort;
+  handle_closed_loop_control -> PID_Reset;
+  handle_closed_loop_control -> PID_Reset_Integral;
+  }
+</script>
 
-subgraph PID.c
-	PID_Init
-	PID_ComputeEffort
-	PID_Reset
-	PID_Reset_Integral
-end
-subgraph device_robot_motor_i2c.c
-	I2C2Update
-	I2C3Update
-end
-subgraph device_robot_motor.c
- DeviceRobotMotorInit --> MC_Ini
- DeviceRobotMotorInit --> closed_loop_control_init
- closed_loop_control_init --> PID_Init
- Device_MotorController_Process --> I2C2Update
- Device_MotorController_Process --> I2C3Update
- Device_MotorController_Process --> handle_closed_loop_control
- handle_closed_loop_control --> PID_ComputeEffort
- handle_closed_loop_control --> PID_Reset
- handle_closed_loop_control --> PID_Reset_Integral
- MC_Ini --> InterruptIni
- MC_Ini --> IniAD
- subgraph called by Pic24 UART
- Motor_U1RXInterrupt
- Motor_U1TXInterrupt
- end
- subgraph called by Pic24 ADC
- Motor_ADC1Interrupt
- end
- subgraph called by Pic24 timer
- Motor_T3Interrupt
- end
-end
-subgraph main.c
-	main --> InitializeSystem
-	main --> ProcessIO
-	InitializeSystem --> USBDeviceInit
-	InitializeSystem --> USBDeviceAttach
-	InitializeSystem --> DeviceRobotMotorInit
- 	ProcessIO --> Device_MotorController_Process
- Device_MotorController_Process
-end
-```
+
 
 ```flow
 # render with flowchart.js
@@ -298,10 +340,6 @@ motor_speeds(no)->etc
 etc->op
 ```
 
-
-
-
-
 ### registers.h
 
 This file contains metadata about global variables which are used to communicate to and from the robot. Though not truly CPU registers, we call them registers anyway. e.g.:
@@ -351,13 +389,9 @@ extern struct REGISTER registers[];
 #include "registers.h"
 ```
 
-
-
-
-
 ### device_robot_motor.c
 
-Weighing in at 3662 lines, this file is a scary mess.
+This file has the main robot logic. It is structured around a synchronous 1 millisecond timer, and just about everything in it runs on a multiple of that timer.
 
 #### Motor_ADC1Interrupt
 
@@ -427,4 +461,25 @@ I2C3Update:
   - Get battery status
   - Get battery mode
   - Get temperature
+
+<script type='application/javascript'>
+// NB: Typora does not like blank lines within HTML code blocks.
+//
+function gravizo(script_element) {
+    // gravizo is a great tool that renders graphviz, plantuml, and umlgraph
+    let img = document.createElement('img')
+    img.src = 'https://g.gravizo.com/svg?' + encodeURIComponent(script_element.innerText) 
+    script_element.parentNode.insertBefore(img, script_element)
+}
+//
+document.addEventListener('DOMContentLoaded', function(){
+    // turn all inline script tags into images
+    [...document.querySelectorAll('script[type="text/vnd.graphviz"]'),
+     ...document.querySelectorAll('script[type="text/x-plantuml"]'),
+     ...document.querySelectorAll('script[type="text/x-umlgraph"]'),
+    ].forEach(gravizo)
+})
+</script>
+
+
 
