@@ -19,6 +19,10 @@ If you want to use MPLAB afterwards, go to Tools -> Revert to MPLAB mode
 
 (:sunny: = feature, :umbrella: = bugfix, :snowflake: = nonfunctional change)
 
+### 1.3.1
+
+* :umbrella: Fix issue where UART can stop responding until rover is rebooted.
+
 ### 1.3.0
 
 * :umbrella: Fix race condition where UART can send corrupted data

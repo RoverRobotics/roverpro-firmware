@@ -91,16 +91,10 @@ void __attribute__((__interrupt__, auto_psv)) _U1RXInterrupt() {
             i_uart_rx_buffer++;
         }
     }
-    // check Receive Buffer Overrun Error Status bit
-    if (U1STAbits.OERR) {
-        // clear overflow error bit if it was set.
-        U1STAbits.OERR = 0;
-    }
 }
 
 // Hardware UART TX interrupt, enabled by U1TXIE
 void __attribute__((__interrupt__, auto_psv)) _U1TXInterrupt() {
-    int bytes_sent = 0;
     // clear the interrupt flag
     _U1TXIF = 0;
     // transmit data
@@ -111,12 +105,10 @@ void __attribute__((__interrupt__, auto_psv)) _U1TXInterrupt() {
             // Transmit the start byte
             U1TXREG = UART_START_BYTE;
             i_uart_tx_buffer = 0;
-            bytes_sent++;
         } else if (i_uart_tx_buffer < UART_TX_BUFFER_LENGTH) {
             // Transmit the next data byte
             U1TXREG = uart_tx_buffer[i_uart_tx_buffer];
             i_uart_tx_buffer++;
-            bytes_sent++;
         } else {
             // No data to send
             break;
@@ -185,7 +177,20 @@ void uart_serialize_out_data(uint8_t uart_data_identifier) {
 }
 
 UArtTickResult uart_tick() {
+
     UArtTickResult result = {0};
+
+	// if receiver overflowed this resets the module
+	if (U1STAbits.OERR){
+	    // clear overflow error bit if it was set.
+	    U1STAbits.OERR = 0;
+		if (i_uart_rx_buffer < UART_RX_BUFFER_LENGTH){
+			// throw out incomplete data
+			i_uart_rx_buffer = -1;
+		}
+	}
+
+	
     if (i_uart_rx_buffer >= UART_RX_BUFFER_LENGTH) {
         UARTCommand command;
         uint8_t arg;
@@ -236,9 +241,7 @@ UArtTickResult uart_tick() {
         default:
             // unknown inbound command.
             BREAKPOINT();
-            // PIC24F can be weird. If we do not have a `break;` after the breakpoint, it can make
-            // the device unbootable. WTF
-            break;
+			break;
         }
         result.uart_motor_speed_requested = true;
     }
@@ -248,7 +251,6 @@ UArtTickResult uart_tick() {
         BREAKPOINT();
         _U1TXIF = 1;
     }
-    // U1TXREG=0xff; // this works...
 
     return result;
 }
