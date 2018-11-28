@@ -11,13 +11,14 @@ firmware.hex
 # Mac OS
 *.DS_Store
 
-# CLion files
-*/.idea/**/workspace.xml
-*/.idea/**/tasks.xml
-*/.idea/**/usage.statistics.xml
-*/.idea/**/dictionaries
-*/.idea/**/shelf
+# CLion and Pycharm files
+**/.idea/**/workspace.xml
+**/.idea/**/tasks.xml
+**/.idea/**/usage.statistics.xml
+**/.idea/**/dictionaries
+**/.idea/**/shelf
 
 # CMake
 cmake-build-*/
 
+**/__pycache__/
