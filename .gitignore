@@ -22,3 +22,5 @@ firmware.hex
 cmake-build-*/
 
 **/__pycache__/
+
+**/bin/*.hex
