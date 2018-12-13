@@ -226,7 +226,7 @@ parser.add_argument('--verbose', '-v', action='count')
 
 def main():
     command_line_options = parser.parse_args()
-    if command_line_options.verbose == 0:
+    if command_line_options.verbose is None:
         log_level = 'WARNING'
     elif command_line_options.verbose == 1:
         log_level = 'INFO'
