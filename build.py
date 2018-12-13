@@ -1,10 +1,5 @@
 #! python3.7
 import argparse
-import urllib.parse
-import webbrowser
-
-import coloredlogs
-import github
 import configparser
 from dataclasses import dataclass
 from fnmatch import fnmatch
@@ -13,8 +8,13 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import urllib.parse
+import webbrowser
 import winreg
 from winreg import HKEY_CURRENT_USER, OpenKey
+
+import coloredlogs
+import github
 
 
 def log_and_run(args):
@@ -219,14 +219,14 @@ class MPLabProject:
 
 
 parser = argparse.ArgumentParser(description='Build the OpenRover firmware')
-parser.add_argument('--debug', action='store_true')
-parser.add_argument('--upload', action='store_true')
-parser.add_argument('--verbose', '-v', action='count')
+parser.add_argument('--debug', action='store_true', help='Build in debug mode')
+parser.add_argument('--upload', action='store_true', help='Create a release draft on GitHub when done building')
+parser.add_argument('--verbose', '-v', action='count', help='Log more verbosely. --v = INFO, --vv = DEBUG')
 
 
 def main():
     command_line_options = parser.parse_args()
-    if command_line_options.verbose == 0:
+    if command_line_options.verbose is None:
         log_level = 'WARNING'
     elif command_line_options.verbose == 1:
         log_level = 'INFO'
@@ -241,7 +241,7 @@ def main():
     for mcp_file in mcp_files:
         cwd = os.getcwd()
         try:
-            p = MPLabProject(mcp_file)
+            p = MPLabProject(mcp_file, debug_build=command_line_options.debug)
             logging.info('Beginning build of %s', mcp_file)
             project_dir = p.path.parent
             logging.debug('Switching to directory: %s', project_dir)
@@ -292,7 +292,7 @@ def main():
         logging.info('Uploading to git...')
         import git
 
-        local = git.Repo(search_parent_directories=True)
+        local = git.Repo(base_dir, search_parent_directories=True)
         SECTION = 'github-release'
         git_file = os.path.join(local.git_dir, 'config')
         with  local.config_writer() as git_config:
