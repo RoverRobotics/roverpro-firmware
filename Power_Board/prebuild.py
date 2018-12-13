@@ -5,7 +5,7 @@ import datetime
 import re
 version = subprocess.check_output(['git', 'describe', '--tags']).decode().strip()
 with open('include/version.GENERATED.h', 'w') as f:
-    m = re.match(r'(\d+)\.(\d+)\.(\d+)[^\d](.*)', version)
+    m = re.match(r'(\d+)\.(\d+)\.(\d+)-?(.*)', version)
     major, minor, patch, prerelease = m.groups()
     prerelease_c_str = '"' + prerelease.replace('\\', '_').replace('"', '_') + '"'
 
