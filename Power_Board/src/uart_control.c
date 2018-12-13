@@ -2,6 +2,7 @@
 #include "uart_control.h"
 #include "device_robot_motor.h"
 #include "p24Fxxxx.h"
+#include "version.GENERATED.h"
 
 #define UART_TX_BUFFER_LENGTH 4
 #define UART_RX_BUFFER_LENGTH 6
@@ -42,8 +43,6 @@ uint8_t uart_tx_buffer[UART_TX_BUFFER_LENGTH];
 /// UART_TX_BUFFER_LENGTH = Done sending data. Buffer contents are stable and can be safely
 /// overwritten
 static int16_t i_uart_tx_buffer = UART_TX_BUFFER_LENGTH;
-
-const uint16_t UART_BUILD_NUMBER = 40621;
 
 /// 1-byte command "verb" associated with UART inbound command.
 /// There is also a 1-byte argument associated
@@ -151,7 +150,7 @@ void uart_serialize_out_data(uint8_t uart_data_identifier) {
         CASE(34, REG_ROBOT_REL_SOC_A)
         CASE(36, REG_ROBOT_REL_SOC_B)
         CASE(38, REG_MOTOR_CHARGER_STATE)
-        CASE(40, UART_BUILD_NUMBER)
+        CASE(40, RELEASE_VERSION_FLAT)
         CASE(42, REG_PWR_A_CURRENT)
         CASE(44, REG_PWR_B_CURRENT)
         CASE(46, REG_MOTOR_FLIPPER_ANGLE)
