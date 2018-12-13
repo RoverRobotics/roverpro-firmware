@@ -1,23 +1,30 @@
-#firmware compilation files
+# Firmware compilation files
 *.cof
 *.map
 *.o
 *.mcs
 *.mcw
+*.gld.00
 
-#hex file before it is renamed
-firmware.hex
+# Packaged firmware release files
+**/bin/*.hex
 
 # Mac OS
 *.DS_Store
 
-# CLion files
-*/.idea/**/workspace.xml
-*/.idea/**/tasks.xml
-*/.idea/**/usage.statistics.xml
-*/.idea/**/dictionaries
-*/.idea/**/shelf
+# CLion and Pycharm files
+**/.idea/**/workspace.xml
+**/.idea/**/tasks.xml
+**/.idea/**/usage.statistics.xml
+**/.idea/**/dictionaries
+**/.idea/**/shelf
 
 # CMake
 cmake-build-*/
 
+**/__pycache__/
+
+
+# generated source files
+*.GENERATED.h
+*.GENERATED.c

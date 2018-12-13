@@ -79,6 +79,7 @@ file_051=include
 file_052=mplab c30
 file_053=mplab c30
 file_054=mplab c30
+file_055=include
 [GENERATED_FILES]
 file_000=no
 file_001=no
@@ -135,6 +136,7 @@ file_051=no
 file_052=no
 file_053=no
 file_054=no
+file_055=yes
 [OTHER_FILES]
 file_000=no
 file_001=no
@@ -191,6 +193,7 @@ file_051=no
 file_052=no
 file_053=no
 file_054=no
+file_055=no
 [FILE_INFO]
 file_000=src\device_robot_motor.c
 file_001=src\device_robot_motor_i2c.c
@@ -247,20 +250,21 @@ file_051=include\motor.h
 file_052=..\..\..\..\..\program files (x86)\microchip\mplab c30\support\PIC24F\h\p24FJ256GB106.h
 file_053=..\..\..\..\..\program files (x86)\microchip\mplab c30\support\PIC24F\h\p24Fxxxx.h
 file_054=..\..\..\..\..\program files (x86)\microchip\mplab c30\include\math.h
+file_055=include\version.GENERATED.h
 [SUITE_INFO]
 suite_guid={479DDE59-4D56-455E-855E-FFF59A3DB57E}
 suite_state=
 [TOOL_SETTINGS]
 TS{7D9C6ECE-785D-44CB-BA22-17BF2E119622}=-g
 TS{25AC22BD-2378-4FDB-BFB6-7345A15512D3}=-g -Wall
-TS{7DAC9A1D-4C45-45D6-B25A-D117C74E8F5A}=-o"$(BINDIR_)$(TARGETBASE).$(TARGETSUFFIX)" -Map="$(BINDIR_)$(TARGETBASE).map" --report-mem
+TS{7DAC9A1D-4C45-45D6-B25A-D117C74E8F5A}=-Map="$(BINDIR_)$(TARGETBASE).map" --report-mem -o"$(BINDIR_)$(TARGETBASE).$(TARGETSUFFIX)"
 TS{509E5861-1E2A-483B-8B6B-CA8DB7F2DD78}=
 [INSTRUMENTED_TRACE]
 enable=0
 transport=0
 format=0
 [CUSTOM_BUILD]
-Pre-Build=
+Pre-Build=py prebuild.py
 Pre-BuildEnabled=1
 Post-Build=
 Post-BuildEnabled=1
