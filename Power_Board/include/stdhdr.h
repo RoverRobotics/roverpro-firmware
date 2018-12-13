@@ -10,8 +10,8 @@
 #ifndef STDHDR_H
 #define STDHDR_H
 
+#include <stdlib.h>
 #include <stdint.h>
-#include "GenericTypeDefs.h"
 #include "Compiler.h"
 #include "USB/usb.h"
 #include "interrupt_switch.h"

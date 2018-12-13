@@ -22,15 +22,30 @@
 // PIC24FJ256GB106 FLASH CONFIGURATION
 // -------------------------------------------------------------------------
 
-#if __DEBUG
-#define GCP GCP_OFF
+#ifdef __XC16__
+	#pragma config JTAGEN=OFF
+	#pragma config GCP=OFF
+	#pragma config GWRP=OFF
+	#pragma config FWDTEN=ON
+	#pragma config ICS=PGx2
+	#pragma config WDTPS=PS128
+	#pragma config IESO=OFF
+	#pragma config FCKSM=CSDCMD
+	#pragma config OSCIOFNC=ON
+	#pragma config POSCMOD=HS
+	#pragma config FNOSC=PRIPLL
+	#pragma config PLLDIV=DIV5
+	#pragma config IOL1WAY=ON
 #else
-#define GCP GCP_ON
+	#if __DEBUG
+	#define GCP_X GCP_OFF
+	#else
+	#define GCP_X GCP_ON
+	#endif
+	_CONFIG1((JTAGEN_OFF & GCP_X & GWRP_OFF & COE_OFF & FWDTEN_ON & ICS_PGx2 & WDTPS_PS128))
+	_CONFIG2((IESO_OFF & FCKSM_CSDCMD & OSCIOFNC_ON & POSCMOD_HS & FNOSC_PRIPLL & PLLDIV_DIV5 &
+	          IOL1WAY_ON))
 #endif
-
-_CONFIG1((JTAGEN_OFF & GCP & GWRP_OFF & COE_OFF & FWDTEN_ON & ICS_PGx2 & WDTPS_PS128))
-_CONFIG2((IESO_OFF & FCKSM_CSDCMD & OSCIOFNC_ON & POSCMOD_HS & FNOSC_PRIPLL & PLLDIV_DIV5 &
-          IOL1WAY_ON))
 
 // WDT timeout = 128/31 kHz * WDTPS
 // 128/31e3*128 = .53 seconds
