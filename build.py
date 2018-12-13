@@ -1,6 +1,10 @@
 #! python3.7
+import argparse
+import urllib.parse
+import webbrowser
 
-
+import coloredlogs
+import github
 import configparser
 from dataclasses import dataclass
 from fnmatch import fnmatch
@@ -14,7 +18,11 @@ from winreg import HKEY_CURRENT_USER, OpenKey
 
 
 def log_and_run(args):
-    logging.debug('Executing: %s', subprocess.list2cmdline(args))
+    if isinstance(args, str):
+        argstring = args
+    else:
+        argstring = subprocess.list2cmdline(args)
+    logging.debug('Executing: %s', argstring)
     result = subprocess.run(args, capture_output=True)
     if result.stdout:
         logging.info(result.stdout.decode())
@@ -33,7 +41,7 @@ class BuildToolSuite:
 @dataclass
 class BuildToolsXC16(BuildToolSuite):
     cc: Path
-    cc_uuid = '{F9CE474D-6A6C-401D-A11E-BEE01B244D79'
+    cc_uuid = '{F9CE474D-6A6C-401D-A11E-BEE01B244D79}'
     hx: Path
 
     @classmethod
@@ -106,10 +114,12 @@ class MPLabProject:
         return any(fnmatch(filename, pat) for pat in filter_src.split(';'))
 
     def get_source_file_ids(self):
+        result = []
         for file_id, filename in self.config['FILE_INFO'].items():
             if self.is_source_file(filename):
                 m = re.match('file_(.+)', file_id)
-                yield m[1]
+                result.append(m.group(1))
+        return result
 
     def get_file_source_path(self, file_id):
         return Path(self.config['PATH_INFO']['dir_src'], self.config['FILE_INFO']['file_' + file_id])
@@ -191,15 +201,40 @@ class MPLabProject:
         hx = self.tool_suite.hx
         return [str(hx), os.path.join(self.config['PATH_INFO']['dir_bin'], self.project_name + '.cof')]
 
+    def get_prebuild_args_for_project(self):
+        if self.config.getboolean('CUSTOM_BUILD', 'Pre-BuildEnabled'):
+            value = self.config.get('CUSTOM_BUILD', 'Pre-Build')
+            if value:
+                return value.split(' ')
+
+        return None
+
+    def get_postbuild_args_for_project(self):
+        if self.config.getboolean('CUSTOM_BUILD', 'Post-BuildEnabled'):
+            value = self.config.get('CUSTOM_BUILD', 'Post-Build')
+            if value:
+                return value.split(' ')
+
+        return None
+
+
+parser = argparse.ArgumentParser(description='Build the OpenRover firmware')
+parser.add_argument('--debug', action='store_true')
+parser.add_argument('--upload', action='store_true')
+parser.add_argument('--verbose', '-v', action='count')
+
 
 def main():
-    try:
-        import coloredlogs
-        coloredlogs.install(level='DEBUG')
-    except ModuleNotFoundError:
-        logging.warning('Could not colorize logs. pip install coloredlogs to set this up.')
+    command_line_options = parser.parse_args()
+    if command_line_options.verbose == 0:
+        log_level = 'WARNING'
+    elif command_line_options.verbose == 1:
+        log_level = 'INFO'
+    else:
+        log_level = 'DEBUG'
+    coloredlogs.install(level=log_level)
+    binaries = []
 
-    # base_dir = r'C:\Users\dan\Documents\RobotexFirmware\Avatar_Micro_Robot\Robot_V1_Accessories\PTZ_Camera_V1\trunk'
     base_dir = os.path.dirname(os.path.realpath(__file__))
     logging.info('Building all project in directory: %s', base_dir)
     mcp_files = [f.absolute() for f in Path(base_dir).rglob('*.mcp')]
@@ -213,8 +248,14 @@ def main():
             os.chdir(project_dir)
             p.ensure_output_dirs()
 
-            for f in p.get_source_file_ids():
-                logging.info('Building file: %s', p.get_file_source_path(f).name)
+            args = p.get_prebuild_args_for_project()
+            if args:
+                logging.info('Executing pre-build step')
+                log_and_run(args)
+
+            source_file_ids = p.get_source_file_ids()
+            for i, f in enumerate(source_file_ids):
+                logging.info('Building file %d/%d: %s', i + 1, len(source_file_ids), p.get_file_source_path(f).name)
                 args = p.get_build_args_for_file(f)
                 log_and_run(args)
 
@@ -229,13 +270,105 @@ def main():
             binary_path = os.path.join(project_dir, p.built_artifact)
             assert os.path.isfile(binary_path)
             logging.info('Build of project %s succeeded!\nResulting binary at:%s', mcp_file, binary_path)
+            binaries.append(binary_path)
+
+            args = p.get_postbuild_args_for_project()
+            if args:
+                logging.info('Executing post-build step')
+                log_and_run(args)
+
+
         except subprocess.CalledProcessError as e:
             logging.exception('Build of project %s failed in subprocess:\n%s\nreturn code %s\nstderr:\n%s\nstdout:\n%s', mcp_file, subprocess.list2cmdline(e.cmd), e.returncode, e.stderr.decode(),
                               e.stdout.decode())
+            raise
         except Exception as e:
             logging.exception('Build of project %s failed with error:\n%s', mcp_file, e)
+            raise
         finally:
             os.chdir(cwd)
+
+    if command_line_options.upload:
+        logging.info('Uploading to git...')
+        import git
+
+        local = git.Repo(search_parent_directories=True)
+        SECTION = 'github-release'
+        git_file = os.path.join(local.git_dir, 'config')
+        with  local.config_writer() as git_config:
+            try:
+                git_config.add_section(SECTION)
+            except configparser.DuplicateSectionError:
+                pass
+
+            def get_value(key):
+                result = git_config.get_value(SECTION, key, '')
+                if not result:
+                    git_config.set_value(SECTION, key, '')
+                    logging.error(f'Missing config for releases: {SECTION}.{key}')
+                return result
+
+            repo = get_value('repo')
+            user = get_value('user')
+            password = get_value('password')
+
+        if not all([repo, user, password]):
+            logging.fatal(f'Please add missing info to git config at {git_file}')
+            exit(1)
+
+        if local.is_dirty():
+            logging.warning('Local branch is dirty!')
+
+        commit = local.head.commit
+        tag = None
+        for t in local.tags:
+            if t.commit == commit:
+                tag = t
+                break
+
+        if tag is None:
+            logging.warning('Current commit has no tag!')
+        else:
+            logging.info(f'Current commit is tagged {tag}')
+
+        logging.info('Pushing local head and tag to git')
+        local.git.push(f'https://{urllib.parse.quote(user)}:{urllib.parse.quote(password)}@github.com/{repo}', tag)
+
+        prev_release_commits = set()
+        for t in local.tags:
+            if t != tag:
+                prev_release_commits.update(t.commit.iter_parents())
+
+        prev_messages = []
+        for c in commit.iter_parents():
+            if c not in prev_release_commits:
+                prev_messages.append(c.message)
+
+        logging.info(f'Logging into github as {user} for repo {repo}')
+        g = github.Github(user, password)
+        remote = g.get_repo(repo)
+
+        logging.info(f'Uploading to GitHub...')
+        release = remote.create_git_release(
+            tag=tag.name if tag else '',
+            name=tag.name if tag else commit.name_rev,
+            message='\n'.join(prev_messages),
+            draft=True,
+            target_commitish=commit.hexsha
+        )
+        logging.info('Created GitHub release. Adding assets...')
+
+        for b in binaries:
+            p = Path(b)
+            if tag:
+                label = f'{p.stem}-{tag}{p.suffix}'
+            else:
+                label = f'{p.stem}{p.suffix}'
+            release.upload_asset(b, label=label)
+        logging.info('Done!!!')
+
+        webbrowser.open(release.html_url)
+
 
 if __name__ == '__main__':
     main()

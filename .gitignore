@@ -1,12 +1,13 @@
-#firmware compilation files
+# Firmware compilation files
 *.cof
 *.map
 *.o
 *.mcs
 *.mcw
+*.gld.00
 
-#hex file before it is renamed
-firmware.hex
+# Packaged firmware release files
+**/bin/*.hex
 
 # Mac OS
 *.DS_Store
@@ -23,4 +24,7 @@ cmake-build-*/
 
 **/__pycache__/
 
-**/bin/*.hex
+
+# generated source files
+*.GENERATED.h
+*.GENERATED.c
