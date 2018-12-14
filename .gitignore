@@ -6,6 +6,9 @@
 *.mcw
 *.gld.00
 
+# MPLAB X compilation files
+*.o.d
+
 # Packaged firmware release files
 **/bin/*.hex
 
