@@ -53,3 +53,7 @@ void block_ms(uint16_t ms) {
     __delay_ms(ms % ms_chunk);
     ClrWdt();
 }
+
+extern int abs(int x){
+	return x>=0?x:-x;
+}
