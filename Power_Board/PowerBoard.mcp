@@ -93,6 +93,7 @@ file_065=mplab xc16
 file_066=mplab xc16
 file_067=mplab xc16
 file_068=mplab xc16
+file_069=.
 [GENERATED_FILES]
 file_000=no
 file_001=no
@@ -163,6 +164,7 @@ file_065=no
 file_066=no
 file_067=no
 file_068=no
+file_069=no
 [OTHER_FILES]
 file_000=no
 file_001=no
@@ -233,6 +235,7 @@ file_065=no
 file_066=no
 file_067=no
 file_068=no
+file_069=no
 [FILE_INFO]
 file_000=src\device_robot_motor.c
 file_001=src\device_robot_motor_i2c.c
@@ -303,6 +306,7 @@ file_065=..\..\..\..\..\program files (x86)\microchip\xc16\v1.35\include\lega-c\
 file_066=..\..\..\..\..\program files (x86)\microchip\xc16\v1.35\include\lega-c\stdlib.h
 file_067=..\..\..\..\..\program files (x86)\microchip\xc16\v1.35\include\lega-c\yvals.h
 file_068=..\..\..\..\..\program files (x86)\microchip\xc16\v1.35\support\generic\h\subordinate_errors.h
+file_069=..\bootypic\devices\pic24fj256gb106\p24FJ256GB106_app.gld
 [SUITE_INFO]
 suite_guid={9BCCB495-CD65-480A-BA76-63D8E78B117F}
 suite_state=

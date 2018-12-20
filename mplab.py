@@ -8,24 +8,6 @@ from pathlib import Path
 import re
 from subprocess import list2cmdline
 import winreg
-from winreg import HKEY_CURRENT_USER, OpenKey
-
-
-async def exec_subprocess(args):
-    if isinstance(args, str):
-        argstring = args
-    else:
-        argstring = list2cmdline(args)
-    logging.debug('Executing: %s', argstring)
-    process = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    await process.wait()
-    stdout = (await process.stdout.read(-1)).decode()
-    if stdout:
-        logging.info('stdout=\n' + stdout)
-    stderr = (await process.stderr.read(-1)).decode()
-    if stderr:
-        logging.warning('stderr=\n' + stderr)
-    assert process.returncode == 0
 
 
 class BuildToolSuite:
@@ -49,7 +31,7 @@ class BuildToolsXC16(BuildToolSuite):
 
     @classmethod
     def from_registry(cls):
-        with OpenKey(HKEY_CURRENT_USER, r"Software\Microchip\MPLAB IDE\Tool Locations") as key:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microchip\MPLAB IDE\Tool Locations") as key:
             cc, _ = winreg.QueryValueEx(key, 'T_XC16cc.XC16')
             hx = Path(cc).parent / 'xc16-bin2hex.exe'
         return cls(cc=Path(cc), hx=Path(hx))
@@ -70,7 +52,7 @@ class BuildToolsC30(BuildToolSuite):
 
     @classmethod
     def from_registry(cls):
-        with OpenKey(HKEY_CURRENT_USER, r"Software\Microchip\MPLAB IDE\Tool Locations") as key:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microchip\MPLAB IDE\Tool Locations") as key:
             cc, _ = winreg.QueryValueEx(key, 'T_dsPICcc.C30')
             hx, _ = winreg.QueryValueEx(key, 'T_dsPICbin2hex.C30')
         return cls(cc=Path(cc), hx=Path(hx))
@@ -82,6 +64,29 @@ class MPLabProject:
         self.config = configparser.ConfigParser()
         self.config.read(self.path)
         self.debug_build = debug_build
+
+    @property
+    def base_dir(self):
+        return self.path.parent
+
+    def __str__(self):
+        return f'{type(self).__name__}({self.path})'
+
+    async def exec_subprocess(self, args):
+        if isinstance(args, str):
+            argstring = args
+        else:
+            argstring = list2cmdline(args)
+        logging.debug('Executing: %s', argstring)
+        process = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, cwd=self.path.parent)
+        await process.wait()
+        stdout = (await process.stdout.read(-1)).decode()
+        if stdout:
+            logging.info('stdout=\n' + stdout)
+        stderr = (await process.stderr.read(-1)).decode()
+        if stderr:
+            logging.warning('stderr=\n' + stderr)
+        assert process.returncode == 0
 
     def ensure_output_dirs(self):
         for dir_id in ['dir_tmp', 'dir_bin']:
@@ -109,6 +114,10 @@ class MPLabProject:
         filter_src = self.config['CAT_FILTERS']['filter_src']
         return any(fnmatch(filename, pat) for pat in filter_src.split(';'))
 
+    def is_linker_file(self, filename):
+        filter_lkr = self.config['CAT_FILTERS']['filter_lkr'] or '*.gld'
+        return any(fnmatch(filename, pat) for pat in filter_lkr.split(';'))
+
     def get_source_file_ids(self):
         result = []
         for file_id, filename in self.config['FILE_INFO'].items():
@@ -118,15 +127,15 @@ class MPLabProject:
         return result
 
     def get_file_source_path(self, file_id):
-        return Path(self.config['PATH_INFO']['dir_src'], self.config['FILE_INFO']['file_' + file_id])
+        return Path(self.base_dir, self.config['PATH_INFO']['dir_src'], self.config['FILE_INFO']['file_' + file_id])
 
     def get_file_object_path(self, file_id):
         filename = Path(self.config['FILE_INFO']['file_' + file_id]).with_suffix('.o').name
-        return Path(self.config['PATH_INFO']['dir_tmp'], filename)
+        return Path(self.base_dir, self.config['PATH_INFO']['dir_tmp'], filename)
 
     @property
     def built_artifact(self):
-        return os.path.join(self.config['PATH_INFO']['dir_bin'], self.project_name + '.hex')
+        return os.path.join(self.base_dir, self.config['PATH_INFO']['dir_bin'], self.project_name + '.hex')
 
     def get_include_flags(self):
         inc_flags = []
@@ -159,8 +168,6 @@ class MPLabProject:
         return self.expand_mplab_macros(result)
 
     async def file_build(self, file_id):
-        device = self.config['HEADER']['device']
-        m = re.match('PIC(.+)', device)
         obj_file = self.get_file_object_path(file_id)
         try:
             os.unlink(obj_file)
@@ -168,71 +175,73 @@ class MPLabProject:
             pass
 
         file_build_flags = self.get_tool_flags(self.tool_suite.cc_uuid, file_id)
-        e = await exec_subprocess([str(self.tool_suite.cc), '-mcpu=' + m[1],
-                                   '-c', str(self.get_file_source_path(file_id)),
-                                   '-o', str(self.get_file_object_path(file_id)),
-                                   *self.get_include_flags(),
-                                   *(['-D__DEBUG'] if self.debug_build else []),
-                                   *file_build_flags.split(' ')])
+        e = await self.exec_subprocess([str(self.tool_suite.cc),
+                                        self.cpu_flag,
+                                        '-c', str(self.get_file_source_path(file_id)),
+                                        '-o', str(self.get_file_object_path(file_id)),
+                                        *self.get_include_flags(),
+                                        *(['-D__DEBUG'] if self.debug_build else []),
+                                        *file_build_flags.split(' ')])
 
         assert obj_file.exists()
         return obj_file
 
-    def get_build_args_for_file(self, file_id):
+    @property
+    def cpu_flag(self):
         device = self.config['HEADER']['device']
         m = re.match('PIC(.+)', device)
+        return '-mcpu=' + m[1]
 
-        file_build_flags = self.get_tool_flags(self.tool_suite.cc_uuid, file_id)
-        return [str(self.tool_suite.cc),
-                '-mcpu=' + m[1],
-                '-c', str(self.get_file_source_path(file_id)),
-                '-o', str(self.get_file_object_path(file_id)),
-                *self.get_include_flags(),
-                *(['-D__DEBUG'] if self.debug_build else []),
-                *file_build_flags.split(' '),
-                ]
+    @property
+    def linker_script(self):
+        scripts = [fn for fn in self.config['FILE_INFO'].values() if self.is_linker_file(fn)]
+
+        if len(scripts) > 1:
+            logging.error('Multiple linker scripts found - only the first one will be used')
+
+        if len(scripts) == 0:
+            device = self.config['HEADER']['device']
+            m = re.match('PIC(.+)', device)
+            assert m
+            return 'p' + m[1] + '.gld'
+
+        return scripts[0]
 
     async def link_project(self, obj_files=None, linker_script=None):
-        cof_file = os.path.join(self.config['PATH_INFO']['dir_bin'], self.project_name + '.cof')
+        cof_file = os.path.join(self.base_dir, self.config['PATH_INFO']['dir_bin'], self.project_name + '.cof')
         try:
             os.unlink(cof_file)
         except FileNotFoundError:
             pass
         if obj_files is None:
             obj_files = [str(self.get_file_object_path(fid)) for fid in self.get_source_file_ids()]
-        device = self.config['HEADER']['device']
-        m = re.match('PIC(.+)', device)
-        if linker_script is None:
-            linker_arg = '-Tp' + m[1] + '.gld'
-        else:
-            linker_arg = '-Tp' + str(linker_script)
 
         linker_options = '-Wl,' + ','.join([
             *(["-L" + self.config['PATH_INFO']['dir_lib']] if self.config['PATH_INFO']['dir_lib'] else []),
-            linker_arg,
+            '-T' + self.linker_script,
             '--defsym=__MPLAB_DEBUG=1'
         ])
 
         args = [
             str(self.tool_suite.cc),
-            '-mcpu=' + m[1],
+            self.cpu_flag,
             *obj_files,
             '-o', cof_file,
             linker_options
         ]
-        await exec_subprocess(args)
+        await self.exec_subprocess(args)
         assert os.path.isfile(cof_file)
         return cof_file
 
     async def hexify(self):
-        hex_file = os.path.join(self.config['PATH_INFO']['dir_bin'], self.project_name + '.hex')
+        hex_file = os.path.join(self.base_dir, self.config['PATH_INFO']['dir_bin'], self.project_name + '.hex')
         try:
             self.unlink = os.unlink(hex_file)
         except FileNotFoundError:
             pass
         assert not os.path.isfile(hex_file)
         hx = self.tool_suite.hx
-        await exec_subprocess([str(hx), os.path.join(self.config['PATH_INFO']['dir_bin'], self.project_name + '.cof')])
+        await self.exec_subprocess([str(hx), os.path.join(self.config['PATH_INFO']['dir_bin'], self.project_name + '.cof')])
         assert os.path.isfile(hex_file)
         return hex_file
 
@@ -240,7 +249,7 @@ class MPLabProject:
         if self.config.getboolean('CUSTOM_BUILD', 'Pre-BuildEnabled'):
             value = self.config.get('CUSTOM_BUILD', 'Pre-Build')
             if value:
-                return await exec_subprocess(value.split(' '))
+                return await self.exec_subprocess(value.split(' '))
 
         logging.debug('No prebuild step')
         return
@@ -249,7 +258,7 @@ class MPLabProject:
         if self.config.getboolean('CUSTOM_BUILD', 'Post-BuildEnabled'):
             value = self.config.get('CUSTOM_BUILD', 'Post-Build')
             if value:
-                return await exec_subprocess(value.split(' '))
+                return await self.exec_subprocess(value.split(' '))
 
         logging.debug('No postbuild step')
         return

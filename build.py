@@ -19,6 +19,30 @@ parser.add_argument('--upload', action='store_true', help='Create a release draf
 parser.add_argument('--verbose', '-v', action='count', help='Log more verbosely. --v = INFO, --vv = DEBUG')
 
 
+async def build_project(p):
+    logging.info('Beginning build of %s', p)
+
+    p.ensure_output_dirs()
+
+    logging.info('Executing pre-build step')
+    await p.project_prebuild()
+
+    source_file_ids = p.get_source_file_ids()
+    binaries = await asyncio.gather(*[p.file_build(f) for f in source_file_ids])
+
+    logging.info('Linking project')
+    await p.link_project([str(b) for b in binaries])
+
+    logging.info('Packaging project binaries')
+    hex_file = await p.hexify()
+
+    logging.info('Build of project succeeded!\nResulting binary at:%s', hex_file)
+
+    logging.info('Executing post-build step')
+    await p.project_postbuild()
+    return hex_file
+
+
 async def main():
     command_line_options = parser.parse_args()
     if command_line_options.verbose is None:
@@ -28,45 +52,17 @@ async def main():
     else:
         log_level = 'DEBUG'
     coloredlogs.install(level=log_level)
-    binaries = []
     asyncio.set_event_loop(asyncio.ProactorEventLoop())
-
     base_dir = os.path.dirname(os.path.realpath(__file__))
     logging.info('Building all project in directory: %s', base_dir)
     mcp_files = [f.absolute() for f in Path(base_dir).rglob('*.mcp')]
+
+    project_tasks = []
     for mcp_file in mcp_files:
-        cwd = os.getcwd()
-        try:
-            p = MPLabProject(mcp_file, debug_build=command_line_options.debug)
-            logging.info('Beginning build of %s', mcp_file)
-            project_dir = p.path.parent
-            logging.debug('Switching to directory: %s', project_dir)
-            os.chdir(project_dir)
-            p.ensure_output_dirs()
+        mplab_project = MPLabProject(mcp_file, debug_build=command_line_options.debug)
+        project_tasks.append(build_project(mplab_project))
 
-            logging.info('Executing pre-build step')
-            await p.project_prebuild()
-
-            source_file_ids = p.get_source_file_ids()
-            binaries = await asyncio.gather(*[p.file_build(f) for f in source_file_ids])
-
-            logging.info('Linking project: %s', mcp_file)
-            await p.link_project([str(b) for b in binaries])
-
-            logging.info('Packaging project binaries')
-            hex_file = await p.hexify()
-
-            logging.info('Build of project %s succeeded!\nResulting binary at:%s', mcp_file, hex_file)
-            binaries.append(hex_file)
-
-            logging.info('Executing post-build step')
-            await p.project_postbuild()
-
-        except Exception as e:
-            logging.exception('Build of project %s failed with error:\n%s', mcp_file, e)
-            raise
-        finally:
-            os.chdir(cwd)
+    hexfiles = await asyncio.gather(*project_tasks)
 
     if command_line_options.upload:
         logging.info('Uploading to git...')
@@ -138,7 +134,7 @@ async def main():
         )
         logging.info('Created GitHub release. Adding assets...')
 
-        for b in binaries:
+        for b in hexfiles:
             p = Path(b)
             if tag:
                 label = f'{p.stem}-{tag}{p.suffix}'
