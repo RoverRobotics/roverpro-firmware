@@ -561,7 +561,7 @@ void FANCtrlIni() {
     a_byte = 240;
     i2c_synchronously_await(I2C_BUS2, i2c_op_write_byte(FAN_CONTROLLER_ADDRESS, 0x0b, &a_byte));
 
-    block_ms(3000);
+    block_ms(4000);
 
     // return fan to low duty cycle
     a_byte = 0;
