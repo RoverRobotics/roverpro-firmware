@@ -14,6 +14,8 @@
 #include "device_power_bus.h"
 #include "math.h"
 
+bool SHOULD_SKIP_BOOTLOADER __attribute__((persistent, address(0x400)));
+
 //****************************************************
 Counter speed_update_timer[MOTOR_CHANNEL_COUNT] = {
     {.max = INTERVAL_MS_SPEED_UPDATE, .pause_on_expired = true},

@@ -5,6 +5,7 @@
 *.mcs
 *.mcw
 *.gld.00
+*.elf
 
 # MPLAB X compilation files
 *.o.d
@@ -25,8 +26,10 @@
 # CMake
 cmake-build-*/
 
+# python
 **/__pycache__/
-
+.venv/
+Pipfile.lock
 
 # generated source files
 *.GENERATED.h

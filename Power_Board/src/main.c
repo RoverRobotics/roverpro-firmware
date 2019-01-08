@@ -13,7 +13,7 @@
  *
  */
 
-#include "p24Fxxxx.h" 
+#include "p24Fxxxx.h"
 #include "stdhdr.h"
 #include "device_robot_motor.h"
 #include "motor.h"
@@ -23,28 +23,28 @@
 // -------------------------------------------------------------------------
 
 #ifdef __XC16__
-	#pragma config JTAGEN=OFF
-	#pragma config GCP=OFF
-	#pragma config GWRP=OFF
-	#pragma config FWDTEN=ON
-	#pragma config ICS=PGx2
-	#pragma config WDTPS=PS128
-	#pragma config IESO=OFF
-	#pragma config FCKSM=CSDCMD
-	#pragma config OSCIOFNC=ON
-	#pragma config POSCMOD=HS
-	#pragma config FNOSC=PRIPLL
-	#pragma config PLLDIV=DIV5
-	#pragma config IOL1WAY=ON
+#pragma config JTAGEN = OFF
+#pragma config GCP = OFF
+#pragma config GWRP = OFF
+#pragma config FWDTEN = ON
+#pragma config ICS = PGx2
+#pragma config WDTPS = PS128
+#pragma config IESO = OFF
+#pragma config FCKSM = CSDCMD
+#pragma config OSCIOFNC = ON
+#pragma config POSCMOD = HS
+#pragma config FNOSC = PRIPLL
+#pragma config PLLDIV = DIV5
+#pragma config IOL1WAY = ON
 #else
-	#if __DEBUG
-	#define GCP_X GCP_OFF
-	#else
-	#define GCP_X GCP_ON
-	#endif
-	_CONFIG1((JTAGEN_OFF & GCP_X & GWRP_OFF & COE_OFF & FWDTEN_ON & ICS_PGx2 & WDTPS_PS128))
-	_CONFIG2((IESO_OFF & FCKSM_CSDCMD & OSCIOFNC_ON & POSCMOD_HS & FNOSC_PRIPLL & PLLDIV_DIV5 &
-	          IOL1WAY_ON))
+#if __DEBUG
+#define GCP_X GCP_OFF
+#else
+#define GCP_X GCP_ON
+#endif
+_CONFIG1((JTAGEN_OFF & GCP_X & GWRP_OFF & COE_OFF & FWDTEN_ON & ICS_PGx2 & WDTPS_PS128))
+_CONFIG2((IESO_OFF & FCKSM_CSDCMD & OSCIOFNC_ON & POSCMOD_HS & FNOSC_PRIPLL & PLLDIV_DIV5 &
+          IOL1WAY_ON))
 #endif
 
 // WDT timeout = 128/31 kHz * WDTPS
@@ -54,9 +54,6 @@
 // BOOTLOADER
 // -------------------------------------------------------------------------
 
-#define PF __attribute__((section("programmable"))) // programmable function
-#define FIRST_PROGRAMMABLE_FUNC __attribute__((address(0xF00)))
-
 typedef enum COMMAND_T {
     DEVICE_OCU_INIT,
     DEVICE_CARRIER_INIT,
@@ -65,8 +62,6 @@ typedef enum COMMAND_T {
     DEVICE_CARRIER_PROCESS_IO
     // etc.....
 } COMMAND;
-
-void PF FIRST_PROGRAMMABLE_FUNC callFunc(COMMAND command, void *params) { return; }
 
 // -------------------------------------------------------------------------
 // GLOBAL VARIABLES
@@ -96,7 +91,7 @@ extern USB_DEVICE_DESCRIPTOR device_dsc;
 // CODE
 // -------------------------------------------------------------------------
 
-int PF main(void) {
+int main(void) {
     InitializeSystem();
 
     while (1) {
@@ -106,13 +101,6 @@ int PF main(void) {
 
 static void InitializeSystem(void) {
     gpio_id = PORTE & 0x001F; ///< 5-bit board ID (RE0 to RE4)
-
-    /*
-    // override clock settings
-    CLKDIVbits.RCDIV = 0;
-    CLKDIVbits.CPDIV = 0;
-    CLKDIVbits.DOZEN = 0;
-    CLKDIVbits.DOZE = 0;*/
 
     // get number of registers
     while (registers[gRegisterCount].ptr != 0) {

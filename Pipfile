@@ -6,6 +6,9 @@ verify_ssl = true
 [dev-packages]
 
 [packages]
+booty = {editable = true,git = "https://github.com/RoverRobotics/booty"}
+coloredlogs = "*"
+pygithub = "*"
 
 [requires]
 python_version = "3.7"
