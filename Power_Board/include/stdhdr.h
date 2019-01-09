@@ -12,10 +12,12 @@
 
 #include <stdlib.h>
 #include <stdint.h>
-#include "Compiler.h"
+#include "xc.h"
 #include "USB/usb.h"
 #include "interrupt_switch.h"
 #include <stdbool.h>
+
+#define FCY 16000000UL // instruction clock
 
 // PIC24-specific breakpoint command:
 #if __DEBUG

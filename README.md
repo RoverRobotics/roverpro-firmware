@@ -1,56 +1,40 @@
 Firmware
 ========
 
-## Installation
+## Installation with bootloader
 
-Released hex files can be found at https://github.com/RoverRobotics/OpenRoverFirmware-dan/releases and may be deployed with the PICkit3 standalone programmer application.
+The rover includes an onboard bootloader to allow you to update the firmware.
 
-### Deployment instructions with PICkit3 standalone
+1. Ensure you have  [booty bootloader client](https://pypi.org/project/booty/) installed on your computer, which can be installed with:
 
-If you are not using MPLAB IDE, you can deploy a hex file with the standalone [PICkit 3 Programmer Application v3.10](http://ww1.microchip.com/downloads/en/DeviceDoc/PICkit3%20Programmer%20Application%20v3.10.zip).
+   ```bash
+   pip3 install "booty>=0.3"
+   ```
 
-1. If the program says "The PICkit 3 has no Operating System", unplug it from the rover and browse to select an OS hex file for PicKit3Mine is at `C:\Program Files (x86)\Microchip\PICkit 3 v3\PK3OSV020005.hex`
-2. File -> Import Hex -> (choose hex file)
-3. Click the Write button
+2. Download a PowerBoard hexfile from https://github.com/RoverRobotics/OpenRoverFirmware-dan/releases/latest and use booty to flash it onto the rover:
 
-If you want to use MPLAB afterwards, go to Tools -> Revert to MPLAB mode
+3. Connect the rover on serial port 1 to your computer using a [FTDI cable and Payload USB/Serial Breakout Board](https://roverrobotics.com/products/payload-usb-serial-breakout-board/).
 
-## Release Notes
+4. Power on the robot.
 
-(:sunny: = feature, :umbrella: = bugfix, :snowflake: = nonfunctional change)
+5. Flash the firmware with booty
 
-### 1.3.1
+   ```bash
+   booty --port COM3 --baudrate 57600 --hexfile "Downloads/PowerBoard-1.4.0.hex" --erase --load --verify
+   ```
 
-* :umbrella: Fix issue where UART can stop responding until rover is rebooted.
+### Troubleshooting bootloader
 
-### 1.3.0
-
-* :umbrella: Fix race condition where UART can send corrupted data
-* :sunny: Add encoder counts to queryable robot metrics (14, 16)
-* :snowflake: Delete even more unused code (robot accessories, controllers) and improve code clarity
-* :snowflake: Verified firmware behavior using [Python3 OpenRover driver](https://pypi.org/project/openrover/)
-* :snowflake: Lots of documentation improvements
-
-### 1.2.1
-
-* :umbrella: Re-enable motor control over UART, which were broken due to a 1.2.0 firmware bug
-* :snowflake: unify I<sup>2</sup>C code under a single API
-
-
-### 1.2.0
-
-* :sunny: Add Battery Status, Mode, Temp for both batteries to data driver can request over UART
-* :snowflake: Delete much unused code, reorganize existing code
-* :snowflake: Add coding standards, readme
-
-### 1.0.3
-* :snowflake: No functional changes. This is identical to the Robotex Firmware.
+ * Your port may vary. On my Windows computer it is `COM3`, on a Linux computer it may be `ttyUSB0` or something similar.
+ * If booty says "device not responding" and the green serial board LED is **off**, the rover may be unpowered or not properly connected to the computer. Make sure the battery has charge, the cable is connected properly, you have the correct port selected, and the baud rate is 57600.
+* If booty says "device not responding" and the green serial board LED is **on**, the rover has booted into regular operation. The rover only remains in bootloader mode for 10 seconds after being powered on. Hold down the red side power button for 5 seconds to restart the rover into bootloader mode then retry (note the light may or may not turn off immediately upon reboot).
+* The location of your hexfile may vary. If not found, booty will report "no such file or directory"
 
 ## Development
 
 ### IDE and build tools
 
-The MCP files can be opened in [MPLAB IDE v8.92](http://ww1.microchip.com/downloads/en/DeviceDoc/MPLAB_IDE_8_92.zip) (not MPLAB X) and should be built with the  [MIcrochip C30 Toolsuite v3.31](http://ww1.microchip.com/downloads/en/DeviceDoc/mplabc30-v3_31-windows-installer.exe). This contains not only a compiler/linker/assembler but also standard libraries for the PIC24F MCU's.
+The MCP files can be opened in [MPLAB IDE v8.92](http://ww1.microchip.com/downloads/en/DeviceDoc/MPLAB_IDE_8_92.zip) (not MPLAB X) and should be built with the [Microchip XC16 Toolsuite](https://www.microchip.com/mplab/compilers). This contains not only a compiler/linker/assembler but also standard libraries for the PIC24F MCU's.
 
 To build, use the Debug mode (if you're attaching a PICKit) or Release mode (if you're using this with other things). Note that if you build in Debug mode and you hit a breakpoint (`BREAKPOINT()` macro), execution will halt and wait for the debugger. If no debugger is attached, the [Watchdog Timer](http://ww1.microchip.com/downloads/en/devicedoc/39697a.pdf) will restart the device.
 
@@ -61,12 +45,11 @@ To tidy up code, I like using **[clang-format](https://clang.llvm.org/docs/Clang
 #### Ubuntu installation of clang-format
 
 ```bash
-sudo apt install clang-format-6.0
-sudo ln -s `which clang-format-6.0` /usr/local/bin/clang-format
+sudo apt install clang-format
 ```
 #### Windows installation of clang-format and git
 
-```
+```batch
 choco install git llvm
 ```
 
@@ -101,7 +84,7 @@ Code tips for debuggability as of MPLAB v8.92:
 
 ### Deployment instructions with MPLAB
 
-Given a released hex file, you can deploy to the robot power board with MPLAB instead of the PICKit3 standalone tool.
+Given a released hex file, you can deploy to the robot power board with MPLAB instead of the PICKit3 standalone tool. Note this will erase the bootloader, so make sure to flash the "bootypic.hex" hex file after development is done.
 
 1. File -> Import... -> (choose hex file)
 2. Programmer -> Select Programmer -> PICKit 3

@@ -3,28 +3,16 @@ project(Power_Board)
 
 set(CMAKE_C_STANDARD 90)
 
-#set(CMAKE_SYSTEM_INCLUDE_PATH /include)
-#set(CMAKE_SYSTEM_LIBRARY_PATH /lib)
-#set(CMAKE_SYSTEM_PROGRAM_PATH /bin)
-
-if (APPLE)
-    set(tools /Applications/microchip/xc16/v1.34)
-endif(APPLE)
-
-if (WIN32)
-    set(tools "C:/Program Files (x86)/Microchip/MPLAB C30/")
-    #set(tools "C:/Program Files (x86)/Microchip/xc16/v1.35/")
-endif(WIN32)
-
-# set(CMAKE_C_COMPILER "${tools}/bin/pic30-gcc.exe")
-# set(CMAKE_CXX_COMPILER ${tools}/bin/pic30-gcc.exe)
 set(CMAKE_CROSSCOMPILING ON)
 
 add_definitions(-D__PIC24F__ -D__PIC24FJ256GB106__)
+set(tools "C:/Program Files (x86)/Microchip/xc16/v1.36/")
+SET(CMAKE_C_FLAGS "-mcpu=24FJ256GB106 ${CMAKE_C_FLAGS}")
+
 
 include_directories(
-        include
-        microchip
+        ./include
+        ./microchip
         "${tools}/include"
         "${tools}/support/PIC24F/h"
         "${tools}/support/generic/h"

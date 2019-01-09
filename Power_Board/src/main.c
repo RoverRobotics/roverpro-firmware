@@ -13,7 +13,6 @@
  *
  */
 
-#include "p24Fxxxx.h"
 #include "stdhdr.h"
 #include "device_robot_motor.h"
 #include "motor.h"
@@ -22,33 +21,10 @@
 // PIC24FJ256GB106 FLASH CONFIGURATION
 // -------------------------------------------------------------------------
 
-#ifdef __XC16__
-#pragma config JTAGEN = OFF
-#pragma config GCP = OFF
-#pragma config GWRP = OFF
-#pragma config FWDTEN = ON
-#pragma config ICS = PGx2
-#pragma config WDTPS = PS128
-#pragma config IESO = OFF
-#pragma config FCKSM = CSDCMD
-#pragma config OSCIOFNC = ON
-#pragma config POSCMOD = HS
-#pragma config FNOSC = PRIPLL
-#pragma config PLLDIV = DIV5
-#pragma config IOL1WAY = ON
-#else
-#if __DEBUG
-#define GCP_X GCP_OFF
-#else
-#define GCP_X GCP_ON
-#endif
-_CONFIG1((JTAGEN_OFF & GCP_X & GWRP_OFF & COE_OFF & FWDTEN_ON & ICS_PGx2 & WDTPS_PS128))
-_CONFIG2((IESO_OFF & FCKSM_CSDCMD & OSCIOFNC_ON & POSCMOD_HS & FNOSC_PRIPLL & PLLDIV_DIV5 &
-          IOL1WAY_ON))
-#endif
-
-// WDT timeout = 128/31 kHz * WDTPS
-// 128/31e3*128 = .53 seconds
+// Set configuration bits.
+// Note we can't overwrite these with the bootloader, so this is only needed
+// for writing firmware with the PICkit3
+#include "../../bootypic/devices/pic24fj256gb106/config.h"
 
 // -------------------------------------------------------------------------
 // BOOTLOADER
@@ -130,7 +106,7 @@ void ProcessIO(void) {
     uint16_t i = 0;
     static unsigned int message_counter = 0;
 
-    ClrWdt();
+    __builtin_clrwdt();
 
     // ---------------------------------------------------------------------
     // DEVICE SPECIFIC I/O PROCESS HERE
@@ -220,22 +196,10 @@ void ProcessIO(void) {
                 BREAKPOINT(); // Initial motor velocities out of bounds!
                 while (1) {
                     // Stop motors forever
-                    ClrWdt();
+                    __builtin_clrwdt();
                 }
             }
         }
-
-        // motor velocities coming from software can actually be higher than 1000 (highest I saw was
-        // 1200), so this is commented out
-
-        // if any motor velocities are out of bounds, set all motor velocities to zero
-        /*if( (abs(REG_MOTOR_VELOCITY.left ) > 1000) || (abs(REG_MOTOR_VELOCITY.right ) > 1000) ||
-        (abs(REG_MOTOR_VELOCITY.flipper ) > 1000) )
-        {
-          REG_MOTOR_VELOCITY.left = 0;
-          REG_MOTOR_VELOCITY.right = 0;
-          REG_MOTOR_VELOCITY.flipper = 0;
-        }*/
     }
 }
 

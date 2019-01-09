@@ -112,7 +112,8 @@
 
 /** INCLUDES *******************************************************/
 #include "GenericTypeDefs.h"
-#include "Compiler.h"
+#include "xc.h"
+#include "string.h"
 #include "./USB/USB.h"
 #include "HardwareProfile.h"
 

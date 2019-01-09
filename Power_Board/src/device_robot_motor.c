@@ -1,6 +1,5 @@
 /// @file high-level motor control and main event loop.
 
-#include <p24Fxxxx.h>
 #include "stdhdr.h"
 #include "device_robot_motor.h"
 #include "interrupt_switch.h"
@@ -797,6 +796,6 @@ void calibrate_flipper_angle_sensor(void) {
 
     // don't do anything again ever
     while (1) {
-        ClrWdt();
+        __builtin_clrwdt();
     }
 }

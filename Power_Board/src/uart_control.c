@@ -1,6 +1,6 @@
 #include "uart_control.h"
 #include "device_robot_motor.h"
-#include "p24Fxxxx.h"
+#include "xc.h"
 #include "version.GENERATED.h"
 
 typedef struct Queue {
@@ -31,14 +31,7 @@ uint8_t dequeue(Queue *q) {
 };
 
 const uint8_t UART_START_BYTE = 253;
-
-// based on 32MHz system clock rate
-enum UARTBaudRate {
-    BAUD_RATE_9600_LOW = 103, // BRGH=0
-    BAUD_RATE_57600_LOW = 16, // BRGH=0
-    BAUD_RATE_57600_HI = 68,  // BRGH=1
-    BAUD_RATE_115200_HI = 34, // BRGH=1
-};
+#define UART_BAUD_RATE 57600
 
 uint8_t checksum(size_t count, const uint8_t *data) {
     int i;
@@ -86,11 +79,15 @@ typedef enum UARTCommand {
 } UARTCommand;
 
 void uart_init() {
-    // Write appropriate baud rate value to the UxBRG register.
-    U1BRG = BAUD_RATE_57600_HI;
     // Enable the UART.
     U1MODE = 0x0000;
-    U1MODEbits.BRGH = 1;   // High Baud Rate Select bit = High speed (low speed = 16x BRG)
+    if (UART_BAUD_RATE < FCY/4.0f){
+		U1MODEbits.BRGH = 0; // High Baud Rate Select bit = off
+		U1BRG = FCY / 16 / UART_BAUD_RATE - 1;
+	} 	else {
+		U1MODEbits.BRGH = 1;
+		U1BRG = FCY / 4 / UART_BAUD_RATE - 1;
+	}
     U1MODEbits.UARTEN = 1; // UART1 is enabled
 
     U1STAbits.UTXISEL1 = 1; // Call transmit interrupt when the transmit buffer is empty
@@ -226,7 +223,7 @@ UArtTickResult uart_tick() {
             break;
         case UART_COMMAND_RESTART:
             SHOULD_SKIP_BOOTLOADER = false;
-            Reset();
+            asm volatile ("RESET");
             break;
         case UART_COMMAND_FLIPPER_CALIBRATE:
             if (arg == UART_COMMAND_FLIPPER_CALIBRATE) {
