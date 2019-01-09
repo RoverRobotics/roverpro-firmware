@@ -7,9 +7,9 @@ BuildDirPolicy=BuildDirIsProjectDir
 dir_src=
 dir_bin=bin
 dir_tmp=obj
-dir_sin=C:\Program Files (x86)\Microchip\xc16\v1.35\src\libm
-dir_inc=C:\Users\dan\Documents\OpenRoverFirmware-dan\bootypic\devices\pic24fj256gb106;C:\Users\dan\Documents\OpenRoverFirmware-dan\bootypic;C:\Program Files (x86)\Microchip\xc16\v1.35\include
-dir_lib=C:\Program Files (x86)\Microchip\xc16\v1.35\lib
+dir_sin=
+dir_inc=C:\Users\dan\Documents\OpenRoverFirmware-dan\bootypic\devices\pic24fj256gb106
+dir_lib=
 dir_lkr=
 [CAT_FILTERS]
 filter_src=*.s;*.c
