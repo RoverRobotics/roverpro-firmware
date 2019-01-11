@@ -9,6 +9,7 @@ verify_ssl = true
 booty = {editable = true,git = "https://github.com/RoverRobotics/booty"}
 coloredlogs = "*"
 pygithub = "*"
+gitpython = "*"
 
 [requires]
 python_version = "3.7"

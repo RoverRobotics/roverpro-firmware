@@ -66,6 +66,8 @@ void uart_enqueue_debug_string(char *value) {
 /// 1-byte command "verb" associated with UART inbound command.
 /// There is also a 1-byte argument associated
 typedef enum UARTCommand {
+    /// Robot should not do anything besides obey the speed commands
+    UART_COMMAND_NONE = 0,
     /// Robot should return the data element specified by argument
     UART_COMMAND_GET = 10,
     /// Robot should set the fan speed to argument
@@ -73,7 +75,7 @@ typedef enum UARTCommand {
     /// Robot should restart
     UART_COMMAND_RESTART = 230,
     /// Robot should set the closed loop mode to argument
-    UART_COMMAND_SET_CLOSED_LOOP = 240,
+    UART_COMMAND_SET_DRIVE_MODE = 240,
     /// Robot should calibrate the flipper
     UART_COMMAND_FLIPPER_CALIBRATE = 250,
 } UARTCommand;
@@ -217,12 +219,12 @@ UArtTickResult uart_tick() {
             REG_MOTOR_SIDE_FAN_SPEED = arg;
             result.uart_fan_speed_requested = true;
             break;
-        case UART_COMMAND_SET_CLOSED_LOOP:
+        case UART_COMMAND_SET_DRIVE_MODE:
             REG_MOTOR_CLOSED_LOOP = arg;
             result.uart_motor_control_scheme_requested = true;
             break;
         case UART_COMMAND_RESTART:
-            SHOULD_SKIP_BOOTLOADER = false;
+            SHOULD_SKIP_BOOTLOADER = arg ? true : false;
             asm volatile ("RESET");
             break;
         case UART_COMMAND_FLIPPER_CALIBRATE:

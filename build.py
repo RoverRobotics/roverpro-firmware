@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import urllib.parse
 import webbrowser
+import git
 
 import coloredlogs
 import github
@@ -66,7 +67,6 @@ async def main():
 
     if command_line_options.upload:
         logging.info('Uploading to git...')
-        import git
 
         local = git.Repo(base_dir, search_parent_directories=True)
         SECTION = 'github-release'
