@@ -1,6 +1,10 @@
 #include "i2clib.h"
 #include "stdhdr.h"
 
+#ifndef min
+#define min(a,b) (a<b ? a:b)
+#endif
+
 /** I2C ack bit. Transmitted in response to any data received. */
 typedef enum I2CAck {
     ACK = 0,  ///< ACKnowledge: the byte was successfully received and another byte may be sent

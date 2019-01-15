@@ -1,56 +1,120 @@
 Firmware
 ========
 
-## Installation
+## Installation with bootloader
 
-Released hex files can be found at https://github.com/RoverRobotics/OpenRoverFirmware-dan/releases and may be deployed with the PICkit3 standalone programmer application.
+The rover includes an onboard bootloader to allow you to update the firmware.
 
-### Deployment instructions with PICkit3 standalone
+1. Ensure you have  [booty bootloader client](https://pypi.org/project/booty/) installed on your computer, which can be installed with:
 
-If you are not using MPLAB IDE, you can deploy a hex file with the standalone [PICkit 3 Programmer Application v3.10](http://ww1.microchip.com/downloads/en/DeviceDoc/PICkit3%20Programmer%20Application%20v3.10.zip).
+   ```bash
+   pip3 install "booty>=0.3"
+   ```
 
-1. If the program says "The PICkit 3 has no Operating System", unplug it from the rover and browse to select an OS hex file for PicKit3Mine is at `C:\Program Files (x86)\Microchip\PICkit 3 v3\PK3OSV020005.hex`
-2. File -> Import Hex -> (choose hex file)
-3. Click the Write button
+2. Download a PowerBoard hexfile from https://github.com/RoverRobotics/OpenRoverFirmware-dan/releases/latest and use booty to flash it onto the rover:
 
-If you want to use MPLAB afterwards, go to Tools -> Revert to MPLAB mode
+3. Connect the rover on serial port 1 to your computer using a [FTDI cable and Payload USB/Serial Breakout Board](https://roverrobotics.com/products/payload-usb-serial-breakout-board/).
 
-## Release Notes
+4. Power on the robot.
 
-(:sunny: = feature, :umbrella: = bugfix, :snowflake: = nonfunctional change)
+5. Flash the firmware with booty
 
-### 1.3.1
+   ```bash
+   booty --port COM3 --baudrate 57600 --hexfile "Downloads/PowerBoard-1.4.0.hex" --erase --load --verify
+   ```
 
-* :umbrella: Fix issue where UART can stop responding until rover is rebooted.
+### Troubleshooting bootloader
 
-### 1.3.0
-
-* :umbrella: Fix race condition where UART can send corrupted data
-* :sunny: Add encoder counts to queryable robot metrics (14, 16)
-* :snowflake: Delete even more unused code (robot accessories, controllers) and improve code clarity
-* :snowflake: Verified firmware behavior using [Python3 OpenRover driver](https://pypi.org/project/openrover/)
-* :snowflake: Lots of documentation improvements
-
-### 1.2.1
-
-* :umbrella: Re-enable motor control over UART, which were broken due to a 1.2.0 firmware bug
-* :snowflake: unify I<sup>2</sup>C code under a single API
+ * Your port may vary. On my Windows computer it is `COM3`, on a Linux computer it may be `ttyUSB0` or something similar.
+ * If booty says "device not responding" and the green serial board LED is **off**, the rover may be unpowered or not properly connected to the computer. Make sure the battery has charge, the cable is connected properly, you have the correct port selected, and the baud rate is 57600.
+* If booty says "device not responding" and the green serial board LED is **on**, the rover has booted into regular operation. The rover only remains in bootloader mode for 10 seconds after being powered on. Hold down the red side power button for 5 seconds to restart the rover into bootloader mode then retry (note the light may or may not turn off immediately upon reboot).
+* The location of your hexfile may vary. If not found, booty will report "no such file or directory"
 
 
-### 1.2.0
+## UART Protocol
 
-* :sunny: Add Battery Status, Mode, Temp for both batteries to data driver can request over UART
-* :snowflake: Delete much unused code, reorganize existing code
-* :snowflake: Add coding standards, readme
+Communicate with the firmware over UART at baud rate 57600.
 
-### 1.0.3
-* :snowflake: No functional changes. This is identical to the Robotex Firmware.
+Each message to the rover is 7 bytes:
+
+1. Start byte = 253
+2. Left motor speed - (0-124 = backwards, 125 = hard brake, 126-250 = forward)
+3. Right motor speed
+4. Flipper motor speed
+5. Command Verb
+6. Command Argument
+7. Checksum = 255 - (sum of all bytes except start byte) % 255
+
+The rover only responds if command verb is 10. All values are 16-bit integers, unsigned unless noted below.
+
+The response is 5 bytes:
+1. Start byte = 253
+2. Data Element #
+3. Value (hi byte)
+4. Value (lo byte)
+5. Checksum = 255 - (sum of all bytes except start byte) % 255
+
+Upon receiving a message, the rover will set the motor speeds and may also take an additional action specified by the command verb. If no valid message is received is received for a while (333ms), the motors will come to a halt.
+
+### UART Command Verbs
+
+|      | Name                 | Description                                                  |
+| ---- | -------------------- | ------------------------------------------------------------ |
+| 0    | ---                  | No additional action                                         |
+| 10   | get data             | Rover will respond with the data element specified by arg    |
+| 20   | set fan target speed | Rover will set the cooling fan speed to the arg (0-240) for a while (333ms) |
+| 230  | restart              | Rover will restart. If arg=0, then the bootloader will be skipped. If arg=0, then the rover will skip the bootloader. If arg=1, then the rover will enter the bootloader upon restart. |
+| 240  | set drive mode       | If arg = 0, rover will be driven in open loop mode (commanded speeds will be the direction and effort of the motor)<br />If arg=1, rover will be driven in closed loop mode (commanded speeds will be the intended speed of the motor) |
+| 230  | flipper calibrate    | If arg = 230, calibrate the flipper. Note the robot must be manually cycled before it will accept additional commands. |
+
+### UART Data Elements
+
+| #    | Name                           | Allowable data                                               | Comments                                                     |
+| ---- | ------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| 0    | battery (A+B) current (external)| 34 = 1A                                                     | Total current from batteries                                 |
+|~~2~~ | ~~left motor speed~~           |                                                              |                                                              |
+|~~4~~ | ~~right motor speed~~          |                                                              |                                                              |
+| 6    | flipper position 1             | relative position of 15 - 330 degrees of one sensor          | Flipper position sensor 1                                    |
+| 8    | flipper position 2             | relative position of 15 - 330 degrees of one sensor          | Flipper position sensor 2                                    |
+| 10   | left motor current             | 34 = 1A                                                      |                                                              |
+| 12   | right motor current            | 34 = 1A                                                      |                                                              |
+| 14   | left motor encoder count       | 0 - 65535                                                    | May overflow or underflow. Increments when motor driven forward, decrements backward |
+| 16   | right motor encoder count      | 0 - 65535                                                    | May overflow or underflow. Increments when motor driven forward, decrements backward |
+| 18   | motors fault flag              | Bit flags                                                    | (value & 0x0100) = left motor (value & 0x0001) = right motor |
+| 20   | left motor temperature         | degrees celsius                                              |                                                              |
+|~~22~~| ~~right motor temperature~~    | degrees celsius                                              |                                                              |
+| 24   | battery A voltage (external)   | 58 = 1V                                                      |                                                              |
+| 26   | battery B voltage (external)   | 58 = 1V                                                      |                                                              |
+| 28   | left motor encoder interval    |                                                              | 0 when motor stopped. Else proportional to motor period (inverse motor speed) |
+| 30   | right motor encoder interval   |                                                              |                                                              |
+|~~32~~| flipper motor encoder interval |                                                              |                                                              |
+| 34   | battery A state of charge      | 0-100 %                                                      | 0 = battery empty; 100 = battery fully charged               |
+| 36   | battery B state of charge      | 0-100 %                                                      |                                                              |
+| 38   | battery charging state         | 0 or 0xdada=56026                                            | 0 = not charging; 0xdada = charging                          |
+| 40   | release version                | Structured decimal                                           | XYYZZ, where X=major version, Y=minor version, Z = patch version.<br />e.g. 10502 = version 1.05.02<br />The value 16421 will be reported for pre-1.3 versions|
+| 42   | battery A current (external)   | 0-1023, 34 = 1A                                              |                                                              |
+| 44   | battery B current (external)   | 0-1023, 34 = 1A                                              |                                                              |
+| 46   | motor flipper angle            | 0-360, degrees (actual data range needs to be tested)        | Flipper angle                                                |
+| 48   | fan speed                      | 0-240,                                                       | Actual fan speed, reported by fan controller                 |
+| 50   | drive mode                     | 0 (open loop) or 1 (closed loop)                             |                                                              |
+| 52   | battery A status               | Bit flags                                                    | Alarm bits:<br />* 0x8000 OVER_CHARGED_ALARM<br />* 0x4000 TERMINATE_CHARGE_ALARM<br />* 0x1000 OVER_TEMP_ALARM<br />* 0x0800 TERMINATE_DISCHARGE_ALARM<br />* 0x0200 REMAINING_CAPACITY_ALARM<br />* 0x0100 REMAINING_TIME_ALARM<br />Status bits:<br />* 0x0080 INITIALIZED<br />* 0x0040 DISCHARGING<br />* 0x0020 FULLY_CHARGED<br />* 0x0010 FULLY_DISCHARGED |
+| 54   | battery B status               | Bit flags                                                    |                                                              |
+| 56   | battery A mode                 | Bit flags                                                    | Bit 7 (value & 0x80) gives whether battery needs a condition cycle. Other values probably useless |
+| 58   | battery B mode                 | Bit flags                                                    | Bit 7 (value & 0x80) gives whether battery needs a condition cycle. Other values probably useless |
+| 60   | battery A temperature          | Temperature of battery above absolute 0 in deciKelvins       |                                                              |
+| 62   | battery B temperature          | Temperature of battery above absolute 0 in deciKelvins       |                                                              |
+| 64   | battery A voltage (internal)   | Voltage of battery in mV                                     |                                                              |
+| 66   | battery B voltage (internal)   | Voltage of battery in mV                                     |                                                              |
+| 68   | battery A current (internal)   | (signed) Current of battery in mA                            | negative values for discharge, positive for charging         |
+| 70   | battery B current (internal)   | (signed) Current of battery in mA                            | negative values for discharge, positive for charging         |
+
+note: for battery reporting, "internal" means the value comes from the SmartBattery's internal sensor. "external" means the value is reported by circuitry outside the SmartBattery
 
 ## Development
 
 ### IDE and build tools
 
-The MCP files can be opened in [MPLAB IDE v8.92](http://ww1.microchip.com/downloads/en/DeviceDoc/MPLAB_IDE_8_92.zip) (not MPLAB X) and should be built with the  [MIcrochip C30 Toolsuite v3.31](http://ww1.microchip.com/downloads/en/DeviceDoc/mplabc30-v3_31-windows-installer.exe). This contains not only a compiler/linker/assembler but also standard libraries for the PIC24F MCU's.
+The MCP files can be opened in [MPLAB IDE v8.92](http://ww1.microchip.com/downloads/en/DeviceDoc/MPLAB_IDE_8_92.zip) (not MPLAB X) and should be built with the [Microchip XC16 Toolsuite](https://www.microchip.com/mplab/compilers). This contains not only a compiler/linker/assembler but also standard libraries for the PIC24F MCU's.
 
 To build, use the Debug mode (if you're attaching a PICKit) or Release mode (if you're using this with other things). Note that if you build in Debug mode and you hit a breakpoint (`BREAKPOINT()` macro), execution will halt and wait for the debugger. If no debugger is attached, the [Watchdog Timer](http://ww1.microchip.com/downloads/en/devicedoc/39697a.pdf) will restart the device.
 
@@ -61,12 +125,11 @@ To tidy up code, I like using **[clang-format](https://clang.llvm.org/docs/Clang
 #### Ubuntu installation of clang-format
 
 ```bash
-sudo apt install clang-format-6.0
-sudo ln -s `which clang-format-6.0` /usr/local/bin/clang-format
+sudo apt install clang-format
 ```
 #### Windows installation of clang-format and git
 
-```
+```batch
 choco install git llvm
 ```
 
@@ -101,7 +164,7 @@ Code tips for debuggability as of MPLAB v8.92:
 
 ### Deployment instructions with MPLAB
 
-Given a released hex file, you can deploy to the robot power board with MPLAB instead of the PICKit3 standalone tool.
+Given a released hex file, you can deploy to the robot power board with MPLAB instead of the PICKit3 standalone tool. Note this will erase the bootloader, so make sure to flash the "bootypic.hex" hex file after development is done.
 
 1. File -> Import... -> (choose hex file)
 2. Programmer -> Select Programmer -> PICKit 3

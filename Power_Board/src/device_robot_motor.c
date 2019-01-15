@@ -1,6 +1,5 @@
 /// @file high-level motor control and main event loop.
 
-#include <p24Fxxxx.h>
 #include "stdhdr.h"
 #include "device_robot_motor.h"
 #include "interrupt_switch.h"
@@ -13,6 +12,8 @@
 #include "counter.h"
 #include "device_power_bus.h"
 #include "math.h"
+
+bool SHOULD_SKIP_BOOTLOADER __attribute__((persistent, address(0x400)));
 
 //****************************************************
 Counter speed_update_timer[MOTOR_CHANNEL_COUNT] = {
@@ -561,7 +562,7 @@ void FANCtrlIni() {
     a_byte = 240;
     i2c_synchronously_await(I2C_BUS2, i2c_op_write_byte(FAN_CONTROLLER_ADDRESS, 0x0b, &a_byte));
 
-    block_ms(3000);
+    block_ms(4000);
 
     // return fan to low duty cycle
     a_byte = 0;
@@ -795,6 +796,6 @@ void calibrate_flipper_angle_sensor(void) {
 
     // don't do anything again ever
     while (1) {
-        ClrWdt();
+        __builtin_clrwdt();
     }
 }

@@ -1,7 +1,7 @@
 #ifndef POWER_BOARD_HARDWARE_DEFINITIONS_H
 #define POWER_BOARD_HARDWARE_DEFINITIONS_H
 
-#include <Compiler.h>
+#include <xc.h>
 
 //*-----------------------------General Purpose------------------------------*/
 #define CLEAR 0

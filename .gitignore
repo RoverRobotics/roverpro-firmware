@@ -5,6 +5,10 @@
 *.mcs
 *.mcw
 *.gld.00
+*.elf
+
+# MPLAB X compilation files
+*.o.d
 
 # Packaged firmware release files
 **/bin/*.hex
@@ -22,8 +26,10 @@
 # CMake
 cmake-build-*/
 
+# python
 **/__pycache__/
-
+.venv/
+Pipfile.lock
 
 # generated source files
 *.GENERATED.h

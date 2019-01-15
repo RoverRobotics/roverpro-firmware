@@ -2,7 +2,6 @@
 #include "motor.h"
 #include "stdhdr.h"
 #include "hardware_definitions.h"
-#include <p24Fxxxx.h>
 
 /*---------------------------Macros-------------------------------------------*/
 #define CAPTURE_BUFFER_COUNT 4

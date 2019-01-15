@@ -1,20 +1,37 @@
-#include "stdhdr.h"
 #include "uart_control.h"
 #include "device_robot_motor.h"
-#include "p24Fxxxx.h"
+#include "xc.h"
 #include "version.GENERATED.h"
 
-#define UART_TX_BUFFER_LENGTH 4
-#define UART_RX_BUFFER_LENGTH 6
-const uint8_t UART_START_BYTE = 253;
+typedef struct Queue {
+    const size_t buflen; // size of the buffer that data will be stored in. Should be a power of 2
+    volatile int16_t
+        n_enqueued; // number of bytes that have been enqueued over the lifetime of this queue
+    volatile int16_t
+        n_dequeued; // number of bytes that have been dequeued over the lifetime of this queue
+    uint8_t *const buffer; // physical buffer that the data will be stored in
+} Queue;
 
-// based on 32MHz system clock rate
-enum UARTBaudRate {
-    BAUD_RATE_9600_LOW = 103, // BRGH=0
-    BAUD_RATE_57600_LOW = 16, // BRGH=0
-    BAUD_RATE_57600_HI = 68,  // BRGH=1
-    BAUD_RATE_115200_HI = 34, // BRGH=1
+int16_t n_can_enqueue(Queue *q) { return q->buflen - q->n_enqueued + q->n_dequeued; };
+int16_t n_can_dequeue(Queue *q) { return q->n_enqueued - q->n_dequeued; };
+void enqueue(Queue *q, uint8_t value) {
+    if (n_can_enqueue(q)) {
+        q->buffer[q->n_enqueued++ % q->buflen] = value;
+    } else {
+        BREAKPOINT();
+    }
 };
+uint8_t dequeue(Queue *q) {
+    if (n_can_dequeue(q)) {
+        return q->buffer[q->n_dequeued++ % q->buflen];
+    } else {
+        BREAKPOINT();
+        return 0;
+    }
+};
+
+const uint8_t UART_START_BYTE = 253;
+#define UART_BAUD_RATE 57600
 
 uint8_t checksum(size_t count, const uint8_t *data) {
     int i;
@@ -26,43 +43,53 @@ uint8_t checksum(size_t count, const uint8_t *data) {
 }
 
 /// Software buffer for receiving UART data
-uint8_t uart_rx_buffer[UART_RX_BUFFER_LENGTH];
+#define UART_RX_BUFLEN 32
+uint8_t uart_rx_buffer[UART_RX_BUFLEN];
+static Queue uart_rx_queue = {.buflen = UART_RX_BUFLEN, .buffer = uart_rx_buffer};
 
-/// index into UART receive buffer
-/// -1 = ready to receive start byte
-/// 0 ... UART_RX_BUFFER_LENGTH-1 = ready to receive the i'th data byte
-/// UART_RX_BUFFER_LENGTH = Done sending data. Buffer contents are stable and can be safely read
-int16_t i_uart_rx_buffer = -1;
+#define UART_TX_BUFLEN 256
+uint8_t uart_tx_buffer[UART_TX_BUFLEN];
+static Queue uart_tx_queue = {.buflen = UART_TX_BUFLEN, .buffer = uart_tx_buffer};
 
-/// Software buffer for transmitting UART data
-uint8_t uart_tx_buffer[UART_TX_BUFFER_LENGTH];
-
-/// index into UART transmit buffer
-/// -1 = ready to send start byte
-/// 0 ... UART_TX_BUFFER_LENGTH-1 = ready to send the i'th data byte
-/// UART_TX_BUFFER_LENGTH = Done sending data. Buffer contents are stable and can be safely
-/// overwritten
-static int16_t i_uart_tx_buffer = UART_TX_BUFFER_LENGTH;
+void uart_enqueue_debug_string(char *value) {
+    int i;
+    int n = n_can_enqueue(&uart_tx_queue);
+    if (n < 2)
+        return;
+    enqueue(&uart_tx_queue, UART_START_BYTE);
+    for (i = 0; i < n - 2 && value[i] != 0; i++) {
+        enqueue(&uart_tx_queue, value[i]);
+    }
+    enqueue(&uart_tx_queue, 0);
+}
 
 /// 1-byte command "verb" associated with UART inbound command.
 /// There is also a 1-byte argument associated
 typedef enum UARTCommand {
+    /// Robot should not do anything besides obey the speed commands
+    UART_COMMAND_NONE = 0,
     /// Robot should return the data element specified by argument
     UART_COMMAND_GET = 10,
     /// Robot should set the fan speed to argument
     UART_COMMAND_SET_FAN_SPEED = 20,
+    /// Robot should restart
+    UART_COMMAND_RESTART = 230,
     /// Robot should set the closed loop mode to argument
-    UART_COMMAND_SET_CLOSED_LOOP = 240,
+    UART_COMMAND_SET_DRIVE_MODE = 240,
     /// Robot should calibrate the flipper
     UART_COMMAND_FLIPPER_CALIBRATE = 250,
 } UARTCommand;
 
 void uart_init() {
-    // Write appropriate baud rate value to the UxBRG register.
-    U1BRG = BAUD_RATE_57600_HI;
     // Enable the UART.
     U1MODE = 0x0000;
-    U1MODEbits.BRGH = 1;   // High Baud Rate Select bit = High speed (low speed = 16x BRG)
+    if (UART_BAUD_RATE < FCY/4.0f){
+		U1MODEbits.BRGH = 0; // High Baud Rate Select bit = off
+		U1BRG = FCY / 16 / UART_BAUD_RATE - 1;
+	} 	else {
+		U1MODEbits.BRGH = 1;
+		U1BRG = FCY / 4 / UART_BAUD_RATE - 1;
+	}
     U1MODEbits.UARTEN = 1; // UART1 is enabled
 
     U1STAbits.UTXISEL1 = 1; // Call transmit interrupt when the transmit buffer is empty
@@ -77,18 +104,19 @@ void __attribute__((__interrupt__, auto_psv)) _U1RXInterrupt() {
     // clear the interrupt flag
     _U1RXIF = 0;
     // While new received data is available and we have somewhere to put it
-    while (U1STAbits.URXDA && i_uart_rx_buffer < UART_RX_BUFFER_LENGTH) {
-        // Pop the next byte off the read queue
+    while (U1STAbits.URXDA) {
         uint8_t a_byte = (uint8_t)U1RXREG;
-        if (i_uart_rx_buffer == -1 && a_byte == UART_START_BYTE) {
-            // If we have not seen a start byte and the next byte is a start byte,
-            // Throw out the newly read byte and move to the beginning of the read buffer
-            i_uart_rx_buffer = 0;
-        } else if (i_uart_rx_buffer > -1) {
-            // If we are getting a data byte, save it to the read buffer and increment the value
-            uart_rx_buffer[i_uart_rx_buffer] = a_byte;
-            i_uart_rx_buffer++;
+        // Pop the next byte off the read queue
+        if (n_can_enqueue(&uart_rx_queue) > 0) {
+            enqueue(&uart_rx_queue, a_byte);
+        } else {
+            // Nowhere to put the new data. Oh well.
         }
+    }
+    // if receiver overflowed this resets the module
+    if (U1STAbits.OERR) {
+        // clear overflow error bit if it was set.
+        U1STAbits.OERR = 0;
     }
 }
 
@@ -97,33 +125,20 @@ void __attribute__((__interrupt__, auto_psv)) _U1TXInterrupt() {
     // clear the interrupt flag
     _U1TXIF = 0;
     // transmit data
-    // if (U1STAbits.TRMT == 1){ // if transmit shift register is empty
-    while (U1STAbits.UTXBF == 0) { // while transmit shift buffer is not full
-        // while transmit buffer is not full
-        if (i_uart_tx_buffer == -1) {
-            // Transmit the start byte
-            U1TXREG = UART_START_BYTE;
-            i_uart_tx_buffer = 0;
-        } else if (i_uart_tx_buffer < UART_TX_BUFFER_LENGTH) {
-            // Transmit the next data byte
-            U1TXREG = uart_tx_buffer[i_uart_tx_buffer];
-            i_uart_tx_buffer++;
-        } else {
-            // No data to send
-            break;
-        }
+    while (U1STAbits.UTXBF == 0 &&
+           n_can_dequeue(&uart_tx_queue) > 0) { // while transmit shift buffer is not full
+        U1TXREG = dequeue(&uart_tx_queue);
     }
 }
 
-void uart_serialize_out_data(uint8_t uart_data_identifier) {
+void uart_serialize_out_data(uint8_t *out_bytes, uint8_t uart_data_identifier) {
     uint16_t intval;
-// CASE(n, REGISTER) populates the UART output buffer with the 16-bit integer value of the given
-// register and breaks out of the switch statement
+
 #define CASE(n, REGISTER)                                                                          \
     case (n):                                                                                      \
         intval = (uint16_t)REGISTER;                                                               \
-        uart_tx_buffer[1] = (intval >> 8);                                                         \
-        uart_tx_buffer[2] = (intval);                                                              \
+        out_bytes[0] = (intval >> 8);                                                              \
+        out_bytes[1] = (intval);                                                                   \
         break;
 
     switch (uart_data_identifier) {
@@ -137,8 +152,8 @@ void uart_serialize_out_data(uint8_t uart_data_identifier) {
         CASE(14, REG_MOTOR_ENCODER_COUNT.left)
         CASE(16, REG_MOTOR_ENCODER_COUNT.right)
     case 18: // 18-REG_MOTOR_FAULT_FLAG
-        uart_tx_buffer[1] = REG_MOTOR_FAULT_FLAG.left;
-        uart_tx_buffer[2] = REG_MOTOR_FAULT_FLAG.right;
+        out_bytes[0] = REG_MOTOR_FAULT_FLAG.left;
+        out_bytes[1] = REG_MOTOR_FAULT_FLAG.right;
         break;
         CASE(20, REG_MOTOR_TEMP.left)
         CASE(22, REG_MOTOR_TEMP.right)
@@ -166,58 +181,51 @@ void uart_serialize_out_data(uint8_t uart_data_identifier) {
         CASE(66, REG_BATTERY_VOLTAGE_B)
         CASE(68, REG_BATTERY_CURRENT_A)
         CASE(70, REG_BATTERY_CURRENT_B)
-
     default:
-        uart_tx_buffer[1] = 0;
-        uart_tx_buffer[2] = 0;
         break;
     }
 #undef CASE
 }
 
-UArtTickResult uart_tick() {
+#define RX_PACKET_SIZE 7
+#define TX_PACKET_SIZE 5
 
+UArtTickResult uart_tick() {
     UArtTickResult result = {0};
 
-	// if receiver overflowed this resets the module
-	if (U1STAbits.OERR){
-	    // clear overflow error bit if it was set.
-	    U1STAbits.OERR = 0;
-		if (i_uart_rx_buffer < UART_RX_BUFFER_LENGTH){
-			// throw out incomplete data
-			i_uart_rx_buffer = -1;
-		}
-	}
+    while (n_can_dequeue(&uart_rx_queue) >= RX_PACKET_SIZE) {
+        size_t i;
+        uint8_t packet[RX_PACKET_SIZE];
+        uint8_t out_packet[TX_PACKET_SIZE];
 
-	
-    if (i_uart_rx_buffer >= UART_RX_BUFFER_LENGTH) {
-        UARTCommand command;
-        uint8_t arg;
-        if (checksum(UART_RX_BUFFER_LENGTH - 1, uart_rx_buffer) !=
-            uart_rx_buffer[UART_RX_BUFFER_LENGTH - 1]) {
-            i_uart_rx_buffer = -1;
-            // checksum failed. Ignore this packet
-            return result;
+        packet[0] = dequeue(&uart_rx_queue);
+        if (packet[0] != UART_START_BYTE) {
+            continue;
         }
-
-        REG_MOTOR_VELOCITY.left = (uart_rx_buffer[0] * 8 - 1000);
-        REG_MOTOR_VELOCITY.right = (uart_rx_buffer[1] * 8 - 1000);
-        REG_MOTOR_VELOCITY.flipper = (uart_rx_buffer[2] * 8 - 1000);
-        command = uart_rx_buffer[3];
-        arg = uart_rx_buffer[4];
-
-        // We have used all the data in the receive buffer.
-        // Mark the receive buffer as empty.
-        i_uart_rx_buffer = -1;
+        for (i = 1; i < RX_PACKET_SIZE; i++) {
+            packet[i] = dequeue(&uart_rx_queue);
+        }
+        if (checksum(RX_PACKET_SIZE - 2, &(packet[1])) != packet[RX_PACKET_SIZE - 1]) {
+            continue;
+        }
+        REG_MOTOR_VELOCITY.left = (packet[1] * 8 - 1000);
+        REG_MOTOR_VELOCITY.right = (packet[2] * 8 - 1000);
+        REG_MOTOR_VELOCITY.flipper = (packet[3] * 8 - 1000);
+        uint8_t command = packet[4];
+        uint8_t arg = packet[5];
 
         switch (command) {
         case UART_COMMAND_SET_FAN_SPEED: // new fan command coming in
             REG_MOTOR_SIDE_FAN_SPEED = arg;
             result.uart_fan_speed_requested = true;
             break;
-        case UART_COMMAND_SET_CLOSED_LOOP:
+        case UART_COMMAND_SET_DRIVE_MODE:
             REG_MOTOR_CLOSED_LOOP = arg;
             result.uart_motor_control_scheme_requested = true;
+            break;
+        case UART_COMMAND_RESTART:
+            SHOULD_SKIP_BOOTLOADER = arg ? true : false;
+            asm volatile ("RESET");
             break;
         case UART_COMMAND_FLIPPER_CALIBRATE:
             if (arg == UART_COMMAND_FLIPPER_CALIBRATE) {
@@ -225,14 +233,15 @@ UArtTickResult uart_tick() {
             }
             break;
         case UART_COMMAND_GET:
-            if (i_uart_tx_buffer == UART_TX_BUFFER_LENGTH) {
-                // populate the send buffer
-                uart_tx_buffer[0] = arg;
-                uart_serialize_out_data(arg);
-                uart_tx_buffer[3] = checksum(UART_TX_BUFFER_LENGTH - 1, uart_tx_buffer);
+            out_packet[0] = UART_START_BYTE;
+            out_packet[1] = arg;
+            uart_serialize_out_data(&out_packet[2], arg);
+            out_packet[4] = checksum(3, &out_packet[1]);
 
-                // mark the send buffer as ready to be sent
-                i_uart_tx_buffer = -1;
+            if (n_can_enqueue(&uart_tx_queue) >= TX_PACKET_SIZE) {
+                for (i = 0; i < TX_PACKET_SIZE; i++) {
+                    enqueue(&uart_tx_queue, out_packet[i]);
+                }
                 // Start transmission
                 _U1TXIF = 1;
             }
@@ -240,16 +249,10 @@ UArtTickResult uart_tick() {
         default:
             // unknown inbound command.
             BREAKPOINT();
-			break;
+            break;
         }
         result.uart_motor_speed_requested = true;
     }
-    if (U1STAbits.TRMT && i_uart_tx_buffer < UART_TX_BUFFER_LENGTH) {
-        // something has gone wrong.
-        // We have data to transmit but UART is not transmitting right now.
-        BREAKPOINT();
-        _U1TXIF = 1;
-    }
-
+    _U1TXIF = 1;
     return result;
 }

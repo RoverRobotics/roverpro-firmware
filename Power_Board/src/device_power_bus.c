@@ -1,9 +1,9 @@
 #include "stdhdr.h"
 #include "device_power_bus.h"
-#include "Compiler.h"
 #include "hardware_definitions.h"
 #include "i2clib.h"
 #include "counter.h"
+#include "string.h"
 
 // static helper functions:
 
