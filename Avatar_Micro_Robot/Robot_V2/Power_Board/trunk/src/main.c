@@ -35,12 +35,6 @@ _CONFIG2( IESO_OFF & FCKSM_CSDCMD & OSCIOFNC_ON & POSCMOD_HS &
 //128/31e3*128 = .53 seconds
 
 
-// -------------------------------------------------------------------------
-// BOOTLOADER
-// -------------------------------------------------------------------------
-
-#define PF __attribute__((section("programmable"))) // programmable function
-#define FIRST_PROGRAMMABLE_FUNC __attribute__((address(0xF00)))
 
 typedef enum COMMAND_T
 {
@@ -51,12 +45,6 @@ typedef enum COMMAND_T
    DEVICE_CARRIER_PROCESS_IO
    // etc.....
 } COMMAND;
-
-void PF FIRST_PROGRAMMABLE_FUNC callFunc(COMMAND command, void *params)
-{
-   return;
-}
-
 
 
 // -------------------------------------------------------------------------
@@ -92,7 +80,7 @@ extern USB_DEVICE_DESCRIPTOR device_dsc;
 
 #pragma code
 
-int PF main(void)
+int main(void)
 {
     InitializeSystem();
 

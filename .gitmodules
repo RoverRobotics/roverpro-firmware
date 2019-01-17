@@ -1,0 +1,3 @@
+[submodule "bootypic"]
+	path = bootypic
+	url = git@github.com:RoverRobotics/bootypic.git
