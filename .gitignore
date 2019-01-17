@@ -1,8 +1,6 @@
 *.X/
 *.idea/
-
 obj/
-
 bin/
-
 *.mcs
+*.gld.00
