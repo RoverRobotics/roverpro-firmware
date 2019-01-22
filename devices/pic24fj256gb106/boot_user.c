@@ -52,7 +52,8 @@ void uart_map_rx(uint16_t rpn) {
 	_U1RXR = rpn;
 }
 
-void uart_map_tx(uint16_t rpn) {
+static __attribute__((always_inline)) void uart_map_tx(uint16_t rpn) {
+	// this big case statement benefits greatly from inlining this function.
 	#define _RPxR(x) _RP ## x ## R
 	#define CASE(x) case x: _RPxR(x)=_RPOUT_U1TX; break;
 	switch (rpn){
