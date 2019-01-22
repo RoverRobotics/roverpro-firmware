@@ -10,6 +10,7 @@ booty = {editable = true,git = "https://github.com/RoverRobotics/booty"}
 coloredlogs = "*"
 pygithub = "*"
 gitpython = "*"
+trio = "*"
 
 [requires]
 python_version = "3.7"
