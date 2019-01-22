@@ -7,23 +7,6 @@ void initOsc(void){
     return;
 }
 
-#ifdef BOOT_PORT_NONE
-bool SHOULD_SKIP_BOOTLOADER __attribute__((persistent, address(0x400)));
-#endif
-
-void onStartup(void){
-	#if defined(BOOT_PORT_NONE)
-	if (RCONbits.POR // reset due to power outage
-		|| RCONbits.IOPUWR // reset due to bad opcode
-		){
-		// If we didn't reset cleanly, this persistent variable will contain garbage data
-		// or the firmware may be corrupt. Should run the bootloader.
-		SHOULD_SKIP_BOOTLOADER = false;	
-	}
-	#endif
-	RCON = 0;
-}	
-
 void initPins(void){
     /* no analog, all digital */
     AD1PCFGL = 0xffff;
@@ -140,8 +123,6 @@ bool should_abort_boot() {
     }
 
 	#if defined(BOOT_PORT_NONE)
-		if (SHOULD_SKIP_BOOTLOADER)
-			return true;
     #elif defined(BOOT_PORT_A)
         if(PORTA & (1 << BOOT_PIN))
             return true;

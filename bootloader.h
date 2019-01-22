@@ -174,12 +174,6 @@ uint16_t fletcher16(uint8_t* data, uint16_t length);
 void startApp(uint16_t applicationAddress);
 
 /**
- * @brief handles device startup. May check the reset reason
- *        RCON and do any necesseray recovery
- */
-extern void onStartup(void);
-
-/**
  * @brief initializes the oscillator
  */
 extern void initOsc(void);

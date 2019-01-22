@@ -21,8 +21,6 @@ static uint8_t message[RX_BUF_LEN] = {0};
 static uint8_t f16_sum1 = 0, f16_sum2 = 0;
 
 int main(void) {
-	/* handle power outage */
-	onStartup();
 	/* initialize the peripherals from the user-supplied initialization functions */
 	initPins();
     initOsc();

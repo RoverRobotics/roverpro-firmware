@@ -16,10 +16,6 @@
  * the application will start on reset.
  */
 #define BOOT_PORT_NONE
-#ifdef BOOT_PORT_NONE
-extern bool SHOULD_SKIP_BOOTLOADER;
-#endif
-
 
 // UART communication baud rate, in Hz
 #define UART_BAUD_RATE 57600
