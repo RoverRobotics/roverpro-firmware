@@ -1,6 +1,6 @@
 #! python3.7
 import argparse
-import asyncio
+import trio
 import configparser
 import logging
 import os
@@ -23,13 +23,17 @@ parser.add_argument('--verbose', '-v', action='count', help='Log more verbosely.
 async def build_project(p):
     logging.info('Beginning build of %s', p)
 
-    p.ensure_output_dirs()
-
     logging.info('Executing pre-build step')
     await p.project_prebuild()
+    await p.ensure_output_dirs()
 
-    source_file_ids = p.get_source_file_ids()
-    binaries = await asyncio.gather(*[p.file_build(f) for f in source_file_ids])
+    binaries = []
+    async with trio.open_nursery() as nursery:
+        async def build_file(source_file_id):
+            binaries.append(await p.file_build(source_file_id))
+
+        for f in p.get_source_file_ids():
+            nursery.start_soon(build_file, f)
 
     logging.info('Linking project')
     await p.link_project([str(b) for b in binaries])
@@ -53,17 +57,19 @@ async def main():
     else:
         log_level = 'DEBUG'
     coloredlogs.install(level=log_level)
-    asyncio.set_event_loop(asyncio.ProactorEventLoop())
+
     base_dir = os.path.dirname(os.path.realpath(__file__))
     logging.info('Building all project in directory: %s', base_dir)
     mcp_files = [f.absolute() for f in Path(base_dir).rglob('*.mcp')]
 
-    project_tasks = []
-    for mcp_file in mcp_files:
-        mplab_project = MPLabProject(mcp_file, debug_build=command_line_options.debug)
-        project_tasks.append(build_project(mplab_project))
+    hex_files = []
+    async with trio.open_nursery() as nursery:
+        for mcp_file in mcp_files:
+            async def make_project(mcp):
+                mplab_project = MPLabProject(mcp, debug_build=command_line_options.debug)
+                hex_files.append(await build_project(mplab_project))
 
-    hexfiles = await asyncio.gather(*project_tasks)
+            nursery.start_soon(make_project, mcp_file)
 
     if command_line_options.upload:
         logging.info('Uploading to git...')
@@ -134,7 +140,7 @@ async def main():
         )
         logging.info('Created GitHub release. Adding assets...')
 
-        for b in hexfiles:
+        for b in hex_files:
             p = Path(b)
             if tag:
                 label = f'{p.stem}-{tag}{p.suffix}'
@@ -147,4 +153,4 @@ async def main():
 
 
 if __name__ == '__main__':
-    asyncio.ProactorEventLoop().run_until_complete(main())
+    trio.run(main)

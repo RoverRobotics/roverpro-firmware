@@ -1,13 +1,15 @@
-import asyncio
+from functools import partial
+
+import trio
 import configparser
 from dataclasses import dataclass
 from fnmatch import fnmatch
 import logging
-import os
-from pathlib import Path
+from trio import Path
 import re
 from subprocess import list2cmdline
 import winreg
+import trio.subprocess
 
 
 class BuildToolSuite:
@@ -60,9 +62,9 @@ class BuildToolsC30(BuildToolSuite):
 
 class MPLabProject:
     def __init__(self, path, debug_build=False, optimization=None):
-        self.path = Path(path).absolute()
+        self.path = Path(path)
         self.config = configparser.ConfigParser()
-        self.config.read(self.path)
+        self.config.read(str(self.path))
         self.debug_build = debug_build
 
     @property
@@ -78,22 +80,34 @@ class MPLabProject:
         else:
             argstring = list2cmdline(args)
         logging.debug('Executing: %s', argstring)
-        process = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, cwd=self.path.parent)
-        await process.wait()
-        stdout = (await process.stdout.read(-1)).decode()
-        if stdout:
-            logging.info('stdout=\n' + stdout)
-        stderr = (await process.stderr.read(-1)).decode()
-        if stderr:
-            logging.warning('stderr=\n' + stderr)
-        assert process.returncode == 0
+        process = trio.subprocess.Process(args, stderr=trio.subprocess.PIPE, stdout=trio.subprocess.PIPE, cwd=self.path.parent)
 
-    def ensure_output_dirs(self):
-        for dir_id in ['dir_tmp', 'dir_bin']:
-            dir_path = self.config['PATH_INFO'][dir_id]
-            if dir_path != '':
-                for path in dir_path.split(';'):
-                    os.makedirs(path, exist_ok=True)
+        async def log_stdout():
+            stdout = (await process.stdout.receive_some(1000)).decode()
+            if stdout:
+                logging.info('stdout=\n' + stdout)
+
+        async def log_err():
+            stderr = (await process.stderr.receive_some(1000)).decode()
+            if stderr:
+                logging.warning('stderr=\n' + stderr)
+
+        async def check_result():
+            assert 0 == await process.wait()
+
+        async with trio.open_nursery() as nursery:
+            nursery.start_soon(log_err)
+            nursery.start_soon(log_stdout)
+            nursery.start_soon(check_result)
+
+    async def ensure_output_dirs(self):
+        async with trio.open_nursery() as nursery:
+            for dir_id in ['dir_tmp', 'dir_bin']:
+                dir_path = self.config['PATH_INFO'][dir_id]
+                if dir_path != '':
+                    for path in dir_path.split(';'):
+                        p = trio.Path(self.base_dir, path)
+                        nursery.start_soon(partial(p.mkdir, exist_ok=True, parents=True))
 
     @property
     def tool_suite(self):
@@ -109,6 +123,24 @@ class MPLabProject:
     @property
     def project_name(self):
         return self.path.stem
+
+    @property
+    def target_executable_path(self):
+        return trio.Path(self.base_dir, self.config['PATH_INFO']['dir_bin'], self.project_name + '.' + self.target_suffix)
+
+    @property
+    def target_hex_path(self):
+        return trio.Path(self.base_dir, self.config['PATH_INFO']['dir_bin'], self.project_name + '.hex')
+
+    @property
+    def target_suffix(self):
+        suite_state = self.config['SUITE_INFO']['suite_state']
+        if suite_state == '':
+            return 'cof'
+        elif '-omf=elf' in suite_state:
+            return 'elf'
+        else:
+            raise NotImplementedError()
 
     def is_source_file(self, filename):
         filter_src = self.config['CAT_FILTERS']['filter_src']
@@ -127,15 +159,11 @@ class MPLabProject:
         return result
 
     def get_file_source_path(self, file_id):
-        return Path(self.base_dir, self.config['PATH_INFO']['dir_src'], self.config['FILE_INFO']['file_' + file_id])
+        return trio.Path(self.base_dir, self.config['PATH_INFO']['dir_src'], self.config['FILE_INFO']['file_' + file_id])
 
     def get_file_object_path(self, file_id):
         filename = Path(self.config['FILE_INFO']['file_' + file_id]).with_suffix('.o').name
-        return Path(self.base_dir, self.config['PATH_INFO']['dir_tmp'], filename)
-
-    @property
-    def built_artifact(self):
-        return os.path.join(self.base_dir, self.config['PATH_INFO']['dir_bin'], self.project_name + '.hex')
+        return trio.Path(self.base_dir, self.config['PATH_INFO']['dir_tmp'], filename)
 
     def get_include_flags(self):
         inc_flags = []
@@ -149,7 +177,7 @@ class MPLabProject:
         MPLAB_MACROS = {
             'BINDIR_':      str(self.config['PATH_INFO']['dir_bin']) + '/',
             'TARGETBASE':   self.path.stem,
-            'TARGETSUFFIX': 'cof',
+            'TARGETSUFFIX': self.target_suffix,
         }
         result = s
         for k, v in MPLAB_MACROS.items():
@@ -170,20 +198,20 @@ class MPLabProject:
     async def file_build(self, file_id):
         obj_file = self.get_file_object_path(file_id)
         try:
-            os.unlink(obj_file)
+            await obj_file.unlink()
         except FileNotFoundError:
             pass
 
         file_build_flags = self.get_tool_flags(self.tool_suite.cc_uuid, file_id)
-        e = await self.exec_subprocess([str(self.tool_suite.cc),
-                                        self.cpu_flag,
-                                        '-c', str(self.get_file_source_path(file_id)),
-                                        '-o', str(self.get_file_object_path(file_id)),
-                                        *self.get_include_flags(),
-                                        *(['-D__DEBUG'] if self.debug_build else []),
-                                        *file_build_flags.split(' ')])
+        await self.exec_subprocess([str(self.tool_suite.cc),
+                                    self.cpu_flag,
+                                    '-c', str(self.get_file_source_path(file_id)),
+                                    '-o', str(self.get_file_object_path(file_id)),
+                                    *self.get_include_flags(),
+                                    *(['-D__DEBUG'] if self.debug_build else []),
+                                    *file_build_flags.split(' ')])
 
-        assert obj_file.exists()
+        assert await obj_file.exists()
         return obj_file
 
     @property
@@ -208,9 +236,9 @@ class MPLabProject:
         return scripts[0]
 
     async def link_project(self, obj_files=None, linker_script=None):
-        cof_file = os.path.join(self.base_dir, self.config['PATH_INFO']['dir_bin'], self.project_name + '.cof')
+        target_file = self.target_executable_path
         try:
-            os.unlink(cof_file)
+            await target_file.unlink()
         except FileNotFoundError:
             pass
         if obj_files is None:
@@ -226,23 +254,22 @@ class MPLabProject:
             str(self.tool_suite.cc),
             self.cpu_flag,
             *obj_files,
-            '-o', cof_file,
+            '-o', str(target_file),
             linker_options
         ]
         await self.exec_subprocess(args)
-        assert os.path.isfile(cof_file)
-        return cof_file
+        assert await target_file.is_file()
+        return target_file
 
     async def hexify(self):
-        hex_file = os.path.join(self.base_dir, self.config['PATH_INFO']['dir_bin'], self.project_name + '.hex')
+        hex_file = self.target_hex_path
         try:
-            self.unlink = os.unlink(hex_file)
+            await hex_file.unlink()
         except FileNotFoundError:
             pass
-        assert not os.path.isfile(hex_file)
         hx = self.tool_suite.hx
-        await self.exec_subprocess([str(hx), os.path.join(self.config['PATH_INFO']['dir_bin'], self.project_name + '.cof')])
-        assert os.path.isfile(hex_file)
+        await self.exec_subprocess([str(hx), str(self.target_executable_path)])
+        assert await hex_file.is_file()
         return hex_file
 
     async def project_prebuild(self):
