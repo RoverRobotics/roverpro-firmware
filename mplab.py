@@ -93,7 +93,7 @@ class MPLabProject:
             dir_path = self.config['PATH_INFO'][dir_id]
             if dir_path != '':
                 for path in dir_path.split(';'):
-                    os.makedirs(path, exist_ok=True)
+                    Path(self.base_dir,path).mkdir(parents=True,exist_ok=True)
 
     @property
     def tool_suite(self):
