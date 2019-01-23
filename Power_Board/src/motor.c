@@ -81,7 +81,8 @@ void __attribute__((__interrupt__, auto_psv)) _IC1Interrupt(void) {
 
 // Interrupt function for PIC24 Input Capture module 2
 void __attribute__((__interrupt__, auto_psv)) _IC2Interrupt(void) {
-    MotorDir dir = (M2_DIRO ? MOTOR_DIR_REVERSE : MOTOR_DIR_FORWARD);
+	// Note the motor direction is reversed here, since the motor is installed backwards
+    MotorDir dir = (M2_DIRO ? MOTOR_DIR_FORWARD : MOTOR_DIR_REVERSE);
     while (IC2CON1bits.ICBNE) {
         motor_tach_event_capture(MOTOR_RIGHT, dir, IC2BUF);
 
@@ -340,7 +341,8 @@ void UpdateSpeed(MotorChannel channel, int16_t effort) {
     case MOTOR_RIGHT:
         M2_COAST = Clear_ActiveLO;
         M2_BRAKE = Clear_ActiveLO;
-        M2_DIR = (effort >= 0) ? MOTOR_DIR_FORWARD : MOTOR_DIR_REVERSE;
+        // Note the motor direction here is reversed, since the motor is installed backwards :-)
+        M2_DIR = (effort >= 0) ? MOTOR_DIR_REVERSE : MOTOR_DIR_FORWARD;
         PWM2Duty(duty);
         break;
     case MOTOR_FLIPPER:
