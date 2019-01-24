@@ -34,3 +34,5 @@ Pipfile.lock
 # generated source files
 *.GENERATED.h
 *.GENERATED.c
+
+debug\.log
