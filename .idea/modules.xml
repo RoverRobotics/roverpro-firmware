@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/OpenRoverFirmware-dan.iml" filepath="$PROJECT_DIR$/.idea/OpenRoverFirmware-dan.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/OpenRover Firmware Build Tools.iml" filepath="$PROJECT_DIR$/.idea/OpenRover Firmware Build Tools.iml" />
     </modules>
   </component>
 </project>

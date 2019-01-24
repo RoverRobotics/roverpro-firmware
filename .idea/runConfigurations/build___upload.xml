@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="build --upload" type="PythonConfigurationType" factoryName="Python">
-    <module name="OpenRoverFirmware-dan" />
+    <module name="OpenRover Firmware Build Tools" />
     <option name="INTERPRETER_OPTIONS" value="" />
     <option name="PARENT_ENVS" value="true" />
     <envs>
