@@ -141,12 +141,10 @@ async def main():
         logging.info('Created GitHub release. Adding assets...')
 
         for b in hex_files:
-            p = Path(b)
-            if tag:
-                label = f'{p.stem}-{tag}{p.suffix}'
-            else:
-                label = f'{p.stem}{p.suffix}'
-            release.upload_asset(b, label=label)
+            asset = release.upload_asset(str(b))
+            new_name = f'{b.stem}-{tag or "UNTAGGED"}{b.suffix}'
+            asset.update_asset(new_name, new_name)
+
         logging.info('Done!!!')
 
         webbrowser.open(release.html_url)
