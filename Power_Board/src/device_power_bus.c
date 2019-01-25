@@ -27,6 +27,11 @@ static void set_battery_state(BatteryChannel Channel, BatteryState state) {
     }
 }
 
+static void turn_on_power_bus_immediate() {
+    set_battery_state(CELL_A, CELL_ON);
+    set_battery_state(CELL_B, CELL_ON);
+}
+
 static void turn_on_power_bus_new_method(void) {
     unsigned int i = 0;
     unsigned int j = 0;
@@ -34,7 +39,6 @@ static void turn_on_power_bus_new_method(void) {
     unsigned int k0 = 2000;
 
     for (i = 0; i < 300; i++) {
-
         set_battery_state(CELL_A, CELL_ON);
         set_battery_state(CELL_B, CELL_ON);
         for (j = 0; j < k; j++)
@@ -92,15 +96,15 @@ static void turn_on_power_bus_hybrid_method(void) {
     set_battery_state(CELL_B, CELL_ON);
 }
 
+#define BATTERY_DATA_LEN 10
 const char DEVICE_NAME_OLD_BATTERY[] = "BB-2590";
 const char DEVICE_NAME_NEW_BATTERY[] = "BT-70791B";
-const char DEVICE_NAME_BT70791_CK[] = "BT-70791C";
+const char DEVICE_NAME_BT70791_CK[] = "BT-70791CK";
 const char DEVICE_NAME_CUSTOM_BATTERY[] = "ROBOTEX";
 
 void power_bus_init(void) {
-#define BATTERY_DATA_LEN 10
-    char battery_data1[BATTERY_DATA_LEN] = {0};
-    char battery_data2[BATTERY_DATA_LEN] = {0};
+    char battery_data1[BATTERY_DATA_LEN];
+    char battery_data2[BATTERY_DATA_LEN];
     unsigned int j;
     I2CResult result;
     I2COperationDef op;
@@ -108,6 +112,15 @@ void power_bus_init(void) {
     // enable outputs for power bus
     CELL_A_MOS_EN(1);
     CELL_B_MOS_EN(1);
+
+    if (!_POR) {
+        // if we aren't powering on, the system is "warm" and we can just switch
+        // the power bus back on.
+        turn_on_power_bus_immediate();
+        return;
+    }
+
+    _POR = 0;
 
     // initialize i2c buses
     i2c_enable(I2C_BUS2);

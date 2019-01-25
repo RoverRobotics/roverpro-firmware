@@ -116,7 +116,7 @@ note: for battery reporting, "internal" means the value comes from the SmartBatt
 
 The MCP files can be opened in [MPLAB IDE v8.92](http://ww1.microchip.com/downloads/en/DeviceDoc/MPLAB_IDE_8_92.zip) (not MPLAB X) and should be built with the [Microchip XC16 Toolsuite](https://www.microchip.com/mplab/compilers). This contains not only a compiler/linker/assembler but also standard libraries for the PIC24F MCU's.
 
-To build, use the Debug mode (if you're attaching a PICKit) or Release mode (if you're using this with other things). Note that if you build in Debug mode and you hit a breakpoint (`BREAKPOINT()` macro), execution will halt and wait for the debugger. If no debugger is attached, the [Watchdog Timer](http://ww1.microchip.com/downloads/en/devicedoc/39697a.pdf) will restart the device.
+To build, use the Debug mode (if you're attaching a PICKit) or Release mode (if you're using this with other things). Note that if you build in Debug mode and you hit a breakpoint (`BREAKPOINT()` macro), execution will halt and wait for the debugger. If no debugger is attached, the device will immediately restart.
 
 ### Code style tools
 
@@ -133,7 +133,7 @@ sudo apt install clang-format
 choco install git llvm
 ```
 
-Before committing, please run the following to clang-format all uncommitted c files:
+Before committing, please run the following to clang-format all uncommitted C files:
 
 ```bash
 git diff HEAD --name-only --relative --diff-filter=d -- **.h **.c | xargs clang-format -style=file -i
@@ -146,6 +146,8 @@ git diff HEAD --name-only --relative --diff-filter=d -- **.h **.c | xargs clang-
 This will tidy up all locally modified files. You can make this a precommit hook if you like.
 
 Code tips for debuggability as of MPLAB v8.92:
+
+* You can build the executable as either an ELF or COF (Project -> Build Options ... -> Project -> XC16 ASM/C Suite -> Output-File Format). ELF has the benefit that you can isolate each function in a section and remove unused sections to get a smaller build size. COF has the benefit that the debugger works more reliably. If you cannot view local variables, try switching to GOF.
 
 * Typedef'd types should have a name anyway. It looks redundant, but the debugger will display the value as an enum instead of an int without that first "my_enum".
 
