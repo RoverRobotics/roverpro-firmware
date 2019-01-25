@@ -44,6 +44,8 @@
 #define _FLASH_PAGE   512  /* _FLASH_PAGE should be the maximum page (in instructions) */
 #define _FLASH_ROW    64  /* _FLASH_ROW = maximum write row (in instructions) */
 
+void pre_boot();
+
 /**
  * @brief determines if the bootloader should abort
  * @return true if the bootloader should abort, else false
