@@ -13,8 +13,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include "xc.h"
-#include "USB/usb.h"
-#include "interrupt_switch.h"
 #include <stdbool.h>
 
 #define FCY 16000000UL // instruction clock
@@ -23,10 +21,14 @@
 #if __DEBUG
 /// Halt execution for the attached debugger to catch up
 // note the NOP prevents a problem with `switch{default: BREAKPOINT()}`, which would otherwise crash
-#define BREAKPOINT() { __asm__ __volatile__(".pword 0xDA4000"); __asm__ __volatile__("NOP"); }
+#define BREAKPOINT()                                                                               \
+    {                                                                                              \
+        __builtin_software_breakpoint();                                                           \
+        __builtin_nop();                                                                           \
+    }
 #define BREAKPOINT_IF(condition)                                                                   \
     if (condition) {                                                                               \
-        BREAKPOINT();                                                                             \
+        BREAKPOINT();                                                                              \
     }
 #else
 // when not debugging, BREAKPOINT and BREAKPOINT_IF should do nothing

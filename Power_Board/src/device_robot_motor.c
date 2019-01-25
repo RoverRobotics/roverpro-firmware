@@ -1,5 +1,6 @@
 /// @file high-level motor control and main event loop.
 
+#include "USB/usb.h"
 #include "stdhdr.h"
 #include "device_robot_motor.h"
 #include "interrupt_switch.h"

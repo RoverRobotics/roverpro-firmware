@@ -147,7 +147,7 @@ This will tidy up all locally modified files. You can make this a precommit hook
 
 Code tips for debuggability as of MPLAB v8.92:
 
-* You can build the executable as either an ELF or COF (Project -> Build Options ... -> Project -> XC16 ASM/C Suite -> Output-File Format). ELF has the benefit that you can isolate each function in a section and remove unused sections to get a smaller build size. COF has the benefit that the debugger works more reliably. If you cannot view local variables, try switching to GOF.
+* You can build the executable as either an ELF or COF (Project -> Build Options ... -> Project -> XC16 ASM/C Suite -> Output-File Format). ELF has the benefit that you can isolate each function in a section and remove unused sections to get a smaller build size. COF has the benefit that the debugger works more reliably and you can use the "Locate Headers" tool to find headers you've `#include`d not mentioned in the mcp file. If you cannot view local variables, try switching to COF.
 
 * Typedef'd types should have a name anyway. It looks redundant, but the debugger will display the value as an enum instead of an int without that first "my_enum".
 

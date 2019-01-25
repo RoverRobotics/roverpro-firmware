@@ -1,3 +1,4 @@
+#include "USB/usb.h"
 #include "stdhdr.h"
 #include "device_robot_motor.h"
 #include "i2clib.h"

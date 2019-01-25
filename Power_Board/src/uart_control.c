@@ -1,4 +1,5 @@
 #include "uart_control.h"
+#include "USB/usb.h"
 #include "device_robot_motor.h"
 #include "xc.h"
 #include "version.GENERATED.h"
@@ -83,13 +84,13 @@ typedef enum UARTCommand {
 void uart_init() {
     // Enable the UART.
     U1MODE = 0x0000;
-    if (UART_BAUD_RATE < FCY/4.0f){
-		U1MODEbits.BRGH = 0; // High Baud Rate Select bit = off
-		U1BRG = FCY / 16 / UART_BAUD_RATE - 1;
-	} 	else {
-		U1MODEbits.BRGH = 1;
-		U1BRG = FCY / 4 / UART_BAUD_RATE - 1;
-	}
+    if (UART_BAUD_RATE < FCY / 4.0f) {
+        U1MODEbits.BRGH = 0; // High Baud Rate Select bit = off
+        U1BRG = FCY / 16 / UART_BAUD_RATE - 1;
+    } else {
+        U1MODEbits.BRGH = 1;
+        U1BRG = FCY / 4 / UART_BAUD_RATE - 1;
+    }
     U1MODEbits.UARTEN = 1; // UART1 is enabled
 
     U1STAbits.UTXISEL1 = 1; // Call transmit interrupt when the transmit buffer is empty
@@ -225,7 +226,7 @@ UArtTickResult uart_tick() {
             break;
         case UART_COMMAND_RESTART:
             SHOULD_SKIP_BOOTLOADER = arg ? true : false;
-            asm volatile ("RESET");
+            asm volatile("RESET");
             break;
         case UART_COMMAND_FLIPPER_CALIBRATE:
             if (arg == UART_COMMAND_FLIPPER_CALIBRATE) {

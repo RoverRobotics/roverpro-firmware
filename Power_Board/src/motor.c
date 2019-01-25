@@ -1,4 +1,5 @@
 /*---------------------------Dependencies-------------------------------------*/
+#include "USB/usb.h"
 #include "motor.h"
 #include "stdhdr.h"
 #include "hardware_definitions.h"
@@ -81,7 +82,7 @@ void __attribute__((__interrupt__, auto_psv)) _IC1Interrupt(void) {
 
 // Interrupt function for PIC24 Input Capture module 2
 void __attribute__((__interrupt__, auto_psv)) _IC2Interrupt(void) {
-	// Note the motor direction is reversed here, since the motor is installed backwards
+    // Note the motor direction is reversed here, since the motor is installed backwards
     MotorDir dir = (M2_DIRO ? MOTOR_DIR_FORWARD : MOTOR_DIR_REVERSE);
     while (IC2CON1bits.ICBNE) {
         motor_tach_event_capture(MOTOR_RIGHT, dir, IC2BUF);

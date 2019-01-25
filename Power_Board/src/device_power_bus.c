@@ -1,22 +1,16 @@
-#include "stdhdr.h"
 #include "device_power_bus.h"
 #include "hardware_definitions.h"
 #include "i2clib.h"
-#include "counter.h"
 #include "string.h"
 
-// static helper functions:
-
-/// Enable/disable a particular battery on the power bus
-static void set_battery_state(BatteryChannel Channel, BatteryState state);
 /// Activation routine for some batteries
 static void turn_on_power_bus_old_method();
 /// Activation routine for some batteries
 static void turn_on_power_bus_new_method();
 /// Activation routine for some batteries
 static void turn_on_power_bus_hybrid_method();
-/// Turn the given battery on or off
-static void set_battery_state(BatteryChannel Channel, BatteryState state) {
+
+void set_battery_state(BatteryChannel Channel, BatteryState state) {
     switch (Channel) {
     case CELL_A:
         Cell_A_MOS = state;
@@ -103,9 +97,27 @@ const char DEVICE_NAME_BT70791_CK[] = "BT-70791CK";
 const char DEVICE_NAME_CUSTOM_BATTERY[] = "ROBOTEX";
 
 void power_bus_init(void) {
+    // if the power bus is already active (like the bootloader did it)
+    // then nothing to do here.
+    if (Cell_A_MOS == 1 && Cell_B_MOS == 1) {
+        RCON = 0;
+        return;
+    }
+
+    // _POR = "we are powering on from a black or brownout"
+    // _EXTR = "our reset pin was hit""
+    // If the system is "warm", we can just switch the power bus back on.
+    if (!_POR && !_EXTR) {
+        turn_on_power_bus_immediate();
+        RCON = 0;
+        return;
+    }
+
+    // clear the restart reason
+    RCON = 0;
+
     char battery_data1[BATTERY_DATA_LEN];
     char battery_data2[BATTERY_DATA_LEN];
-    unsigned int j;
     I2CResult result;
     I2COperationDef op;
 
@@ -113,19 +125,11 @@ void power_bus_init(void) {
     CELL_A_MOS_EN(1);
     CELL_B_MOS_EN(1);
 
-    if (!_POR) {
-        // if we aren't powering on, the system is "warm" and we can just switch
-        // the power bus back on.
-        turn_on_power_bus_immediate();
-        return;
-    }
-
-    _POR = 0;
-
     // initialize i2c buses
     i2c_enable(I2C_BUS2);
     i2c_enable(I2C_BUS3);
 
+    int j;
     for (j = 0; j < 3; j++) {
         // Read "Device Name" from battery
         op = i2c_op_read_block(BATTERY_ADDRESS, 0x21, battery_data1, BATTERY_DATA_LEN);
@@ -168,32 +172,4 @@ void power_bus_init(void) {
 
     // if we're using an unknown battery
     turn_on_power_bus_hybrid_method();
-}
-
-void power_bus_tick() {
-    static BatteryChannel active_battery = CELL_A;
-    static Counter counter = {.max = 10000};
-
-    if (REG_MOTOR_CHARGER_STATE == 0xdada) {
-        if (counter_tick(&counter) == COUNTER_EXPIRED) {
-            // Toggle active battery
-            active_battery = (active_battery == CELL_A ? CELL_B : CELL_A);
-        }
-
-        // if we're on the dock, turn off one side of the power bus
-        switch (active_battery) {
-        case CELL_A:
-            set_battery_state(CELL_A, CELL_ON);
-            set_battery_state(CELL_B, CELL_OFF);
-            break;
-        case CELL_B:
-            set_battery_state(CELL_B, CELL_ON);
-            set_battery_state(CELL_A, CELL_OFF);
-            break;
-        }
-    } else {
-        // Not charging. use both batteries
-        set_battery_state(CELL_B, CELL_ON);
-        set_battery_state(CELL_A, CELL_OFF);
-    }
 }
