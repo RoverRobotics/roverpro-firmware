@@ -3,7 +3,6 @@
 #include "USB/usb.h"
 #include "stdhdr.h"
 #include "device_robot_motor.h"
-#include "interrupt_switch.h"
 #include "device_robot_motor_i2c.h"
 #include "DEE Emulation 16-bit.h"
 #include "i2clib.h"
@@ -535,13 +534,6 @@ void set_firmware_build_time(void) {
     }
 }
 
-void InterruptIni() {
-    // TODO: delete this. We don't need to dynamically remap interrupts
-    // remap all the interrupt routines
-    T3InterruptUserFunction = Motor_T3Interrupt;
-    ADC1InterruptUserFunction = Motor_ADC1Interrupt;
-}
-
 void FANCtrlIni() {
     uint8_t a_byte;
 
@@ -633,7 +625,8 @@ void IniAD() {
     // b) Select A/D interrupt priority.
 }
 
-void Motor_T3Interrupt(void) {
+/// Timer interrupt to enable ADC every tick
+void  __attribute__((__interrupt__, auto_psv)) _T3Interrupt(void)
     // TODO: I think the purpose here is just to enable the auto-sample bit ASAM
     // so that we don't have to set the SAMP bit and potentially set it at the wrong time.
     // I think this isn't needed as long as SSRC = 0b111
@@ -644,7 +637,8 @@ void Motor_T3Interrupt(void) {
     AD1CON1bits.ASAM = SET;
 }
 
-void Motor_ADC1Interrupt(void) {
+/// Analog/digital converter interrupt to harvest values from ADC
+void  __attribute__((__interrupt__, auto_psv)) _ADC1Interrupt(void){
     // Clear interrupt flag
     IFS0bits.AD1IF = CLEAR;
     // disable auto-sample

@@ -52,19 +52,12 @@ typedef enum MotorState {
 /// Whether we have received new commands from the USB interface (not the UART)
 extern bool usb_new_data_received;
 
-/// Timer interrupt to enable ADC every tick
-void Motor_T3Interrupt(void);
-/// Analog/digital converter interrupt.
-void Motor_ADC1Interrupt(void);
-
 /*****************************************************************************/
 //*--------------------------------General Functions-------------------------*/
 // BEGIN initialization routines
 
 /// Perform initialization of this module
-void DeviceRobotMotorInit();
-/// Initialize interrupts
-void InterruptIni();
+void DeviceRobotMotorInit()
 /// Remaps pins for UART and PWM
 void PinRemap(void);
 
