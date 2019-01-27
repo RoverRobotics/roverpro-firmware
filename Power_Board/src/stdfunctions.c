@@ -38,9 +38,9 @@ uint16_t mean_u(size_t count, uint16_t *values) {
 
 // built in delay function
 extern void __delay32(unsigned long cycles);
-#define __delay_ms(d) \
-  { __delay32( (unsigned long) (((unsigned long long) d)*(FCY)/1000ULL)); }
-  
+#define __delay_ms(d)                                                                              \
+    { __delay32((unsigned long)(((unsigned long long)d) * (FCY) / 1000ULL)); }
+
 void block_ms(uint16_t ms) {
     const int ms_chunk = 128;
     int i;
@@ -55,6 +55,4 @@ void block_ms(uint16_t ms) {
     __builtin_clrwdt();
 }
 
-extern int abs(int x){
-	return x>=0?x:-x;
-}
+extern int abs(int x) { return x >= 0 ? x : -x; }

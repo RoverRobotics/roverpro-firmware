@@ -216,7 +216,7 @@ UArtTickResult uart_tick() {
         uint8_t arg = packet[5];
 
         switch (command) {
-        case UART_COMMAND_SET_FAN_SPEED: // new fan command coming in
+        case UART_COMMAND_SET_FAN_SPEED:
             REG_MOTOR_SIDE_FAN_SPEED = arg;
             result.uart_fan_speed_requested = true;
             break;
@@ -225,7 +225,6 @@ UArtTickResult uart_tick() {
             result.uart_motor_control_scheme_requested = true;
             break;
         case UART_COMMAND_RESTART:
-            SHOULD_SKIP_BOOTLOADER = arg ? true : false;
             asm volatile("RESET");
             break;
         case UART_COMMAND_FLIPPER_CALIBRATE:

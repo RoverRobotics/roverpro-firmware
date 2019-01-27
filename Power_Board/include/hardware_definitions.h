@@ -11,6 +11,11 @@
 #define Set_ActiveLO 0
 #define Clear_ActiveLO 1
 
+typedef enum IOPIN_DIRECTION {
+    IOPIN_OUTPUT = 0,
+    IOPIN_INPUT = 1,
+};
+
 /// Period for PR# when prescale is 1:1
 /// = (FCY / period / prescale) -1
 /// e.g. Period 1000Hz = (16000000 / 1000 / 1) - 1
@@ -55,8 +60,8 @@ typedef enum TimerPeriod {
 #define U1TX_RPn _RP7R
 
 // Analog pins
-//A pin is configured as an analog input when
-//the corresponding PCFGx bit (AD1PCFG<x>) is cleared
+// A pin is configured as an analog input when
+// the corresponding PCFGx bit (AD1PCFG<x>) is cleared
 #define M1_TEMP_EN(a) _PCFG2 = !(a)
 #define M1_CURR_EN(a) _PCFG3 = !(a)
 #define M2_TEMP_EN(a) _PCFG0 = !(a)
