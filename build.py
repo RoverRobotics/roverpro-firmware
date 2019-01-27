@@ -1,5 +1,7 @@
 #! python3.7
 import argparse
+from functools import partial
+
 import trio
 import configparser
 import logging
@@ -48,6 +50,11 @@ async def build_project(p):
     return hex_file
 
 
+async def exec(pargs, **kwargs):
+    async with trio.subprocess.Process(pargs, **kwargs, stdout=trio.subprocess.PIPE, stderr=trio.subprocess.PIPE) as process:
+        assert await process.wait() == 0
+
+
 async def main():
     command_line_options = parser.parse_args()
     if command_line_options.verbose is None:
@@ -64,6 +71,9 @@ async def main():
 
     hex_files = []
     async with trio.open_nursery() as nursery:
+        for doxygen_file in Path(base_dir).rglob('Doxyfile'):
+            nursery.start_soon(partial(exec, ('doxygen', doxygen_file), cwd=doxygen_file.parent))
+
         for mcp_file in mcp_files:
             async def make_project(mcp):
                 mplab_project = MPLabProject(mcp, debug_build=command_line_options.debug)
