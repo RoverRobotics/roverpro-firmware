@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-/** The result of an I2C operation. */
+/// The result of an I2C operation.
 typedef enum I2CResult {
     I2C_NOTYET,  ///< Bus is still busy with the last operation. Try again in a bit.
     I2C_OKAY,    ///< The operation completed successfully
@@ -27,16 +27,19 @@ typedef enum I2CResult {
     I2C_ERROR_NACK_READ, ///< Device NACKED when were expecting it to send data.
 } I2CResult;
 
-#ifdef __PIC24FJ256GB106__
 /// Reference to the I2C bus definition. The caller should treat this as an opaque type
 typedef const struct I2CBusDefinition *I2CBus;
-/** These are the I2C buses available on our hardware (PIC24). */
-extern const I2CBus I2C_BUS1;
-extern const I2CBus I2C_BUS2;
-extern const I2CBus I2C_BUS3;
-#endif
 
+/// An I2C bus peripheral available on our hardware (PIC24)
+extern const I2CBus I2C_BUS1;
+/// An I2C bus peripheral available on our hardware (PIC24)
+extern const I2CBus I2C_BUS2;
+/// An I2C bus peripheral available on our hardware (PIC24)
+extern const I2CBus I2C_BUS3;
+
+/// Activate the given I2C peripheral
 void i2c_enable(I2CBus bus);
+/// Deactivate the given I2C peripheral
 void i2c_disable(I2CBus bus);
 
 /// The definition of a particular I2C operation

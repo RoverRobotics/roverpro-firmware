@@ -4,18 +4,20 @@
 #include "stdhdr.h"
 #include "hardware_definitions.h"
 
-extern bool SHOULD_SKIP_BOOTLOADER;
-
-/*****************************************************************************/
-//*-----------------------------------PWM------------------------------------*/
-
+/// For motor state machine. The requested motor state based in inbound motor speed commands, which
+/// informs state machine transitions
 typedef enum MotorEvent {
+    /// Motor has been commanded to stop
     STOP = 0xFF01,
+    /// Motor has been commanded to move forward
     GO = 0xFF02,
+    /// Motor has been commanded to move backward
     BACK = 0xFF03,
+    /// Motor has not been commanded
     NO_EVENT = 0xFF00,
 } MotorEvent;
 
+/// For motor state machine. The current motor state.
 typedef enum MotorState {
     /// Motor is moving in forward direction
     FORWARD = 0xEE00,
@@ -47,22 +49,15 @@ typedef enum MotorState {
 /// Number of samples to keep of running metrics for speed control
 #define SAMPLE_LENGTH_CONTROL 8
 
+/// Whether we have received new commands from the USB interface (not the UART)
 extern bool usb_new_data_received;
-
-// INTERRUPTS:
-/// Timer interrupt to enable ADC every tick
-void Motor_T3Interrupt(void);
-/// Analog/digital converter interrupt.
-void Motor_ADC1Interrupt(void);
 
 /*****************************************************************************/
 //*--------------------------------General Functions-------------------------*/
 // BEGIN initialization routines
 
 /// Perform initialization of this module
-void DeviceRobotMotorInit();
-/// Initialize interrupts
-void InterruptIni();
+void DeviceRobotMotorInit()
 /// Remaps pins for UART and PWM
 void PinRemap(void);
 

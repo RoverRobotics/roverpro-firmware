@@ -11,7 +11,7 @@ Notes:
     the signs of Kp, Ki and Kd negative if the process is reverse-acting.
   - If employing differential control, be wary of noise and high-frequency
     oscillations.
-    
+
 Tuning Considerations.
   - differential gain is usually high
   - integral gain is usually low

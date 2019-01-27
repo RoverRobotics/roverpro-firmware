@@ -36,3 +36,5 @@ Pipfile.lock
 *.GENERATED.c
 
 debug\.log
+
+Power_Board/doc/

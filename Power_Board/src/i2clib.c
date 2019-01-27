@@ -2,7 +2,7 @@
 #include "stdhdr.h"
 
 #ifndef min
-#define min(a,b) (a<b ? a:b)
+#define min(a, b) (a < b ? a : b)
 #endif
 
 /** I2C ack bit. Transmitted in response to any data received. */

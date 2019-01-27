@@ -1,6 +1,5 @@
 #include "counter.h"
 
-
 void counter_resume(Counter *c) { c->is_paused = false; }
 void counter_restart(Counter *c) {
     c->is_paused = false;
@@ -10,7 +9,6 @@ void counter_stop(Counter *c) {
     c->is_paused = true;
     c->count = 0;
 }
-/// Increment the given counter, if it's not paused.
 CounterState counter_tick(Counter *c) {
     if (c->is_paused)
         return COUNTER_PAUSED;

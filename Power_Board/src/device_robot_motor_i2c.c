@@ -167,13 +167,6 @@ void i2c3_tick(bool should_reset, bool *did_finish) {
 void re_init_i2c2(void) {
     i2c_disable(I2C_BUS2);
 
-    // New Bren-Tronics battery (or existing device interacting with the new
-    // battery ties up the SMBus line (usually
-    // seen after the robot is driven for a short time.  The only
-    // way I've been able to recover from this is by either removing
-    // the SMBus cable between the battery board and the power board,
-    // or by changing the i2c pins to outputs when the i2c module is
-    // disabled.
     _TRISF4 = 0;
     _TRISF5 = 0;
     _LATF4 = 0;
