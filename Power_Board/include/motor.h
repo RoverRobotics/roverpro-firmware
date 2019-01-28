@@ -6,7 +6,6 @@
 #define MOTOR_H
 
 #include "stdhdr.h"
-#include "motor.h"
 
 /// Reference to individually addressable motors
 typedef enum MotorChannel {
@@ -17,6 +16,7 @@ typedef enum MotorChannel {
     /// Motor controlling the flipper. Not all rovers have this motor.
     MOTOR_FLIPPER,
 } MotorChannel;
+
 /// The number of values of MotorChannel
 #define MOTOR_CHANNEL_COUNT 3
 /// Helper macro for iterating all motors and storing the result in variable i.
@@ -33,7 +33,7 @@ typedef enum MotorChannel {
 void motor_tach_init();
 
 /// Get the last-measured period of a motor in units of 16-microseconds
-/// @param channel The motor channel to use
+/// @param channel which motor?
 /// @return Period of the motor in units of 16 microseconds. If the motor period is long, returns 0.
 float motor_tach_get_period(MotorChannel channel);
 
@@ -41,13 +41,16 @@ float motor_tach_get_period(MotorChannel channel);
 void MotorsInit();
 
 /// Tell motor controller to coast motor
+///@param channel which motor?
 void Coasting(MotorChannel channel);
 
 /// Tell motor controller to brake motor
+///@param channel which motor?
 void Braking(MotorChannel channel);
 
 /// Communicate new motor speeds/direction to the motor controller.
-/// effort = signed effort to apply (-1000 : +1000)
+///@param channel which motor
+///@param effort signed effort to apply (-1000 : +1000)
 void UpdateSpeed(MotorChannel channel, int16_t effort);
 
 /// Initialize PWM channel 1 (left motor)

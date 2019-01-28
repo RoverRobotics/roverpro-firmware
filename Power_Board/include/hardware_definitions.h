@@ -1,3 +1,6 @@
+/// @file
+/// Hardware details, generally derived from the electrical diagram of the rover
+
 #ifndef HARDWARE_DEFINITIONS_H
 #define HARDWARE_DEFINITIONS_H
 
@@ -10,11 +13,6 @@
 #define LO 0
 #define Set_ActiveLO 0
 #define Clear_ActiveLO 1
-
-typedef enum IOPIN_DIRECTION {
-    IOPIN_OUTPUT = 0,
-    IOPIN_INPUT = 1,
-};
 
 /// Period for PR# when prescale is 1:1
 /// = (FCY / period / prescale) -1

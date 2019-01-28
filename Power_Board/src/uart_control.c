@@ -4,36 +4,59 @@
 #include "xc.h"
 #include "version.GENERATED.h"
 
+#define RX_PACKET_SIZE 7
+#define TX_PACKET_SIZE 5
+
+/// A ring queue used to buffer incoming and outgoing data
+/// It is safe for data to be enqueued by one function and dequeued by an interrupt or vice versa.
 typedef struct Queue {
-    const size_t buflen; // size of the buffer that data will be stored in. Should be a power of 2
-    volatile int16_t
-        n_enqueued; // number of bytes that have been enqueued over the lifetime of this queue
-    volatile int16_t
-        n_dequeued; // number of bytes that have been dequeued over the lifetime of this queue
-    uint8_t *const buffer; // physical buffer that the data will be stored in
+    /// size of the buffer that data will be stored in. Should be a power of 2
+    const size_t buflen;
+    /// number of bytes that have been enqueued over the lifetime of this queue
+    volatile int16_t n_enqueued;
+    /// number of bytes that have been dequeued over the lifetime of this queue
+    volatile int16_t n_dequeued;
+    /// physical buffer that the data will be stored in
+    uint8_t *const buffer;
 } Queue;
 
+/// @return number of bytes that can be enqueued
 int16_t n_can_enqueue(Queue *q) { return q->buflen - q->n_enqueued + q->n_dequeued; };
+/// @return number of bytes that can be dequeued
 int16_t n_can_dequeue(Queue *q) { return q->n_enqueued - q->n_dequeued; };
+
+/// Add one byte to the queue
 void enqueue(Queue *q, uint8_t value) {
-    if (n_can_enqueue(q)) {
-        q->buffer[q->n_enqueued++ % q->buflen] = value;
+    if (n_can_enqueue(q) >= 1) {
+        q->buffer[q->n_enqueued % q->buflen] = value;
+        q->n_enqueued++;
     } else {
         BREAKPOINT();
     }
 };
+
+/// Remove one byte from the queue
+/// @return the byte removed
 uint8_t dequeue(Queue *q) {
-    if (n_can_dequeue(q)) {
-        return q->buffer[q->n_dequeued++ % q->buflen];
+    if (n_can_dequeue(q) >= 1) {
+        return q->buffer[q->n_dequeued % q->buflen];
+        q->n_dequeued++;
     } else {
         BREAKPOINT();
         return 0;
     }
 };
 
+/// In the OpenRover protocol, this byte signifies the start of a message
 const uint8_t UART_START_BYTE = 253;
+
+/// Baud rate for the serial device
 #define UART_BAUD_RATE 57600
 
+/// Checksum of a packet. An OpenRover packet should apply this to the payload
+/// (contents of the message, excluding the start byte). It is calculated as
+/// 255 - (sum of bytes % 255).
+// TODO: this is a lousy checksum. Use a better checksum.
 uint8_t checksum(size_t count, const uint8_t *data) {
     int i;
     uint16_t total = 0;
@@ -43,13 +66,18 @@ uint8_t checksum(size_t count, const uint8_t *data) {
     return 255 - (total % 255);
 }
 
-/// Software buffer for receiving UART data
-#define UART_RX_BUFLEN 32
+/// Size, in bytes, of software buffer for receiving UART data
+#define UART_RX_BUFLEN 256
+/// Underlying buffer for inbound UART data
 uint8_t uart_rx_buffer[UART_RX_BUFLEN];
+/// Queue for inbound UART data
 static Queue uart_rx_queue = {.buflen = UART_RX_BUFLEN, .buffer = uart_rx_buffer};
 
+/// Size, in bytes, of software buffer for sending UART data
 #define UART_TX_BUFLEN 256
+/// Underlying buffer for outbound UART data
 uint8_t uart_tx_buffer[UART_TX_BUFLEN];
+/// Queue for outbound UART data
 static Queue uart_tx_queue = {.buflen = UART_TX_BUFLEN, .buffer = uart_tx_buffer};
 
 void uart_enqueue_debug_string(char *value) {
@@ -105,7 +133,9 @@ void uart_init() {
     IEC0bits.U1RXIE = 1;    // enable UART1 receive interrupt
 }
 
-// Hardware UART RX interrupt enabled by U1RXIE
+/// UART receive Interrupt function
+/// Transfer inbound data from the UART hardware buffer into a software buffer
+/// Called by hardware interrupt and enabled by _U1RXIE
 void __attribute__((__interrupt__, auto_psv)) _U1RXInterrupt() {
     // clear the interrupt flag
     _U1RXIF = 0;
@@ -126,7 +156,9 @@ void __attribute__((__interrupt__, auto_psv)) _U1RXInterrupt() {
     }
 }
 
-// Hardware UART TX interrupt, enabled by U1TXIE
+/// UART transmit Interrupt function
+/// Transfer outbound data from a software buffer into the UART hardware buffer
+/// called by hardware interrupt and enabled by _U1TXIE
 void __attribute__((__interrupt__, auto_psv)) _U1TXInterrupt() {
     // clear the interrupt flag
     _U1TXIF = 0;
@@ -157,7 +189,7 @@ void uart_serialize_out_data(uint8_t *out_bytes, uint8_t uart_data_identifier) {
         CASE(12, REG_MOTOR_FB_CURRENT.right)
         CASE(14, REG_MOTOR_ENCODER_COUNT.left)
         CASE(16, REG_MOTOR_ENCODER_COUNT.right)
-    case 18: // 18-REG_MOTOR_FAULT_FLAG
+    case 18:
         out_bytes[0] = REG_MOTOR_FAULT_FLAG.left;
         out_bytes[1] = REG_MOTOR_FAULT_FLAG.right;
         break;
@@ -192,9 +224,6 @@ void uart_serialize_out_data(uint8_t *out_bytes, uint8_t uart_data_identifier) {
     }
 #undef CASE
 }
-
-#define RX_PACKET_SIZE 7
-#define TX_PACKET_SIZE 5
 
 UArtTickResult uart_tick() {
     UArtTickResult result = {0};

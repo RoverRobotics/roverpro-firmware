@@ -1,6 +1,5 @@
-/** Dan's glorious I2C library.
- * This provides a wrapper around PIC24's I2C primitives
- */
+/// Dan's glorious I2C library.
+/// This provides a wrapper around PIC24's I2C primitives.
 
 #ifndef I2CLIB_H
 #define I2CLIB_H
@@ -9,14 +8,13 @@
 #include <stdbool.h>
 
 /// The result of an I2C operation.
+/// The I2C_ERROR_... values are all runtime errors which may be encountered during an elementary
+/// I2C operation. Any of them should be followed by a STOP condition:
 typedef enum I2CResult {
     I2C_NOTYET,  ///< Bus is still busy with the last operation. Try again in a bit.
     I2C_OKAY,    ///< The operation completed successfully
     I2C_ILLEGAL, ///< Incorrect use of the I2C module, probably by calling functions in the wrong
                  ///< order. This should be fixed in code.
-
-    // The following are runtime errors which may be encountered during an elementary I2C operation.
-    // Any of them should be followed by a STOP condition:
     I2C_ERROR_BUS_COLLISION, ///< Operation was not completed because another device was sending
                              ///< data on the bus
     I2C_ERROR_NACK_RESTART,  ///< Slave NACKED when we expected to restart. It means the device did

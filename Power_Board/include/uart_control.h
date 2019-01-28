@@ -1,3 +1,7 @@
+/// @file
+/// UART communication between the robot and an external computer
+/// Generally the robot will
+
 #ifndef UART_CONTROL_H
 #define UART_CONTROL_H
 
@@ -20,19 +24,13 @@ typedef struct UARTTickResult {
     bool uart_motor_control_scheme_requested;
 } UArtTickResult;
 
-/// Initialize UART module
+/// Initialize UART module. Will cause _U1TXInterrupt() and _U1RXInterrupt() to occasionally be
+/// called, which transfer data between a the device's hardware UART module and various software
+/// buffers.
 void uart_init();
 
-/// If we have received data over UART, act on it.
+/// If we have received data over UART into the software buffers.
 /// May clear the inbound software buffer and populate the outbound software buffer
 UArtTickResult uart_tick();
-
-/// UART transmit Interrupt function
-/// Transfer outbound data from a software buffer into the UART hardware buffer
-void uart_tx_isf();
-
-/// UART receive Interrupt function
-/// Transfer inbound data from the UART hardware buffer into a software buffer
-void uart_rx_isf();
 
 #endif
