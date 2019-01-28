@@ -200,7 +200,6 @@ static void InitIC3(uint8_t RPn) {
 }
 
 void MotorsInit() {
-
     // set directions of pins
     M1_DIR_EN(1);
     M1_BRAKE_EN(1);
@@ -223,6 +222,16 @@ void MotorsInit() {
     M1_MODE = 1;
     M2_MODE = 1;
     M3_MODE = 1;
+
+    // Assign OC1 To Pin M1_AHI
+    M1_PWM = 18; // 18 represents OC1
+
+    // Assign OC2 To Pin M1_BHI
+    M2_PWM = 19; // 19 represents OC2
+
+    // Assign OC3 To Pin M2_AHI
+    M3_PWM = 20; // 20 represents OC3
+
     PWM1Ini();
     PWM2Ini();
     PWM3Ini();

@@ -82,6 +82,11 @@ typedef enum UARTCommand {
 } UARTCommand;
 
 void uart_init() {
+    // Assign U1RX To U1RX, Uart receive channnel
+    _U1RXR = U1RX_RPn;
+    // Assign U1TX To U1TX/Uart Tx
+    U1TX_RPn = 3; // 3 represents U1TX
+
     // Enable the UART.
     U1MODE = 0x0000;
     if (UART_BAUD_RATE < FCY / 4.0f) {

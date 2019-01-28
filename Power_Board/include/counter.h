@@ -54,4 +54,4 @@ void counter_stop(Counter *c);
 /// @return The new state after this tick.
 CounterState counter_tick(Counter *c);
 
-#endif // COUNTER_H
+#endif
