@@ -92,23 +92,6 @@ void uart_enqueue_debug_string(char *value) {
     enqueue(&uart_tx_queue, 0);
 }
 
-/// 1-byte command "verb" associated with UART inbound command.
-/// There is also a 1-byte argument associated
-typedef enum UARTCommand {
-    /// Robot should not do anything besides obey the speed commands
-    UART_COMMAND_NONE = 0,
-    /// Robot should return the data element specified by argument
-    UART_COMMAND_GET = 10,
-    /// Robot should set the fan speed to argument
-    UART_COMMAND_SET_FAN_SPEED = 20,
-    /// Robot should restart
-    UART_COMMAND_RESTART = 230,
-    /// Robot should set the closed loop mode to argument
-    UART_COMMAND_SET_DRIVE_MODE = 240,
-    /// Robot should calibrate the flipper
-    UART_COMMAND_FLIPPER_CALIBRATE = 250,
-} UARTCommand;
-
 void uart_init() {
     // Assign U1RX To U1RX, Uart receive channnel
     _U1RXR = U1RX_RPn;

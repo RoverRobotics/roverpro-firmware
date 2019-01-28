@@ -122,7 +122,6 @@ void DeviceRobotMotorInit() {
     // Initialize motor drivers
     //*******************************************
 
-    InterruptIni();
     IniAD();
 
     // initialize timers
@@ -604,7 +603,7 @@ void IniAD() {
 }
 
 /// Timer interrupt to enable ADC every tick
-void __attribute__((__interrupt__, auto_psv)) _T3Interrupt(void)
+void __attribute__((__interrupt__, auto_psv)) _T3Interrupt(void) {
     // TODO: I think the purpose here is just to enable the auto-sample bit ASAM
     // so that we don't have to set the SAMP bit and potentially set it at the wrong time.
     // I think this isn't needed as long as SSRC = 0b111
@@ -612,7 +611,7 @@ void __attribute__((__interrupt__, auto_psv)) _T3Interrupt(void)
     // PORTCbits.RC13=~PORTCbits.RC13;
     // clear timer3 flag
     IFS0bits.T3IF = CLEAR; // clear interrupt flag
-AD1CON1bits.ASAM = SET;
+    AD1CON1bits.ASAM = SET;
 }
 
 /// Analog/digital converter interrupt to harvest values from ADC

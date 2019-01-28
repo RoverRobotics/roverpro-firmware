@@ -1,10 +1,3 @@
-/**
- * @file stdfunctions.c
- * @author J. Brinton
- * @author Robotex, Inc.
- *
- *
- */
 #include "stdhdr.h"
 
 int16_t clamp(int16_t value, int16_t lo, int16_t hi) {

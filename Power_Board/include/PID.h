@@ -30,11 +30,6 @@
 
 // TODO: implement an auto-tuner: Autotune(&Kp, &Ki, &Kd);
 
-Responsible Engineer
-    : Stellios Leventis(sleventis @robotex.com) == ==
-      == == == == == == == == == == == == == == == == == == == == == == == == == == == == == == ==
-      == == == == == ==
-      * /
 #ifndef PID_H
 #define PID_H
 //---------------------------Dependencies---------------------------------------
@@ -43,15 +38,14 @@ Responsible Engineer
 /// change to support as many controllers as needed (used to obviate the need for dynamic memory
 /// management)
 #define MAX_NUM_CONTROLLERS 8
-          //---------------------------Public Functions-----------------------------------
-          /// @param controller_index the index (0-based) of the controller on which to operate
-          /// @param y_max the maximum value the output can produce
-          /// @param y_min the minimum value the output can produce
-          /// @param Kp proportional gain
-          /// @param Ki integral gain
-          /// @param Kd differential gain
-          void PID_Init(uint8_t controller_index, float y_max, float y_min, float Kp, float Ki,
-                        float Kd);
+//---------------------------Public Functions-----------------------------------
+/// @param controller_index the index (0-based) of the controller on which to operate
+/// @param y_max the maximum value the output can produce
+/// @param y_min the minimum value the output can produce
+/// @param Kp proportional gain
+/// @param Ki integral gain
+/// @param Kd differential gain
+void PID_Init(uint8_t controller_index, float y_max, float y_min, float Kp, float Ki, float Kd);
 
 /// @return the resulting value to command for the current iteration
 /// @param controller_index, the index (0-based) of the controller on which to operate

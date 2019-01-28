@@ -72,7 +72,7 @@ async def main():
     hex_files = []
     async with trio.open_nursery() as nursery:
         for doxygen_file in Path(base_dir).rglob('Doxyfile'):
-            nursery.start_soon(partial(exec, ('doxygen', doxygen_file), cwd=doxygen_file.parent))
+            nursery.start_soon(partial(exec, ['doxygen', str(doxygen_file)], cwd=doxygen_file.parent))
 
         for mcp_file in mcp_files:
             async def make_project(mcp):

@@ -56,10 +56,10 @@ extern bool usb_new_data_received;
 // BEGIN initialization routines
 
 /// Perform initialization of this module
-void DeviceRobotMotorInit()
+void DeviceRobotMotorInit();
 
-    /// Configure fan controller with I2C commands
-    void FANCtrlIni();
+/// Configure fan controller with I2C commands
+void FANCtrlIni();
 
 /// Configure and start analog/digital converter
 void IniAD();

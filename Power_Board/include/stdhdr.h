@@ -17,13 +17,16 @@
 /// peripherals can be configgered in the IDE. When built in DEBUG, if no PICkit is attached,
 /// restarts execution.
 // The NOP is important. It prevents a problem with `switch{default:  BREAKPOINT()}`, which would
-// otherwise crash. It also allows the debugger to stop on this line instead of overshooting
+// otherwise crash. It also allows the debugger to stop on this line instead of overshooting.
+#if (__DEBUG)
 #define BREAKPOINT()                                                                               \
     {                                                                                              \
-#if __DEBUG __builtin_software_breakpoint();                                               \
+        __builtin_software_breakpoint();                                                           \
         __builtin_nop();                                                                           \
-#endif                                                                                     \
     }
+#else
+#define BREAKPOINT() ((void)0)
+#endif
 
 /// Conditional breakpoint
 #define BREAKPOINT_IF(condition)                                                                   \

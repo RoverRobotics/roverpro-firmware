@@ -2,6 +2,9 @@
 #define DEVICE_POWER_BUS_H
 
 // TODO: unify Cell_A_MOS and CELL_A_MOS_EN.
+// Main power bus MOSFET control pins
+#define CELL_A_MOS_EN(a) _TRISD3 = !(a)
+#define CELL_B_MOS_EN(a) _TRISD2 = !(a)
 /// The pin that gates battery A. Set high to allow the battery to power the main bus.
 #define Cell_A_MOS _RD3
 /// The pin that gates battery B. Set high to allow the battery to power the main bus.
