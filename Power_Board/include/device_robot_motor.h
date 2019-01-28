@@ -53,16 +53,13 @@ typedef enum MotorState {
 extern bool usb_new_data_received;
 
 /*****************************************************************************/
-//*--------------------------------General Functions-------------------------*/
 // BEGIN initialization routines
 
 /// Perform initialization of this module
 void DeviceRobotMotorInit()
-/// Remaps pins for UART and PWM
-void PinRemap(void);
 
-/// Configure fan controller with I2C commands
-void FANCtrlIni();
+    /// Configure fan controller with I2C commands
+    void FANCtrlIni();
 
 /// Configure and start analog/digital converter
 void IniAD();
@@ -72,7 +69,7 @@ void IniTimer1();
 /// Timer2 is used as the clock source for motor PWM
 void IniTimer2();
 /// Set up and start Timer3: 50 kHz, Interrupts enabled
-/// Timer3 is used as the trigger source for ADC and back emf feedback
+/// Timer3 is used as the trigger source for ADC and back-EMF feedback
 void IniTimer3();
 
 /// Tick process which does a lot more than just control the motor

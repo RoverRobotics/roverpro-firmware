@@ -98,9 +98,6 @@ void DeviceRobotMotorInit() {
     TRISF = 0xffff;
     TRISG = 0xffff;
 
-    // peripheral pin selection
-    PinRemap();
-    // peripheral pin selection end
     //*******************************************
     // initialize I/O port
     // AN15,AN14,AN1,AN0 are all digital
@@ -496,25 +493,6 @@ void set_motor_control_scheme() {
 
 //**********************************************
 
-void PinRemap(void) {
-    // Assign U1RX To U1RX, Uart receive channnel
-    RPINR18bits.U1RXR = U1RX_RPn;
-    // Assign U1TX To U1TX/Uart Tx
-    U1TX_RPn = 3; // 3 represents U1TX
-
-    //***************************
-    // Configure Output Functions
-    // pin->function
-    // Assign OC1 To Pin M1_AHI
-    M1_PWM = 18; // 18 represents OC1
-
-    // Assign OC2 To Pin M1_BHI
-    M2_PWM = 19; // 19 represents OC2
-
-    // Assign OC3 To Pin M2_AHI
-    M3_PWM = 20; // 20 represents OC3
-}
-
 void set_firmware_build_time(void) {
     const unsigned char build_date[12] = __DATE__;
     const unsigned char build_time[12] = __TIME__;
@@ -626,7 +604,7 @@ void IniAD() {
 }
 
 /// Timer interrupt to enable ADC every tick
-void  __attribute__((__interrupt__, auto_psv)) _T3Interrupt(void)
+void __attribute__((__interrupt__, auto_psv)) _T3Interrupt(void)
     // TODO: I think the purpose here is just to enable the auto-sample bit ASAM
     // so that we don't have to set the SAMP bit and potentially set it at the wrong time.
     // I think this isn't needed as long as SSRC = 0b111
@@ -634,11 +612,11 @@ void  __attribute__((__interrupt__, auto_psv)) _T3Interrupt(void)
     // PORTCbits.RC13=~PORTCbits.RC13;
     // clear timer3 flag
     IFS0bits.T3IF = CLEAR; // clear interrupt flag
-    AD1CON1bits.ASAM = SET;
+AD1CON1bits.ASAM = SET;
 }
 
 /// Analog/digital converter interrupt to harvest values from ADC
-void  __attribute__((__interrupt__, auto_psv)) _ADC1Interrupt(void){
+void __attribute__((__interrupt__, auto_psv)) _ADC1Interrupt(void) {
     // Clear interrupt flag
     IFS0bits.AD1IF = CLEAR;
     // disable auto-sample

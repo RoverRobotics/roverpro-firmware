@@ -15,40 +15,43 @@
 #include "xc.h"
 #include <stdbool.h>
 
-#define FCY 16000000UL // instruction clock
+/// Instruction clock frequency in Hz
+#define FCY 16000000UL
 
-// PIC24-specific breakpoint command:
-#if __DEBUG
-/// Halt execution for the attached debugger to catch up
-// note the NOP prevents a problem with `switch{default: BREAKPOINT()}`, which would otherwise crash
+/// When built in release mode, does nothing.
+/// When built in DEBUG, if a PICkit is attached, halts execution. Note the behavior of timers and
+/// peripherals can be configgered in the IDE When built in DEBUG, if no PICkit is attached,
+/// restarts execution.
 #define BREAKPOINT()                                                                               \
     {                                                                                              \
-        __builtin_software_breakpoint();                                                           \
-        __builtin_nop();                                                                           \
+#if __DEBUG __builtin_software_breakpoint();                                               \
+#endif /* note the NOP prevents a problem with `switch{default: BREAKPOINT()}`, which      \
+                  would otherwise crash */                                                         \
+            __builtin_nop();                                                                       \
     }
+/// Conditional breakpoint
 #define BREAKPOINT_IF(condition)                                                                   \
     if (condition) {                                                                               \
         BREAKPOINT();                                                                              \
-    }
-#else
-// when not debugging, BREAKPOINT and BREAKPOINT_IF should do nothing
-#define BREAKPOINT() ((void)0)
-#define BREAKPOINT_IF(condition) ((void)0)
+    }                                                                                              \
 #endif
 
 /// Block for the specified amount of time. Prevents a Watchdog Timer reset in the event of a long
 /// wait.
 void block_ms(uint16_t ms);
 
-/** return the nearest integer within the given range */
+/// return the nearest integer within the given range
 int16_t clamp(int16_t value, int16_t lo, int16_t hi);
-/** return the nearest float within the given range */
+
+/// return the nearest float within the given range
 float clamp_f(float value, float lo, float hi);
 
-/** compute the mean of an array of ints */
+/// compute the mean of an array of ints
 int16_t mean(size_t count, int16_t *values);
-/** compute the mean of an array of longs */
+
+/// compute the mean of an array of longs
 uint16_t mean_u(size_t count, uint16_t *values);
+
 #include "HardwareProfile.h"
 
 #endif
