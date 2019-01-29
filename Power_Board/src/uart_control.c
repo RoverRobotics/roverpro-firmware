@@ -1,5 +1,5 @@
 #include "uart_control.h"
-#include "USB/usb.h"
+#include "usb_config.h"
 #include "device_robot_motor.h"
 #include "xc.h"
 #include "version.GENERATED.h"

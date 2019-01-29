@@ -1,5 +1,5 @@
 /*---------------------------Dependencies-------------------------------------*/
-#include "USB/usb.h"
+#include "usb_config.h"
 #include "motor.h"
 #include "stdhdr.h"
 #include "hardware_definitions.h"
@@ -34,8 +34,9 @@ typedef enum {
 
 /*---------------------------Module Variables---------------------------------*/
 typedef struct {
-    /// high precision timestamp
+    /// 32-bit timestamp high half
     uint16_t hi;
+    /// 32-bit timestamp low half
     uint16_t lo;
     /// direction that the motor is spinning
     MotorDir dir;
