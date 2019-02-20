@@ -1,11 +1,8 @@
+#include "stdhdr.h"
 #include "device_power_bus.h"
 #include "hardware_definitions.h"
 #include "i2clib.h"
 #include "string.h"
-/// Sets the direction of Pin D3, which controls whether battery A energizes the power bus
-#define CELL_A_MOS_DIR _TRISD3
-/// Sets the direction of Pin D2, which controls whether battery B energizes the power bus
-#define CELL_B_MOS_DIR _TRISD2
 
 /// Activation routine for some batteries
 static void turn_on_power_bus_old_method();

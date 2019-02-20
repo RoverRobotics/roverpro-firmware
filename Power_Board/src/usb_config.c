@@ -1,19 +1,6 @@
-/**
- * @file usb_config.c
- * @author J. Brinton
- * @author Robotex, Inc.
- *
- * Instantiation of global telemetry values
- *
- */
+ /// @file
 
 #include "usb_config.h"
-
-#ifdef __cplusplus
-extern "C" {
-   namespace rbx {
-      namespace telemetry {
-#endif
 
 // -------- INSTANTIATE TELEMETRY VARIABLES --------
 
@@ -46,11 +33,3 @@ extern "C" {
 #undef  MESSAGE_START
 #undef  MEMBER
 #undef  MESSAGE_END
-
-
-#ifdef __cplusplus
-      } // namespace telemetry
-   } // namespace rbx
-} // extern "C"
-#endif
-

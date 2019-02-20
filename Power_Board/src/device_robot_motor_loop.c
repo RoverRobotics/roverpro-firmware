@@ -1,5 +1,5 @@
 
-#include "USB/usb.h"
+#include "usb_config.h"
 #include "stdhdr.h"
 #include "device_robot_motor_loop.h"
 #include "motor.h"
