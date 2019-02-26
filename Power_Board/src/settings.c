@@ -50,8 +50,6 @@ const static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = { 
     .flipper =
         {
             .is_calibrated = false,
-            .pot1 = 0,
-            .pot2 = 0,
         },
     .i2c =
         {

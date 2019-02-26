@@ -4,7 +4,6 @@
 #include "stdhdr.h"
 #include "device_robot_motor.h"
 #include "device_robot_motor_i2c.h"
-#include "DEE Emulation 16-bit.h"
 #include "i2clib.h"
 #include "device_robot_motor_loop.h"
 #include "motor.h"
@@ -53,9 +52,7 @@ int cell_voltage_array_pointer = 0;
 uint16_t cell_current[BATTERY_CHANNEL_COUNT][SAMPLE_LENGTH];
 
 bool over_current = false;
-uint16_t flipper_angle_offset = 0;
 void calibrate_flipper_angle_sensor(void);
-static void read_stored_angle_offset(void);
 
 void set_firmware_build_time(void);
 
@@ -145,15 +142,11 @@ void DeviceRobotMotorInit() {
     power_bus_init();
     FANCtrlIni();
 
-    // read flipper position from flash, and put it into a module variable
-    read_stored_angle_offset();
-
     // init variables for closed loop control
     closed_loop_control_init();
 }
 
 void Device_MotorController_Process() {
-
     static struct {
         uint16_t motor;
         uint16_t electrical;
@@ -658,12 +651,13 @@ static uint16_t return_calibrated_pot_angle(uint16_t pot_1_value, uint16_t pot_2
         return 0xffff;
 
     // if calibration didn't work right, return angle with no offset
-    if (flipper_angle_offset == 0xffff)
+    if (!g_settings.flipper.is_calibrated) {
         return combined_pot_angle;
-
-    calibrated_pot_angle = wrap_angle(combined_pot_angle - flipper_angle_offset);
-
-    return calibrated_pot_angle;
+    } else {
+        uint16_t flipper_angle_offset = g_settings.flipper.angle_offset;
+        calibrated_pot_angle = wrap_angle(combined_pot_angle - flipper_angle_offset);
+        return calibrated_pot_angle;
+    }
 }
 
 static uint16_t return_combined_pot_angle(uint16_t pot_1_value, uint16_t pot_2_value) {
@@ -733,38 +727,20 @@ static uint16_t return_combined_pot_angle(uint16_t pot_1_value, uint16_t pot_2_v
     return (unsigned int)combined_pot_angle;
 }
 
-// read stored values from flash memory
-static void read_stored_angle_offset(void) {
-    unsigned char angle_data[3];
-    unsigned int i;
-    DataEEInit();
-    for (i = 0; i < 3; i++) {
-        angle_data[i] = DataEERead(i);
-    }
-
-    // only use stored values if we have stored the calibrated values before.
-    // we store 0xaa in position 8 so we know that the calibration has taken place.
-    if (angle_data[2] == 0xaa) {
-        flipper_angle_offset = angle_data[0] * 256 + angle_data[1];
-    }
-}
-
 void calibrate_flipper_angle_sensor(void) {
     MotorChannel i;
     // Coast all the motors
     for (EACH_MOTOR_CHANNEL(i)) {
         Coasting(i);
     }
-    flipper_angle_offset =
+
+    g_settings.flipper.is_calibrated = true;
+    g_settings.flipper.angle_offset =
         return_combined_pot_angle(REG_FLIPPER_FB_POSITION.pot1, REG_FLIPPER_FB_POSITION.pot2);
 
-    DataEEInit();
-
-    DataEEWrite((flipper_angle_offset >> 8), 0);
-    DataEEWrite((flipper_angle_offset & 0xff), 1);
-
-    // write 0xaa to index 2, so we can tell if this robot has been calibrated yet
-    DataEEWrite(0xaa, 2);
+    Settings s = settings_load();
+    s.flipper = g_settings.flipper;
+    settings_save(&s);
 
     // don't do anything again ever
     while (1) {
