@@ -41,7 +41,6 @@ add_custom_command(
 add_executable(Power_Board
         src/counter.c
         src/device_power_bus.c
-        src/Filters.c
         src/motor.c
         src/PID.c
         src/device_robot_motor.c
@@ -51,14 +50,13 @@ add_executable(Power_Board
         src/main.c
         src/stdfunctions.c
         src/uart_control.c
-        src/usb_config.c
-        src/usb_descriptors.c
-        src/usb_device.c
-        include/version.GENERATED.h
+        src/device_power_bus_charging.c
+        src/settings.c
         "microchip/DEE Emulation 16-bit.c"
         "microchip/Flash Operations.s"
         ../bootypic/devices/pic24fj256gb106/p24FJ256GB106_app.gld
+        include/version.GENERATED.h
         ${HEADERS}
-        )
+        include/main.h)
 set(CMAKE_EXECUTABLE_FORMAT elf)
 set(CMAKE_EXECUTABLE_SUFFIX .elf)

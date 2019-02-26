@@ -129,6 +129,10 @@ typedef enum UARTCommand {
     UART_COMMAND_SET_DRIVE_MODE = 240,
     /// Robot should calibrate the flipper
     UART_COMMAND_FLIPPER_CALIBRATE = 250,
+    /// Forget settings and reload default startup values
+    UART_COMMAND_SETTINGS_RELOAD = 1,
+    /// Current settings should be saved as the new default startup values
+    UART_COMMAND_SETTINGS_COMMIT = 2,
 } UARTCommand;
 
 #endif

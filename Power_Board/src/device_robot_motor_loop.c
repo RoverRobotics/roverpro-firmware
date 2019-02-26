@@ -1,6 +1,5 @@
 
-#include "usb_config.h"
-#include "stdhdr.h"
+#include "main.h"
 #include "device_robot_motor_loop.h"
 #include "motor.h"
 
@@ -8,7 +7,29 @@
 
 /*---------------------------PID Related--------------------------------------*/
 /*---------------------------Filter Related-----------------------------------*/
-float IIRFilter(uint8_t i, float x, float alpha, bool should_reset);
+#define MAX_N_FILTERS 16
+
+/*---------------------------Public Functions---------------------------------*/
+
+/// Passes the input through an Infinite-Impulse-Response filter characterized by the parameter
+/// alpha.
+/// @param i the filter index
+/// @param x the current sample to be filtered
+/// @param alpha the knob on how much to filter, [0,1) alpha = t / (t + dT), where t = the low-pass
+/// filter's time-constant, dT = the sample rate
+/// @param should_reset whether to clear the history
+float IIRFilter(const uint8_t i, const float x, const float alpha, const bool should_reset) {
+    // see also:
+    // http://dsp.stackexchange.com/questions/1004/low-pass-filter-in-non-ee-software-api-contexts
+    // aka a 'leaky integrator'
+    static float y_lasts[MAX_N_FILTERS] = {0};
+    if (should_reset)
+        y_lasts[i] = 0;
+    float y = alpha * y_lasts[i] + (1.0f - alpha) * x;
+    y_lasts[i] = y;
+
+    return y;
+}
 
 #define ALPHA 0.8
 #define LMOTOR_FILTER 0

@@ -1,7 +1,6 @@
 /*---------------------------Dependencies-------------------------------------*/
-#include "usb_config.h"
+#include "main.h"
 #include "motor.h"
-#include "stdhdr.h"
 #include "hardware_definitions.h"
 
 /*---------------------------Macros-------------------------------------------*/

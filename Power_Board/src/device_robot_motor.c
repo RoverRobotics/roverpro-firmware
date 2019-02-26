@@ -1,6 +1,6 @@
 /// @file high-level motor control and main event loop.
 
-#include "usb_config.h"
+#include "main.h"
 #include "stdhdr.h"
 #include "device_robot_motor.h"
 #include "device_robot_motor_i2c.h"

@@ -1,4 +1,4 @@
-#include "usb_config.h"
+#include "main.h"
 #include "counter.h"
 #include "device_power_bus.h"
 

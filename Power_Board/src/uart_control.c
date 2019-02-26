@@ -1,7 +1,8 @@
-#include "uart_control.h"
-#include "usb_config.h"
-#include "device_robot_motor.h"
 #include "xc.h"
+#include "main.h"
+#include "uart_control.h"
+#include "device_robot_motor.h"
+#include "settings.h"
 #include "version.GENERATED.h"
 
 #define RX_PACKET_SIZE 7
@@ -262,6 +263,12 @@ UArtTickResult uart_tick() {
                 // Start transmission
                 _U1TXIF = 1;
             }
+            break;
+        case UART_COMMAND_SETTINGS_RELOAD:
+            g_settings = settings_load();
+            break;
+        case UART_COMMAND_SETTINGS_COMMIT:
+            settings_save(&g_settings);
             break;
         default:
             // unknown inbound command.

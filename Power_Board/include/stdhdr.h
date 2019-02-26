@@ -50,6 +50,4 @@ int16_t mean(size_t count, int16_t *values);
 /// @return the mean of the array of unsigned ints
 uint16_t mean_u(size_t count, uint16_t *values);
 
-#include "HardwareProfile.h"
-
 #endif
