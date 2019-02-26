@@ -63,8 +63,7 @@ void FANCtrlIni();
 
 /// Configure and start analog/digital converter
 void IniAD();
-/// Set up and start Timer1: 1 kHz, no interrupts
-void IniTimer1();
+
 /// Set up and start Timer2: 30 kHz, no interrupts.
 /// Timer2 is used as the clock source for motor PWM
 void IniTimer2();

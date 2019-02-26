@@ -5,7 +5,6 @@
 // Note we can't overwrite these with the bootloader, so this is only needed
 // for writing firmware with the PICkit3
 #include "../../bootypic/devices/pic24fj256gb106/config.h"
-
 #include "main.h"
 #include "stdhdr.h"
 #include "device_robot_motor.h"
@@ -22,13 +21,25 @@ Settings g_settings;
 #undef REGISTER
 #undef REGISTER_END
 
+/// Set up and start Timer1: 1 kHz, no interrupts
+void IniTimer1() {
+    T1CON = 0x0000;         // clear register
+    T1CONbits.TCKPS = 0b00; // 0b00 = 1:1 prescale
+    TMR1 = 0;               // clear timer1 register
+    PR1 = PERIOD_1000HZ;    // interrupt every 1ms
+    T1CONbits.TON = SET;    // start timer
+}
+
 int main(void) {
     g_settings = settings_load();
 
     DeviceRobotMotorInit();
-
+    IniTimer1();
     while (1) {
         __builtin_clrwdt();
-        Device_MotorController_Process();
+        if (IFS0bits.T1IF == SET) {
+            IFS0bits.T1IF = CLEAR;
+            Device_MotorController_Process();
+        }
     }
 }

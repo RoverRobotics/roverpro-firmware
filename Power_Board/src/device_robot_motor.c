@@ -34,15 +34,6 @@ Counter i2c2_timeout = {.max = INTERVAL_MS_I2C2};
 /// count of how many millis since I2C3 finished. If we don't reach the end, we want to forcibly
 /// restart the I2C3 bus
 Counter i2c3_timeout = {.max = INTERVAL_MS_I2C3};
-/// count of how many millis since we have updated various outbound diagnostic data registers
-Counter sfreg_update = {.max = INTERVAL_MS_SFREG};
-/// count of how many millis since we have checked the battery currents and whether we are drawing
-/// too much current
-Counter battery_check = {.max = INTERVAL_MS_BATTERY_CHECK};
-/// how many millis since we entered an overcurrent condition. Disable the overcurrent condition
-/// when this expires
-Counter over_current_recovery = {
-    .max = INTERVAL_MS_BATTERY_RECOVER, .pause_on_expired = true, .is_paused = true};
 /// how many millis since we last ran the PID filter to compute motor effort for closed loop control
 Counter closed_loop_control = {.max = 10};
 Counter uart_fan_speed_timeout = {
@@ -56,8 +47,7 @@ int16_t motor_efforts[MOTOR_CHANNEL_COUNT] = {0};
 
 int m3_posfb_array[2][SAMPLE_LENGTH] = {{0}}; ///< Flipper Motor positional feedback data
 int m3_posfb_array_pointer = 0;
-uint16_t total_cell_current_array[SAMPLE_LENGTH] = {0};
-int total_cell_current_array_pointer = 0;
+int cell_current_array_pointer = 0;
 int cell_voltage_array[BATTERY_CHANNEL_COUNT][SAMPLE_LENGTH];
 int cell_voltage_array_pointer = 0;
 uint16_t cell_current[BATTERY_CHANNEL_COUNT][SAMPLE_LENGTH];
@@ -78,8 +68,20 @@ static uint16_t return_calibrated_pot_angle(uint16_t pot_1_value, uint16_t pot_2
 // If the flipper pot is above this threshold, it is invalid
 #define HIGH_POT_THRESHOLD 990
 #define FLIPPER_POT_OFFSET -55
-
 //*********************************************//
+
+/// Increment `value` until it hits limit,
+/// at which point reset it to zero.
+bool tick_counter(uint16_t *value, uint16_t limit) {
+    uint16_t new_value = (*value) + 1;
+    if (new_value >= limit) {
+        *value = 0;
+        return true;
+    } else {
+        *value = new_value;
+        return false;
+    }
+}
 
 /** returns the given angle, normalized to between 0 and 360 */
 uint16_t wrap_angle(int16_t value) { return (uint16_t)((value % 360 + 360) % 360); }
@@ -127,7 +129,6 @@ void DeviceRobotMotorInit() {
     // initialize timers
     IniTimer2();
     IniTimer3();
-    IniTimer1();
 
     // initialize motor control
     MotorsInit();
@@ -152,34 +153,39 @@ void DeviceRobotMotorInit() {
 }
 
 void Device_MotorController_Process() {
+
+    static struct {
+        uint16_t motor;
+        uint16_t electrical;
+        uint16_t i2c;
+        uint16_t communication;
+        uint16_t analog_readouts;
+        uint16_t motor_controller;
+    } counters = {0};
+
     UArtTickResult uart_tick_result;
     MotorChannel i;
     long temp1, temp2;
 
-    if (IFS0bits.T1IF == SET) {
-        // Clear interrupt flag
-        IFS0bits.T1IF = CLEAR;
+    // this should run every 1ms
+    power_bus_tick();
 
-        // this should run every 1ms
-        power_bus_tick();
+    // check if any timers are expired
+    if (counter_tick(&closed_loop_control) == COUNTER_EXPIRED) {
+        pid_tick(over_current);
+    }
 
-        // check if any timers are expired
-
-        if (counter_tick(&closed_loop_control) == COUNTER_EXPIRED) {
-            pid_tick(over_current);
-        }
-
-        // if any of the timers expired, execute relative codes
-        // Control timer expired
-        for (EACH_MOTOR_CHANNEL(i)) {
-            if (counter_tick(&speed_update_timer[i]) == COUNTER_EXPIRED) {
-                if (over_current)
-                    Coasting(i);
-            } else {
-                UpdateSpeed(i, motor_efforts[i]);
-            }
+    // if any of the timers expired, execute relative codes
+    // Control timer expired
+    for (EACH_MOTOR_CHANNEL(i)) {
+        if (counter_tick(&speed_update_timer[i]) == COUNTER_EXPIRED) {
+            if (over_current)
+                Coasting(i);
+        } else {
+            UpdateSpeed(i, motor_efforts[i]);
         }
     }
+
     if (counter_tick(&current_fb) == COUNTER_EXPIRED) {
         /// Compute the current used by a given motor and populate it in current_for_control
         /// This is computed as a windowed average of the values in motor_current_ad
@@ -189,9 +195,9 @@ void Device_MotorController_Process() {
             current_for_control_pointer[i] =
                 (current_for_control_pointer[i] + 1) % SAMPLE_LENGTH_CONTROL;
         }
-    }
+    };
 
-    if (counter_tick(&sfreg_update) == COUNTER_EXPIRED) {
+    if (tick_counter(&counters.analog_readouts, g_settings.main.analog_readouts_poll_ms)) {
         // update flipper motor position
         temp1 = mean(SAMPLE_LENGTH, m3_posfb_array[0]);
         temp2 = mean(SAMPLE_LENGTH, m3_posfb_array[1]);
@@ -215,38 +221,46 @@ void Device_MotorController_Process() {
         REG_PWR_BAT_VOLTAGE.a = mean(SAMPLE_LENGTH, cell_voltage_array[CELL_A]);
         REG_PWR_BAT_VOLTAGE.b = mean(SAMPLE_LENGTH, cell_voltage_array[CELL_B]);
 
-        // update total current (out of battery)
-        REG_PWR_TOTAL_CURRENT = mean_u(SAMPLE_LENGTH, total_cell_current_array);
-
         // read out measured motor periods.
         REG_MOTOR_FB_PERIOD_LEFT = (uint16_t)fabs(motor_tach_get_period(MOTOR_LEFT));
         REG_MOTOR_FB_PERIOD_RIGHT = (uint16_t)fabs(motor_tach_get_period(MOTOR_RIGHT));
     }
 
-    if (counter_tick(&battery_check) == COUNTER_EXPIRED) {
-        static int overcurrent_counter = 0;
+    // electrical subsystem
+    if (tick_counter(&counters.electrical, g_settings.main.electrical_poll_ms)) {
+        static uint16_t current_spike_counter;
+        static uint16_t current_recover_counter;
+
         REG_PWR_A_CURRENT = mean_u(SAMPLE_LENGTH, cell_current[CELL_A]);
         REG_PWR_B_CURRENT = mean_u(SAMPLE_LENGTH, cell_current[CELL_B]);
+        REG_PWR_TOTAL_CURRENT = REG_PWR_A_CURRENT + REG_PWR_B_CURRENT;
 
-        //.01*.001mV/A * 11000 ohms = .11 V/A = 34.13 ADC counts/A
-        // set at 10A per side
-        if (REG_PWR_A_CURRENT >= 512 || REG_PWR_B_CURRENT >= 512) {
-            overcurrent_counter++;
-            if (overcurrent_counter > 10) {
+        uint16_t trigger_thresh =
+            g_settings.electrical.overcurrent_trigger_threshold_ma * 34 / 1000;
+        uint16_t reset_thresh = g_settings.electrical.overcurrent_reset_threshold_ma * 34 / 1000;
+
+        if (REG_PWR_A_CURRENT >= trigger_thresh || REG_PWR_B_CURRENT >= trigger_thresh) {
+            // current spike
+            current_spike_counter++;
+            current_recover_counter = 0;
+
+            if (current_spike_counter * g_settings.main.electrical_poll_ms >=
+                g_settings.electrical.overcurrent_trigger_duration_ms) {
                 Coasting(MOTOR_LEFT);
                 Coasting(MOTOR_RIGHT);
                 Coasting(MOTOR_FLIPPER);
                 over_current = true;
-                counter_restart(&over_current_recovery);
             }
-
-        } else if (REG_PWR_A_CURRENT <= 341 && REG_PWR_B_CURRENT <= 341) {
-            overcurrent_counter = 0;
+        } else {
+            current_recover_counter++;
+            if (REG_PWR_A_CURRENT <= reset_thresh && REG_PWR_B_CURRENT <= reset_thresh) {
+                // low current state
+                current_spike_counter = 0;
+            }
+            if (current_recover_counter * g_settings.main.electrical_poll_ms >=
+                g_settings.electrical.overcurrent_reset_duration_ms)
+                over_current = false;
         }
-    }
-
-    if (counter_tick(&over_current_recovery) == COUNTER_EXPIRED) {
-        over_current = false;
     }
 
     {
@@ -540,14 +554,6 @@ void FANCtrlIni() {
 /*****************************************************************************/
 //*-----------------------------------Timer----------------------------------*/
 
-void IniTimer1() {
-    T1CON = 0x0000;         // clear register
-    T1CONbits.TCKPS = 0b00; // 0b00 = 1:1 prescale
-    TMR1 = 0;               // clear timer1 register
-    PR1 = PERIOD_1000HZ;    // interrupt every 1ms
-    T1CONbits.TON = SET;    // start timer
-}
-
 void IniTimer2() {
     T2CON = 0x0000;         // stops timer2,16 bit timer,internal clock (Fosc/2)
     T2CONbits.TCKPS = 0b00; // 0b00 = 1:1 prescale
@@ -631,12 +637,8 @@ void __attribute__((__interrupt__, auto_psv)) _ADC1Interrupt(void) {
     motor_current_ad[MOTOR_FLIPPER][motor_current_ad_pointer] = ADC1BUFB;
     motor_current_ad_pointer = (motor_current_ad_pointer + 1) % SAMPLE_LENGTH;
 
-    cell_current[CELL_A][total_cell_current_array_pointer] = ADC1BUF8;
-    cell_current[CELL_B][total_cell_current_array_pointer] = ADC1BUF9;
-    total_cell_current_array[total_cell_current_array_pointer] =
-        cell_current[CELL_A][total_cell_current_array_pointer] +
-        cell_current[CELL_B][total_cell_current_array_pointer];
-    total_cell_current_array_pointer = (total_cell_current_array_pointer + 1) % SAMPLE_LENGTH;
+    cell_current[CELL_A][cell_current_array_pointer] = ADC1BUF8;
+    cell_current[CELL_B][cell_current_array_pointer] = ADC1BUF9;
 
     cell_voltage_array[CELL_A][cell_voltage_array_pointer] = ADC1BUF6;
     cell_voltage_array[CELL_B][cell_voltage_array_pointer] = ADC1BUF7;
