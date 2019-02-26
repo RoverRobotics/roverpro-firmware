@@ -56,7 +56,7 @@ const static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = { 
         },
     .i2c =
         {
-            .step_timeout_ms = 5,
+            .step_timeout_ms = 10,
         },
     .motor_controller =
         {

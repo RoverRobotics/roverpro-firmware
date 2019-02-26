@@ -2,7 +2,6 @@
 #define MAIN_H
 
 #include "settings.h"
-
 #include "stdhdr.h"
 
 extern Settings g_settings;

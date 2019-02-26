@@ -37,12 +37,7 @@ typedef enum MotorState {
 #define INTERVAL_MS_SWITCH_DIRECTION 10             // 10ms
 #define INTERVAL_MS_MOTOR_DIRECTION_STATE_MACHINE 1 // 1KHz
 #define INTERVAL_MS_CURRENT_FEEDBACK 1              // 1KHz
-#define INTERVAL_MS_I2C2 100
-#define INTERVAL_MS_I2C3 100
-#define INTERVAL_MS_SFREG 4             // 250Hz
-#define INTERVAL_MS_BATTERY_CHECK 1     // 1KHz
-#define INTERVAL_MS_BATTERY_RECOVER 100 // 100ms
-
+#define INTERVAL_MS_SFREG 4                         // 250Hz
 /// Number of samples to keep of running metrics for power management, like battery temperature and
 /// voltage
 #define SAMPLE_LENGTH 4

@@ -27,14 +27,6 @@ Counter motor_speed_timeout = {
 Counter motor_direction_state_machine = {.max = INTERVAL_MS_MOTOR_DIRECTION_STATE_MACHINE};
 /// count of how many millis since last time we measured the current to the motors
 Counter current_fb = {.max = INTERVAL_MS_CURRENT_FEEDBACK};
-/// count of how many millis since I2C2 finished. If we don't reach the end, we want to forcibly
-/// restart the I2C2 bus
-Counter i2c2_timeout = {.max = INTERVAL_MS_I2C2};
-/// count of how many millis since I2C3 finished. If we don't reach the end, we want to forcibly
-/// restart the I2C3 bus
-Counter i2c3_timeout = {.max = INTERVAL_MS_I2C3};
-/// how many millis since we last ran the PID filter to compute motor effort for closed loop control
-Counter closed_loop_control = {.max = 10};
 Counter uart_fan_speed_timeout = {
     .max = INTERVAL_MS_UART_FAN_SPEED_TIMEOUT, .pause_on_expired = true, .is_paused = true};
 
@@ -255,21 +247,9 @@ void Device_MotorController_Process() {
         }
     }
 
-    {
-        bool should_reset = (counter_tick(&i2c2_timeout) == COUNTER_EXPIRED);
-        bool did_finish = false;
-        i2c2_tick(should_reset, &did_finish);
-        if (did_finish) {
-            counter_restart(&i2c2_timeout);
-        }
-    }
-    {
-        bool should_reset = (counter_tick(&i2c3_timeout) == COUNTER_EXPIRED);
-        bool did_finish = false;
-        i2c3_tick(should_reset, &did_finish);
-        if (did_finish) {
-            counter_restart(&i2c3_timeout);
-        }
+    if (tick_counter(&counters.i2c, g_settings.main.i2c_poll_ms)) {
+        i2c2_tick();
+        i2c3_tick();
     }
 
     uart_tick_result = uart_tick();
