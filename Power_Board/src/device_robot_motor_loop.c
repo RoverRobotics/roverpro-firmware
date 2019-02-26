@@ -5,10 +5,9 @@
 
 #include "PID.h"
 
-/*---------------------------PID Related--------------------------------------*/
-/*---------------------------Filter Related-----------------------------------*/
-#define MAX_N_FILTERS 16
-
+#define N_FILTERS 2
+#define LMOTOR_FILTER 0
+#define RMOTOR_FILTER 1
 /*---------------------------Public Functions---------------------------------*/
 
 /// Passes the input through an Infinite-Impulse-Response filter characterized by the parameter
@@ -22,7 +21,7 @@ float IIRFilter(const uint8_t i, const float x, const float alpha, const bool sh
     // see also:
     // http://dsp.stackexchange.com/questions/1004/low-pass-filter-in-non-ee-software-api-contexts
     // aka a 'leaky integrator'
-    static float y_lasts[MAX_N_FILTERS] = {0};
+    static float y_lasts[N_FILTERS] = {0};
     if (should_reset)
         y_lasts[i] = 0;
     float y = alpha * y_lasts[i] + (1.0f - alpha) * x;
@@ -31,20 +30,11 @@ float IIRFilter(const uint8_t i, const float x, const float alpha, const bool sh
     return y;
 }
 
-#define ALPHA 0.8
-#define LMOTOR_FILTER 0
-#define RMOTOR_FILTER 1
 /*---------------------------Controller Related-------------------------------*/
 
 // PID controller values
 #define LEFT_CONTROLLER 0
 #define RIGHT_CONTROLLER 1
-
-#define MAX_EFFORT 1.00f // maximum control effort magnitude (can also be -1000)
-#define MIN_EFFORT -1.00f
-#define K_P 0.0005   // proportional gain
-#define K_I 0.00003  // integral gain
-#define K_D 0.000000 // differential gain
 
 // OCU speed filter-related values
 #define MAX_DESIRED_SPEED 900 // [au], caps incoming signal from OCU
@@ -61,13 +51,15 @@ static int desired_velocity_right = 0;
 static int desired_velocity_flipper = 0;
 
 void closed_loop_control_init(void) {
-    PID_Init(LEFT_CONTROLLER, MAX_EFFORT, MIN_EFFORT, K_P, K_I, K_D);
-    PID_Init(RIGHT_CONTROLLER, MAX_EFFORT, MIN_EFFORT, K_P, K_I, K_D);
+    PID_Init(LEFT_CONTROLLER, g_settings.motor_controller.max_effort,
+             g_settings.motor_controller.min_effort, g_settings.motor_controller.pid_p_weight,
+             g_settings.motor_controller.pid_i_weight, g_settings.motor_controller.pid_d_weight);
+    PID_Init(RIGHT_CONTROLLER, g_settings.motor_controller.max_effort,
+             g_settings.motor_controller.min_effort, g_settings.motor_controller.pid_p_weight,
+             g_settings.motor_controller.pid_i_weight, g_settings.motor_controller.pid_d_weight);
 }
 
-// this runs every 10ms
 void pid_tick(bool OverCurrent) {
-
     static unsigned int stop_counter = 0;
 
     // If we have stopped the motors due to overcurrent, don't update speeds
@@ -78,9 +70,10 @@ void pid_tick(bool OverCurrent) {
     }
 
     // Filter drive motor speeds
-    float desired_speed_left = IIRFilter(LMOTOR_FILTER, GetDesiredSpeed(MOTOR_LEFT), ALPHA, false);
-    float desired_speed_right =
-        IIRFilter(RMOTOR_FILTER, GetDesiredSpeed(MOTOR_RIGHT), ALPHA, false);
+    float desired_speed_left = IIRFilter(LMOTOR_FILTER, GetDesiredSpeed(MOTOR_LEFT),
+                                         g_settings.motor_controller.iir_alpha, false);
+    float desired_speed_right = IIRFilter(RMOTOR_FILTER, GetDesiredSpeed(MOTOR_RIGHT),
+                                          g_settings.motor_controller.iir_alpha, false);
 
     // if the user releases the joystick, come to a relatively quick stop by clearing the integral
     // term
@@ -89,8 +82,8 @@ void pid_tick(bool OverCurrent) {
         PID_Reset_Integral(MOTOR_RIGHT);
 
         // If user releases joystick, reset the IIR filter
-        IIRFilter(LMOTOR_FILTER, 0, ALPHA, true);
-        IIRFilter(RMOTOR_FILTER, 0, ALPHA, true);
+        IIRFilter(LMOTOR_FILTER, 0, g_settings.motor_controller.iir_alpha, true);
+        IIRFilter(RMOTOR_FILTER, 0, g_settings.motor_controller.iir_alpha, true);
         desired_speed_left = 0;
         desired_speed_right = 0;
     }

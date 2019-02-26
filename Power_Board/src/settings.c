@@ -28,12 +28,15 @@ uint16_t eepage(eeptr addr) { return (uint16_t)(addr >> 16); }
 uint16_t eeoffset(eeptr addr) { return (uint16_t)addr; }
 
 const static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = { //
-    .main = {.motor_poll_ms = 5,
-             .electrical_poll_ms = 1,
-             .i2c_poll_ms = 1,
-             .communication_poll_ms = 1,
-             .analog_readouts_poll_ms = 1,
-             .motor_controller_poll_ms = 1},
+    .main =
+        {
+            .motor_poll_ms = 5,
+            .electrical_poll_ms = 1,
+            .i2c_poll_ms = 1,
+            .communication_poll_ms = 1,
+            .analog_readouts_poll_ms = 1,
+            .motor_controller_poll_ms = 1,
+        },
     .communication =
         {
             .baud_rate = 57600,

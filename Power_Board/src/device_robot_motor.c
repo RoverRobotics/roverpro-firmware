@@ -164,11 +164,10 @@ void Device_MotorController_Process() {
     power_bus_tick();
 
     // check if any timers are expired
-    if (counter_tick(&closed_loop_control) == COUNTER_EXPIRED) {
+    if (tick_counter(&counters.motor_controller, g_settings.main.motor_controller_poll_ms)) {
         pid_tick(over_current);
     }
 
-    // if any of the timers expired, execute relative codes
     // Control timer expired
     for (EACH_MOTOR_CHANNEL(i)) {
         if (counter_tick(&speed_update_timer[i]) == COUNTER_EXPIRED) {

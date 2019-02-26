@@ -18,8 +18,8 @@ filter_obj=*.o
 filter_lib=*.a
 filter_lkr=*.gld
 [CAT_SUBFOLDERS]
-subfolder_src=microchip;src
-subfolder_inc=bootypic;include;microchip;xc16
+subfolder_src=src
+subfolder_inc=bootypic;include;xc16
 subfolder_obj=
 subfolder_lib=
 subfolder_lkr=
