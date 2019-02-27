@@ -21,6 +21,8 @@ typedef struct Settings {
         uint16_t analog_readouts_poll_ms;
         /// How often to run the PID motor controller (if enabled)
         uint16_t motor_controller_poll_ms;
+        /// How often to update the flipper positional feedback and command
+        uint16_t flipper_poll_ms;
     } main;
     struct {
         uint16_t motor_command_timeout_ms;

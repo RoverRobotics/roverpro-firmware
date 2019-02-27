@@ -11,6 +11,7 @@
 #include "counter.h"
 #include "device_power_bus.h"
 #include "math.h"
+#include "flipper.h"
 
 //****************************************************
 Counter speed_update_timer[MOTOR_CHANNEL_COUNT] = {
@@ -36,27 +37,14 @@ uint16_t current_for_control[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH_CONTROL] = {{0}}
 int current_for_control_pointer[MOTOR_CHANNEL_COUNT] = {0};
 int16_t motor_efforts[MOTOR_CHANNEL_COUNT] = {0};
 
-int m3_posfb_array[2][SAMPLE_LENGTH] = {{0}}; ///< Flipper Motor positional feedback data
-int m3_posfb_array_pointer = 0;
 int cell_current_array_pointer = 0;
 int cell_voltage_array[BATTERY_CHANNEL_COUNT][SAMPLE_LENGTH];
 int cell_voltage_array_pointer = 0;
 uint16_t cell_current[BATTERY_CHANNEL_COUNT][SAMPLE_LENGTH];
 
 bool over_current = false;
-void calibrate_flipper_angle_sensor(void);
-
 void set_firmware_build_time(void);
 
-static uint16_t return_combined_pot_angle(uint16_t pot_1_value, uint16_t pot_2_value);
-static uint16_t return_calibrated_pot_angle(uint16_t pot_1_value, uint16_t pot_2_value);
-
-// invalid flipper pot thresholds.  These are very wide because the flipper pots are on a
-// different 3.3V supply than the PIC If the flipper pot is below this threshold, it is invalid
-#define LOW_POT_THRESHOLD 33
-// If the flipper pot is above this threshold, it is invalid
-#define HIGH_POT_THRESHOLD 990
-#define FLIPPER_POT_OFFSET -55
 //*********************************************//
 
 /// Increment `value` until it hits limit,
@@ -71,9 +59,6 @@ bool tick_counter(uint16_t *value, uint16_t limit) {
         return false;
     }
 }
-
-/** returns the given angle, normalized to between 0 and 360 */
-uint16_t wrap_angle(int16_t value) { return (uint16_t)((value % 360 + 360) % 360); }
 
 void DeviceRobotMotorInit() {
     // make sure we start off in a default state
@@ -146,11 +131,11 @@ void Device_MotorController_Process() {
         uint16_t communication;
         uint16_t analog_readouts;
         uint16_t motor_controller;
+        uint16_t flipper;
     } counters = {0};
 
     UArtTickResult uart_tick_result;
     MotorChannel i;
-    long temp1, temp2;
 
     // this should run every 1ms
     power_bus_tick();
@@ -182,13 +167,6 @@ void Device_MotorController_Process() {
     };
 
     if (tick_counter(&counters.analog_readouts, g_settings.main.analog_readouts_poll_ms)) {
-        // update flipper motor position
-        temp1 = mean(SAMPLE_LENGTH, m3_posfb_array[0]);
-        temp2 = mean(SAMPLE_LENGTH, m3_posfb_array[1]);
-        REG_FLIPPER_FB_POSITION.pot1 = temp1;
-        REG_FLIPPER_FB_POSITION.pot2 = temp2;
-        REG_MOTOR_FLIPPER_ANGLE = return_calibrated_pot_angle(temp1, temp2);
-
         // update current for all three motors
         REG_MOTOR_FB_CURRENT.left = mean_u(SAMPLE_LENGTH_CONTROL, current_for_control[MOTOR_LEFT]);
         REG_MOTOR_FB_CURRENT.right =
@@ -248,8 +226,7 @@ void Device_MotorController_Process() {
     }
 
     if (tick_counter(&counters.i2c, g_settings.main.i2c_poll_ms)) {
-        i2c2_tick();
-        i2c3_tick();
+        i2c_tick_all();
     }
 
     uart_tick_result = uart_tick();
@@ -257,7 +234,7 @@ void Device_MotorController_Process() {
 
     if (uart_tick_result.uart_flipper_calibrate_requested) {
         // note flipper calibration never returns.
-        calibrate_flipper_angle_sensor();
+        flipper_feedback_calibrate();
     }
     if (uart_tick_result.uart_fan_speed_requested) {
         counter_restart(&uart_fan_speed_timeout);
@@ -278,6 +255,10 @@ void Device_MotorController_Process() {
         for (EACH_MOTOR_CHANNEL(i)) {
             motor_efforts[i] = 0;
         }
+    }
+
+    if (tick_counter(&counters.flipper, g_settings.main.flipper_poll_ms)) {
+        tick_flipper_feedback();
     }
 
     // update motor direction state machine
@@ -599,11 +580,6 @@ void __attribute__((__interrupt__, auto_psv)) _ADC1Interrupt(void) {
     // disable auto-sample
     AD1CON1bits.ASAM = CLEAR;
 
-    // harvest all the values from the ADC converter
-    m3_posfb_array[0][m3_posfb_array_pointer] = ADC1BUF4;
-    m3_posfb_array[1][m3_posfb_array_pointer] = ADC1BUF5;
-    m3_posfb_array_pointer = (m3_posfb_array_pointer + 1) % SAMPLE_LENGTH;
-
     motor_current_ad[MOTOR_LEFT][motor_current_ad_pointer] = ADC1BUF3;
     motor_current_ad[MOTOR_RIGHT][motor_current_ad_pointer] = ADC1BUF1;
     motor_current_ad[MOTOR_FLIPPER][motor_current_ad_pointer] = ADC1BUFB;
@@ -615,114 +591,4 @@ void __attribute__((__interrupt__, auto_psv)) _ADC1Interrupt(void) {
     cell_voltage_array[CELL_A][cell_voltage_array_pointer] = ADC1BUF6;
     cell_voltage_array[CELL_B][cell_voltage_array_pointer] = ADC1BUF7;
     cell_voltage_array_pointer = (cell_voltage_array_pointer + 1) % SAMPLE_LENGTH;
-}
-
-static uint16_t return_calibrated_pot_angle(uint16_t pot_1_value, uint16_t pot_2_value) {
-    uint16_t combined_pot_angle = 0;
-    uint16_t calibrated_pot_angle = 0;
-
-    combined_pot_angle = return_combined_pot_angle(pot_1_value, pot_2_value);
-
-    // special case -- invalid reading
-    if (combined_pot_angle == 10000)
-        return 10000;
-    else if (combined_pot_angle == 0xffff)
-        return 0xffff;
-
-    // if calibration didn't work right, return angle with no offset
-    if (!g_settings.flipper.is_calibrated) {
-        return combined_pot_angle;
-    } else {
-        uint16_t flipper_angle_offset = g_settings.flipper.angle_offset;
-        calibrated_pot_angle = wrap_angle(combined_pot_angle - flipper_angle_offset);
-        return calibrated_pot_angle;
-    }
-}
-
-static uint16_t return_combined_pot_angle(uint16_t pot_1_value, uint16_t pot_2_value) {
-    int combined_pot_angle = 0;
-    int pot_angle_1 = 0;
-    int pot_angle_2 = 0;
-    int temp1 = 0;
-    int temp2 = 0;
-    float scale_factor = 0;
-    int temp_pot1_value = 0;
-
-    // correct for pot 2 turning the opposite direction
-    pot_2_value = 1023 - pot_2_value;
-
-    // if both pot values are invalid
-    if (((pot_1_value < LOW_POT_THRESHOLD) || (pot_1_value > HIGH_POT_THRESHOLD)) &&
-        ((pot_2_value < LOW_POT_THRESHOLD) || (pot_2_value > HIGH_POT_THRESHOLD))) {
-        return 0xffff;
-    }
-    // if pot 1 is out of linear range
-    else if ((pot_1_value < LOW_POT_THRESHOLD) || (pot_1_value > HIGH_POT_THRESHOLD)) {
-        // 333.3 degrees, 1023 total counts, 333.3/1023 = .326
-        combined_pot_angle = pot_2_value * .326 + 13.35;
-    }
-    // if pot 2 is out of linear range
-    else if ((pot_2_value < LOW_POT_THRESHOLD) || (pot_2_value > HIGH_POT_THRESHOLD)) {
-        // 333.3 degrees, 1023 total counts, 333.3/1023 = .326
-        // 13.35 degrees + 45 degrees = 58.35 degrees
-        combined_pot_angle = (int)pot_1_value * .326 + 13.35 + FLIPPER_POT_OFFSET;
-
-    }
-    // if both pot 1 and pot 2 values are valid
-    else {
-
-        // figure out which one is closest to the end of range
-        temp1 = pot_1_value - 512;
-        temp2 = pot_2_value - 512;
-
-        // offset, so that both pot values should be the same
-        // FLIPPER_POT_OFFSET/333.33*1023 = 168.8 for 55 degrees
-        temp_pot1_value = pot_1_value - 168.8;
-
-        pot_angle_1 = wrap_angle(temp_pot1_value * .326 + 13.35);
-        pot_angle_2 = wrap_angle(pot_2_value * .326 + 13.35);
-
-        // if pot1 is closer to the end of range
-        if (abs(temp1) > abs(temp2)) {
-            scale_factor = (512 - abs(temp1)) / 512.0;
-            // combined_pot_value = (pot_1_value*scale_factor + pot_2_value*(1-scale_factor));
-            combined_pot_angle = pot_angle_1 * scale_factor + pot_angle_2 * (1 - scale_factor);
-
-        }
-        // if pot2 is closer to the end of range
-        else {
-
-            scale_factor = (512 - abs(temp2)) / 512.0;
-            // combined_pot_value = (pot_2_value*scale_factor + pot_1_value*(1-scale_factor));
-            combined_pot_angle = pot_angle_2 * scale_factor + pot_angle_1 * (1 - scale_factor);
-        }
-
-        // 333.3 degrees, 1023 total counts, 333.3/1023 = .326
-        // combined_pot_angle = combined_pot_value*.326+13.35;
-    }
-
-    combined_pot_angle = wrap_angle(combined_pot_angle);
-
-    return (unsigned int)combined_pot_angle;
-}
-
-void calibrate_flipper_angle_sensor(void) {
-    MotorChannel i;
-    // Coast all the motors
-    for (EACH_MOTOR_CHANNEL(i)) {
-        Coasting(i);
-    }
-
-    g_settings.flipper.is_calibrated = true;
-    g_settings.flipper.angle_offset =
-        return_combined_pot_angle(REG_FLIPPER_FB_POSITION.pot1, REG_FLIPPER_FB_POSITION.pot2);
-
-    Settings s = settings_load();
-    s.flipper = g_settings.flipper;
-    settings_save(&s);
-
-    // don't do anything again ever
-    while (1) {
-        __builtin_clrwdt();
-    }
 }

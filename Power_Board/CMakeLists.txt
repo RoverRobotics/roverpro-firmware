@@ -52,6 +52,7 @@ add_executable(Power_Board
         src/uart_control.c
         src/device_power_bus_charging.c
         src/settings.c
+        src/flipper.c
         ../bootypic/devices/pic24fj256gb106/p24FJ256GB106_app.gld
         include/version.GENERATED.h
         ${HEADERS}
