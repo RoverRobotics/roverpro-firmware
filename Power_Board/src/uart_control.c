@@ -238,10 +238,6 @@ UArtTickResult uart_tick() {
             REG_MOTOR_SIDE_FAN_SPEED = arg;
             result.uart_fan_speed_requested = true;
             break;
-        case UART_COMMAND_SET_DRIVE_MODE:
-            REG_MOTOR_CLOSED_LOOP = arg;
-            result.uart_motor_control_scheme_requested = true;
-            break;
         case UART_COMMAND_RESTART:
             asm volatile("RESET");
             break;
@@ -270,6 +266,9 @@ UArtTickResult uart_tick() {
         case UART_COMMAND_SETTINGS_COMMIT:
             settings_save(&g_settings);
             break;
+        case UART_COMMAND_SET_DRIVE_MODE:
+            break;
+            // fallthrough
         default:
             // unknown inbound command.
             BREAKPOINT();

@@ -27,15 +27,15 @@ const int BYTES_PER_PSV_WORD = 2;
 uint16_t eepage(eeptr addr) { return (uint16_t)(addr >> 16); }
 uint16_t eeoffset(eeptr addr) { return (uint16_t)addr; }
 
-const static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = { //
+const static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = {
+    //
     .main =
         {
-            .motor_poll_ms = 5,
+            .drive_poll_ms = 5,
             .electrical_poll_ms = 1,
             .i2c_poll_ms = 1,
             .communication_poll_ms = 1,
             .analog_readouts_poll_ms = 1,
-            .motor_controller_poll_ms = 1,
             .flipper_poll_ms = 8,
         },
     .communication =
@@ -59,19 +59,12 @@ const static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = { 
         {
             .step_timeout_ms = 10,
         },
-    .motor_controller =
+    .drive =
         {
-            .pid_p_weight = 0.0005,
-            .pid_i_weight = 0.00003,
-            .pid_d_weight = 0.0,
-            .min_effort = -1.0,
-            .max_effort = +1.0,
-            .iir_alpha = 0.8,
+            .pwm_hz = 1000,
+            .motor_protect_direction_delay_ms = 10,
         },
-    .motor = {
-        .pwm_hz = 1000,
-        .motor_dead_time_between_directions_ms = 10,
-    }};
+};
 
 const uint16_t NVMCON_ERASE_BLOCK = 0x4042;
 const uint16_t NVMCON_WRITE_ROW = 0x4001;

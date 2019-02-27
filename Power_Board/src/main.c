@@ -12,6 +12,7 @@
 #include "settings.h"
 
 Settings g_settings;
+bool g_overcurrent = false;
 
 #define REGISTER_START()
 #define REGISTER(a, b, c, d, e) e a;

@@ -4,31 +4,6 @@
 #include "stdhdr.h"
 #include "hardware_definitions.h"
 
-/// For motor state machine. The requested motor state based in inbound motor speed commands, which
-/// informs state machine transitions
-typedef enum MotorEvent {
-    /// Motor has been commanded to stop
-    STOP = 0xFF01,
-    /// Motor has been commanded to move forward
-    GO = 0xFF02,
-    /// Motor has been commanded to move backward
-    BACK = 0xFF03,
-    /// Motor has not been commanded
-    NO_EVENT = 0xFF00,
-} MotorEvent;
-
-/// For motor state machine. The current motor state.
-typedef enum MotorState {
-    /// Motor is moving in forward direction
-    FORWARD = 0xEE00,
-    /// Motor is applying break
-    BRAKE = 0xEE01,
-    /// Motor is transitioning between states
-    SWITCH_DIRECTION = 0xEE02,
-    /// Motor is moving backward
-    BACKWARD = 0xEE03,
-} MotorState;
-
 // constant for timer.
 // Since these are on timer1, they are in multiples of PR1
 #define INTERVAL_MS_SPEED_UPDATE 5                  // 200Hz

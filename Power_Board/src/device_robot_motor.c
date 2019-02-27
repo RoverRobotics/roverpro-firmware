@@ -5,13 +5,13 @@
 #include "device_robot_motor.h"
 #include "device_robot_motor_i2c.h"
 #include "i2clib.h"
-#include "device_robot_motor_loop.h"
 #include "motor.h"
 #include "uart_control.h"
 #include "counter.h"
 #include "device_power_bus.h"
 #include "math.h"
 #include "flipper.h"
+#include "drive.h"
 
 //****************************************************
 Counter speed_update_timer[MOTOR_CHANNEL_COUNT] = {
@@ -35,14 +35,11 @@ uint16_t motor_current_ad[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH] = {{0}};
 int motor_current_ad_pointer = 0;
 uint16_t current_for_control[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH_CONTROL] = {{0}};
 int current_for_control_pointer[MOTOR_CHANNEL_COUNT] = {0};
-int16_t motor_efforts[MOTOR_CHANNEL_COUNT] = {0};
-
 int cell_current_array_pointer = 0;
 int cell_voltage_array[BATTERY_CHANNEL_COUNT][SAMPLE_LENGTH];
 int cell_voltage_array_pointer = 0;
 uint16_t cell_current[BATTERY_CHANNEL_COUNT][SAMPLE_LENGTH];
 
-bool over_current = false;
 void set_firmware_build_time(void);
 
 //*********************************************//
@@ -50,12 +47,11 @@ void set_firmware_build_time(void);
 /// Increment `value` until it hits limit,
 /// at which point reset it to zero.
 bool tick_counter(uint16_t *value, uint16_t limit) {
-    uint16_t new_value = (*value) + 1;
-    if (new_value >= limit) {
+    (*value)++;
+    if (value >= limit) {
         *value = 0;
         return true;
     } else {
-        *value = new_value;
         return false;
     }
 }
@@ -118,9 +114,6 @@ void DeviceRobotMotorInit() {
 
     power_bus_init();
     FANCtrlIni();
-
-    // init variables for closed loop control
-    closed_loop_control_init();
 }
 
 void Device_MotorController_Process() {
@@ -130,8 +123,8 @@ void Device_MotorController_Process() {
         uint16_t i2c;
         uint16_t communication;
         uint16_t analog_readouts;
-        uint16_t motor_controller;
         uint16_t flipper;
+        uint16_t drive;
     } counters = {0};
 
     UArtTickResult uart_tick_result;
@@ -140,19 +133,8 @@ void Device_MotorController_Process() {
     // this should run every 1ms
     power_bus_tick();
 
-    // check if any timers are expired
-    if (tick_counter(&counters.motor_controller, g_settings.main.motor_controller_poll_ms)) {
-        pid_tick(over_current);
-    }
-
-    // Control timer expired
-    for (EACH_MOTOR_CHANNEL(i)) {
-        if (counter_tick(&speed_update_timer[i]) == COUNTER_EXPIRED) {
-            if (over_current)
-                Coasting(i);
-        } else {
-            UpdateSpeed(i, motor_efforts[i]);
-        }
+    if (tick_counter(&counters.drive, g_settings.main.drive_poll_ms)) {
+        drive_tick();
     }
 
     if (counter_tick(&current_fb) == COUNTER_EXPIRED) {
@@ -208,10 +190,8 @@ void Device_MotorController_Process() {
 
             if (current_spike_counter * g_settings.main.electrical_poll_ms >=
                 g_settings.electrical.overcurrent_trigger_duration_ms) {
-                Coasting(MOTOR_LEFT);
-                Coasting(MOTOR_RIGHT);
-                Coasting(MOTOR_FLIPPER);
-                over_current = true;
+                drive_set_coast_lock(true);
+                g_overcurrent = true;
             }
         } else {
             current_recover_counter++;
@@ -221,17 +201,17 @@ void Device_MotorController_Process() {
             }
             if (current_recover_counter * g_settings.main.electrical_poll_ms >=
                 g_settings.electrical.overcurrent_reset_duration_ms)
-                over_current = false;
+                drive_set_coast_lock(false);
+            g_overcurrent = false;
         }
     }
 
     if (tick_counter(&counters.i2c, g_settings.main.i2c_poll_ms)) {
         i2c_tick_all();
     }
-
-    uart_tick_result = uart_tick();
-    set_motor_control_scheme();
-
+    if (tick_counter(&counters.communication, g_settings.main.communication_poll_ms)) {
+        uart_tick_result = uart_tick();
+    }
     if (uart_tick_result.uart_flipper_calibrate_requested) {
         // note flipper calibration never returns.
         flipper_feedback_calibrate();
@@ -252,208 +232,12 @@ void Device_MotorController_Process() {
         REG_MOTOR_VELOCITY.right = 0;
         REG_MOTOR_VELOCITY.flipper = 0;
 
-        for (EACH_MOTOR_CHANNEL(i)) {
-            motor_efforts[i] = 0;
-        }
+        MotorEfforts brake_all = {0};
+        drive_set_efforts(brake_all);
     }
 
     if (tick_counter(&counters.flipper, g_settings.main.flipper_poll_ms)) {
         tick_flipper_feedback();
-    }
-
-    // update motor direction state machine
-    // If the new motor commands reverse or brake a motor, coast that motor for a few ticks
-    // (motor_state[i] = SWITCH_DIRECTION) Then once the switch direction timer elapses, start
-    // the motor in that new direction. If we are moving forward or in reverse and the intended
-    // speed changes, update the pwm command to the motor
-    if (counter_tick(&motor_direction_state_machine) == COUNTER_EXPIRED) {
-        static Counter motor_switch_direction_timer[MOTOR_CHANNEL_COUNT] = {
-            {.max = INTERVAL_MS_SWITCH_DIRECTION / INTERVAL_MS_MOTOR_DIRECTION_STATE_MACHINE,
-             .pause_on_expired = true,
-             .is_paused = true},
-            {.max = INTERVAL_MS_SWITCH_DIRECTION / INTERVAL_MS_MOTOR_DIRECTION_STATE_MACHINE,
-             .pause_on_expired = true,
-             .is_paused = true},
-            {.max = INTERVAL_MS_SWITCH_DIRECTION / INTERVAL_MS_MOTOR_DIRECTION_STATE_MACHINE,
-             .pause_on_expired = true,
-             .is_paused = true},
-        };
-
-        /// The outbound commands we are sending to the motor
-        static MotorState motor_state[MOTOR_CHANNEL_COUNT] = {SWITCH_DIRECTION, SWITCH_DIRECTION,
-                                                              SWITCH_DIRECTION};
-        static MotorEvent motor_event[MOTOR_CHANNEL_COUNT] = {STOP, STOP, STOP};
-
-        for (EACH_MOTOR_CHANNEL(i)) {
-            /// The requested motor state based in inbound motor speed commands.
-            if (motor_efforts[i] == 0)
-                motor_event[i] = STOP;
-            else if (-1024 < motor_efforts[i] && motor_efforts[i] < 0)
-                motor_event[i] = BACK;
-            else if (0 < motor_efforts[i] && motor_efforts[i] < 1024)
-                motor_event[i] = GO;
-            else {
-                BREAKPOINT();
-            }
-
-            // update state machine
-            switch (motor_state[i]) {
-            case BRAKE:
-                // brake motor
-                Braking(i);
-                switch (motor_event[i]) {
-                case GO: // fallthrough
-                case BACK:
-                    motor_state[i] = SWITCH_DIRECTION;
-                    counter_stop(&speed_update_timer[i]);
-                    counter_restart(&motor_switch_direction_timer[i]);
-                    Coasting(i);
-                    break;
-                case STOP:
-                    motor_event[i] = NO_EVENT;
-                    break;
-                case NO_EVENT:
-                    break;
-                }
-                break;
-            case FORWARD:
-                switch (motor_event[i]) {
-                case GO:
-                    counter_resume(&speed_update_timer[i]);
-                    break;
-                case BACK: // fallthrough
-                case STOP:
-                    motor_state[i] = SWITCH_DIRECTION;
-                    counter_stop(&speed_update_timer[i]);
-                    counter_restart(&motor_switch_direction_timer[i]);
-                    Coasting(i);
-                    break;
-                case NO_EVENT:
-                    break;
-                }
-                break;
-            case BACKWARD:
-                switch (motor_event[i]) {
-                case GO: // fallthrough
-                case STOP:
-                    motor_state[i] = SWITCH_DIRECTION;
-                    counter_stop(&speed_update_timer[i]);
-                    counter_restart(&motor_switch_direction_timer[i]);
-                    Coasting(i);
-                    break;
-                case BACK:
-                    counter_resume(&speed_update_timer[i]);
-                    break;
-                case NO_EVENT:
-                    break;
-                }
-                break;
-            case SWITCH_DIRECTION:
-                counter_resume(&motor_switch_direction_timer[i]);
-                if (counter_tick(&motor_switch_direction_timer[i]) == COUNTER_EXPIRED) {
-                    switch (motor_event[i]) {
-                    case STOP:
-                        Braking(i);
-                        motor_state[i] = BRAKE;
-                        break;
-                    case GO:
-                        counter_restart(&speed_update_timer[i]);
-                        motor_state[i] = FORWARD;
-                        break;
-                    case BACK:
-                        counter_restart(&speed_update_timer[i]);
-                        motor_state[i] = BACKWARD;
-                        break;
-                    case NO_EVENT:
-                        break;
-                    }
-                }
-                break;
-            }
-        }
-    }
-}
-
-//*********************************************//
-
-void set_motor_control_scheme() {
-    static uint16_t control_loop_counter = 0, flipper_control_loop_counter = 0;
-
-    typedef enum {
-        /// We are in normal control mode
-        OPEN_LOOP = 0,
-        /// We were in normal control mode and have received a request to change to low speed mode
-        OPEN_TO_CLOSED_LOOP,
-        /// We are in low speed (PID) mode
-        CLOSED_LOOP,
-        /// We were in low speed mode and have received a request to switch to normal control mode
-        CLOSED_TO_OPEN_LOOP
-    } motor_control_scheme;
-
-    /// The motor control scheme we are currently using.
-    /// Contrast with REG_MOTOR_CLOSED_LOOP, which is the control scheme we have last been requested
-    /// to use.
-    static motor_control_scheme scheme = OPEN_LOOP;
-
-    // If switching between open loop and closed loop control schemes (REG_MOTOR_CLOSED_LOOP)
-    // Motors must decelerate upon switching speeds (if they're not already stopped.
-    // Failure to do so could cause large current spikes which will trigger the
-    // protection circuitry in the battery, cutting power to the robot
-    switch (scheme) {
-    case OPEN_LOOP:
-        motor_efforts[MOTOR_LEFT] = REG_MOTOR_VELOCITY.left;
-        motor_efforts[MOTOR_RIGHT] = REG_MOTOR_VELOCITY.right;
-        motor_efforts[MOTOR_FLIPPER] = REG_MOTOR_VELOCITY.flipper;
-
-        if (REG_MOTOR_CLOSED_LOOP)
-            scheme = OPEN_TO_CLOSED_LOOP;
-        break;
-    case OPEN_TO_CLOSED_LOOP:
-        control_loop_counter++;
-
-        if (control_loop_counter > 3) {
-            control_loop_counter = 0;
-
-            // set speed to 1 (speed of 0 immediately stops motors)
-            motor_efforts[MOTOR_LEFT] = 1;
-            motor_efforts[MOTOR_RIGHT] = 1;
-            motor_efforts[MOTOR_FLIPPER] = 1;
-        }
-
-        // motors are stopped if speed falls below 1%
-        if ((abs(motor_efforts[MOTOR_LEFT]) < 10) && (abs(motor_efforts[MOTOR_RIGHT]) < 10) &&
-            (abs(motor_efforts[MOTOR_FLIPPER]) < 10))
-            scheme = CLOSED_LOOP;
-
-        break;
-    case CLOSED_LOOP:
-        pid_set_desired_velocities(REG_MOTOR_VELOCITY.left, REG_MOTOR_VELOCITY.right,
-                                   REG_MOTOR_VELOCITY.flipper);
-        motor_efforts[MOTOR_LEFT] = return_closed_loop_control_effort(MOTOR_LEFT);
-        motor_efforts[MOTOR_RIGHT] = return_closed_loop_control_effort(MOTOR_RIGHT);
-        motor_efforts[MOTOR_FLIPPER] = return_closed_loop_control_effort(MOTOR_FLIPPER);
-
-        control_loop_counter = 0;
-        flipper_control_loop_counter = 0;
-
-        if (!REG_MOTOR_CLOSED_LOOP)
-            scheme = CLOSED_TO_OPEN_LOOP;
-
-        break;
-
-    case CLOSED_TO_OPEN_LOOP:
-        pid_set_desired_velocities(0, 0, 0);
-
-        motor_efforts[MOTOR_LEFT] = return_closed_loop_control_effort(MOTOR_LEFT);
-        motor_efforts[MOTOR_RIGHT] = return_closed_loop_control_effort(MOTOR_RIGHT);
-        motor_efforts[MOTOR_FLIPPER] = return_closed_loop_control_effort(MOTOR_FLIPPER);
-
-        // motors are stopped if speed falls below 1%
-        if ((abs(motor_efforts[MOTOR_LEFT]) < 10) && (abs(motor_efforts[MOTOR_RIGHT]) < 10) &&
-            (abs(motor_efforts[MOTOR_FLIPPER]) < 10))
-            scheme = OPEN_LOOP;
-
-        break;
     }
 }
 

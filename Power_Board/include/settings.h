@@ -8,7 +8,7 @@
 typedef struct Settings {
     struct {
         /// How often to update the motor pwm / direction protection
-        uint16_t motor_poll_ms;
+        uint16_t drive_poll_ms;
         /// How often to update the electrical protection logic
         uint16_t electrical_poll_ms;
         /// How often to update internal serial communication.
@@ -18,10 +18,8 @@ typedef struct Settings {
         /// How often to check for and process inbound UART commands.
         uint16_t communication_poll_ms;
         /// How often to read out internal analog outputs.
-        uint16_t analog_readouts_poll_ms;
-        /// How often to run the PID motor controller (if enabled)
-        uint16_t motor_controller_poll_ms;
-        /// How often to update the flipper positional feedback and command
+        uint16_t analog_readouts_poll_ms; /// How often to update the flipper positional feedback
+                                          /// and command
         uint16_t flipper_poll_ms;
     } main;
     struct {
@@ -48,17 +46,9 @@ typedef struct Settings {
         uint16_t step_timeout_ms;
     } i2c;
     struct {
-        float pid_p_weight;
-        float pid_i_weight;
-        float pid_d_weight;
-        float min_effort;
-        float max_effort;
-        float iir_alpha;
-    } motor_controller;
-    struct {
         uint16_t pwm_hz;
-        uint16_t motor_dead_time_between_directions_ms;
-    } motor;
+        uint16_t motor_protect_direction_delay_ms;
+    } drive;
 } Settings;
 
 Settings settings_load();

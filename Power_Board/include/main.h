@@ -5,6 +5,7 @@
 #include "stdhdr.h"
 
 extern Settings g_settings;
+extern bool g_overcurrent;
 
 #define REGISTER_START()
 #define REGISTER(a, b, c, d, e) extern e a;
