@@ -7,7 +7,6 @@
 #include "i2clib.h"
 #include "motor.h"
 #include "uart_control.h"
-#include "counter.h"
 #include "device_power_bus.h"
 #include "math.h"
 #include "flipper.h"
@@ -15,22 +14,6 @@
 #include "analog.h"
 
 //****************************************************
-Counter speed_update_timer[MOTOR_CHANNEL_COUNT] = {
-    {.max = INTERVAL_MS_SPEED_UPDATE, .pause_on_expired = true},
-    {.max = INTERVAL_MS_SPEED_UPDATE, .pause_on_expired = true},
-    {.max = INTERVAL_MS_SPEED_UPDATE, .pause_on_expired = true},
-};
-
-/// count of how many millis since last inbound motor command. When this expires, we should stop the
-/// motors
-Counter motor_speed_timeout = {
-    .max = INTERVAL_MS_USB_TIMEOUT, .pause_on_expired = true, .is_paused = true};
-/// count of how many millis since last motor direction update.
-Counter motor_direction_state_machine = {.max = INTERVAL_MS_MOTOR_DIRECTION_STATE_MACHINE};
-/// count of how many millis since last time we measured the current to the motors
-Counter current_fb = {.max = INTERVAL_MS_CURRENT_FEEDBACK};
-Counter uart_fan_speed_timeout = {
-    .max = INTERVAL_MS_UART_FAN_SPEED_TIMEOUT, .pause_on_expired = true, .is_paused = true};
 
 void set_firmware_build_time(void);
 
@@ -150,35 +133,11 @@ void Device_MotorController_Process() {
             g_overcurrent = false;
         }
     }
-
     if (tick_counter(&counters.i2c, g_settings.main.i2c_poll_ms)) {
         i2c_tick_all();
     }
     if (tick_counter(&counters.communication, g_settings.main.communication_poll_ms)) {
         uart_tick_result = uart_tick();
-    }
-    if (uart_tick_result.uart_flipper_calibrate_requested) {
-        // note flipper calibration never returns.
-        flipper_feedback_calibrate();
-    }
-    if (uart_tick_result.uart_fan_speed_requested) {
-        counter_restart(&uart_fan_speed_timeout);
-    }
-    if (counter_tick(&uart_fan_speed_timeout) == COUNTER_EXPIRED) {
-        // clear all the fan command
-        REG_MOTOR_SIDE_FAN_SPEED = 0;
-    }
-    if (uart_tick_result.uart_motor_speed_requested) {
-        counter_restart(&motor_speed_timeout);
-    }
-    // long time no data, clear everything and stop moving
-    if (counter_tick(&motor_speed_timeout) == COUNTER_EXPIRED) {
-        REG_MOTOR_VELOCITY.left = 0;
-        REG_MOTOR_VELOCITY.right = 0;
-        REG_MOTOR_VELOCITY.flipper = 0;
-
-        MotorEfforts brake_all = {0};
-        drive_set_efforts(brake_all);
     }
 
     if (tick_counter(&counters.flipper, g_settings.main.flipper_poll_ms)) {

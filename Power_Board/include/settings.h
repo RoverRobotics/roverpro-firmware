@@ -23,7 +23,7 @@ typedef struct Settings {
         uint16_t flipper_poll_ms;
     } main;
     struct {
-        uint16_t motor_command_timeout_ms;
+        uint16_t drive_command_timeout_ms;
         uint16_t fan_command_timeout_ms;
         uint16_t rx_bufsize_bytes;
         uint16_t tx_bufsize_bytes;
@@ -34,6 +34,7 @@ typedef struct Settings {
         uint16_t overcurrent_trigger_duration_ms;
         uint16_t overcurrent_reset_threshold_ma;
         uint16_t overcurrent_reset_duration_ms;
+        uint16_t charging_battery_switch_ms;
     } electrical;
     struct {
         /// Whether or not the calibration routine has been run and angle_offset can be trusted

@@ -41,7 +41,7 @@ const static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = {
     .communication =
         {
             .baud_rate = 57600,
-            .motor_command_timeout_ms = 333,
+            .drive_command_timeout_ms = 333,
             .fan_command_timeout_ms = 333,
         },
     .electrical =
@@ -50,6 +50,7 @@ const static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = {
             .overcurrent_trigger_duration_ms = 10,
             .overcurrent_reset_threshold_ma = 10000,
             .overcurrent_reset_duration_ms = 100,
+            . charging_battery_switch_ms = 10000,
         },
     .flipper =
         {

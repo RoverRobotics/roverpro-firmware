@@ -3,10 +3,15 @@
 #include "uart_control.h"
 #include "device_robot_motor.h"
 #include "settings.h"
+#include "drive.h"
 #include "version.GENERATED.h"
+#include "flipper.h"
 
 #define RX_PACKET_SIZE 7
 #define TX_PACKET_SIZE 5
+
+static uint16_t ticks_since_last_drive_command = UINT16_MAX;
+static uint16_t ticks_since_last_fan_command = UINT16_MAX;
 
 /// A ring queue used to buffer incoming and outgoing data
 /// It is safe for data to be enqueued by one function and dequeued by an interrupt or vice versa.
@@ -211,7 +216,9 @@ void uart_serialize_out_data(uint8_t *out_bytes, uint8_t uart_data_identifier) {
 
 UArtTickResult uart_tick() {
     UArtTickResult result = {0};
-
+    bool has_drive_command = false;
+    bool has_fan_command = false;
+    
     while (n_can_dequeue(&uart_rx_queue) >= RX_PACKET_SIZE) {
         size_t i;
         uint8_t packet[RX_PACKET_SIZE];
@@ -227,23 +234,27 @@ UArtTickResult uart_tick() {
         if (checksum(RX_PACKET_SIZE - 2, &(packet[1])) != packet[RX_PACKET_SIZE - 1]) {
             continue;
         }
-        REG_MOTOR_VELOCITY.left = (packet[1] * 8 - 1000);
-        REG_MOTOR_VELOCITY.right = (packet[2] * 8 - 1000);
-        REG_MOTOR_VELOCITY.flipper = (packet[3] * 8 - 1000);
-        uint8_t command = packet[4];
+        MotorEfforts efforts = {.left=packet[1]*8-1000,
+	        .right = packet[2]*8-1000,
+	        .flipper = packet[3]*8-1000, };
+        drive_set_efforts(efforts);
+        has_drive_command = true;
+        UARTCommand verb = packet[4];
         uint8_t arg = packet[5];
 
-        switch (command) {
+        switch (verb) {
         case UART_COMMAND_SET_FAN_SPEED:
             REG_MOTOR_SIDE_FAN_SPEED = arg;
             result.uart_fan_speed_requested = true;
+            has_fan_command = true;
             break;
         case UART_COMMAND_RESTART:
             asm volatile("RESET");
             break;
         case UART_COMMAND_FLIPPER_CALIBRATE:
             if (arg == UART_COMMAND_FLIPPER_CALIBRATE) {
-                result.uart_flipper_calibrate_requested = true;
+	             // note flipper calibration never returns.
+	             flipper_feedback_calibrate();
             }
             break;
         case UART_COMMAND_GET:
@@ -276,6 +287,26 @@ UArtTickResult uart_tick() {
         }
         result.uart_motor_speed_requested = true;
     }
+    
+    if (!has_fan_command && ticks_since_last_fan_command != UINT16_MAX){
+    	if (++ticks_since_last_fan_command * g_settings.main.communication_poll_ms > g_settings.communication.fan_command_timeout_ms)
+   		{
+	   		REG_MOTOR_SIDE_FAN_SPEED = 0;
+			ticks_since_last_fan_command = UINT16_MAX;
+    	}	
+    }
+        
+    if (!has_drive_command && ticks_since_last_drive_command != UINT16_MAX){
+	    if (++ticks_since_last_drive_command * g_settings.main.communication_poll_ms > g_settings.communication.drive_command_timeout_ms)
+   		{    	
+	   		// long time no motor commands. stop moving.
+	   		REG_MOTOR_VELOCITY.left = 0;
+        	REG_MOTOR_VELOCITY.right = 0;
+        	REG_MOTOR_VELOCITY.flipper = 0;
+    		ticks_since_last_drive_command = UINT16_MAX;
+    	}
+    }
+
     _U1TXIF = 1;
     return result;
 }

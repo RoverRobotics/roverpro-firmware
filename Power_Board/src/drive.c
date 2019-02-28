@@ -38,7 +38,11 @@ MotorEvent effort_to_event(int16_t effort) {
         return STOP;
 }
 
-void drive_set_efforts(MotorEfforts new_efforts) { motor_efforts = new_efforts; }
+void drive_set_efforts(MotorEfforts new_efforts) { 
+        REG_MOTOR_VELOCITY.left = new_efforts.left;
+        REG_MOTOR_VELOCITY.right = new_efforts.right;
+        REG_MOTOR_VELOCITY.flipper = new_efforts.flipper;
+}
 
 bool drive_is_approximately_stopped() {
     // TODO: usa actual motor speed, not commanded speed, for this
