@@ -1,26 +1,18 @@
 #include "stdhdr.h"
-#include "device_power_bus.h"
 #include "hardware_definitions.h"
 #include "i2clib.h"
 #include "string.h"
+#include "power_bringup.h"
+#include "battery.h"
 
+/// Number of batteries in the rover. Keep synced with BatteryChannel.
+#define BATTERY_CHANNEL_COUNT 2
 /// Activation routine for some batteries
 static void turn_on_power_bus_old_method();
 /// Activation routine for some batteries
 static void turn_on_power_bus_new_method();
 /// Activation routine for some batteries
 static void turn_on_power_bus_hybrid_method();
-
-void set_battery_state(BatteryChannel Channel, BatteryState state) {
-    switch (Channel) {
-    case CELL_A:
-        Cell_A_MOS = state;
-        break;
-    case CELL_B:
-        Cell_B_MOS = state;
-        break;
-    }
-}
 
 static void turn_on_power_bus_immediate() {
     set_battery_state(CELL_A, CELL_ON);
@@ -37,7 +29,7 @@ static void turn_on_power_bus_new_method(void) {
         set_battery_state(CELL_A, CELL_ON);
         set_battery_state(CELL_B, CELL_ON);
         for (j = 0; j < k; j++)
-            Nop();
+            __builtin_nop();
         set_battery_state(CELL_A, CELL_OFF);
         set_battery_state(CELL_B, CELL_OFF);
 
@@ -97,14 +89,16 @@ const char DEVICE_NAME_NEW_BATTERY[] = "BT-70791B";
 const char DEVICE_NAME_BT70791_CK[] = "BT-70791CK";
 const char DEVICE_NAME_CUSTOM_BATTERY[] = "ROBOTEX";
 
-void power_bus_init(void) {
+void init_power() {
     // if the power bus is already active (like the bootloader did it)
     // then nothing to do here.
-    if (Cell_A_MOS == 1 && Cell_B_MOS == 1) {
+    if (is_power_bus_energized()) {
         RCON = 0;
         return;
     }
-
+    
+    init_battery_io();
+	
     // _POR = "we are powering on from a black or brownout"
     // _EXTR = "our reset pin was hit""
     // If the system is "warm", we can just switch the power bus back on.
@@ -123,8 +117,6 @@ void power_bus_init(void) {
     I2COperationDef op;
 
     // enable outputs for power bus
-    CELL_A_MOS_EN(1);
-    CELL_B_MOS_EN(1);
 
     // initialize i2c buses
     i2c_enable(I2C_BUS2);

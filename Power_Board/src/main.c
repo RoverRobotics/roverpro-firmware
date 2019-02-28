@@ -29,7 +29,7 @@ void IniTimer1() {
     TMR1 = 0;               // clear timer1 register
     uint16_t FREQUENCY_HZ = 1000;
     PR1 = (FCY / FREQUENCY_HZ) - 1;
-    T1CONbits.TON = SET; // start timer
+    T1CONbits.TON = 1; // start timer
 }
 
 int main(void) {
@@ -39,8 +39,8 @@ int main(void) {
     IniTimer1();
     while (1) {
         __builtin_clrwdt();
-        if (IFS0bits.T1IF == SET) {
-            IFS0bits.T1IF = CLEAR;
+        if (IFS0bits.T1IF == 1) {
+            IFS0bits.T1IF = 0;
             Device_MotorController_Process();
         }
     }

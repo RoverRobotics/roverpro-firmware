@@ -10,7 +10,7 @@ typedef struct Settings {
         /// How often to update the motor pwm / direction protection
         uint16_t drive_poll_ms;
         /// How often to update the electrical protection logic
-        uint16_t electrical_poll_ms;
+        uint16_t power_poll_ms;
         /// How often to update internal serial communication.
         /// this is responsible for communicating the with the fan and measuring some SmartBattery
         /// info
@@ -35,7 +35,7 @@ typedef struct Settings {
         uint16_t overcurrent_reset_threshold_ma;
         uint16_t overcurrent_reset_duration_ms;
         uint16_t charging_battery_switch_ms;
-    } electrical;
+    } power;
     struct {
         /// Whether or not the calibration routine has been run and angle_offset can be trusted
         bool is_calibrated;

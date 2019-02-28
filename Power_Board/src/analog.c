@@ -2,6 +2,7 @@
 #include "analog.h"
 #include "hardware_definitions.h"
 #include "xc.h"
+#include "math.h"
 
 /// Number of samples to keep of running metrics for power management, like battery temperature and
 /// voltage
@@ -107,6 +108,21 @@ void analog_tick() {
         adc_samples[c][i_adc_sample] = get_sample(c);
     }
     i_adc_sample = (i_adc_sample + 1) % ADC_SAMPLE_LENGTH;
+
+      REG_MOTOR_FB_CURRENT.left = analog_get_value(ADC_MOTOR_LEFT_CURRENT);
+      REG_MOTOR_FB_CURRENT.right = analog_get_value(ADC_MOTOR_RIGHT_CURRENT);
+      REG_MOTOR_FB_CURRENT.flipper = analog_get_value(ADC_MOTOR_FLIPPER_CURRENT);
+
+      // update the mosfet driving fault flag pin 1-good 2-fault
+      REG_MOTOR_FAULT_FLAG.left = PORTDbits.RD1;
+      REG_MOTOR_FAULT_FLAG.right = PORTEbits.RE5;
+
+      REG_PWR_BAT_VOLTAGE.a = analog_get_value(ADC_CELL_A_VOLTAGE);
+      REG_PWR_BAT_VOLTAGE.b = analog_get_value(ADC_CELL_B_VOLTAGE);
+
+      REG_PWR_A_CURRENT = analog_get_value(ADC_CELL_A_CURRENT);
+      REG_PWR_B_CURRENT = analog_get_value(ADC_CELL_B_CURRENT);
+      REG_PWR_TOTAL_CURRENT = REG_PWR_A_CURRENT + REG_PWR_B_CURRENT;
 
     IFS0bits.AD1IF = 0;
 }

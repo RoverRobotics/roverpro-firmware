@@ -32,7 +32,7 @@ const static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = {
     .main =
         {
             .drive_poll_ms = 5,
-            .electrical_poll_ms = 1,
+            .power_poll_ms = 1,
             .i2c_poll_ms = 1,
             .communication_poll_ms = 1,
             .analog_poll_ms = 1,
@@ -44,13 +44,13 @@ const static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = {
             .drive_command_timeout_ms = 333,
             .fan_command_timeout_ms = 333,
         },
-    .electrical =
+    .power =
         {
             .overcurrent_trigger_threshold_ma = 15000,
             .overcurrent_trigger_duration_ms = 10,
             .overcurrent_reset_threshold_ma = 10000,
             .overcurrent_reset_duration_ms = 100,
-            . charging_battery_switch_ms = 10000,
+            .charging_battery_switch_ms = 10000,
         },
     .flipper =
         {

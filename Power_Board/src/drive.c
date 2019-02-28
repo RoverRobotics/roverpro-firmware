@@ -1,6 +1,7 @@
 #include "drive.h"
 #include "motor.h"
 #include "main.h"
+#include "math.h"
 
 /// The PWM values being sent to each of the motors.
 /// from -1000 to 1000
@@ -78,10 +79,14 @@ void drive_tick() {
         Coasting(MOTOR_LEFT);
         Coasting(MOTOR_RIGHT);
         Coasting(MOTOR_FLIPPER);
-
     } else {
         drive_tick_motor(MOTOR_LEFT, motor_efforts.left);
         drive_tick_motor(MOTOR_RIGHT, motor_efforts.right);
         drive_tick_motor(MOTOR_FLIPPER, motor_efforts.flipper);
     }
+    
+      // read out measured motor periods.
+      REG_MOTOR_FB_PERIOD_LEFT = (uint16_t)fabs(motor_tach_get_period(MOTOR_LEFT));
+      REG_MOTOR_FB_PERIOD_RIGHT = (uint16_t)fabs(motor_tach_get_period(MOTOR_RIGHT));
+
 }

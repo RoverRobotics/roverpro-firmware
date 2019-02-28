@@ -6,6 +6,7 @@
 #include "drive.h"
 #include "version.GENERATED.h"
 #include "flipper.h"
+#include "cooling.h"
 
 #define RX_PACKET_SIZE 7
 #define TX_PACKET_SIZE 5
@@ -244,8 +245,8 @@ UArtTickResult uart_tick() {
 
         switch (verb) {
         case UART_COMMAND_SET_FAN_SPEED:
+       		cooling_set_fan_speed_manual(arg);
             REG_MOTOR_SIDE_FAN_SPEED = arg;
-            result.uart_fan_speed_requested = true;
             has_fan_command = true;
             break;
         case UART_COMMAND_RESTART:
@@ -291,7 +292,7 @@ UArtTickResult uart_tick() {
     if (!has_fan_command && ticks_since_last_fan_command != UINT16_MAX){
     	if (++ticks_since_last_fan_command * g_settings.main.communication_poll_ms > g_settings.communication.fan_command_timeout_ms)
    		{
-	   		REG_MOTOR_SIDE_FAN_SPEED = 0;
+	   		cooling_set_fan_speed_auto();
 			ticks_since_last_fan_command = UINT16_MAX;
     	}	
     }

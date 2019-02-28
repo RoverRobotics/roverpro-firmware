@@ -5,6 +5,8 @@
 
 /*---------------------------Macros-------------------------------------------*/
 #define CAPTURE_BUFFER_COUNT 4
+#define Set_ActiveLO 0
+#define Clear_ActiveLO 1
 /*---------------------------Helper Function Prototypes-----------------------*/
 
 /// Initialize PIC modules Timer4 and Timer5 together as a 32-bit timer
@@ -39,8 +41,8 @@ void IniTimer2() {
     TMR2 = 0;
     uint16_t FREQUENCY_HZ = 30000;
     PR2 = (FCY / FREQUENCY_HZ) - 1;
-    IFS0bits.T2IF = CLEAR; // clear interrupt flag
-    T2CONbits.TON = SET;   // start timer
+    IFS0bits.T2IF = 0; // clear interrupt flag
+    T2CONbits.TON = 1;   // start timer
 }
 
 /*---------------------------Module Variables---------------------------------*/
@@ -268,7 +270,7 @@ void PWM1Ini() {
     /// 0b11111 = This OC1 Module
     OC1CON2bits.SYNCSEL = 0x1F;
     /// 0 = Synchronize OC1 with Source designated with SYNCSEL1 bits
-    OC1CON2bits.OCTRIG = CLEAR;
+    OC1CON2bits.OCTRIG = 0;
     // 5. Select a clock source by writing the
     // OCTSEL<2:0> (OCxCON<12:10>) bits.
     /// 0b000 = Timer2
@@ -294,7 +296,7 @@ void PWM2Ini() {
     OC2R = 0;
     OC2RS = 2000;
     OC2CON2bits.SYNCSEL = 0x1F;
-    OC2CON2bits.OCTRIG = CLEAR;
+    OC2CON2bits.OCTRIG = 0;
     OC2CON1bits.OCTSEL = 0b000; // Timer2
     OC2CON1bits.OCM = 0b110;
 }
@@ -305,7 +307,7 @@ void PWM3Ini() {
     OC3R = 0;
     OC3RS = 2000;
     OC3CON2bits.SYNCSEL = 0x1F;
-    OC3CON2bits.OCTRIG = CLEAR;
+    OC3CON2bits.OCTRIG = 0;
     OC3CON1bits.OCTSEL = 0b000; // Timer2
     OC3CON1bits.OCM = 0b110;
 }

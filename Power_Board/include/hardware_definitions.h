@@ -7,14 +7,8 @@
 #include <xc.h>
 
 //*-----------------------------General Purpose------------------------------*/
-#define CLEAR 0
-#define SET 1
-#define HI 1
-#define LO 0
-#define Set_ActiveLO 0
-#define Clear_ActiveLO 1
-
-// constant for pins
+//#define CLEAR 0
+//#define SET 1
 
 // output pin mapping
 #define M1_PWM _RP24R
@@ -24,6 +18,15 @@
 // UART pins
 #define U1RX_RPn 6
 #define U1TX_RPn _RP7R
+
+// TODO: unify Cell_A_MOS and CELL_A_MOS_EN.
+// Main power bus MOSFET control pins
+#define CELL_A_MOS_EN(a) _TRISD3 = !(a)
+#define CELL_B_MOS_EN(a) _TRISD2 = !(a)
+/// The pin that gates battery A. Set high to allow the battery to power the main bus.
+#define Cell_A_MOS _RD3
+/// The pin that gates battery B. Set high to allow the battery to power the main bus.
+#define Cell_B_MOS _RD2
 
 // A pin is configured as an analog input when
 // the corresponding PCFGx bit (AD1PCFG<x>) is cleared

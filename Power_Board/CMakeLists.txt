@@ -12,7 +12,7 @@ add_compile_options(
         -no-legacy-libc
 )
 include_directories(
-        ./include
+        ${PROJECT_SOURCE_DIR}/include
 )
 include_directories(SYSTEM
         "${xc16}/include"
@@ -27,7 +27,7 @@ add_link_options(
         --architecture=${CMAKE_SYSTEM_PROCESSOR}
 )
 
-file(GLOB HEADERS include/**.h microchip/**.h)
+file(GLOB HEADERS ${PROJECT_SOURCE_DIR}/**.h)
 
 configure_file(prebuild.py prebuild.py)
 add_custom_command(
@@ -38,8 +38,6 @@ add_custom_command(
 )
 
 add_executable(Power_Board
-        src/counter.c
-        src/device_power_bus.c
         src/motor.c
         src/device_robot_motor.c
         src/device_robot_motor_i2c.c
@@ -48,12 +46,13 @@ add_executable(Power_Board
         src/stdfunctions.c
         src/analog.c
         src/uart_control.c
-        src/device_power_bus_charging.c
+        src/power.c
+        src/power_bringup.c
         src/settings.c
         src/flipper.c
         ../bootypic/devices/pic24fj256gb106/p24FJ256GB106_app.gld
         include/version.GENERATED.h
         ${HEADERS}
-        include/main.h)
+)
 set(CMAKE_EXECUTABLE_FORMAT elf)
 set(CMAKE_EXECUTABLE_SUFFIX .elf)
