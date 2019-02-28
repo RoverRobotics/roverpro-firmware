@@ -31,6 +31,18 @@ typedef enum {
     MOTOR_DIR_REVERSE = 0,
 } MotorDir;
 
+/// Set up and start Timer2: 30 kHz, no interrupts.
+/// Timer2 is used as the clock source for motor PWM
+void IniTimer2() {
+    T2CON = 0x0000;         // stops timer2,16 bit timer,internal clock (Fosc/2)
+    T2CONbits.TCKPS = 0b00; // 0b00 = 1:1 prescale
+    TMR2 = 0;
+    uint16_t FREQUENCY_HZ = 30000;
+    PR2 = (FCY / FREQUENCY_HZ) - 1;
+    IFS0bits.T2IF = CLEAR; // clear interrupt flag
+    T2CONbits.TON = SET;   // start timer
+}
+
 /*---------------------------Module Variables---------------------------------*/
 typedef struct {
     /// 32-bit timestamp high half
@@ -200,6 +212,7 @@ static void InitIC3(uint8_t RPn) {
 }
 
 void MotorsInit() {
+    // todo: move this to drive_init
     // set directions of pins
     M1_DIR_EN(1);
     M1_BRAKE_EN(1);
@@ -232,6 +245,7 @@ void MotorsInit() {
     // Assign OC3 To Pin M2_AHI
     M3_PWM = 20; // 20 represents OC3
 
+    IniTimer2();
     PWM1Ini();
     PWM2Ini();
     PWM3Ini();

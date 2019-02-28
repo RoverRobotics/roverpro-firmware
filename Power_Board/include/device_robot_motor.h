@@ -13,11 +13,6 @@
 #define INTERVAL_MS_MOTOR_DIRECTION_STATE_MACHINE 1 // 1KHz
 #define INTERVAL_MS_CURRENT_FEEDBACK 1              // 1KHz
 #define INTERVAL_MS_SFREG 4                         // 250Hz
-/// Number of samples to keep of running metrics for power management, like battery temperature and
-/// voltage
-#define SAMPLE_LENGTH 4
-/// Number of samples to keep of running metrics for speed control
-#define SAMPLE_LENGTH_CONTROL 8
 
 /// Whether we have received new commands from the USB interface (not the UART)
 extern bool usb_new_data_received;
@@ -30,16 +25,6 @@ void DeviceRobotMotorInit();
 
 /// Configure fan controller with I2C commands
 void FANCtrlIni();
-
-/// Configure and start analog/digital converter
-void IniAD();
-
-/// Set up and start Timer2: 30 kHz, no interrupts.
-/// Timer2 is used as the clock source for motor PWM
-void IniTimer2();
-/// Set up and start Timer3: 50 kHz, Interrupts enabled
-/// Timer3 is used as the trigger source for ADC and back-EMF feedback
-void IniTimer3();
 
 /// Tick process which does a lot more than just control the motor
 void Device_MotorController_Process();

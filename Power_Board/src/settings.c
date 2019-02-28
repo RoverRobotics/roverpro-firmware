@@ -35,7 +35,7 @@ const static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = {
             .electrical_poll_ms = 1,
             .i2c_poll_ms = 1,
             .communication_poll_ms = 1,
-            .analog_readouts_poll_ms = 1,
+            .analog_poll_ms = 1,
             .flipper_poll_ms = 8,
         },
     .communication =

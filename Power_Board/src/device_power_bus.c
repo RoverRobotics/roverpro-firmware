@@ -117,8 +117,8 @@ void power_bus_init(void) {
     // clear the restart reason
     RCON = 0;
 
-    char battery_data1[BATTERY_DATA_LEN];
-    char battery_data2[BATTERY_DATA_LEN];
+    char battery_data1[BATTERY_DATA_LEN] = {0};
+    char battery_data2[BATTERY_DATA_LEN] = {0};
     I2CResult result;
     I2COperationDef op;
 

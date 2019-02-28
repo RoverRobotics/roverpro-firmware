@@ -18,8 +18,8 @@ typedef struct Settings {
         /// How often to check for and process inbound UART commands.
         uint16_t communication_poll_ms;
         /// How often to read out internal analog outputs.
-        uint16_t analog_readouts_poll_ms; /// How often to update the flipper positional feedback
-                                          /// and command
+        uint16_t analog_poll_ms;
+        /// How often to update the flipper positional feedback and command
         uint16_t flipper_poll_ms;
     } main;
     struct {

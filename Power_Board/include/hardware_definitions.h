@@ -14,38 +14,6 @@
 #define Set_ActiveLO 0
 #define Clear_ActiveLO 1
 
-/// Period for PR# when prescale is 1:1
-/// = (FCY / period / prescale) -1
-/// e.g. Period 1000Hz = (16000000 / 1000 / 1) - 1
-typedef enum TimerPeriod {
-    PERIOD_50HZ = 533332,
-    PERIOD_67HZ = 319999,
-    PERIOD_200HZ = 79999,
-    PERIOD_300HZ = 53332,
-    PERIOD_400HZ = 39999,
-    PERIOD_500HZ = 31999,
-    PERIOD_600HZ = 26666,
-    PERIOD_700HZ = 22856,
-    PERIOD_800HZ = 19999,
-    PERIOD_900HZ = 17777,
-    PERIOD_1000HZ = 15999,
-    PERIOD_1100HZ = 14544,
-    PERIOD_1200HZ = 13332,
-    PERIOD_1300HZ = 12307,
-    PERIOD_1400HZ = 11428,
-    PERIOD_1500HZ = 10666,
-    PERIOD_1600HZ = 9999,
-    PERIOD_1700HZ = 9411,
-    PERIOD_1800HZ = 8888,
-    PERIOD_1900HZ = 8420,
-    PERIOD_2000HZ = 7999,
-    PERIOD_2100HZ = 7618,
-    PERIOD_10000HZ = 1599,
-    PERIOD_20000HZ = 799,
-    PERIOD_30000HZ = 532,
-    PERIOD_50000HZ = 319,
-} TimerPeriod;
-
 // constant for pins
 
 // output pin mapping
@@ -57,7 +25,6 @@ typedef enum TimerPeriod {
 #define U1RX_RPn 6
 #define U1TX_RPn _RP7R
 
-// Analog pins
 // A pin is configured as an analog input when
 // the corresponding PCFGx bit (AD1PCFG<x>) is cleared
 #define M1_TEMP_EN(a) _PCFG2 = !(a)
@@ -92,7 +59,6 @@ typedef enum TimerPeriod {
 #define M3_MODE_EN(a) _TRISE4 = !(a)
 #define M3_COAST_EN(a) _TRISF1 = !(a)
 
-// functional pins
 #define M1_DIRO _RD0
 #define M1_DIR _LATD6
 #define M1_BRAKE _LATD7

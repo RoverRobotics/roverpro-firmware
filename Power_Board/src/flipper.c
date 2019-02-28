@@ -1,6 +1,7 @@
 #include "flipper.h"
 #include "main.h"
 #include "motor.h"
+#include "analog.h"
 
 // invalid flipper pot thresholds.  These are very wide because the flipper pots are on a
 // different 3.3V supply than the PIC If the flipper pot is below this threshold, it is invalid
@@ -9,22 +10,18 @@
 #define HIGH_POT_THRESHOLD 990
 
 #define FLIPPER_POT_OFFSET (-55)
-#define FLIPPER_SAMPLE_LENGTH 4
 
 static uint16_t get_flipper_angle(uint16_t pot_1_value, uint16_t pot_2_value);
 static uint16_t return_combined_pot_angle(uint16_t pot_1_value, uint16_t pot_2_value);
 /// returns the given angle, normalized to between 0 and 360
 uint16_t wrap_angle(int16_t value) { return (uint16_t)((value % 360 + 360) % 360); }
 
-int m3_posfb_array[2][FLIPPER_SAMPLE_LENGTH] = {{0}}; ///< Flipper Motor positional feedback data
-int m3_posfb_array_pointer = 0;
-
 void flipper_feedback_calibrate() {
     MotorChannel i;
+
     // Coast all the motors
-    for (EACH_MOTOR_CHANNEL(i)) {
+    for (EACH_MOTOR_CHANNEL(i))
         Coasting(i);
-    }
 
     g_settings.flipper.is_calibrated = true;
     g_settings.flipper.angle_offset =
@@ -41,17 +38,11 @@ void flipper_feedback_calibrate() {
 }
 
 void tick_flipper_feedback() {
-    // harvest all the values from the ADC converter
-    m3_posfb_array[0][m3_posfb_array_pointer] = ADC1BUF4;
-    m3_posfb_array[1][m3_posfb_array_pointer] = ADC1BUF5;
-    m3_posfb_array_pointer = (m3_posfb_array_pointer + 1) % FLIPPER_SAMPLE_LENGTH;
 
+    uint16_t pot1 = REG_FLIPPER_FB_POSITION.pot1 = analog_get_value(ADC_FLIPPER_POTENTIOMETER_A);
+    uint16_t pot2 = REG_FLIPPER_FB_POSITION.pot2 = analog_get_value(ADC_FLIPPER_POTENTIOMETER_B);
     // update flipper motor position
-    uint16_t temp1 = mean(FLIPPER_SAMPLE_LENGTH, m3_posfb_array[0]);
-    uint16_t temp2 = mean(FLIPPER_SAMPLE_LENGTH, m3_posfb_array[1]);
-    REG_FLIPPER_FB_POSITION.pot1 = temp1;
-    REG_FLIPPER_FB_POSITION.pot2 = temp2;
-    REG_MOTOR_FLIPPER_ANGLE = get_flipper_angle(temp1, temp2);
+    REG_MOTOR_FLIPPER_ANGLE = get_flipper_angle(pot1, pot2);
 }
 
 uint16_t return_combined_pot_angle(uint16_t pot_1_value, uint16_t pot_2_value) {

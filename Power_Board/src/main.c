@@ -27,8 +27,9 @@ void IniTimer1() {
     T1CON = 0x0000;         // clear register
     T1CONbits.TCKPS = 0b00; // 0b00 = 1:1 prescale
     TMR1 = 0;               // clear timer1 register
-    PR1 = PERIOD_1000HZ;    // interrupt every 1ms
-    T1CONbits.TON = SET;    // start timer
+    uint16_t FREQUENCY_HZ = 1000;
+    PR1 = (FCY / FREQUENCY_HZ) - 1;
+    T1CONbits.TON = SET; // start timer
 }
 
 int main(void) {

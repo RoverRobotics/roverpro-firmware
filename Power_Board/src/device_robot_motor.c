@@ -12,6 +12,7 @@
 #include "math.h"
 #include "flipper.h"
 #include "drive.h"
+#include "analog.h"
 
 //****************************************************
 Counter speed_update_timer[MOTOR_CHANNEL_COUNT] = {
@@ -31,15 +32,6 @@ Counter current_fb = {.max = INTERVAL_MS_CURRENT_FEEDBACK};
 Counter uart_fan_speed_timeout = {
     .max = INTERVAL_MS_UART_FAN_SPEED_TIMEOUT, .pause_on_expired = true, .is_paused = true};
 
-uint16_t motor_current_ad[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH] = {{0}};
-int motor_current_ad_pointer = 0;
-uint16_t current_for_control[MOTOR_CHANNEL_COUNT][SAMPLE_LENGTH_CONTROL] = {{0}};
-int current_for_control_pointer[MOTOR_CHANNEL_COUNT] = {0};
-int cell_current_array_pointer = 0;
-int cell_voltage_array[BATTERY_CHANNEL_COUNT][SAMPLE_LENGTH];
-int cell_voltage_array_pointer = 0;
-uint16_t cell_current[BATTERY_CHANNEL_COUNT][SAMPLE_LENGTH];
-
 void set_firmware_build_time(void);
 
 //*********************************************//
@@ -47,8 +39,7 @@ void set_firmware_build_time(void);
 /// Increment `value` until it hits limit,
 /// at which point reset it to zero.
 bool tick_counter(uint16_t *value, uint16_t limit) {
-    (*value)++;
-    if (value >= limit) {
+    if (++(*value) >= limit) {
         *value = 0;
         return true;
     } else {
@@ -58,11 +49,9 @@ bool tick_counter(uint16_t *value, uint16_t limit) {
 
 void DeviceRobotMotorInit() {
     // make sure we start off in a default state
-    AD1CON1 = 0x0000;
-    AD1CON2 = 0x0000;
-    AD1CON3 = 0x0000;
-
     AD1PCFGL = 0xffff;
+    AD1PCFGH = 0x0003;
+
     TRISB = 0xffff;
     TRISC = 0xffff;
     TRISD = 0xffff;
@@ -70,49 +59,20 @@ void DeviceRobotMotorInit() {
     TRISF = 0xffff;
     TRISG = 0xffff;
 
-    //*******************************************
-    // initialize I/O port
-    // AN15,AN14,AN1,AN0 are all digital
+    i2c_enable(I2C_BUS2);
+    i2c_enable(I2C_BUS3);
+    power_bus_init();
+    uart_init();
 
-    // initialize all of the analog inputs
-    AD1PCFG = 0xffff;
-    M1_TEMP_EN(1);
-    M1_CURR_EN(1);
-    M2_TEMP_EN(1);
-    M2_CURR_EN(1);
-    M3_TEMP_EN(1);
-    M3_CURR_EN(1);
-    VCELL_A_EN(1);
-    VCELL_B_EN(1);
-    CELL_A_CURR_EN(1);
-    CELL_B_CURR_EN(1);
-    M3_POS_FB_1_EN(1);
-    M3_POS_FB_2_EN(1);
-
-    // I/O initializing complete
-
-    // Initialize motor drivers
-    //*******************************************
-
-    IniAD();
-
-    // initialize timers
-    IniTimer2();
-    IniTimer3();
+    analog_init();
 
     // initialize motor control
     MotorsInit();
     // initialize motor tachometer feedback
     motor_tach_init();
 
-    i2c_enable(I2C_BUS2);
-    i2c_enable(I2C_BUS3);
-
-    uart_init();
-
     set_firmware_build_time();
 
-    power_bus_init();
     FANCtrlIni();
 }
 
@@ -122,14 +82,12 @@ void Device_MotorController_Process() {
         uint16_t electrical;
         uint16_t i2c;
         uint16_t communication;
-        uint16_t analog_readouts;
+        uint16_t analog;
         uint16_t flipper;
         uint16_t drive;
     } counters = {0};
 
     UArtTickResult uart_tick_result;
-    MotorChannel i;
-
     // this should run every 1ms
     power_bus_tick();
 
@@ -137,33 +95,24 @@ void Device_MotorController_Process() {
         drive_tick();
     }
 
-    if (counter_tick(&current_fb) == COUNTER_EXPIRED) {
-        /// Compute the current used by a given motor and populate it in current_for_control
-        /// This is computed as a windowed average of the values in motor_current_ad
-        for (EACH_MOTOR_CHANNEL(i)) {
-            current_for_control[i][current_for_control_pointer[i]] =
-                mean_u(SAMPLE_LENGTH, motor_current_ad[i]);
-            current_for_control_pointer[i] =
-                (current_for_control_pointer[i] + 1) % SAMPLE_LENGTH_CONTROL;
-        }
-    };
-
-    if (tick_counter(&counters.analog_readouts, g_settings.main.analog_readouts_poll_ms)) {
+    if (tick_counter(&counters.analog, g_settings.main.analog_poll_ms)) {
         // update current for all three motors
-        REG_MOTOR_FB_CURRENT.left = mean_u(SAMPLE_LENGTH_CONTROL, current_for_control[MOTOR_LEFT]);
-        REG_MOTOR_FB_CURRENT.right =
-            mean_u(SAMPLE_LENGTH_CONTROL, current_for_control[MOTOR_RIGHT]);
-        REG_MOTOR_FB_CURRENT.flipper =
-            mean_u(SAMPLE_LENGTH_CONTROL, current_for_control[MOTOR_FLIPPER]);
+        analog_tick();
+
+        REG_MOTOR_FB_CURRENT.left = analog_get_value(ADC_MOTOR_LEFT_CURRENT);
+        REG_MOTOR_FB_CURRENT.right = analog_get_value(ADC_MOTOR_RIGHT_CURRENT);
+        REG_MOTOR_FB_CURRENT.flipper = analog_get_value(ADC_MOTOR_FLIPPER_CURRENT);
 
         // update the mosfet driving fault flag pin 1-good 2-fault
         REG_MOTOR_FAULT_FLAG.left = PORTDbits.RD1;
         REG_MOTOR_FAULT_FLAG.right = PORTEbits.RE5;
-        // update temperatures for two motors done in I2C code
 
-        // update battery voltage
-        REG_PWR_BAT_VOLTAGE.a = mean(SAMPLE_LENGTH, cell_voltage_array[CELL_A]);
-        REG_PWR_BAT_VOLTAGE.b = mean(SAMPLE_LENGTH, cell_voltage_array[CELL_B]);
+        REG_PWR_BAT_VOLTAGE.a = analog_get_value(ADC_CELL_A_VOLTAGE);
+        REG_PWR_BAT_VOLTAGE.b = analog_get_value(ADC_CELL_B_VOLTAGE);
+
+        REG_PWR_A_CURRENT = analog_get_value(ADC_CELL_A_CURRENT);
+        REG_PWR_B_CURRENT = analog_get_value(ADC_CELL_B_CURRENT);
+        REG_PWR_TOTAL_CURRENT = REG_PWR_A_CURRENT + REG_PWR_B_CURRENT;
 
         // read out measured motor periods.
         REG_MOTOR_FB_PERIOD_LEFT = (uint16_t)fabs(motor_tach_get_period(MOTOR_LEFT));
@@ -174,10 +123,6 @@ void Device_MotorController_Process() {
     if (tick_counter(&counters.electrical, g_settings.main.electrical_poll_ms)) {
         static uint16_t current_spike_counter;
         static uint16_t current_recover_counter;
-
-        REG_PWR_A_CURRENT = mean_u(SAMPLE_LENGTH, cell_current[CELL_A]);
-        REG_PWR_B_CURRENT = mean_u(SAMPLE_LENGTH, cell_current[CELL_B]);
-        REG_PWR_TOTAL_CURRENT = REG_PWR_A_CURRENT + REG_PWR_B_CURRENT;
 
         uint16_t trigger_thresh =
             g_settings.electrical.overcurrent_trigger_threshold_ma * 34 / 1000;
@@ -286,93 +231,4 @@ void FANCtrlIni() {
     // return fan to low duty cycle
     a_byte = 0;
     i2c_synchronously_await(I2C_BUS2, i2c_op_write_byte(FAN_CONTROLLER_ADDRESS, 0x0b, &a_byte));
-}
-
-/*****************************************************************************/
-//*-----------------------------------Timer----------------------------------*/
-
-void IniTimer2() {
-    T2CON = 0x0000;         // stops timer2,16 bit timer,internal clock (Fosc/2)
-    T2CONbits.TCKPS = 0b00; // 0b00 = 1:1 prescale
-    TMR2 = 0;
-    PR2 = PERIOD_30000HZ;
-    IFS0bits.T2IF = CLEAR; // clear interrupt flag
-    T2CONbits.TON = SET;   // start timer
-}
-void IniTimer3() {
-    T3CON = 0x0010;        // stops timer3,1:8 prescale,16 bit timer,internal clock (Fosc/2)
-    TMR3 = 0;              // clear timer1 register
-    PR3 = PERIOD_50000HZ;  // 50k hz / 8 prescale = 6250 Hz
-    IFS0bits.T3IF = CLEAR; // clear interrupt flag
-    IEC0bits.T3IE = SET;   // enable the interrupt
-    T3CONbits.TON = SET;   // start timer
-}
-/*****************************************************************************/
-
-/*****************************************************************************/
-//*-----------------------------------A/D------------------------------------*/
-void IniAD() {
-    // 1. Configure the A/D module:
-    // a) Configure port pins as analog inputs and/or
-    // select band gap reference inputs (AD1PCFGL<15:0> and AD1PCFGH<1:0>).
-    // none
-    // b) Select voltage reference source to match
-    // expected range on analog inputs (AD1CON2<15:13>).
-    AD1CON2bits.VCFG = 0b000; // VR+: AVDD, VR-: AVSS
-    // c) Select the analog conversion clock to
-    // match desired data rate with processor clock (AD1CON3<7:0>).
-    AD1CON3bits.ADCS = 0b00000001; // TAD= 2TCY = 125 ns, at least 75ns required
-
-    // d) Select the appropriate sample
-    // conversion sequence (AD1CON1<7:5> and AD1CON3<12:8>).
-    AD1CON1bits.SSRC = 0b111;   // auto conversion
-    AD1CON3bits.SAMC = 0b01111; // auto-sample time=15*TAD=1.875uS
-    // e) Select how conversion results are
-    // presented in the buffer (AD1CON1<9:8>).
-    AD1CON1bits.FORM = 0b00; // integer (0000 00dd dddd dddd)
-    // f) Select interrupt rate (AD1CON2<5:2>).
-    AD1CON2bits.SMPI = 0b1011; // interrupt every 12 samples convert sequence
-    // g) scan mode, select input channels (AD1CSSL<15:0>)
-    // AD1CSSL=0b0011111100111111;
-    AD1CSSL = 0b1111111100001111;
-    AD1CON2bits.CSCNA = SET;
-    // h) Turn on A/D module (AD1CON1<15>).
-    AD1CON1bits.ADON = SET;
-    // 2. Configure A/D interrupt (if required):
-    IEC0bits.AD1IE = SET;
-    // a) Clear the AD1IF bit.
-    IFS0bits.AD1IF = CLEAR;
-    // b) Select A/D interrupt priority.
-}
-
-/// Timer interrupt to enable ADC every tick
-void __attribute__((__interrupt__, auto_psv)) _T3Interrupt(void) {
-    // TODO: I think the purpose here is just to enable the auto-sample bit ASAM
-    // so that we don't have to set the SAMP bit and potentially set it at the wrong time.
-    // I think this isn't needed as long as SSRC = 0b111
-
-    // PORTCbits.RC13=~PORTCbits.RC13;
-    // clear timer3 flag
-    IFS0bits.T3IF = CLEAR; // clear interrupt flag
-    AD1CON1bits.ASAM = SET;
-}
-
-/// Analog/digital converter interrupt to harvest values from ADC
-void __attribute__((__interrupt__, auto_psv)) _ADC1Interrupt(void) {
-    // Clear interrupt flag
-    IFS0bits.AD1IF = CLEAR;
-    // disable auto-sample
-    AD1CON1bits.ASAM = CLEAR;
-
-    motor_current_ad[MOTOR_LEFT][motor_current_ad_pointer] = ADC1BUF3;
-    motor_current_ad[MOTOR_RIGHT][motor_current_ad_pointer] = ADC1BUF1;
-    motor_current_ad[MOTOR_FLIPPER][motor_current_ad_pointer] = ADC1BUFB;
-    motor_current_ad_pointer = (motor_current_ad_pointer + 1) % SAMPLE_LENGTH;
-
-    cell_current[CELL_A][cell_current_array_pointer] = ADC1BUF8;
-    cell_current[CELL_B][cell_current_array_pointer] = ADC1BUF9;
-
-    cell_voltage_array[CELL_A][cell_voltage_array_pointer] = ADC1BUF6;
-    cell_voltage_array[CELL_B][cell_voltage_array_pointer] = ADC1BUF7;
-    cell_voltage_array_pointer = (cell_voltage_array_pointer + 1) % SAMPLE_LENGTH;
 }

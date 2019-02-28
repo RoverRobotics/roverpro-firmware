@@ -13,7 +13,6 @@ add_compile_options(
 )
 include_directories(
         ./include
-        ./microchip
 )
 include_directories(SYSTEM
         "${xc16}/include"
@@ -42,13 +41,12 @@ add_executable(Power_Board
         src/counter.c
         src/device_power_bus.c
         src/motor.c
-        src/PID.c
         src/device_robot_motor.c
         src/device_robot_motor_i2c.c
-        src/device_robot_motor_loop.c
         src/i2clib.c
         src/main.c
         src/stdfunctions.c
+        src/analog.c
         src/uart_control.c
         src/device_power_bus_charging.c
         src/settings.c
