@@ -278,6 +278,24 @@ UArtTickResult uart_tick() {
         case UART_COMMAND_SETTINGS_COMMIT:
             settings_save(&g_settings);
             break;
+          
+          
+        case UART_COMMAND_SETTINGS_SET_POWER_POLL_INTERVAL:
+        	g_settings.main.power_poll_ms = arg;
+        	break;
+        case UART_COMMAND_SETTINGS_SET_OVERCURRENT_TRIGGER_THRESHOLD:
+        	g_settings.power.overcurrent_trigger_threshold_ma = arg * 100;
+         	break;
+        case UART_COMMAND_SETTINGS_SET_OVERCURRENT_TRIGGER_DURATION:
+        	g_settings.power.overcurrent_trigger_duration_ms = arg * 5;
+         	break;
+        case UART_COMMAND_SETTINGS_SET_OVERCURRENT_RECOVER_THRESHOLD:
+        	g_settings.power.overcurrent_trigger_threshold_ma = arg * 100;
+         	break;
+        case UART_COMMAND_SETTINGS_SET_OVERCURRENT_RECOVER_DURATION:
+        	g_settings.power.overcurrent_trigger_threshold_ma = arg * 5;
+         	break;
+         		
         case UART_COMMAND_SET_DRIVE_MODE:
             break;
             // fallthrough

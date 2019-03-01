@@ -131,6 +131,18 @@ typedef enum UARTCommand {
     UART_COMMAND_SETTINGS_RELOAD = 1,
     /// Current settings should be saved as the new default startup values
     UART_COMMAND_SETTINGS_COMMIT = 2,
+    
+    /// Set power polling interval in ms
+    UART_COMMAND_SETTINGS_SET_POWER_POLL_INTERVAL = 3,
+    /// Set OC trigger threshold in units of 100mA
+    UART_COMMAND_SETTINGS_SET_OVERCURRENT_TRIGGER_THRESHOLD = 4,
+    /// Set OC trigger duration in units of 5ms
+    UART_COMMAND_SETTINGS_SET_OVERCURRENT_TRIGGER_DURATION = 5,
+    /// Set OC recover threshold in units of 100mA
+    UART_COMMAND_SETTINGS_SET_OVERCURRENT_RECOVER_THRESHOLD = 6,
+    /// Set OC recover duration in units of 5ms
+    UART_COMMAND_SETTINGS_SET_OVERCURRENT_RECOVER_DURATION = 7,
+    
 } UARTCommand;
 
 #endif
