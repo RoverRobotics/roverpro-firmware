@@ -5,8 +5,6 @@
 #include "power_bringup.h"
 #include "battery.h"
 
-/// Number of batteries in the rover. Keep synced with BatteryChannel.
-#define BATTERY_CHANNEL_COUNT 2
 /// Activation routine for some batteries
 static void turn_on_power_bus_old_method();
 /// Activation routine for some batteries
@@ -14,10 +12,7 @@ static void turn_on_power_bus_new_method();
 /// Activation routine for some batteries
 static void turn_on_power_bus_hybrid_method();
 
-static void turn_on_power_bus_immediate() {
-    set_battery_state(CELL_A, CELL_ON);
-    set_battery_state(CELL_B, CELL_ON);
-}
+static void turn_on_power_bus_immediate() { set_active_batteries(BATTERY_ALL); }
 
 static void turn_on_power_bus_new_method(void) {
     unsigned int i = 0;
@@ -26,36 +21,29 @@ static void turn_on_power_bus_new_method(void) {
     unsigned int k0 = 2000;
 
     for (i = 0; i < 300; i++) {
-        set_battery_state(CELL_A, CELL_ON);
-        set_battery_state(CELL_B, CELL_ON);
+        set_active_batteries(BATTERY_ALL);
         for (j = 0; j < k; j++)
             __builtin_nop();
-        set_battery_state(CELL_A, CELL_OFF);
-        set_battery_state(CELL_B, CELL_OFF);
+        set_active_batteries(BATTERY_NONE);
 
         block_ms(10);
 
         k = k0 + i * i / 4;
     }
 
-    set_battery_state(CELL_A, CELL_ON);
-    set_battery_state(CELL_B, CELL_ON);
+    set_active_batteries(BATTERY_ALL);
 }
 
 static void turn_on_power_bus_old_method(void) {
     unsigned int i;
 
     for (i = 0; i < 20; i++) {
-        set_battery_state(CELL_A, CELL_ON);
-        set_battery_state(CELL_B, CELL_ON);
+        set_active_batteries(BATTERY_ALL);
         block_ms(10);
-        set_battery_state(CELL_A, CELL_OFF);
-        set_battery_state(CELL_B, CELL_OFF);
+        set_active_batteries(BATTERY_NONE);
         block_ms(40);
     }
-
-    set_battery_state(CELL_A, CELL_ON);
-    set_battery_state(CELL_B, CELL_ON);
+    set_active_batteries(BATTERY_ALL);
 }
 
 static void turn_on_power_bus_hybrid_method(void) {
@@ -66,21 +54,17 @@ static void turn_on_power_bus_hybrid_method(void) {
     unsigned int k0 = 2000;
 
     for (i = 0; i < 200; i++) {
-        set_battery_state(CELL_A, CELL_ON);
-        set_battery_state(CELL_B, CELL_ON);
+        set_active_batteries(BATTERY_ALL);
         for (j = 0; j < k; j++)
             Nop();
-        set_battery_state(CELL_A, CELL_OFF);
-        set_battery_state(CELL_B, CELL_OFF);
-
+        set_active_batteries(BATTERY_NONE);
         block_ms(40);
         k = k0 + i * i / 4;
         if (k > 20000)
             k = 20000;
     }
 
-    set_battery_state(CELL_A, CELL_ON);
-    set_battery_state(CELL_B, CELL_ON);
+    set_active_batteries(BATTERY_ALL);
 }
 
 #define BATTERY_DATA_LEN 10
@@ -89,18 +73,18 @@ const char DEVICE_NAME_NEW_BATTERY[] = "BT-70791B";
 const char DEVICE_NAME_BT70791_CK[] = "BT-70791CK";
 const char DEVICE_NAME_CUSTOM_BATTERY[] = "ROBOTEX";
 
-void init_power() {
+void init_power() {	
+    init_battery_io();
+	
     // if the power bus is already active (like the bootloader did it)
     // then nothing to do here.
-    if (is_power_bus_energized()) {
+    if (get_active_batteries() == BATTERY_ALL) {
         RCON = 0;
         return;
     }
-    
-    init_battery_io();
-	
+
     // _POR = "we are powering on from a black or brownout"
-    // _EXTR = "our reset pin was hit""
+    // _EXTR = "our reset pin was hit"
     // If the system is "warm", we can just switch the power bus back on.
     if (!_POR && !_EXTR) {
         turn_on_power_bus_immediate();
@@ -115,8 +99,6 @@ void init_power() {
     char battery_data2[BATTERY_DATA_LEN] = {0};
     I2CResult result;
     I2COperationDef op;
-
-    // enable outputs for power bus
 
     // initialize i2c buses
     i2c_enable(I2C_BUS2);

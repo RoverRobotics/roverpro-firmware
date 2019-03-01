@@ -7,9 +7,6 @@
 #include <xc.h>
 
 //*-----------------------------General Purpose------------------------------*/
-//#define CLEAR 0
-//#define SET 1
-
 // output pin mapping
 #define M1_PWM _RP24R
 #define M2_PWM _RP2R

@@ -45,7 +45,7 @@ void DeviceRobotMotorInit() {
     TRISG = 0xffff;
 
     init_power();
-    
+
     uart_init();
 
     analog_init();
@@ -74,12 +74,10 @@ void Device_MotorController_Process() {
         drive_tick();
     }
     if (tick_counter(&counters.analog, g_settings.main.analog_poll_ms)) {
-        // update current for all three motors
         analog_tick();
     }
-    // power subsystem
     if (tick_counter(&counters.power, g_settings.main.power_poll_ms)) {
-      	power_tick();
+        power_tick();
     }
     if (tick_counter(&counters.i2c, g_settings.main.i2c_poll_ms)) {
         i2c_tick_all();

@@ -38,7 +38,6 @@ void flipper_feedback_calibrate() {
 }
 
 void tick_flipper_feedback() {
-
     uint16_t pot1 = REG_FLIPPER_FB_POSITION.pot1 = analog_get_value(ADC_FLIPPER_POTENTIOMETER_A);
     uint16_t pot2 = REG_FLIPPER_FB_POSITION.pot2 = analog_get_value(ADC_FLIPPER_POTENTIOMETER_B);
     // update flipper motor position

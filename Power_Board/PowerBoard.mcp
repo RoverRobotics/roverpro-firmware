@@ -62,6 +62,7 @@ file_034=include
 file_035=include
 file_036=.
 file_037=.
+file_038=.
 [GENERATED_FILES]
 file_000=no
 file_001=no
@@ -101,6 +102,7 @@ file_034=no
 file_035=no
 file_036=no
 file_037=no
+file_038=no
 [OTHER_FILES]
 file_000=no
 file_001=no
@@ -139,7 +141,8 @@ file_033=no
 file_034=no
 file_035=no
 file_036=no
-file_037=yes
+file_037=no
+file_038=yes
 [FILE_INFO]
 file_000=src\device_robot_motor.c
 file_001=src\main.c
@@ -177,8 +180,9 @@ file_032=include\power.h
 file_033=include\cooling.h
 file_034=include\power_bringup.h
 file_035=include\battery.h
-file_036=..\bootypic\devices\pic24fj256gb106\p24FJ256GB106_app.gld
-file_037=prebuild.py
+file_036=include\iopin.h
+file_037=..\bootypic\devices\pic24fj256gb106\p24FJ256GB106_app.gld
+file_038=prebuild.py
 [SUITE_INFO]
 suite_guid={9BCCB495-CD65-480A-BA76-63D8E78B117F}
 suite_state=
