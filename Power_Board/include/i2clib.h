@@ -1,5 +1,5 @@
 /// Dan's glorious I2C library.
-/// This provides a wrapper around PIC24's I2C primitives.
+/// A high-level wrapper around PIC24's I2C primitives.
 
 #ifndef I2CLIB_H
 #define I2CLIB_H

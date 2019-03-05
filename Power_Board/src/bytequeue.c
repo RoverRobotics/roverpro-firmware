@@ -4,30 +4,30 @@
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 
-bool bq_try_resize(volatile ByteQueue *bq, size_t new_capacity) {
+bool bq_try_resize(volatile ByteQueue *self, size_t new_capacity) {
     ByteQueue new_q = BYTE_QUEUE_NULL;
     if (new_capacity == 0) {
-        free(bq->buffer);
+        free(self->buffer);
     } else {
-        new_q.buffer = realloc(bq->buffer, new_capacity);
+        new_q.buffer = realloc(self->buffer, new_capacity);
         // uh oh - this would mean we're out of heap!
         BREAKPOINT_IF(new_q.buffer == 0);
         memset(new_q.buffer, 0, new_capacity);
     }
     new_q.capacity = new_q.buffer == 0 ? 0 : new_capacity;
 
-    *bq = new_q;
+    *self = new_q;
     return new_capacity == 0 || new_q.buffer != 0;
 }
 
-bool bq_try_push(volatile ByteQueue *bq, size_t n_data, void *data) {
-    size_t capacity = bq->capacity;
-    size_t n_enqueued = bq->n_enqueued;
-    void *buffer = bq->buffer;
+bool bq_try_push(volatile ByteQueue *self, size_t n_data, void *data) {
+    size_t capacity = self->capacity;
+    size_t n_enqueued = self->n_enqueued;
+    void *buffer = self->buffer;
 
     BREAKPOINT_IF(n_data > capacity);
 
-    if (bq_count(bq) + n_data > capacity) {
+    if (bq_count(self) + n_data > capacity) {
         return false;
     }
 
@@ -38,24 +38,24 @@ bool bq_try_push(volatile ByteQueue *bq, size_t n_data, void *data) {
     memcpy(buffer + i_dest1, data, ncpy1);
     memcpy(buffer, data + ncpy1, ncpy2);
 
-    bq->n_enqueued = (n_enqueued + n_data)%(capacity*2);
+    self->n_enqueued = (n_enqueued + n_data)%(capacity*2);
     return true;
 }
 
-size_t bq_count(volatile ByteQueue *bq) {
-    size_t capacity = bq->capacity;
-    size_t n_enqueued = bq->n_enqueued;
-    size_t n_dequeued = bq->n_dequeued;
+size_t bq_count(volatile ByteQueue *self) {
+    size_t capacity = self->capacity;
+    size_t n_enqueued = self->n_enqueued;
+    size_t n_dequeued = self->n_dequeued;
     return (n_enqueued - n_dequeued + 2 * capacity) % (2 * capacity);
 }
 
-bool bq_try_pop(volatile ByteQueue *bq, size_t n_data, void *data_out) {
-    size_t n_dequeued = bq->n_dequeued;
-    void *buffer = bq->buffer;
-    size_t capacity = bq->capacity;
+bool bq_try_pop(volatile ByteQueue *self, size_t n_data, void *data_out) {
+    size_t n_dequeued = self->n_dequeued;
+    void *buffer = self->buffer;
+    size_t capacity = self->capacity;
     BREAKPOINT_IF(n_data > capacity);
 
-    if (bq_count(bq) < n_data) {
+    if (bq_count(self) < n_data) {
         return false;
     }
 	
@@ -68,6 +68,6 @@ bool bq_try_pop(volatile ByteQueue *bq, size_t n_data, void *data_out) {
     memcpy(data_out + i_src1, buffer, n_cpy2);
     memset(buffer, 0, n_cpy2);
     
-    bq->n_dequeued = (n_dequeued + n_data) % (capacity*2);
+    self->n_dequeued = (n_dequeued + n_data) % (capacity*2);
     return true;
 }
