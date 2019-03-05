@@ -1,8 +1,11 @@
-#include "stdhdr.h"
-#include "device_power_bus.h"
+#include "main.h"
 #include "hardware_definitions.h"
+#include "power.h"
+#include "battery.h"
 #include "i2clib.h"
 #include "string.h"
+
+extern void drive_set_coast_lock(bool is_on);
 
 /// Activation routine for some batteries
 static void turn_on_power_bus_old_method();
@@ -11,21 +14,7 @@ static void turn_on_power_bus_new_method();
 /// Activation routine for some batteries
 static void turn_on_power_bus_hybrid_method();
 
-void set_battery_state(BatteryChannel Channel, BatteryState state) {
-    switch (Channel) {
-    case CELL_A:
-        Cell_A_MOS = state;
-        break;
-    case CELL_B:
-        Cell_B_MOS = state;
-        break;
-    }
-}
-
-static void turn_on_power_bus_immediate() {
-    set_battery_state(CELL_A, CELL_ON);
-    set_battery_state(CELL_B, CELL_ON);
-}
+static void turn_on_power_bus_immediate() { set_active_batteries(BATTERY_ALL); }
 
 static void turn_on_power_bus_new_method(void) {
     unsigned int i = 0;
@@ -34,36 +23,29 @@ static void turn_on_power_bus_new_method(void) {
     unsigned int k0 = 2000;
 
     for (i = 0; i < 300; i++) {
-        set_battery_state(CELL_A, CELL_ON);
-        set_battery_state(CELL_B, CELL_ON);
+        set_active_batteries(BATTERY_ALL);
         for (j = 0; j < k; j++)
-            Nop();
-        set_battery_state(CELL_A, CELL_OFF);
-        set_battery_state(CELL_B, CELL_OFF);
+            __builtin_nop();
+        set_active_batteries(BATTERY_NONE);
 
         block_ms(10);
 
         k = k0 + i * i / 4;
     }
 
-    set_battery_state(CELL_A, CELL_ON);
-    set_battery_state(CELL_B, CELL_ON);
+    set_active_batteries(BATTERY_ALL);
 }
 
 static void turn_on_power_bus_old_method(void) {
     unsigned int i;
 
     for (i = 0; i < 20; i++) {
-        set_battery_state(CELL_A, CELL_ON);
-        set_battery_state(CELL_B, CELL_ON);
+        set_active_batteries(BATTERY_ALL);
         block_ms(10);
-        set_battery_state(CELL_A, CELL_OFF);
-        set_battery_state(CELL_B, CELL_OFF);
+        set_active_batteries(BATTERY_NONE);
         block_ms(40);
     }
-
-    set_battery_state(CELL_A, CELL_ON);
-    set_battery_state(CELL_B, CELL_ON);
+    set_active_batteries(BATTERY_ALL);
 }
 
 static void turn_on_power_bus_hybrid_method(void) {
@@ -74,21 +56,17 @@ static void turn_on_power_bus_hybrid_method(void) {
     unsigned int k0 = 2000;
 
     for (i = 0; i < 200; i++) {
-        set_battery_state(CELL_A, CELL_ON);
-        set_battery_state(CELL_B, CELL_ON);
+        set_active_batteries(BATTERY_ALL);
         for (j = 0; j < k; j++)
             Nop();
-        set_battery_state(CELL_A, CELL_OFF);
-        set_battery_state(CELL_B, CELL_OFF);
-
+        set_active_batteries(BATTERY_NONE);
         block_ms(40);
         k = k0 + i * i / 4;
         if (k > 20000)
             k = 20000;
     }
 
-    set_battery_state(CELL_A, CELL_ON);
-    set_battery_state(CELL_B, CELL_ON);
+    set_active_batteries(BATTERY_ALL);
 }
 
 #define BATTERY_DATA_LEN 10
@@ -97,16 +75,18 @@ const char DEVICE_NAME_NEW_BATTERY[] = "BT-70791B";
 const char DEVICE_NAME_BT70791_CK[] = "BT-70791CK";
 const char DEVICE_NAME_CUSTOM_BATTERY[] = "ROBOTEX";
 
-void power_bus_init(void) {
+void init_power() {	
+    init_battery_io();
+	
     // if the power bus is already active (like the bootloader did it)
     // then nothing to do here.
-    if (Cell_A_MOS == 1 && Cell_B_MOS == 1) {
+    if (get_active_batteries() == BATTERY_ALL) {
         RCON = 0;
         return;
     }
 
     // _POR = "we are powering on from a black or brownout"
-    // _EXTR = "our reset pin was hit""
+    // _EXTR = "our reset pin was hit"
     // If the system is "warm", we can just switch the power bus back on.
     if (!_POR && !_EXTR) {
         turn_on_power_bus_immediate();
@@ -117,14 +97,10 @@ void power_bus_init(void) {
     // clear the restart reason
     RCON = 0;
 
-    char battery_data1[BATTERY_DATA_LEN];
-    char battery_data2[BATTERY_DATA_LEN];
+    char battery_data1[BATTERY_DATA_LEN] = {0};
+    char battery_data2[BATTERY_DATA_LEN] = {0};
     I2CResult result;
     I2COperationDef op;
-
-    // enable outputs for power bus
-    CELL_A_MOS_EN(1);
-    CELL_B_MOS_EN(1);
 
     // initialize i2c buses
     i2c_enable(I2C_BUS2);
@@ -173,4 +149,64 @@ void power_bus_init(void) {
 
     // if we're using an unknown battery
     turn_on_power_bus_hybrid_method();
+}
+
+
+// The battery has an power protection feature that will kill power if we draw too much current.
+// So if we see the current spike, we kill the motors in order to prevent this.
+static void power_tick_discharging() {
+    static uint16_t current_spike_counter;
+    static uint16_t current_recover_counter;
+
+    // Not charging. Use both batteries.
+    set_active_batteries(BATTERY_ALL);
+
+    uint16_t trigger_thresh = g_settings.power.overcurrent_trigger_threshold_ma * 34 / 1000;
+    uint16_t reset_thresh = g_settings.power.overcurrent_reset_threshold_ma * 34 / 1000;
+
+    if (REG_PWR_A_CURRENT >= trigger_thresh || REG_PWR_B_CURRENT >= trigger_thresh) {
+        // current spike
+        current_spike_counter++;
+        current_recover_counter = 0;
+
+        if (current_spike_counter * g_settings.main.power_poll_ms >=
+            g_settings.power.overcurrent_trigger_duration_ms) {
+            drive_set_coast_lock(true);
+            g_overcurrent = true;
+        }
+    } else {
+        current_recover_counter++;
+        if (REG_PWR_A_CURRENT <= reset_thresh && REG_PWR_B_CURRENT <= reset_thresh) {
+            // low current state
+            current_spike_counter = 0;
+        }
+        if (current_recover_counter * g_settings.main.power_poll_ms >=
+            g_settings.power.overcurrent_reset_duration_ms)
+            drive_set_coast_lock(false);
+        g_overcurrent = false;
+    }
+}
+
+/// When robot is on the charger, only leave one side of the power bus on at a time.
+/// This is so that one side of a battery doesn't charge the other side through the power bus.
+static void power_tick_charging() {
+    static uint16_t active_battery = BATTERY_A;
+    static uint16_t tick_charging = 0;
+
+    if (++tick_charging * g_settings.main.power_poll_ms >
+        g_settings.power.charging_battery_switch_ms) {
+        // Toggle active battery
+        active_battery = (active_battery == BATTERY_A ? BATTERY_B : BATTERY_A);
+        tick_charging = 0;
+    }
+
+    set_active_batteries(active_battery);
+}
+
+void power_tick() {
+    if (REG_MOTOR_CHARGER_STATE == 0xdada) {
+        power_tick_charging();
+    } else {
+        power_tick_discharging();
+    }
 }

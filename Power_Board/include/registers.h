@@ -13,14 +13,15 @@
 ///  - REGISTER(MY_REGISTER_NAME, SOFTWARE_R/W_DIRECTION,
 ///             SYNC_OR_NO_SYNC, my_data_type)
 
-#ifndef REGISTERS_H
-#define REGISTERS_H
-
+#include "stdbool.h"
+#include "stdint.h"
 /*---------------------------Macros------------------------------------------*/
-#define REGISTER_START()
-#define REGISTER_END()
-
+#if !(defined REGISTER && defined REGISTER_START && defined REGISTER_END)
+#error "Necessary macros must be defined before importing this file"
+#endif
 /*---------------------------Type Definitions--------------------------------*/
+#ifndef REGISTER_H_TYPES
+#define REGISTER_H_TYPES
 typedef struct {
     uint8_t data[8];
 } CRYPTO_DATA;
@@ -90,7 +91,6 @@ typedef struct {
 
 // Hitch data type for representing linear position of the latch
 typedef unsigned char hitch_t;
-
 #endif
 
 /*---------------------------Hardware Register Definitions-------------------*/
@@ -311,5 +311,3 @@ REGISTER(REG_BATTERY_VOLTAGE_B, DEVICE_READ, DEVICE_MOTOR, SYNC, uint16_t)
 REGISTER(REG_MOTOR_FB_PERIOD_LEFT, DEVICE_READ, DEVICE_MOTOR, SYNC, uint16_t)
 REGISTER(REG_MOTOR_FB_PERIOD_RIGHT, DEVICE_READ, DEVICE_MOTOR, SYNC, uint16_t)
 REGISTER(REG_MOTOR_FB_PERIOD_FLIPPER, DEVICE_READ, DEVICE_MOTOR, SYNC, uint16_t)
-
-REGISTER_END()

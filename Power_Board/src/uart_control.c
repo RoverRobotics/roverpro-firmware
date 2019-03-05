@@ -1,64 +1,32 @@
-#include "uart_control.h"
-#include "usb_config.h"
-#include "device_robot_motor.h"
 #include "xc.h"
+#include "main.h"
+#include "uart_control.h"
+#include "device_robot_motor.h"
+#include "settings.h"
+#include "drive.h"
 #include "version.GENERATED.h"
+#include "flipper.h"
+#include "cooling.h"
+#include "bytequeue.h"
 
 #define RX_PACKET_SIZE 7
 #define TX_PACKET_SIZE 5
 
-/// A ring queue used to buffer incoming and outgoing data
-/// It is safe for data to be enqueued by one function and dequeued by an interrupt or vice versa.
-typedef struct Queue {
-    /// size of the buffer that data will be stored in. Should be a power of 2
-    const size_t buflen;
-    /// number of bytes that have been enqueued over the lifetime of this queue
-    volatile int16_t n_enqueued;
-    /// number of bytes that have been dequeued over the lifetime of this queue
-    volatile int16_t n_dequeued;
-    /// physical buffer that the data will be stored in
-    uint8_t *const buffer;
-} Queue;
-
-/// @return number of bytes that can be enqueued
-int16_t n_can_enqueue(Queue *q) { return q->buflen - q->n_enqueued + q->n_dequeued; };
-/// @return number of bytes that can be dequeued
-int16_t n_can_dequeue(Queue *q) { return q->n_enqueued - q->n_dequeued; };
-
-/// Add one byte to the queue
-void enqueue(Queue *q, uint8_t value) {
-    if (n_can_enqueue(q) >= 1) {
-        q->buffer[q->n_enqueued % q->buflen] = value;
-        q->n_enqueued++;
-    } else {
-        BREAKPOINT();
-    }
-};
-
-/// Remove one byte from the queue
-/// @return the byte removed
-uint8_t dequeue(Queue *q) {
-    if (n_can_dequeue(q) >= 1) {
-        return q->buffer[q->n_dequeued % q->buflen];
-        q->n_dequeued++;
-    } else {
-        BREAKPOINT();
-        return 0;
-    }
-};
+static uint16_t ticks_since_last_drive_command = UINT16_MAX;
+static uint16_t ticks_since_last_fan_command = UINT16_MAX;
+/// Queues for UART data
+static volatile ByteQueue uart_rx_q = BYTE_QUEUE_NULL;
+static volatile ByteQueue uart_tx_q = BYTE_QUEUE_NULL;
 
 /// In the OpenRover protocol, this byte signifies the start of a message
 const uint8_t UART_START_BYTE = 253;
-
-/// Baud rate for the serial device
-#define UART_BAUD_RATE 57600
 
 /// Checksum of a packet. An OpenRover packet should apply this to the payload
 /// (contents of the message, excluding the start byte). It is calculated as
 /// 255 - (sum of bytes % 255).
 // TODO: this is a lousy checksum. Use a better checksum.
 uint8_t checksum(size_t count, const uint8_t *data) {
-    int i;
+    size_t i;
     uint16_t total = 0;
     for (i = 0; i < count; i++) {
         total += data[i];
@@ -66,33 +34,12 @@ uint8_t checksum(size_t count, const uint8_t *data) {
     return 255 - (total % 255);
 }
 
-/// Size, in bytes, of software buffer for receiving UART data
-#define UART_RX_BUFLEN 256
-/// Underlying buffer for inbound UART data
-uint8_t uart_rx_buffer[UART_RX_BUFLEN];
-/// Queue for inbound UART data
-static Queue uart_rx_queue = {.buflen = UART_RX_BUFLEN, .buffer = uart_rx_buffer};
-
-/// Size, in bytes, of software buffer for sending UART data
-#define UART_TX_BUFLEN 256
-/// Underlying buffer for outbound UART data
-uint8_t uart_tx_buffer[UART_TX_BUFLEN];
-/// Queue for outbound UART data
-static Queue uart_tx_queue = {.buflen = UART_TX_BUFLEN, .buffer = uart_tx_buffer};
-
-void uart_enqueue_debug_string(char *value) {
-    int i;
-    int n = n_can_enqueue(&uart_tx_queue);
-    if (n < 2)
-        return;
-    enqueue(&uart_tx_queue, UART_START_BYTE);
-    for (i = 0; i < n - 2 && value[i] != 0; i++) {
-        enqueue(&uart_tx_queue, value[i]);
-    }
-    enqueue(&uart_tx_queue, 0);
-}
-
 void uart_init() {
+    U1MODEbits.UARTEN = 0;
+
+    bq_try_resize(&uart_rx_q, g_settings.communication.rx_bufsize_bytes);
+    bq_try_resize(&uart_tx_q, g_settings.communication.tx_bufsize_bytes);
+
     // Assign U1RX To U1RX, Uart receive channnel
     _U1RXR = U1RX_RPn;
     // Assign U1TX To U1TX/Uart Tx
@@ -100,12 +47,13 @@ void uart_init() {
 
     // Enable the UART.
     U1MODE = 0x0000;
-    if (UART_BAUD_RATE < FCY / 4.0f) {
+    uint32_t baud_rate = g_settings.communication.baud_rate;
+    if (baud_rate < FCY / 4.0f) {
         U1MODEbits.BRGH = 0; // High Baud Rate Select bit = off
-        U1BRG = FCY / 16 / UART_BAUD_RATE - 1;
+        U1BRG = FCY / 16 / baud_rate - 1;
     } else {
         U1MODEbits.BRGH = 1;
-        U1BRG = FCY / 4 / UART_BAUD_RATE - 1;
+        U1BRG = FCY / 4 / baud_rate - 1;
     }
     U1MODEbits.UARTEN = 1; // UART1 is enabled
 
@@ -126,11 +74,7 @@ void __attribute__((__interrupt__, auto_psv)) _U1RXInterrupt() {
     while (U1STAbits.URXDA) {
         uint8_t a_byte = (uint8_t)U1RXREG;
         // Pop the next byte off the read queue
-        if (n_can_enqueue(&uart_rx_queue) > 0) {
-            enqueue(&uart_rx_queue, a_byte);
-        } else {
-            // Nowhere to put the new data. Oh well.
-        }
+        bq_try_push(&uart_rx_q, 1, &a_byte);
     }
     // if receiver overflowed this resets the module
     if (U1STAbits.OERR) {
@@ -146,9 +90,13 @@ void __attribute__((__interrupt__, auto_psv)) _U1TXInterrupt() {
     // clear the interrupt flag
     _U1TXIF = 0;
     // transmit data
-    while (U1STAbits.UTXBF == 0 &&
-           n_can_dequeue(&uart_tx_queue) > 0) { // while transmit shift buffer is not full
-        U1TXREG = dequeue(&uart_tx_queue);
+    while (U1STAbits.UTXBF == 0) { // while transmit shift buffer is not full
+        uint8_t a_byte;
+        if (bq_try_pop(&uart_tx_q, 1, &a_byte)) {
+            U1TXREG = a_byte;
+        } else {
+            return;
+        }
     }
 }
 
@@ -198,78 +146,127 @@ void uart_serialize_out_data(uint8_t *out_bytes, uint8_t uart_data_identifier) {
         CASE(58, REG_BATTERY_MODE_B)
         CASE(60, REG_BATTERY_TEMP_A)
         CASE(62, REG_BATTERY_TEMP_B)
-        CASE(64, REG_BATTERY_VOLTAGE_A)
+        CASE(64, REG_BATTERY_VOLTAGE_A) 
         CASE(66, REG_BATTERY_VOLTAGE_B)
         CASE(68, REG_BATTERY_CURRENT_A)
         CASE(70, REG_BATTERY_CURRENT_B)
     default:
         break;
-    }
+    } 
 #undef CASE
 }
 
-UArtTickResult uart_tick() {
-    UArtTickResult result = {0};
+void uart_tick() {
+    bool has_drive_command = false;
+    bool has_fan_command = false;
 
-    while (n_can_dequeue(&uart_rx_queue) >= RX_PACKET_SIZE) {
-        size_t i;
-        uint8_t packet[RX_PACKET_SIZE];
-        uint8_t out_packet[TX_PACKET_SIZE];
+	// // debug:
+	// uint8_t RQ_VERSION_MSG[7] = {253,125,125,125,10,40,85};
+	// bq_try_push(&uart_rx_q, sizeof(RQ_VERSION_MSG), RQ_VERSION_MSG);
+	// // end debug
+	
+    static uint8_t packet[RX_PACKET_SIZE];
 
-        packet[0] = dequeue(&uart_rx_queue);
-        if (packet[0] != UART_START_BYTE) {
+    while (bq_count(&uart_rx_q) >= RX_PACKET_SIZE) {
+        bq_try_pop(&uart_rx_q, 1, packet);
+        if (packet[0] != UART_START_BYTE)
+            continue;
+
+        bq_try_pop(&uart_rx_q, RX_PACKET_SIZE - 1, packet + 1);
+		
+		uint8_t expected_checksum = checksum(RX_PACKET_SIZE - 2, packet + 1);
+        if (expected_checksum != packet[RX_PACKET_SIZE - 1]) {
+            // checksum mismatch. discard.
             continue;
         }
-        for (i = 1; i < RX_PACKET_SIZE; i++) {
-            packet[i] = dequeue(&uart_rx_queue);
-        }
-        if (checksum(RX_PACKET_SIZE - 2, &(packet[1])) != packet[RX_PACKET_SIZE - 1]) {
-            continue;
-        }
-        REG_MOTOR_VELOCITY.left = (packet[1] * 8 - 1000);
-        REG_MOTOR_VELOCITY.right = (packet[2] * 8 - 1000);
-        REG_MOTOR_VELOCITY.flipper = (packet[3] * 8 - 1000);
-        uint8_t command = packet[4];
+
+        MotorEfforts efforts = {
+            .left = packet[1] * 8 - 1000,
+            .right = packet[2] * 8 - 1000,
+            .flipper = packet[3] * 8 - 1000,
+        };
+        drive_set_efforts(efforts);
+        has_drive_command = true;
+        UARTCommand verb = packet[4];
         uint8_t arg = packet[5];
 
-        switch (command) {
+        switch (verb) {
         case UART_COMMAND_SET_FAN_SPEED:
+            cooling_set_fan_speed_manual(arg);
             REG_MOTOR_SIDE_FAN_SPEED = arg;
-            result.uart_fan_speed_requested = true;
-            break;
-        case UART_COMMAND_SET_DRIVE_MODE:
-            REG_MOTOR_CLOSED_LOOP = arg;
-            result.uart_motor_control_scheme_requested = true;
+            has_fan_command = true;
             break;
         case UART_COMMAND_RESTART:
             asm volatile("RESET");
             break;
         case UART_COMMAND_FLIPPER_CALIBRATE:
             if (arg == UART_COMMAND_FLIPPER_CALIBRATE) {
-                result.uart_flipper_calibrate_requested = true;
+                // note flipper calibration never returns.
+                flipper_feedback_calibrate();
             }
             break;
-        case UART_COMMAND_GET:
+        case UART_COMMAND_GET: {
+            uint8_t out_packet[5];
             out_packet[0] = UART_START_BYTE;
             out_packet[1] = arg;
-            uart_serialize_out_data(&out_packet[2], arg);
-            out_packet[4] = checksum(3, &out_packet[1]);
+            uart_serialize_out_data(out_packet + 2, arg);
+            out_packet[4] = checksum(3, out_packet + 1);
 
-            if (n_can_enqueue(&uart_tx_queue) >= TX_PACKET_SIZE) {
-                for (i = 0; i < TX_PACKET_SIZE; i++) {
-                    enqueue(&uart_tx_queue, out_packet[i]);
-                }
-                // Start transmission
-                _U1TXIF = 1;
+            if (!bq_try_push(&uart_tx_q, TX_PACKET_SIZE, out_packet)) {
+                BREAKPOINT();
             }
+            // Start transmission
+            _U1TXIF = 1;
+        } break;
+        case UART_COMMAND_SETTINGS_RELOAD:
+            g_settings = settings_load();
             break;
+        case UART_COMMAND_SETTINGS_COMMIT:
+            settings_save(&g_settings);
+            break;
+        case UART_COMMAND_SETTINGS_SET_POWER_POLL_INTERVAL:
+            g_settings.main.power_poll_ms = arg;
+            break;
+        case UART_COMMAND_SETTINGS_SET_OVERCURRENT_TRIGGER_THRESHOLD:
+            g_settings.power.overcurrent_trigger_threshold_ma = arg * 100;
+            break;
+        case UART_COMMAND_SETTINGS_SET_OVERCURRENT_TRIGGER_DURATION:
+            g_settings.power.overcurrent_trigger_duration_ms = arg * 5;
+            break;
+        case UART_COMMAND_SETTINGS_SET_OVERCURRENT_RECOVER_THRESHOLD:
+            g_settings.power.overcurrent_trigger_threshold_ma = arg * 100;
+            break;
+        case UART_COMMAND_SETTINGS_SET_OVERCURRENT_RECOVER_DURATION:
+            g_settings.power.overcurrent_trigger_threshold_ma = arg * 5;
+            break;
+
+        case UART_COMMAND_SET_DRIVE_MODE:
+            break;
+            // fallthrough
         default:
             // unknown inbound command.
             BREAKPOINT();
             break;
         }
-        result.uart_motor_speed_requested = true;
     }
+    if (!has_fan_command && ticks_since_last_fan_command != UINT16_MAX) {
+        if (++ticks_since_last_fan_command * g_settings.main.communication_poll_ms >
+            g_settings.communication.fan_command_timeout_ms) {
+            cooling_set_fan_speed_auto();
+            ticks_since_last_fan_command = UINT16_MAX;
+        }
+    }
+
+    if (!has_drive_command && ticks_since_last_drive_command != UINT16_MAX) {
+        if (++ticks_since_last_drive_command * g_settings.main.communication_poll_ms >
+            g_settings.communication.drive_command_timeout_ms) {
+            // long time no motor commands. stop moving.
+            REG_MOTOR_VELOCITY.left = 0;
+            REG_MOTOR_VELOCITY.right = 0;
+            REG_MOTOR_VELOCITY.flipper = 0;
+            ticks_since_last_drive_command = UINT16_MAX;
+        }
+    }
+
     _U1TXIF = 1;
-    return result;
 }

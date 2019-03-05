@@ -1,5 +1,4 @@
-#include "usb_config.h"
-#include "stdhdr.h"
+#include "main.h"
 #include "device_robot_motor.h"
 #include "i2clib.h"
 #include "device_robot_motor_i2c.h"
@@ -12,17 +11,41 @@
     op = (operationdef);                                                                           \
     progress = I2C_PROGRESS_UNSTARTED;                                                             \
     resume_at = (__LINE__);                                                                        \
+    stall_count = 0;                                                                               \
     case (__LINE__):                                                                               \
         i2c_result = i2c_tick(BUS, &op, &progress);                                                \
         if (i2c_result == I2C_NOTYET) {                                                            \
+            stall_count++;                                                                         \
             return;                                                                                \
         }                                                                                          \
         BREAKPOINT_IF(i2c_result == I2C_ILLEGAL);                                                  \
         // fallthrough to next case
 
-void i2c2_tick(bool should_reset, bool *did_finish) {
-    const I2CBus BUS = I2C_BUS2;
+void re_init_i2c2(void) {
+    i2c_disable(I2C_BUS2);
 
+    _TRISF4 = 0;
+    _TRISF5 = 0;
+    _LATF4 = 0;
+    _LATF5 = 0;
+
+    i2c_enable(I2C_BUS2);
+}
+
+void re_init_i2c3(void) {
+    i2c_disable(I2C_BUS3);
+
+    _TRISE6 = 0;
+    _TRISE7 = 0;
+    _LATE6 = 0;
+    _LATE7 = 0;
+
+    i2c_enable(I2C_BUS3);
+}
+
+void i2c2_tick() {
+    const I2CBus BUS = I2C_BUS2;
+    static uint16_t stall_count = 0;
     static I2COperationDef op;
     static int resume_at = 0;
     static I2CProgress progress;
@@ -30,8 +53,7 @@ void i2c2_tick(bool should_reset, bool *did_finish) {
     static uint8_t a_byte;
 
     I2CResult i2c_result;
-
-    if (should_reset) {
+    if (stall_count * g_settings.main.i2c_poll_ms > g_settings.i2c.step_timeout_ms) {
         if (resume_at != 0) {
             re_init_i2c2();
         }
@@ -90,21 +112,20 @@ void i2c2_tick(bool should_reset, bool *did_finish) {
             REG_BATTERY_CURRENT_A = a_word;
         }
 
-        *did_finish = true;
         resume_at = 0;
     }
 }
 
-void i2c3_tick(bool should_reset, bool *did_finish) {
+void i2c3_tick() {
     const I2CBus BUS = I2C_BUS3;
-
+    static uint16_t stall_count = 0;
     static I2COperationDef op;
     static int resume_at = 0;
     static I2CProgress progress;
     static uint16_t a_word;
     I2CResult i2c_result;
 
-    if (should_reset) {
+    if (stall_count * g_settings.main.i2c_poll_ms > g_settings.i2c.step_timeout_ms) {
         if (resume_at != 0) {
             re_init_i2c3();
         }
@@ -157,31 +178,13 @@ void i2c3_tick(bool should_reset, bool *did_finish) {
             REG_BATTERY_CURRENT_B = a_word;
         }
 
-        *did_finish = true; // reset the I2C3 update timer
         resume_at = 0;
     }
 }
+void i2c_tick_all() {
+    /// Asynchronously query fan controller and battery A, which are on I2C bus 2
+    i2c2_tick();
 
-//*********************************************//
-
-void re_init_i2c2(void) {
-    i2c_disable(I2C_BUS2);
-
-    _TRISF4 = 0;
-    _TRISF5 = 0;
-    _LATF4 = 0;
-    _LATF5 = 0;
-
-    i2c_enable(I2C_BUS2);
-}
-
-void re_init_i2c3(void) {
-    i2c_disable(I2C_BUS3);
-
-    _TRISE6 = 0;
-    _TRISE7 = 0;
-    _LATE6 = 0;
-    _LATE7 = 0;
-
-    i2c_enable(I2C_BUS3);
+    /// Asynchronously query charger and battery B, which are on I2C bus 3
+    i2c3_tick();
 }

@@ -25,9 +25,10 @@ The rover includes an onboard bootloader to allow you to update the firmware.
 
 ### Troubleshooting bootloader
 
- * Your port may vary. On my Windows computer it is `COM3`, on a Linux computer it may be `ttyUSB0` or something similar.
- * If booty says "device not responding" and the green serial board LED is **off**, the rover may be unpowered or not properly connected to the computer. Make sure the battery has charge, the cable is connected properly, you have the correct port selected, and the baud rate is 57600.
-* If booty says "device not responding" and the green serial board LED is **on**, the rover has booted into regular operation. The rover only remains in bootloader mode for 10 seconds after being powered on. Hold down the red side power button for 5 seconds to restart the rover into bootloader mode then retry (note the light may or may not turn off immediately upon reboot).
+ * Your port may vary. On my Windows computer it is `COM3`, on a Linux computer it may be `ttyUSB0` or something similar. Make sure you have the correct port selected, and the baud rate is 57600.
+ * If booty says "device not responding", it means that either the rover has no booted or the rover is no longer in bootloader mode:
+    * If the green serial board LED is **off**, the rover has not yet run its boot sequence. Make sure the battery has charge.
+   * If the green serial board LED is **on**, the has run its boot sequence. The rover only remains in bootloader mode for 10 seconds after being powered on - if that time is elapsed, you need to reboot the robot. Hold down the red side power button for 5 seconds to restart the rover into bootloader mode then retry (note the light may or may not turn off immediately upon reboot).
 * The location of your hexfile may vary. If not found, booty will report "no such file or directory"
 
 
@@ -38,9 +39,9 @@ The rover includes an onboard bootloader to allow you to update the firmware.
 
 ### IDE and build tools
 
-The MCP files can be opened in [MPLAB IDE v8.92](http://ww1.microchip.com/downloads/en/DeviceDoc/MPLAB_IDE_8_92.zip) (not MPLAB X) and should be built with the [Microchip XC16 Toolsuite](https://www.microchip.com/mplab/compilers). This contains not only a compiler/linker/assembler but also standard libraries for the PIC24F MCU's.
+The MCP files can be opened in [MPLAB IDE v8.92](http://ww1.microchip.com/downloads/en/DeviceDoc/MPLAB_IDE_8_92.zip) (not MPLAB X) and should be built with the [Microchip XC16 Toolsuite](https://www.microchip.com/mplab/compilers). This toolsuite contains a compiler/linker/assembler and also standard libraries for the PIC24F MCU's.
 
-To build, use the Debug mode (if you're attaching a PICKit) or Release mode (if you're using this with other things). Note that if you build in Debug mode and you hit a breakpoint (`BREAKPOINT()` macro), execution will halt and wait for the debugger. If no debugger is attached, the device will immediately restart.
+To build, use the Debug mode (if you're attaching a PICKit) or Release mode (if you're not using a PICKit). Note that if you build in Debug mode and you hit a breakpoint (`BREAKPOINT()` macro), execution will halt for the debugger. If no debugger is attached, the device will immediately restart.
 
 ### Building the docs
 
@@ -48,11 +49,9 @@ Everything should be ready for doxygen. (on Windows, `choco install doxygen.inst
 
 To build the docs, switch to the Power_Board subfolder and run `doxygen`.
 
-
-
 ### Code style tools
 
-To tidy up code, I like using **[clang-format](https://clang.llvm.org/docs/ClangFormat.html)**, and have provided a .clang-format file. Clang 6 is currently the latest release for Ubuntu, but feel free to use newer.
+To tidy up code, I like using **[clang-format](https://clang.llvm.org/docs/ClangFormat.html)**, and have provided a .clang-format file.
 
 #### Ubuntu installation of clang-format
 
@@ -111,92 +110,6 @@ The main robot firmware code is the Power Board. This is responsible for communi
 
 firmware.mcp = main project file. Open this with MPLab IDE v8.89
 
-### Call Diagram of Important functions
-
-<script type='text/vnd.graphviz'>
-  digraph g {
-  rankdir=LR;
-  subgraph cluster_1 {
-    label = "main.c";
-    main -> InitializeSystem;
-    InitializeSystem -> USBDeviceInit;
-    InitializeSystem -> USBDeviceAttach;
-  }
-  subgraph cluster_2 {
-    label = "Pic24F hardware interrupts"
-    _U1RXInterrupt;
-    _U1TXInterrupt;
-    _ADCInterrupt;
-    _T3Interrupt;
-    _IC1Interrupt;
-_IC2Interrupt;
-_IC3Interrupt;
-  }
-  subgraph cluster_3 {
-    label = "device_robot_motor.c";
-    IniAD;
-    Device_MotorController_Process;
-    closed_loop_control_init;
-    Motor_T3Interrupt;
-    Motor_ADC1Interrupt;
-    DeviceRobotMotorInit;
-    FANCtrlIni;
-    handle_closed_loop_control;
-  }
-  subgraph cluster_4 {
-    label = "pid.c";
-    PID_Init;
-    PID_ComputeEffort;
-    PID_Reset;
-    PID_Reset_Integral;
-  }
-  subgraph cluster_6 {
-    label = "uart_control.c";
-    uart_init;
-    uart_tick;
-    uart_tx_isf;
-    uart_rx_isf;
-  }
-  subgraph cluster_7 {
-    label = "device_power_bus.c";
-    power_bus_init;
-    power_bus_tick;
-  }
-  subgraph cluster_8 {
-    label = "device_robot_motor_i2c.c";
-    i2c2_tick -> re_init_i2c2;
-    i2c3_tick -> re_init_i2c3;
-  }
-subgraph cluster_9 {
-    label = "motor.c";
-    motor_tach_init;
-    motor_tach_event_capture;
-    motor_tach_get_period;
-  }
-_IC1Interrupt-> motor_tach_event_capture;
-_IC2Interrupt-> motor_tach_event_capture;
-_IC3Interrupt-> motor_tach_event_capture;
-  _ADCInterrupt -> Motor_ADC1Interrupt;
-  _U1TXInterrupt -> uart_tx_isf;
-  _U1RXInterrupt -> uart_rx_isf;
-  _T3Interrupt -> Motor_T3Interrupt;
-  InitializeSystem -> DeviceRobotMotorInit;
-  closed_loop_control_init -> PID_Init;
-  DeviceRobotMotorInit -> IniAD;
-  DeviceRobotMotorInit -> uart_init;
-  DeviceRobotMotorInit -> power_bus_init;
-  DeviceRobotMotorInit -> FANCtrlIni;
-  DeviceRobotMotorInit -> closed_loop_control_init;
-  Device_MotorController_Process -> power_bus_tick;
-  Device_MotorController_Process -> handle_closed_loop_control;
-  Device_MotorController_Process -> i2c2_tick;
-  Device_MotorController_Process -> i2c3_tick;
-  Device_MotorController_Process -> uart_tick;
-  handle_closed_loop_control -> PID_ComputeEffort;
-  handle_closed_loop_control -> PID_Reset;
-  handle_closed_loop_control -> PID_Reset_Integral;
-  }
-</script>
 
 
 

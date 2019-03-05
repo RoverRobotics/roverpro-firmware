@@ -1,11 +1,12 @@
 /*---------------------------Dependencies-------------------------------------*/
-#include "usb_config.h"
+#include "main.h"
 #include "motor.h"
-#include "stdhdr.h"
 #include "hardware_definitions.h"
 
 /*---------------------------Macros-------------------------------------------*/
 #define CAPTURE_BUFFER_COUNT 4
+#define Set_ActiveLO 0
+#define Clear_ActiveLO 1
 /*---------------------------Helper Function Prototypes-----------------------*/
 
 /// Initialize PIC modules Timer4 and Timer5 together as a 32-bit timer
@@ -31,6 +32,18 @@ typedef enum {
     MOTOR_DIR_FORWARD = 1,
     MOTOR_DIR_REVERSE = 0,
 } MotorDir;
+
+/// Set up and start Timer2: 30 kHz, no interrupts.
+/// Timer2 is used as the clock source for motor PWM
+void IniTimer2() {
+    T2CON = 0x0000;         // stops timer2,16 bit timer,internal clock (Fosc/2)
+    T2CONbits.TCKPS = 0b00; // 0b00 = 1:1 prescale
+    TMR2 = 0;
+    uint16_t FREQUENCY_HZ = 30000;
+    PR2 = (FCY / FREQUENCY_HZ) - 1;
+    IFS0bits.T2IF = 0; // clear interrupt flag
+    T2CONbits.TON = 1;   // start timer
+}
 
 /*---------------------------Module Variables---------------------------------*/
 typedef struct {
@@ -201,6 +214,7 @@ static void InitIC3(uint8_t RPn) {
 }
 
 void MotorsInit() {
+    // todo: move this to drive_init
     // set directions of pins
     M1_DIR_EN(1);
     M1_BRAKE_EN(1);
@@ -233,6 +247,7 @@ void MotorsInit() {
     // Assign OC3 To Pin M2_AHI
     M3_PWM = 20; // 20 represents OC3
 
+    IniTimer2();
     PWM1Ini();
     PWM2Ini();
     PWM3Ini();
@@ -255,7 +270,7 @@ void PWM1Ini() {
     /// 0b11111 = This OC1 Module
     OC1CON2bits.SYNCSEL = 0x1F;
     /// 0 = Synchronize OC1 with Source designated with SYNCSEL1 bits
-    OC1CON2bits.OCTRIG = CLEAR;
+    OC1CON2bits.OCTRIG = 0;
     // 5. Select a clock source by writing the
     // OCTSEL<2:0> (OCxCON<12:10>) bits.
     /// 0b000 = Timer2
@@ -281,7 +296,7 @@ void PWM2Ini() {
     OC2R = 0;
     OC2RS = 2000;
     OC2CON2bits.SYNCSEL = 0x1F;
-    OC2CON2bits.OCTRIG = CLEAR;
+    OC2CON2bits.OCTRIG = 0;
     OC2CON1bits.OCTSEL = 0b000; // Timer2
     OC2CON1bits.OCM = 0b110;
 }
@@ -292,7 +307,7 @@ void PWM3Ini() {
     OC3R = 0;
     OC3RS = 2000;
     OC3CON2bits.SYNCSEL = 0x1F;
-    OC3CON2bits.OCTRIG = CLEAR;
+    OC3CON2bits.OCTRIG = 0;
     OC3CON1bits.OCTSEL = 0b000; // Timer2
     OC3CON1bits.OCM = 0b110;
 }
