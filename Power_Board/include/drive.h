@@ -16,6 +16,5 @@ void drive_init();
 void drive_tick();
 void drive_set_efforts(MotorEfforts e);
 void drive_set_coast_lock(bool is_on);
-bool drive_is_approximately_stopped();
 
 #endif

@@ -27,7 +27,7 @@ typedef struct Settings {
         uint16_t fan_command_timeout_ms;
         uint16_t rx_bufsize_bytes;
         uint16_t tx_bufsize_bytes;
-        uint16_t baud_rate;
+        uint32_t baud_rate;
     } communication;
     struct {
         uint16_t overcurrent_trigger_threshold_ma;

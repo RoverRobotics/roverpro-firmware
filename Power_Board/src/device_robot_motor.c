@@ -7,7 +7,6 @@
 #include "i2clib.h"
 #include "motor.h"
 #include "uart_control.h"
-#include "power_bringup.h"
 #include "power.h"
 #include "math.h"
 #include "flipper.h"
@@ -33,30 +32,17 @@ bool tick_counter(uint16_t *value, uint16_t limit) {
 }
 
 void DeviceRobotMotorInit() {
-    // make sure we start off in a default state
-    AD1PCFGL = 0xffff;
-    AD1PCFGH = 0x0003;
-
-    TRISB = 0xffff;
-    TRISC = 0xffff;
-    TRISD = 0xffff;
-    TRISE = 0xffff;
-    TRISF = 0xffff;
-    TRISG = 0xffff;
+    // initialize i2c buses
+    i2c_enable(I2C_BUS2);
+    i2c_enable(I2C_BUS3);
 
     init_power();
-
     uart_init();
-
     analog_init();
-
-    // initialize motor control
     MotorsInit();
-    // initialize motor tachometer feedback
     motor_tach_init();
 
     set_firmware_build_time();
-
     cooling_blast_fan();
 }
 

@@ -39,7 +39,8 @@ const static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = {
             .flipper_poll_ms = 8,
         },
     .communication =
-        {
+        {	.rx_bufsize_bytes = 256,
+	        .tx_bufsize_bytes = 256,
             .baud_rate = 57600,
             .drive_command_timeout_ms = 333,
             .fan_command_timeout_ms = 333,

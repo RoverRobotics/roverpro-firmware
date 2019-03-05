@@ -89,19 +89,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-/// Commanded instruction as received over UART. Most of these commands have
-/// additional data associated with them which are stored in shared globals.
-/// These are not mutually exclusive.
-typedef struct UARTTickResult {
-    /// We have been requested to calibrate the flipper positional sensors
-    bool uart_flipper_calibrate_requested;
-    /// We have been commanded to change the fan speed (to the value in @ref
-    /// REG_MOTOR_SIDE_FAN_SPEED)
-    bool uart_fan_speed_requested;
-    /// We have been commanded to adjust the motor speed (to the values in @ref REG_MOTOR_VELOCITY)
-    bool uart_motor_speed_requested;
-} UArtTickResult;
-
 /// Initialize UART module. Will cause _U1TXInterrupt() and _U1RXInterrupt() to occasionally be
 /// called, which transfer data between a the device's hardware UART module and various software
 /// buffers.
@@ -109,7 +96,7 @@ void uart_init();
 
 /// If we have received data over UART into the software buffers.
 /// May clear the inbound software buffer and populate the outbound software buffer
-UArtTickResult uart_tick();
+void uart_tick();
 
 /// 1-byte command "verb" associated with UART inbound command.
 /// There is also a 1-byte argument associated with some of these
@@ -131,7 +118,7 @@ typedef enum UARTCommand {
     UART_COMMAND_SETTINGS_RELOAD = 1,
     /// Current settings should be saved as the new default startup values
     UART_COMMAND_SETTINGS_COMMIT = 2,
-    
+
     /// Set power polling interval in ms
     UART_COMMAND_SETTINGS_SET_POWER_POLL_INTERVAL = 3,
     /// Set OC trigger threshold in units of 100mA
@@ -142,7 +129,7 @@ typedef enum UARTCommand {
     UART_COMMAND_SETTINGS_SET_OVERCURRENT_RECOVER_THRESHOLD = 6,
     /// Set OC recover duration in units of 5ms
     UART_COMMAND_SETTINGS_SET_OVERCURRENT_RECOVER_DURATION = 7,
-    
+
 } UARTCommand;
 
 #endif

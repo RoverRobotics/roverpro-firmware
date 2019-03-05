@@ -39,17 +39,12 @@ MotorEvent effort_to_event(int16_t effort) {
         return STOP;
 }
 
-void drive_set_efforts(MotorEfforts new_efforts) { 
-        REG_MOTOR_VELOCITY.left = new_efforts.left;
-        REG_MOTOR_VELOCITY.right = new_efforts.right;
-        REG_MOTOR_VELOCITY.flipper = new_efforts.flipper;
+void drive_set_efforts(MotorEfforts new_efforts) {
+    REG_MOTOR_VELOCITY.left = new_efforts.left;
+    REG_MOTOR_VELOCITY.right = new_efforts.right;
+    REG_MOTOR_VELOCITY.flipper = new_efforts.flipper;
 }
 
-bool drive_is_approximately_stopped() {
-    // TODO: usa actual motor speed, not commanded speed, for this
-    return (abs(motor_efforts.left) < 10 && abs(motor_efforts.right) < 10 &&
-            abs(motor_efforts.flipper) < 10);
-}
 void drive_set_coast_lock(bool is_on) { coast_lock = is_on; }
 
 void drive_tick_motor(MotorChannel c, int16_t new_motor_effort) {
@@ -84,9 +79,8 @@ void drive_tick() {
         drive_tick_motor(MOTOR_RIGHT, motor_efforts.right);
         drive_tick_motor(MOTOR_FLIPPER, motor_efforts.flipper);
     }
-    
-      // read out measured motor periods.
-      REG_MOTOR_FB_PERIOD_LEFT = (uint16_t)fabs(motor_tach_get_period(MOTOR_LEFT));
-      REG_MOTOR_FB_PERIOD_RIGHT = (uint16_t)fabs(motor_tach_get_period(MOTOR_RIGHT));
 
+    // read out measured motor periods.
+    REG_MOTOR_FB_PERIOD_LEFT = (uint16_t)fabs(motor_tach_get_period(MOTOR_LEFT));
+    REG_MOTOR_FB_PERIOD_RIGHT = (uint16_t)fabs(motor_tach_get_period(MOTOR_RIGHT));
 }

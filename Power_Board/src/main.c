@@ -33,14 +33,25 @@ void IniTimer1() {
 }
 
 int main(void) {
+    // make sure we start off in a default state
+    AD1PCFGL = 0xffff;
+    AD1PCFGH = 0x0003;
+
+    TRISB = 0xffff;
+    TRISC = 0xffff;
+    TRISD = 0xffff;
+    TRISE = 0xffff;
+    TRISF = 0xffff;
+    TRISG = 0xffff;
+
     g_settings = settings_load();
 
     DeviceRobotMotorInit();
     IniTimer1();
     while (1) {
         __builtin_clrwdt();
-        if (IFS0bits.T1IF == 1) {
-            IFS0bits.T1IF = 0;
+        if (_T1IF == 1) {
+            _T1IF = 0;
             Device_MotorController_Process();
         }
     }
