@@ -1,4 +1,5 @@
-/// @file State of the rover.
+/// @file
+/// State of the rover.
 
 #ifndef STATE_H
 #define STATE_H
@@ -8,11 +9,11 @@
 #include "stdbool.h"
 #include "stdint.h"
 
-/// The state of the rover at any point in time.
-/// The functional area of a particular state variable is the part that *sets* the value. All values
-/// should be written from one functional area but may affect others e.g. "overcurrent" affects the
-/// "drive" functional area and is informed by data from the "analog" functional area, but liwes in
-/// the "power" functional area because it is only set and cleared in power.h
+/// Transient state of the rover at any point in time.
+/// State is grouped according to the functional area that *sets* the value.
+/// Values may be used/affect others e.g. "overcurrent" affects the "drive" functional area and is
+/// informed by data from the "analog" functional area, but lives in the "power" functional area
+/// because it is only set and cleared in power.h
 typedef struct State {
     struct DriveState {
         uint16_t motor_current[MOTOR_CHANNEL_COUNT];

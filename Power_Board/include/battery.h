@@ -1,3 +1,6 @@
+/// @file
+/// Low-level battery control functions
+
 #ifndef BATTERY_H
 #define BATTERY_H
 #include "stdbool.h"

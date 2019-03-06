@@ -6,24 +6,21 @@
 
 #include "../../bootypic/devices/pic24fj256gb106/config.h"
 #include "main.h"
-#include "stdhdr.h"
 #include "motor.h"
-#include "settings.h"
-#include "state.h"
 
 #include "device_robot_motor_i2c.h"
 #include "i2clib.h"
-#include "uart_control.h"
+#include "communication.h"
 #include "power.h"
 #include "flipper.h"
 #include "drive.h"
 #include "analog.h"
 #include "cooling.h"
 
-/// Perform initialization of this module
+/// Perform initialization of all rover subsystems
 void rover_init();
 
-/// Tick process which does a lot more than just control the motor
+/// Do an incremental amount of work on all rover subsystems. Should take <1ms
 void rover_main_loop();
 
 /// Increment `value` until it hits limit,
@@ -38,7 +35,6 @@ bool tick_counter(uint16_t *value, uint16_t limit) {
 }
 
 void rover_init() {
-    // initialize i2c buses
     i2c_enable(I2C_BUS2);
     i2c_enable(I2C_BUS3);
 

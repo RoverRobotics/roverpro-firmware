@@ -1,4 +1,5 @@
-/// @file Settings are persistent values that do not change in regular operation of the rover. They
+/// @file
+/// Settings are persistent values that do not change in regular operation of the rover. They
 /// are reloaded from non-volatile memory when the robot boots up.
 
 #ifndef SETTINGS_H
@@ -7,6 +8,8 @@
 #include "stdint.h"
 #include "stdbool.h"
 
+/// Persistent values that do not change in regular operation of the rover. @ref g_settings =
+/// current settings Settings is grouped according to the functional area affected.
 typedef struct Settings {
     struct {
         char build_date[12];

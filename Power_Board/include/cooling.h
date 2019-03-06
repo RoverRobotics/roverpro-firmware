@@ -1,3 +1,6 @@
+/// @file
+/// Cooling fan control
+
 #ifndef COOLING_H
 #define COOLING_H
 

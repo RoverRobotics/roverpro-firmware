@@ -1,3 +1,6 @@
+/// @file
+/// Analog sampling of various internal devices
+
 #ifndef ANALOG_H
 #define ANALOG_H
 

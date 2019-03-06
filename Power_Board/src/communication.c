@@ -1,7 +1,7 @@
 #include "xc.h"
 #include "main.h"
 #include "hardware_definitions.h"
-#include "uart_control.h"
+#include "communication.h"
 #include "drive.h"
 #include "version.GENERATED.h"
 #include "flipper.h"

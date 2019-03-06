@@ -83,8 +83,8 @@
 /// [^1]: for battery reporting, "internal" means the value comes from the SmartBattery's internal sensor. "external" means the value is reported by circuitry outside the SmartBattery
 // clang-format on
 
-#ifndef UART_CONTROL_H
-#define UART_CONTROL_H
+#ifndef COMMUNICATION_H
+#define COMMUNICATION_H
 
 #include <stdint.h>
 #include <stdbool.h>
