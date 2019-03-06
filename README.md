@@ -162,59 +162,6 @@ motor_speeds(no)->etc
 etc->op
 ```
 
-### registers.h
-
-This file contains metadata about global variables which are used to communicate to and from the robot. Though not truly CPU registers, we call them registers anyway. e.g.:
-
-​	`REGISTER( REG_ROBOT_REL_SOC_A, DEVICE_READ,  DEVICE_MOTOR, SYNC, int16_t )`
-
-- `REG_ROBOT_REL_SOC_A` = name of global variable holding this value
-- `DEVICE_READ` = the firmware will read this value from hardware.
-- `DEVICE_MOTOR` = [DEFUNCT]
-- `SYNC` = [DEFUNCT]
-- `uint16_t` = datatype of variable holding this value
-
-Note that the REGISTER macro is *not* defined in this file. It is defined externally and then this file is imported.
-
-usb_config.c declares a global variable per register to hold the physical data. It also defines an array (`struct REGISTER registers[]`) that makes register metadata available at runtime (except for the datatype).
-
-At this time, the only code that uses register metadata is `main.c::ProcessIO`, which reads/writes registers based on their index in `registers[]`, i.e. their order in `registers.h`
-
-```c
-// usb_config.h
-struct REGISTER
-{
-   SIZE     size;
-   SYNC_BIT sync;
-   DEVICE   device;
-   RW       rw;
-   DATA_PTR ptr;
-};
-
-extern struct REGISTER registers[];
-#define REGISTER( a, b, c, d, e)       extern e a __attribute__((VAR_ATTRIBS));
-#include "registers.h"
-
-// usb_config.c
-
-#define REGISTER( a, b, c, d, e )    e a;
-//...
-#include "registers.h"
-//...
-#undef  REGISTER
-//...
-
-#define REGISTER_START()            struct REGISTER registers[] = { 
-#define REGISTER( a, b, c, d, e )                                   {sizeof(e),d,c,b,&a},
-#define REGISTER_END()                                              {0} };
-//...
-#include "registers.h"
-```
-
-### device_robot_motor.c
-
-This file has the main robot logic. It is structured around a synchronous 1 millisecond timer, and just about everything in it runs on a multiple of that timer.
-
 #### Motor_ADC1Interrupt
 
 Periodically, the hardware [A/D Converter module](http://ww1.microchip.com/downloads/en/DeviceDoc/39705b.pdf)  calls the interrupt function `Motor_ADC1Interrupt` to get incoming analog signals:

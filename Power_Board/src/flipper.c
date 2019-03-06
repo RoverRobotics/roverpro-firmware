@@ -24,8 +24,8 @@ void flipper_feedback_calibrate() {
         Coasting(i);
 
     g_settings.flipper.is_calibrated = true;
-    g_settings.flipper.angle_offset =
-        return_combined_pot_angle(REG_FLIPPER_FB_POSITION.pot1, REG_FLIPPER_FB_POSITION.pot2);
+    g_settings.flipper.angle_offset = return_combined_pot_angle(g_state.analog.flipper_sensors[0],
+                                                                g_state.analog.flipper_sensors[1]);
 
     Settings s = settings_load();
     s.flipper = g_settings.flipper;
@@ -38,10 +38,10 @@ void flipper_feedback_calibrate() {
 }
 
 void tick_flipper_feedback() {
-    uint16_t pot1 = REG_FLIPPER_FB_POSITION.pot1 = analog_get_value(ADC_FLIPPER_POTENTIOMETER_A);
-    uint16_t pot2 = REG_FLIPPER_FB_POSITION.pot2 = analog_get_value(ADC_FLIPPER_POTENTIOMETER_B);
+    uint16_t pot1 = g_state.analog.flipper_sensors[0];
+    uint16_t pot2 = g_state.analog.flipper_sensors[1];
     // update flipper motor position
-    REG_MOTOR_FLIPPER_ANGLE = get_flipper_angle(pot1, pot2);
+    g_state.drive.flipper_angle = get_flipper_angle(pot1, pot2);
 }
 
 uint16_t return_combined_pot_angle(uint16_t pot_1_value, uint16_t pot_2_value) {

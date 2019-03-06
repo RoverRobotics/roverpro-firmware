@@ -2,6 +2,7 @@
 #include "settings.h"
 #include "stdhdr.h"
 #include "xc.h"
+#include "version.GENERATED.h"
 
 // the address of a particular 24-bit word in memory.
 // proper addresses have lsb 0
@@ -29,6 +30,12 @@ uint16_t eeoffset(eeptr addr) { return (uint16_t)addr; }
 
 const static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = {
     //
+    .firmware =
+        {
+            .build_date = BUILD_DATE,
+            .build_time = BUILD_TIME,
+            .release_version_flat = RELEASE_VERSION_FLAT,
+        },
     .main =
         {
             .drive_poll_ms = 5,
@@ -39,8 +46,9 @@ const static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = {
             .flipper_poll_ms = 8,
         },
     .communication =
-        {	.rx_bufsize_bytes = 256,
-	        .tx_bufsize_bytes = 256,
+        {
+            .rx_bufsize_bytes = 256,
+            .tx_bufsize_bytes = 256,
             .baud_rate = 57600,
             .drive_command_timeout_ms = 333,
             .fan_command_timeout_ms = 333,

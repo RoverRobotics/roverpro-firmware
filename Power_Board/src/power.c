@@ -14,7 +14,7 @@ static void turn_on_power_bus_new_method();
 /// Activation routine for some batteries
 static void turn_on_power_bus_hybrid_method();
 
-static void turn_on_power_bus_immediate() { set_active_batteries(BATTERY_ALL); }
+static void turn_on_power_bus_immediate() { set_active_batteries(BATTERY_FLAG_ALL); }
 
 static void turn_on_power_bus_new_method(void) {
     unsigned int i = 0;
@@ -23,29 +23,29 @@ static void turn_on_power_bus_new_method(void) {
     unsigned int k0 = 2000;
 
     for (i = 0; i < 300; i++) {
-        set_active_batteries(BATTERY_ALL);
+        set_active_batteries(BATTERY_FLAG_ALL);
         for (j = 0; j < k; j++)
             __builtin_nop();
-        set_active_batteries(BATTERY_NONE);
+        set_active_batteries(BATTERY_FLAG_NONE);
 
         block_ms(10);
 
         k = k0 + i * i / 4;
     }
 
-    set_active_batteries(BATTERY_ALL);
+    set_active_batteries(BATTERY_FLAG_ALL);
 }
 
 static void turn_on_power_bus_old_method(void) {
     unsigned int i;
 
     for (i = 0; i < 20; i++) {
-        set_active_batteries(BATTERY_ALL);
+        set_active_batteries(BATTERY_FLAG_ALL);
         block_ms(10);
-        set_active_batteries(BATTERY_NONE);
+        set_active_batteries(BATTERY_FLAG_NONE);
         block_ms(40);
     }
-    set_active_batteries(BATTERY_ALL);
+    set_active_batteries(BATTERY_FLAG_ALL);
 }
 
 static void turn_on_power_bus_hybrid_method(void) {
@@ -56,17 +56,17 @@ static void turn_on_power_bus_hybrid_method(void) {
     unsigned int k0 = 2000;
 
     for (i = 0; i < 200; i++) {
-        set_active_batteries(BATTERY_ALL);
+        set_active_batteries(BATTERY_FLAG_ALL);
         for (j = 0; j < k; j++)
             Nop();
-        set_active_batteries(BATTERY_NONE);
+        set_active_batteries(BATTERY_FLAG_NONE);
         block_ms(40);
         k = k0 + i * i / 4;
         if (k > 20000)
             k = 20000;
     }
 
-    set_active_batteries(BATTERY_ALL);
+    set_active_batteries(BATTERY_FLAG_ALL);
 }
 
 #define BATTERY_DATA_LEN 10
@@ -75,12 +75,12 @@ const char DEVICE_NAME_NEW_BATTERY[] = "BT-70791B";
 const char DEVICE_NAME_BT70791_CK[] = "BT-70791CK";
 const char DEVICE_NAME_CUSTOM_BATTERY[] = "ROBOTEX";
 
-void init_power() {	
+void init_power() {
     init_battery_io();
-	
+
     // if the power bus is already active (like the bootloader did it)
     // then nothing to do here.
-    if (get_active_batteries() == BATTERY_ALL) {
+    if (get_active_batteries() == BATTERY_FLAG_ALL) {
         RCON = 0;
         return;
     }
@@ -151,7 +151,6 @@ void init_power() {
     turn_on_power_bus_hybrid_method();
 }
 
-
 // The battery has an power protection feature that will kill power if we draw too much current.
 // So if we see the current spike, we kill the motors in order to prevent this.
 static void power_tick_discharging() {
@@ -159,44 +158,45 @@ static void power_tick_discharging() {
     static uint16_t current_recover_counter;
 
     // Not charging. Use both batteries.
-    set_active_batteries(BATTERY_ALL);
+    set_active_batteries(BATTERY_FLAG_ALL);
 
     uint16_t trigger_thresh = g_settings.power.overcurrent_trigger_threshold_ma * 34 / 1000;
     uint16_t reset_thresh = g_settings.power.overcurrent_reset_threshold_ma * 34 / 1000;
 
-    if (REG_PWR_A_CURRENT >= trigger_thresh || REG_PWR_B_CURRENT >= trigger_thresh) {
+    if (g_state.analog.battery_current[0] >= trigger_thresh ||
+        g_state.analog.battery_current[1] >= trigger_thresh) {
         // current spike
         current_spike_counter++;
         current_recover_counter = 0;
 
         if (current_spike_counter * g_settings.main.power_poll_ms >=
             g_settings.power.overcurrent_trigger_duration_ms) {
-            drive_set_coast_lock(true);
-            g_overcurrent = true;
+            g_state.power.overcurrent = true;
         }
     } else {
         current_recover_counter++;
-        if (REG_PWR_A_CURRENT <= reset_thresh && REG_PWR_B_CURRENT <= reset_thresh) {
+        if (g_state.analog.battery_current[0] <= reset_thresh &&
+            g_state.analog.battery_current[1] <= reset_thresh) {
             // low current state
             current_spike_counter = 0;
         }
         if (current_recover_counter * g_settings.main.power_poll_ms >=
-            g_settings.power.overcurrent_reset_duration_ms)
-            drive_set_coast_lock(false);
-        g_overcurrent = false;
+            g_settings.power.overcurrent_reset_duration_ms) {
+            g_state.power.overcurrent = false;
+        }
     }
 }
 
 /// When robot is on the charger, only leave one side of the power bus on at a time.
 /// This is so that one side of a battery doesn't charge the other side through the power bus.
 static void power_tick_charging() {
-    static uint16_t active_battery = BATTERY_A;
+    static uint16_t active_battery = BATTERY_FLAG_A;
     static uint16_t tick_charging = 0;
 
     if (++tick_charging * g_settings.main.power_poll_ms >
         g_settings.power.charging_battery_switch_ms) {
         // Toggle active battery
-        active_battery = (active_battery == BATTERY_A ? BATTERY_B : BATTERY_A);
+        active_battery = (active_battery == BATTERY_FLAG_A ? BATTERY_FLAG_B : BATTERY_FLAG_A);
         tick_charging = 0;
     }
 
@@ -204,7 +204,7 @@ static void power_tick_charging() {
 }
 
 void power_tick() {
-    if (REG_MOTOR_CHARGER_STATE == 0xdada) {
+    if (g_state.i2c.charger_state == 0xdada) {
         power_tick_charging();
     } else {
         power_tick_discharging();

@@ -28,10 +28,3 @@ void cooling_blast_fan() {
     a_byte = 0;
     i2c_synchronously_await(I2C_BUS2, i2c_op_write_byte(FAN_CONTROLLER_ADDRESS, 0x0b, &a_byte));
 }
-
-void cooling_set_fan_speed_manual(uint8_t effort){
-	REG_MOTOR_SIDE_FAN_SPEED = effort;
-}	
-void cooling_set_fan_speed_auto(){
-	REG_MOTOR_SIDE_FAN_SPEED = 0;	
-}

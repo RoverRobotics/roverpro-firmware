@@ -2,11 +2,17 @@
 #define BATTERY_H
 #include "stdbool.h"
 
+typedef enum Battery {
+    BATTERY_A = 0,
+    BATTERY_B = 1,
+} Battery;
+#define BATTERY_COUNT 2
+
 typedef enum BatteryFlag {
-    BATTERY_NONE = 0,
-    BATTERY_A = 1,
-    BATTERY_B = 2,
-    BATTERY_ALL = BATTERY_A | BATTERY_B,
+    BATTERY_FLAG_NONE = 0,
+    BATTERY_FLAG_A = 1 << BATTERY_A,
+    BATTERY_FLAG_B = 1 << BATTERY_B,
+    BATTERY_FLAG_ALL = BATTERY_FLAG_A | BATTERY_FLAG_B,
 } BatteryFlag;
 
 void init_battery_io();

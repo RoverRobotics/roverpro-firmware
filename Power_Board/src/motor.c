@@ -42,7 +42,7 @@ void IniTimer2() {
     uint16_t FREQUENCY_HZ = 30000;
     PR2 = (FCY / FREQUENCY_HZ) - 1;
     IFS0bits.T2IF = 0; // clear interrupt flag
-    T2CONbits.TON = 1;   // start timer
+    T2CONbits.TON = 1; // start timer
 }
 
 /*---------------------------Module Variables---------------------------------*/
@@ -87,9 +87,9 @@ void __attribute__((__interrupt__, auto_psv)) _IC1Interrupt(void) {
         motor_tach_event_capture(MOTOR_LEFT, dir, IC1BUF);
 
         if (dir == MOTOR_DIR_REVERSE)
-            REG_MOTOR_ENCODER_COUNT.left--;
+            g_state.drive.motor_encoder_count[MOTOR_LEFT]--;
         else
-            REG_MOTOR_ENCODER_COUNT.left++;
+            g_state.drive.motor_encoder_count[MOTOR_LEFT]++;
     }
     _IC1IF = 0; // clear the source of the interrupt
 }
@@ -102,9 +102,9 @@ void __attribute__((__interrupt__, auto_psv)) _IC2Interrupt(void) {
         motor_tach_event_capture(MOTOR_RIGHT, dir, IC2BUF);
 
         if (dir == MOTOR_DIR_REVERSE)
-            REG_MOTOR_ENCODER_COUNT.right--;
+            g_state.drive.motor_encoder_count[MOTOR_RIGHT]--;
         else
-            REG_MOTOR_ENCODER_COUNT.right++;
+            g_state.drive.motor_encoder_count[MOTOR_RIGHT]++;
     }
     _IC2IF = 0;
 }

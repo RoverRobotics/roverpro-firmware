@@ -3,11 +3,6 @@
 #include "main.h"
 #include "math.h"
 
-/// The PWM values being sent to each of the motors.
-/// from -1000 to 1000
-/// 0 indicates the motor should brake.
-/// NOTE the motors may also be coasting, e.g. if
-MotorEfforts motor_efforts = {0};
 /// Motors should not switch direction too abruptly. This is the number of drive ticks we have
 /// ignored a motor command.
 uint16_t dead_time_counter[MOTOR_CHANNEL_COUNT] = {0};
@@ -39,12 +34,6 @@ MotorEvent effort_to_event(int16_t effort) {
         return STOP;
 }
 
-void drive_set_efforts(MotorEfforts new_efforts) {
-    REG_MOTOR_VELOCITY.left = new_efforts.left;
-    REG_MOTOR_VELOCITY.right = new_efforts.right;
-    REG_MOTOR_VELOCITY.flipper = new_efforts.flipper;
-}
-
 void drive_set_coast_lock(bool is_on) { coast_lock = is_on; }
 
 void drive_tick_motor(MotorChannel c, int16_t new_motor_effort) {
@@ -70,17 +59,23 @@ void drive_tick_motor(MotorChannel c, int16_t new_motor_effort) {
 }
 
 void drive_tick() {
-    if (coast_lock) {
+    if (coast_lock || g_state.power.overcurrent) {
         Coasting(MOTOR_LEFT);
         Coasting(MOTOR_RIGHT);
         Coasting(MOTOR_FLIPPER);
     } else {
-        drive_tick_motor(MOTOR_LEFT, motor_efforts.left);
-        drive_tick_motor(MOTOR_RIGHT, motor_efforts.right);
-        drive_tick_motor(MOTOR_FLIPPER, motor_efforts.flipper);
+        drive_tick_motor(MOTOR_LEFT, g_state.communication.motor_effort[MOTOR_LEFT]);
+        drive_tick_motor(MOTOR_RIGHT, g_state.communication.motor_effort[MOTOR_RIGHT]);
+        drive_tick_motor(MOTOR_FLIPPER, g_state.communication.motor_effort[MOTOR_FLIPPER]);
     }
 
+    // update the mosfet driving fault flag pin 1-good 2-fault
+    g_state.drive.motor_fault_flags[MOTOR_LEFT] = _RD1;
+    g_state.drive.motor_fault_flags[MOTOR_RIGHT] = _RE5;
+
     // read out measured motor periods.
-    REG_MOTOR_FB_PERIOD_LEFT = (uint16_t)fabs(motor_tach_get_period(MOTOR_LEFT));
-    REG_MOTOR_FB_PERIOD_RIGHT = (uint16_t)fabs(motor_tach_get_period(MOTOR_RIGHT));
+    g_state.drive.motor_encoder_period[MOTOR_LEFT] =
+        (uint16_t)fabs(motor_tach_get_period(MOTOR_LEFT));
+    g_state.drive.motor_encoder_period[MOTOR_RIGHT] =
+        (uint16_t)fabs(motor_tach_get_period(MOTOR_RIGHT));
 }

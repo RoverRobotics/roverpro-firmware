@@ -1,8 +1,7 @@
 #include "xc.h"
 #include "main.h"
+#include "hardware_definitions.h"
 #include "uart_control.h"
-#include "device_robot_motor.h"
-#include "settings.h"
 #include "drive.h"
 #include "version.GENERATED.h"
 #include "flipper.h"
@@ -111,48 +110,49 @@ void uart_serialize_out_data(uint8_t *out_bytes, uint8_t uart_data_identifier) {
         break;
 
     switch (uart_data_identifier) {
-        CASE(0, REG_PWR_TOTAL_CURRENT)
-        CASE(2, REG_MOTOR_FB_RPM.left)
-        CASE(4, REG_MOTOR_FB_RPM.right)
-        CASE(6, REG_FLIPPER_FB_POSITION.pot1)
-        CASE(8, REG_FLIPPER_FB_POSITION.pot2)
-        CASE(10, REG_MOTOR_FB_CURRENT.left)
-        CASE(12, REG_MOTOR_FB_CURRENT.right)
-        CASE(14, REG_MOTOR_ENCODER_COUNT.left)
-        CASE(16, REG_MOTOR_ENCODER_COUNT.right)
+        CASE(0, g_state.analog.battery_current[0] + g_state.analog.battery_current[1])
+        // CASE(2, REG_MOTOR_FB_RPM.left)
+        // CASE(4, REG_MOTOR_FB_RPM.right)
+        CASE(6, g_state.analog.flipper_sensors[0])
+        CASE(8, g_state.analog.flipper_sensors[1])
+        CASE(10, g_state.analog.motor_current[MOTOR_LEFT])
+        CASE(12, g_state.analog.motor_current[MOTOR_RIGHT])
+        CASE(14, g_state.drive.motor_encoder_count[MOTOR_LEFT])
+        CASE(16, g_state.drive.motor_encoder_count[MOTOR_RIGHT])
     case 18:
-        out_bytes[0] = REG_MOTOR_FAULT_FLAG.left;
-        out_bytes[1] = REG_MOTOR_FAULT_FLAG.right;
+        out_bytes[0] = g_state.drive.motor_fault_flags[MOTOR_LEFT];
+        out_bytes[1] = g_state.drive.motor_fault_flags[MOTOR_RIGHT];
         break;
-        CASE(20, REG_MOTOR_TEMP.left)
-        CASE(22, REG_MOTOR_TEMP.right)
-        CASE(24, REG_PWR_BAT_VOLTAGE.a)
-        CASE(26, REG_PWR_BAT_VOLTAGE.b)
-        CASE(28, REG_MOTOR_FB_PERIOD_LEFT)
-        CASE(30, REG_MOTOR_FB_PERIOD_RIGHT)
-        CASE(32, REG_MOTOR_FB_PERIOD_FLIPPER)
-        CASE(34, REG_ROBOT_REL_SOC_A)
-        CASE(36, REG_ROBOT_REL_SOC_B)
-        CASE(38, REG_MOTOR_CHARGER_STATE)
-        CASE(40, RELEASE_VERSION_FLAT)
-        CASE(42, REG_PWR_A_CURRENT)
-        CASE(44, REG_PWR_B_CURRENT)
-        CASE(46, REG_MOTOR_FLIPPER_ANGLE)
-        CASE(48, REG_MOTOR_SIDE_FAN_SPEED)
-        CASE(50, REG_MOTOR_CLOSED_LOOP)
-        CASE(52, REG_BATTERY_STATUS_A)
-        CASE(54, REG_BATTERY_STATUS_B)
-        CASE(56, REG_BATTERY_MODE_A)
-        CASE(58, REG_BATTERY_MODE_B)
-        CASE(60, REG_BATTERY_TEMP_A)
-        CASE(62, REG_BATTERY_TEMP_B)
-        CASE(64, REG_BATTERY_VOLTAGE_A) 
-        CASE(66, REG_BATTERY_VOLTAGE_B)
-        CASE(68, REG_BATTERY_CURRENT_A)
-        CASE(70, REG_BATTERY_CURRENT_B)
+        CASE(20, g_state.i2c.temperature_sensor[0])
+        CASE(22, g_state.i2c.temperature_sensor[1])
+
+        CASE(24, g_state.analog.battery_voltage[BATTERY_A])
+        CASE(26, g_state.analog.battery_voltage[BATTERY_B])
+        CASE(28, g_state.drive.motor_encoder_period[MOTOR_LEFT])
+        CASE(30, g_state.drive.motor_encoder_period[MOTOR_RIGHT])
+        CASE(32, g_state.drive.motor_encoder_period[MOTOR_FLIPPER])
+        CASE(34, g_state.i2c.smartbattery_soc[BATTERY_A])
+        CASE(36, g_state.i2c.smartbattery_soc[BATTERY_B])
+        CASE(38, g_state.i2c.charger_state)
+        CASE(40, g_settings.firmware.release_version_flat)
+        CASE(42, g_state.analog.battery_current[BATTERY_A])
+        CASE(44, g_state.analog.battery_current[BATTERY_B])
+        CASE(46, g_state.drive.flipper_angle)
+        CASE(48, g_state.communication.manual_fan_speed)
+        // CASE(50, REG_MOTOR_CLOSED_LOOP)
+        CASE(52, g_state.i2c.smartbattery_status[BATTERY_A])
+        CASE(54, g_state.i2c.smartbattery_status[BATTERY_B])
+        CASE(56, g_state.i2c.smartbattery_mode[BATTERY_A])
+        CASE(58, g_state.i2c.smartbattery_mode[BATTERY_B])
+        CASE(60, g_state.i2c.smartbattery_temperature[BATTERY_A])
+        CASE(62, g_state.i2c.smartbattery_temperature[BATTERY_B])
+        CASE(64, g_state.i2c.smartbattery_voltage[BATTERY_A])
+        CASE(66, g_state.i2c.smartbattery_voltage[BATTERY_B])
+        CASE(68, g_state.i2c.smartbattery_current[BATTERY_A])
+        CASE(70, g_state.i2c.smartbattery_current[BATTERY_B])
     default:
         break;
-    } 
+    }
 #undef CASE
 }
 
@@ -160,11 +160,11 @@ void uart_tick() {
     bool has_drive_command = false;
     bool has_fan_command = false;
 
-	// // debug:
-	// uint8_t RQ_VERSION_MSG[7] = {253,125,125,125,10,40,85};
-	// bq_try_push(&uart_rx_q, sizeof(RQ_VERSION_MSG), RQ_VERSION_MSG);
-	// // end debug
-	
+    // // debug:
+    // uint8_t RQ_VERSION_MSG[7] = {253,125,125,125,10,40,85};
+    // bq_try_push(&uart_rx_q, sizeof(RQ_VERSION_MSG), RQ_VERSION_MSG);
+    // // end debug
+
     static uint8_t packet[RX_PACKET_SIZE];
 
     while (bq_count(&uart_rx_q) >= RX_PACKET_SIZE) {
@@ -173,27 +173,26 @@ void uart_tick() {
             continue;
 
         bq_try_pop(&uart_rx_q, RX_PACKET_SIZE - 1, packet + 1);
-		
-		uint8_t expected_checksum = checksum(RX_PACKET_SIZE - 2, packet + 1);
+
+        uint8_t expected_checksum = checksum(RX_PACKET_SIZE - 2, packet + 1);
         if (expected_checksum != packet[RX_PACKET_SIZE - 1]) {
             // checksum mismatch. discard.
             continue;
         }
 
-        MotorEfforts efforts = {
-            .left = packet[1] * 8 - 1000,
-            .right = packet[2] * 8 - 1000,
-            .flipper = packet[3] * 8 - 1000,
-        };
-        drive_set_efforts(efforts);
+        g_state.communication.motor_effort[MOTOR_LEFT] = packet[1] * 8 - 1000;
+        g_state.communication.motor_effort[MOTOR_RIGHT] = packet[2] * 8 - 1000;
+        g_state.communication.motor_effort[MOTOR_FLIPPER] = packet[3] * 8 - 1000;
+
         has_drive_command = true;
         UARTCommand verb = packet[4];
         uint8_t arg = packet[5];
 
         switch (verb) {
         case UART_COMMAND_SET_FAN_SPEED:
-            cooling_set_fan_speed_manual(arg);
-            REG_MOTOR_SIDE_FAN_SPEED = arg;
+            g_state.communication.manual_fan_speed = arg;
+            g_state.communication.use_manual_fan_speed = true;
+
             has_fan_command = true;
             break;
         case UART_COMMAND_RESTART:
@@ -252,7 +251,7 @@ void uart_tick() {
     if (!has_fan_command && ticks_since_last_fan_command != UINT16_MAX) {
         if (++ticks_since_last_fan_command * g_settings.main.communication_poll_ms >
             g_settings.communication.fan_command_timeout_ms) {
-            cooling_set_fan_speed_auto();
+            g_state.communication.use_manual_fan_speed = false;
             ticks_since_last_fan_command = UINT16_MAX;
         }
     }
@@ -261,9 +260,10 @@ void uart_tick() {
         if (++ticks_since_last_drive_command * g_settings.main.communication_poll_ms >
             g_settings.communication.drive_command_timeout_ms) {
             // long time no motor commands. stop moving.
-            REG_MOTOR_VELOCITY.left = 0;
-            REG_MOTOR_VELOCITY.right = 0;
-            REG_MOTOR_VELOCITY.flipper = 0;
+            g_state.communication.motor_effort[MOTOR_LEFT] = 0;
+            g_state.communication.motor_effort[MOTOR_RIGHT] = 0;
+            g_state.communication.motor_effort[MOTOR_FLIPPER] = 0;
+
             ticks_since_last_drive_command = UINT16_MAX;
         }
     }

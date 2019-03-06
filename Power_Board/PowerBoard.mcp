@@ -178,7 +178,7 @@ file_033=include\cooling.h
 file_034=include\battery.h
 file_035=include\bytequeue.h
 file_036=..\bootypic\devices\pic24fj256gb106\p24FJ256GB106_app.gld
-file_037=prebuild.py
+file_037=py prebuild.py ${ProjectDir}/include/version.GENERATED.h
 [SUITE_INFO]
 suite_guid={9BCCB495-CD65-480A-BA76-63D8E78B117F}
 suite_state=

@@ -109,20 +109,18 @@ void analog_tick() {
     }
     i_adc_sample = (i_adc_sample + 1) % ADC_SAMPLE_LENGTH;
 
-      REG_MOTOR_FB_CURRENT.left = analog_get_value(ADC_MOTOR_LEFT_CURRENT);
-      REG_MOTOR_FB_CURRENT.right = analog_get_value(ADC_MOTOR_RIGHT_CURRENT);
-      REG_MOTOR_FB_CURRENT.flipper = analog_get_value(ADC_MOTOR_FLIPPER_CURRENT);
+    g_state.analog.motor_current[MOTOR_LEFT] = analog_get_value(ADC_MOTOR_LEFT_CURRENT);
+    g_state.analog.motor_current[MOTOR_RIGHT] = analog_get_value(ADC_MOTOR_RIGHT_CURRENT);
+    g_state.analog.motor_current[MOTOR_FLIPPER] = analog_get_value(ADC_MOTOR_FLIPPER_CURRENT);
 
-      // update the mosfet driving fault flag pin 1-good 2-fault
-      REG_MOTOR_FAULT_FLAG.left = PORTDbits.RD1;
-      REG_MOTOR_FAULT_FLAG.right = PORTEbits.RE5;
+    g_state.analog.battery_voltage[BATTERY_A] = analog_get_value(ADC_CELL_A_VOLTAGE);
+    g_state.analog.battery_voltage[BATTERY_B] = analog_get_value(ADC_CELL_B_VOLTAGE);
 
-      REG_PWR_BAT_VOLTAGE.a = analog_get_value(ADC_CELL_A_VOLTAGE);
-      REG_PWR_BAT_VOLTAGE.b = analog_get_value(ADC_CELL_B_VOLTAGE);
+    g_state.analog.battery_current[BATTERY_A] = analog_get_value(ADC_CELL_A_CURRENT);
+    g_state.analog.battery_current[BATTERY_B] = analog_get_value(ADC_CELL_B_CURRENT);
 
-      REG_PWR_A_CURRENT = analog_get_value(ADC_CELL_A_CURRENT);
-      REG_PWR_B_CURRENT = analog_get_value(ADC_CELL_B_CURRENT);
-      REG_PWR_TOTAL_CURRENT = REG_PWR_A_CURRENT + REG_PWR_B_CURRENT;
+    g_state.analog.flipper_sensors[0] = analog_get_value(ADC_FLIPPER_POTENTIOMETER_A);
+    g_state.analog.flipper_sensors[1] = analog_get_value(ADC_FLIPPER_POTENTIOMETER_B);
 
     IFS0bits.AD1IF = 0;
 }
