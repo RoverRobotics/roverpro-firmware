@@ -3,7 +3,6 @@
 #include "hardware_definitions.h"
 #include "communication.h"
 #include "drive.h"
-#include "version.GENERATED.h"
 #include "flipper.h"
 #include "cooling.h"
 #include "bytequeue.h"
