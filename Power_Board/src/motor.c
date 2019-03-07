@@ -45,7 +45,7 @@ void IniTimer2() {
     T2CONbits.TON = 1; // start timer
 }
 
-/*---------------------------Module Variables---------------------------------*/
+/// A single event of the motor encoder. Three events in the same direction correspond to one revolution.
 typedef struct {
     /// 32-bit timestamp high half
     uint16_t hi;
@@ -80,7 +80,7 @@ void motor_tach_event_capture(MotorChannel channel, MotorDir dir, uint16_t captu
     i_next_event[channel] = (i_next_event[channel] + 1u) % CAPTURE_BUFFER_COUNT;
 }
 
-// Interrupt function for PIC24 Input Capture module 1
+/// Interrupt function for PIC24 Input Capture module 1
 void __attribute__((__interrupt__, auto_psv)) _IC1Interrupt(void) {
     MotorDir dir = (M1_DIRO ? MOTOR_DIR_REVERSE : MOTOR_DIR_FORWARD);
     while (IC1CON1bits.ICBNE) {
@@ -94,7 +94,7 @@ void __attribute__((__interrupt__, auto_psv)) _IC1Interrupt(void) {
     _IC1IF = 0; // clear the source of the interrupt
 }
 
-// Interrupt function for PIC24 Input Capture module 2
+/// Interrupt function for PIC24 Input Capture module 2
 void __attribute__((__interrupt__, auto_psv)) _IC2Interrupt(void) {
     // Note the motor direction is reversed here, since the motor is installed backwards
     MotorDir dir = (M2_DIRO ? MOTOR_DIR_FORWARD : MOTOR_DIR_REVERSE);

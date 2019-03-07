@@ -170,7 +170,7 @@ file_031=include\bytequeue.h
 file_032=include\communication.h
 file_033=include\state.h
 file_034=..\bootypic\devices\pic24fj256gb106\p24FJ256GB106_app.gld
-file_035=py prebuild.py ${ProjectDir}/include/version.GENERATED.h
+file_035=prebuild.py
 [SUITE_INFO]
 suite_guid={9BCCB495-CD65-480A-BA76-63D8E78B117F}
 suite_state=
