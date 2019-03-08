@@ -7,32 +7,38 @@
 
 #include "stdhdr.h"
 
-/// Operational details of the motor.
-/// These correspond to the bit flags in the Allegro A3930 BLDC Controller, but negated.
+/// Motor controllor flags, both input and output. These are bitflags that should be OR-ed together.
+/// These correspond to IO flags for Allegro A3930 BLDC Motor Controller (but negated, since the pins are active-low)
+/// These cooperate with the PWM signal to determine motor behavior.
 typedef enum MotorStatusFlag {
+	/// No flags at all.
 	MOTOR_FLAG_NONE = 0,
 	
-	/// Whether the motor experiences high current. Healthy value is 1; 0 indicates some sort of long-circuit condition
+	/// OUT: Does motor experience high current? Healthy value is 1; 0 indicates some sort of long-circuit condition
 	MOTOR_FLAG_FAULT1 = 1<<0,
-	/// Whether the motor experiences low current. Healthy value is 0; 1 indicates some sort of short-circuit condition
+	/// OUTPUT: Feedback flag: Does motor experience low current? Healthy value is 0; 1 indicates some sort of short-circuit condition
 	MOTOR_FLAG_FAULT2 = 1<<1,
-	/// Bit mask corresponding to all values *read from* the motor, indicating whether the motor is malfunctioning
-	MOTOR_FLAG_MASK_FEEDBACK = MOTOR_FLAG_FAULT1 | MOTOR_FLAG_FAULT2,
 
-	/// Should use fast current decay?
+	/// Control flag: Should use fast current decay?
 	/// Fast mode has higher dynamic response but worse for maintaining speed.
 	/// Ignored when coasting or braking.
 	MOTOR_FLAG_DECAY_MODE = 1<<5,
-	/// Should drive motor in reverse direction? (this is the motor direction clockwise or counterclockwise,
-	/// NOT forward or backwards wrt the rover's heading) Ignored when coasting or braking.
+	/// Control flag: Should drive motor in reverse direction? (this is the motor direction clockwise or counterclockwise,
+	/// NOT forward or backwards w.r.t. the rover's heading)
+	/// Ignored when coasting or braking.
 	MOTOR_FLAG_REVERSE = 1<<2,
-	/// Should brake motor? Ignored when coasting.
+	/// Control flag: Should brake motor? If enabled, PWM value is ignored.
+	/// Ignored when coasting.
 	MOTOR_FLAG_BRAKE = 1<<3,
-	/// Should coast motor?
+	/// Control flag: Should coast motor? If enabled, PWM value is ignored.
 	MOTOR_FLAG_COAST = 1<<4,
-	/// Bit mask corresponding corresponding to all values that are *written to* the motor, controlling its behavior
-	MOTOR_FLAG_MASK_CONTROL = MOTOR_FLAG_BRAKE | MOTOR_FLAG_REVERSE | MOTOR_FLAG_COAST | MOTOR_FLAG_DECAY_MODE,
 } MotorStatusFlag;
+
+/// Bit mask corresponding to all values *read from* the motor, indicating whether the motor is malfunctioning
+#define MOTOR_FLAG_MASK_FEEDBACK (MOTOR_FLAG_FAULT1 | MOTOR_FLAG_FAULT2)
+
+/// Bit mask corresponding corresponding to all values that are *written to* the motor, controlling its behavior
+#define MOTOR_FLAG_MASK_CONTROL (MOTOR_FLAG_BRAKE | MOTOR_FLAG_REVERSE | MOTOR_FLAG_COAST | MOTOR_FLAG_DECAY_MODE)
 
 /// Index of each individual motor in the robot
 typedef enum MotorChannel {
