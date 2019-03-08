@@ -5,8 +5,6 @@
 
 /*---------------------------Macros-------------------------------------------*/
 #define CAPTURE_BUFFER_COUNT 4
-#define Set_ActiveLO 0
-#define Clear_ActiveLO 1
 /*---------------------------Helper Function Prototypes-----------------------*/
 
 /// Initialize PIC modules Timer4 and Timer5 together as a 32-bit timer
@@ -27,7 +25,7 @@ static void PWM3Duty(uint16_t duty);
 /// IC module constant: Clock source of Timer4 is the clock source of the capture counter
 static const uint16_t IC_SELECT_TIMER4 = 0b010;
 
-/// Motor direction constants for M1_DIR and M1_DIRO bits as well as other motors
+/// Motor direction constants for M1_DIRO bits as well as other motors
 typedef enum {
     MOTOR_DIR_FORWARD = 1,
     MOTOR_DIR_REVERSE = 0,
@@ -55,10 +53,17 @@ typedef struct {
     MotorDir dir;
 } EncoderEvent;
 
+/// Index into the event_ring_buffer for the next event capture
 static volatile size_t i_next_event[MOTOR_CHANNEL_COUNT];
+
+/// The most recent encoder events. We only need 2 encoder events to compute an interval,
+/// and old values should be purged.
+// todo: change this to a LIFO data structure
 static volatile EncoderEvent event_ring_buffer[MOTOR_CHANNEL_COUNT][CAPTURE_BUFFER_COUNT];
 
 /*---------------------------Interrupt Service Routines (ISRs)----------------*/
+
+/// Get a single event and note it in the buffer.
 void motor_tach_event_capture(MotorChannel channel, MotorDir dir, uint16_t captured_value_lo) {
     EncoderEvent event;
 
@@ -130,6 +135,35 @@ void motor_tach_init() {
     InitIC2(M2_TACHO_RPN);
     InitIC3(M3_TACHO_RPN);
 }
+
+MotorStatusFlag motor_update(MotorChannel channel, MotorStatusFlag status, uint16_t duty) {
+	// NOTE: all the hardware flags are active-low. So we negate the values before assigning and when retrieving
+	switch (channel){
+		case (MOTOR_LEFT):
+			M1_COAST = !(status & MOTOR_FLAG_COAST);
+			M1_BRAKE = !(status & MOTOR_FLAG_BRAKE);
+			M1_DIR   = !(status & MOTOR_FLAG_REVERSE);
+			M1_MODE  = !(status & MOTOR_FLAG_DECAY_MODE);
+			PWM1Duty(duty);
+			return (status & ~MOTOR_FLAG_MASK_FEEDBACK) | (MOTOR_FLAG_FAULT1 * !M1_FF1) | (MOTOR_FLAG_FAULT2 * !M1_FF2);
+		case (MOTOR_RIGHT):
+			M2_COAST = !(status & MOTOR_FLAG_COAST);
+			M2_BRAKE = !(status & MOTOR_FLAG_BRAKE);
+			M2_DIR =   !(status & MOTOR_FLAG_REVERSE);
+			M2_MODE =  !(status & MOTOR_FLAG_DECAY_MODE);
+			PWM2Duty(duty);
+			return (status & ~MOTOR_FLAG_MASK_FEEDBACK) | (MOTOR_FLAG_FAULT1 * !M2_FF1) | (MOTOR_FLAG_FAULT2 * !M2_FF2);
+		case (MOTOR_FLIPPER):
+			M3_COAST = !(status & MOTOR_FLAG_COAST);
+			M3_BRAKE = !(status & MOTOR_FLAG_BRAKE);
+			M3_DIR =   !(status & MOTOR_FLAG_REVERSE);
+			M3_MODE =  !(status & MOTOR_FLAG_DECAY_MODE);
+			PWM3Duty(duty);
+			return (status & ~MOTOR_FLAG_MASK_FEEDBACK) | (MOTOR_FLAG_FAULT1 * !M3_FF1) | (MOTOR_FLAG_FAULT2 * !M3_FF2);
+	}
+	BREAKPOINT();
+	return 0;
+}	
 
 float motor_tach_get_period(MotorChannel channel) {
     BREAKPOINT_IF(channel > MOTOR_CHANNEL_COUNT);
@@ -231,9 +265,9 @@ void MotorsInit() {
     M3_MODE_EN(1);
     M3_COAST_EN(1);
 
-    MotorChannel i;
-    for (EACH_MOTOR_CHANNEL(i))
-        Coasting(i);
+    MotorChannel c;
+    for (EACH_MOTOR_CHANNEL(c))
+        motor_update(c, MOTOR_FLAG_COAST, 0);
     M1_MODE = 1;
     M2_MODE = 1;
     M3_MODE = 1;
@@ -313,69 +347,3 @@ void PWM3Ini() {
 }
 
 static void PWM3Duty(uint16_t Duty) { OC3R = Duty * 2; }
-
-void Braking(MotorChannel Channel) {
-    switch (Channel) {
-    case MOTOR_LEFT:
-        PWM1Duty(0);
-        M1_COAST = Clear_ActiveLO;
-        M1_BRAKE = Set_ActiveLO;
-        break;
-    case MOTOR_RIGHT:
-        PWM2Duty(0);
-        M2_COAST = Clear_ActiveLO;
-        M2_BRAKE = Set_ActiveLO;
-        break;
-    case MOTOR_FLIPPER:
-        PWM3Duty(0);
-        M3_COAST = Clear_ActiveLO;
-        M3_BRAKE = Set_ActiveLO;
-        break;
-    }
-}
-
-void Coasting(MotorChannel channel) {
-    switch (channel) {
-    case MOTOR_LEFT:
-        PWM1Duty(0);
-        M1_COAST = Set_ActiveLO;
-        M1_BRAKE = Clear_ActiveLO;
-        break;
-    case MOTOR_RIGHT:
-        PWM2Duty(0);
-        M2_COAST = Set_ActiveLO;
-        M2_BRAKE = Clear_ActiveLO;
-        break;
-    case MOTOR_FLIPPER:
-        PWM3Duty(0);
-        M3_COAST = Set_ActiveLO;
-        M3_BRAKE = Clear_ActiveLO;
-        break;
-    }
-}
-
-void UpdateSpeed(MotorChannel channel, int16_t effort) {
-    uint16_t duty = abs(effort);
-
-    switch (channel) {
-    case MOTOR_LEFT:
-        M1_COAST = Clear_ActiveLO;
-        M1_BRAKE = Clear_ActiveLO;
-        M1_DIR = (effort >= 0) ? MOTOR_DIR_FORWARD : MOTOR_DIR_REVERSE;
-        PWM1Duty(duty);
-        break;
-    case MOTOR_RIGHT:
-        M2_COAST = Clear_ActiveLO;
-        M2_BRAKE = Clear_ActiveLO;
-        // Note the motor direction here is reversed, since the motor is installed backwards :-)
-        M2_DIR = (effort >= 0) ? MOTOR_DIR_REVERSE : MOTOR_DIR_FORWARD;
-        PWM2Duty(duty);
-        break;
-    case MOTOR_FLIPPER:
-        M3_COAST = Clear_ActiveLO;
-        M3_BRAKE = Clear_ActiveLO;
-        M3_DIR = (effort >= 0) ? MOTOR_DIR_FORWARD : MOTOR_DIR_REVERSE;
-        PWM3Duty(duty);
-        break;
-    }
-}

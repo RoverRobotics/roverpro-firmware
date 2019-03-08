@@ -17,11 +17,11 @@ static uint16_t return_combined_pot_angle(uint16_t pot_1_value, uint16_t pot_2_v
 uint16_t wrap_angle(int16_t value) { return (uint16_t)((value % 360 + 360) % 360); }
 
 void flipper_feedback_calibrate() {
-    MotorChannel i;
+    MotorChannel c;
 
     // Coast all the motors
-    for (EACH_MOTOR_CHANNEL(i))
-        Coasting(i);
+    for (EACH_MOTOR_CHANNEL(c))
+        motor_update(c, MOTOR_FLAG_COAST, 0);
 
     g_settings.flipper.is_calibrated = true;
     g_settings.flipper.angle_offset = return_combined_pot_angle(g_state.analog.flipper_sensors[0],

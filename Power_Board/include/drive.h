@@ -3,8 +3,7 @@
 
 #ifndef DRIVE_H
 #define DRIVE_H
-#include "motor.h"
-#include "stdint.h"
+#include "stdbool.h"
 
 void drive_init();
 void drive_tick();

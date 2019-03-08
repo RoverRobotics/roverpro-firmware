@@ -18,12 +18,12 @@ typedef struct State {
     struct DriveState {
         uint16_t motor_current[MOTOR_CHANNEL_COUNT];
         uint32_t motor_encoder_count[2];
-        uint8_t motor_fault_flags[2];
         uint16_t flipper_angle;
         uint16_t motor_encoder_period[2];
+        MotorStatusFlag motor_status[MOTOR_CHANNEL_COUNT];
     } drive;
     struct AnalogState {
-	    /// Voltage from each battery, according to an analog sensor
+        /// Voltage from each battery, according to an analog sensor
         uint16_t battery_voltage[BATTERY_COUNT];
         /// Reading of each flipper position potentiometer
         uint16_t flipper_sensors[2];
@@ -33,11 +33,12 @@ typedef struct State {
         uint16_t motor_current[MOTOR_CHANNEL_COUNT];
     } analog;
     struct PowerState {
-	    /// If true, we are drawing too much battery power and are at risk of triggering a hardware overcurrent condition if we continue at current consumption.
+        /// If true, we are drawing too much battery power and are at risk of triggering a hardware
+        /// overcurrent condition if we continue at current consumption.
         bool overcurrent;
     } power;
     struct I2CState {
-	    /// Digital temperature values, as reported by fan controller
+        /// Digital temperature values, as reported by fan controller
         uint16_t temperature_sensor[2];
         /// Whether @ref temperature_sensor values were successfully polled
         bool temperature_sensor_valid[2];
@@ -54,7 +55,7 @@ typedef struct State {
     struct CommunicationState {
         bool use_manual_fan_speed;
         /// value ranges from 0 (off) to 240 (100%)
-        uint8_t manual_fan_speed;
+        uint8_t fan_speed;
         /// values from -1000 to 1000
         int16_t motor_effort[MOTOR_CHANNEL_COUNT];
     } communication;

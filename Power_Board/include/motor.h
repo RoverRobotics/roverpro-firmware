@@ -7,7 +7,34 @@
 
 #include "stdhdr.h"
 
-/// Reference to individually addressable motors
+/// Operational details of the motor.
+/// These correspond to the bit flags in the Allegro A3930 BLDC Controller, but negated.
+typedef enum MotorStatusFlag {
+	MOTOR_FLAG_NONE = 0,
+	
+	/// Whether the motor experiences high current. Healthy value is 1; 0 indicates some sort of long-circuit condition
+	MOTOR_FLAG_FAULT1 = 1<<0,
+	/// Whether the motor experiences low current. Healthy value is 0; 1 indicates some sort of short-circuit condition
+	MOTOR_FLAG_FAULT2 = 1<<1,
+	/// Bit mask corresponding to all values *read from* the motor, indicating whether the motor is malfunctioning
+	MOTOR_FLAG_MASK_FEEDBACK = MOTOR_FLAG_FAULT1 | MOTOR_FLAG_FAULT2,
+
+	/// Should use fast current decay?
+	/// Fast mode has higher dynamic response but worse for maintaining speed.
+	/// Ignored when coasting or braking.
+	MOTOR_FLAG_DECAY_MODE = 1<<5,
+	/// Should drive motor in reverse direction? (this is the motor direction clockwise or counterclockwise,
+	/// NOT forward or backwards wrt the rover's heading) Ignored when coasting or braking.
+	MOTOR_FLAG_REVERSE = 1<<2,
+	/// Should brake motor? Ignored when coasting.
+	MOTOR_FLAG_BRAKE = 1<<3,
+	/// Should coast motor?
+	MOTOR_FLAG_COAST = 1<<4,
+	/// Bit mask corresponding corresponding to all values that are *written to* the motor, controlling its behavior
+	MOTOR_FLAG_MASK_CONTROL = MOTOR_FLAG_BRAKE | MOTOR_FLAG_REVERSE | MOTOR_FLAG_COAST | MOTOR_FLAG_DECAY_MODE,
+} MotorStatusFlag;
+
+/// Index of each individual motor in the robot
 typedef enum MotorChannel {
     /// Motor controlling the left wheel
     MOTOR_LEFT = 0,
@@ -19,6 +46,7 @@ typedef enum MotorChannel {
 
 /// The number of values of MotorChannel
 #define MOTOR_CHANNEL_COUNT 3
+
 /// Helper macro for iterating all motors and storing the result in variable i.
 /// e.g. @code{.c}
 /// int k;
@@ -40,18 +68,12 @@ float motor_tach_get_period(MotorChannel channel);
 /// Initialize motor control
 void MotorsInit();
 
-/// Tell motor controller to coast motor
-///@param channel which motor?
-void Coasting(MotorChannel channel);
-
-/// Tell motor controller to brake motor
-///@param channel which motor?
-void Braking(MotorChannel channel);
-
-/// Communicate new motor speeds/direction to the motor controller.
-///@param channel which motor
-///@param effort signed effort to apply (-1000 : +1000)
-void UpdateSpeed(MotorChannel channel, int16_t effort);
+/// Tell the motor controller what to do with the motor
+/// @param channel Which motor to update?
+/// @param status  What the new status flags should be. Only control flags will be used - fault flags will be ignored
+/// @param duty    The duty cycle of the motor; from 0 to 1000
+/// @return The new motor status, with any new fault flags
+MotorStatusFlag motor_update(MotorChannel channel, MotorStatusFlag status, uint16_t duty);
 
 /// Initialize PWM channel 1 (left motor)
 void PWM1Ini();

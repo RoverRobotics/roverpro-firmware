@@ -118,13 +118,9 @@ void uart_serialize_out_data(uint8_t *out_bytes, uint8_t uart_data_identifier) {
         CASE(12, g_state.analog.motor_current[MOTOR_RIGHT])
         CASE(14, g_state.drive.motor_encoder_count[MOTOR_LEFT])
         CASE(16, g_state.drive.motor_encoder_count[MOTOR_RIGHT])
-    case 18:
-        out_bytes[0] = g_state.drive.motor_fault_flags[MOTOR_LEFT];
-        out_bytes[1] = g_state.drive.motor_fault_flags[MOTOR_RIGHT];
-        break;
+    	// case 18 deprecated
         CASE(20, g_state.i2c.temperature_sensor[0])
         CASE(22, g_state.i2c.temperature_sensor[1])
-
         CASE(24, g_state.analog.battery_voltage[BATTERY_A])
         CASE(26, g_state.analog.battery_voltage[BATTERY_B])
         CASE(28, g_state.drive.motor_encoder_period[MOTOR_LEFT])
@@ -137,7 +133,7 @@ void uart_serialize_out_data(uint8_t *out_bytes, uint8_t uart_data_identifier) {
         CASE(42, g_state.analog.battery_current[BATTERY_A])
         CASE(44, g_state.analog.battery_current[BATTERY_B])
         CASE(46, g_state.drive.flipper_angle)
-        CASE(48, g_state.communication.manual_fan_speed)
+        CASE(48, g_state.communication.fan_speed)
         // CASE(50, REG_MOTOR_CLOSED_LOOP)
         CASE(52, g_state.i2c.smartbattery_status[BATTERY_A])
         CASE(54, g_state.i2c.smartbattery_status[BATTERY_B])
@@ -149,6 +145,9 @@ void uart_serialize_out_data(uint8_t *out_bytes, uint8_t uart_data_identifier) {
         CASE(66, g_state.i2c.smartbattery_voltage[BATTERY_B])
         CASE(68, g_state.i2c.smartbattery_current[BATTERY_A])
         CASE(70, g_state.i2c.smartbattery_current[BATTERY_B])
+        CASE(72, g_state.drive.motor_status[MOTOR_LEFT])
+        CASE(74, g_state.drive.motor_status[MOTOR_RIGHT])
+        CASE(76, g_state.drive.motor_status[MOTOR_FLIPPER])
     default:
         break;
     }
@@ -189,9 +188,7 @@ void uart_tick() {
 
         switch (verb) {
         case UART_COMMAND_SET_FAN_SPEED:
-            g_state.communication.manual_fan_speed = arg;
-            g_state.communication.use_manual_fan_speed = true;
-
+            g_state.communication.fan_speed = arg;
             has_fan_command = true;
             break;
         case UART_COMMAND_RESTART:
@@ -247,24 +244,33 @@ void uart_tick() {
             break;
         }
     }
-    if (!has_fan_command && ticks_since_last_fan_command != UINT16_MAX) {
-        if (++ticks_since_last_fan_command * g_settings.main.communication_poll_ms >
-            g_settings.communication.fan_command_timeout_ms) {
-            g_state.communication.use_manual_fan_speed = false;
-            ticks_since_last_fan_command = UINT16_MAX;
-        }
+
+    if (has_drive_command) {
+        ticks_since_last_drive_command = 0;
+    } else if (ticks_since_last_drive_command == UINT16_MAX) {
+    	// do nothing
+    } else if (++ticks_since_last_drive_command * g_settings.main.communication_poll_ms >
+               g_settings.communication.drive_command_timeout_ms) {
+        // long time no motor commands. stop moving.
+        g_state.communication.motor_effort[MOTOR_LEFT] = 0;
+        g_state.communication.motor_effort[MOTOR_RIGHT] = 0;
+        g_state.communication.motor_effort[MOTOR_FLIPPER] = 0;
+        ticks_since_last_drive_command = UINT16_MAX;
     }
 
-    if (!has_drive_command && ticks_since_last_drive_command != UINT16_MAX) {
-        if (++ticks_since_last_drive_command * g_settings.main.communication_poll_ms >
-            g_settings.communication.drive_command_timeout_ms) {
-            // long time no motor commands. stop moving.
-            g_state.communication.motor_effort[MOTOR_LEFT] = 0;
-            g_state.communication.motor_effort[MOTOR_RIGHT] = 0;
-            g_state.communication.motor_effort[MOTOR_FLIPPER] = 0;
-
-            ticks_since_last_drive_command = UINT16_MAX;
-        }
+    if (has_fan_command) {
+        g_state.communication.use_manual_fan_speed = true;
+        ticks_since_last_fan_command = 0;
+    } else if (ticks_since_last_fan_command == UINT16_MAX) {
+        // If we don't have any fan commands, run the fan if the motors are running
+        if (g_state.communication.motor_effort[MOTOR_LEFT] == 0 && g_state.communication.motor_effort[MOTOR_RIGHT] == 0)
+        	g_state.communication.fan_speed = 0;
+        else
+        	g_state.communication.fan_speed = 240;
+    } else if (++ticks_since_last_fan_command * g_settings.main.communication_poll_ms >
+               g_settings.communication.fan_command_timeout_ms) {
+        g_state.communication.use_manual_fan_speed = false;
+        ticks_since_last_fan_command = UINT16_MAX;
     }
 
     _U1TXIF = 1;

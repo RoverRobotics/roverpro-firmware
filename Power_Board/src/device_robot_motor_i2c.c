@@ -72,8 +72,7 @@ void i2c2_tick() {
         g_state.i2c.temperature_sensor_valid[1] = (i2c_result == I2C_OKAY);
         g_state.i2c.temperature_sensor[1] = a_byte;
 
-        // Fan Controller write PWM1 target duty cycle
-        a_byte = g_state.communication.manual_fan_speed;
+        a_byte = g_state.communication.fan_speed;
         I2C_ASYNCHRONOUSLY(i2c_op_write_byte(FAN_CONTROLLER_ADDRESS, 0x0b, &a_byte));
 
         // Smart Battery read RelativeStateOfCharge
