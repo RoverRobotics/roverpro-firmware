@@ -8,37 +8,47 @@
 #include "stdhdr.h"
 
 /// Motor controllor flags, both input and output. These are bitflags that should be OR-ed together.
-/// These correspond to IO flags for Allegro A3930 BLDC Motor Controller (but negated, since the pins are active-low)
-/// These cooperate with the PWM signal to determine motor behavior.
+/// These correspond to IO flags for Allegro A3930 BLDC Motor Controller (but negated, since the
+/// pins are active-low) These cooperate with the PWM signal to determine motor behavior.
 typedef enum MotorStatusFlag {
-	/// No flags at all.
-	MOTOR_FLAG_NONE = 0,
-	
-	/// OUT: Does motor experience high current? Healthy value is 1; 0 indicates some sort of long-circuit condition
-	MOTOR_FLAG_FAULT1 = 1<<0,
-	/// OUTPUT: Feedback flag: Does motor experience low current? Healthy value is 0; 1 indicates some sort of short-circuit condition
-	MOTOR_FLAG_FAULT2 = 1<<1,
+    /// No flags at all.
+    MOTOR_FLAG_NONE = 0,
 
-	/// Control flag: Should use fast current decay?
-	/// Fast mode has higher dynamic response but worse for maintaining speed.
-	/// Ignored when coasting or braking.
-	MOTOR_FLAG_DECAY_MODE = 1<<5,
-	/// Control flag: Should drive motor in reverse direction? (this is the motor direction clockwise or counterclockwise,
-	/// NOT forward or backwards w.r.t. the rover's heading)
-	/// Ignored when coasting or braking.
-	MOTOR_FLAG_REVERSE = 1<<2,
-	/// Control flag: Should brake motor? If enabled, PWM value is ignored.
-	/// Ignored when coasting.
-	MOTOR_FLAG_BRAKE = 1<<3,
-	/// Control flag: Should coast motor? If enabled, PWM value is ignored.
-	MOTOR_FLAG_COAST = 1<<4,
+    /// Feedback flag: Does motor experience high current? Healthy value is 1; 0 indicates some sort
+    /// of long-circuit condition
+    MOTOR_FLAG_FAULT1 = 1 << 0,
+
+    /// Feedback flag: Does motor experience low current? Healthy value is 0; 1 indicates some sort
+    /// of short-circuit condition
+    MOTOR_FLAG_FAULT2 = 1 << 1,
+    //@}
+    /// Control flag: Should use fast current decay?
+    /// Fast mode has higher dynamic response but worse for maintaining speed.
+    /// Ignored when coasting or braking.
+    MOTOR_FLAG_DECAY_MODE = 1 << 2,
+
+    /// Control flag: Should drive motor in reverse direction? (this is the motor direction
+    /// clockwise or counterclockwise,
+    /// NOT forward or backwards w.r.t. the rover's heading)
+    /// Ignored when coasting or braking.
+    MOTOR_FLAG_REVERSE = 1 << 3,
+
+    /// Control flag: Should brake motor? If enabled, PWM value is ignored.
+    /// Ignored when coasting.
+    MOTOR_FLAG_BRAKE = 1 << 4,
+
+    /// Control flag: Should coast motor? If enabled, PWM value is ignored.
+    MOTOR_FLAG_COAST = 1 << 5,
 } MotorStatusFlag;
 
-/// Bit mask corresponding to all values *read from* the motor, indicating whether the motor is malfunctioning
-#define MOTOR_FLAG_MASK_FEEDBACK (MOTOR_FLAG_FAULT1 | MOTOR_FLAG_FAULT2)
+/// Bit mask corresponding to all values *read from* the motor, indicating whether the motor is
+/// malfunctioning
+static const MotorStatusFlag MOTOR_FLAG_MASK_FEEDBACK = (MOTOR_FLAG_FAULT1 | MOTOR_FLAG_FAULT2);
 
-/// Bit mask corresponding corresponding to all values that are *written to* the motor, controlling its behavior
-#define MOTOR_FLAG_MASK_CONTROL (MOTOR_FLAG_BRAKE | MOTOR_FLAG_REVERSE | MOTOR_FLAG_COAST | MOTOR_FLAG_DECAY_MODE)
+/// Bit mask corresponding corresponding to all values that are *written to* the motor, controlling
+/// its behavior
+static const MotorStatusFlag MOTOR_FLAG_MASK_CONTROL =
+    (MOTOR_FLAG_BRAKE | MOTOR_FLAG_REVERSE | MOTOR_FLAG_COAST | MOTOR_FLAG_DECAY_MODE);
 
 /// Index of each individual motor in the robot
 typedef enum MotorChannel {
@@ -63,6 +73,9 @@ typedef enum MotorChannel {
 #define EACH_MOTOR_CHANNEL(i) i = 0; i < MOTOR_CHANNEL_COUNT; i++
 // clang-format on
 
+/// Initialize driving control for the motor
+void motor_init(MotorChannel channel);
+
 /// Initialize motor feedback (tachometry)
 void motor_tach_init();
 
@@ -71,23 +84,12 @@ void motor_tach_init();
 /// @return Period of the motor in units of 16 microseconds. If the motor period is long, returns 0.
 float motor_tach_get_period(MotorChannel channel);
 
-/// Initialize motor control
-void MotorsInit();
-
 /// Tell the motor controller what to do with the motor
 /// @param channel Which motor to update?
-/// @param status  What the new status flags should be. Only control flags will be used - fault flags will be ignored
+/// @param status  What the new status flags should be. Only control flags will be used - fault
+/// flags will be ignored
 /// @param duty    The duty cycle of the motor; from 0 to 1000
 /// @return The new motor status, with any new fault flags
 MotorStatusFlag motor_update(MotorChannel channel, MotorStatusFlag status, uint16_t duty);
-
-/// Initialize PWM channel 1 (left motor)
-void PWM1Ini();
-
-/// Initialize PWM channel 2 (right motor)
-void PWM2Ini();
-
-/// Initialize PWM channel 3 (flipper motor)
-void PWM3Ini();
 
 #endif

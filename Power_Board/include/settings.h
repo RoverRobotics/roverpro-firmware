@@ -57,7 +57,7 @@ typedef struct Settings {
         uint16_t step_timeout_ms;
     } i2c;
     struct {
-        uint16_t pwm_hz;
+        uint16_t motor_pwm_frequency_khz;
         uint16_t motor_protect_direction_delay_ms;
     } drive;
 } Settings;

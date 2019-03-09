@@ -41,8 +41,7 @@ void rover_init() {
     init_power();
     uart_init();
     analog_init();
-    MotorsInit();
-    motor_tach_init();
+    drive_init();
 
     cooling_blast_fan();
 }
