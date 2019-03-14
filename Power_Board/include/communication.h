@@ -130,7 +130,7 @@ typedef enum UARTCommand {
     UART_COMMAND_SETTINGS_SET_OVERCURRENT_RECOVER_THRESHOLD = 6,
     /// Set OC recover duration in units of 5ms
     UART_COMMAND_SETTINGS_SET_OVERCURRENT_RECOVER_DURATION = 7,
-    /// Set PWM frequency (arg = new frequency in kHz)
+    /// Set PWM frequency in kHz
     UART_COMMAND_SETTINGS_SET_PWM_FREQUENCY = 8,
 } UARTCommand;
 

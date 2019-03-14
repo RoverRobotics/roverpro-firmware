@@ -21,7 +21,7 @@ typedef enum MotorStatusFlag {
     /// Feedback flag: Does motor experience low current? Healthy value is 0; 1 indicates some sort
     /// of short-circuit condition
     MOTOR_FLAG_FAULT2 = 1 << 1,
-    //@}
+
     /// Control flag: Should use fast current decay?
     /// Fast mode has higher dynamic response but worse for maintaining speed.
     /// Ignored when coasting or braking.
