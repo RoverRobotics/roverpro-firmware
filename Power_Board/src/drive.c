@@ -43,7 +43,7 @@ void drive_tick_motor(MotorChannel c, int16_t new_motor_effort) {
     if (dead_time_counter[c] == UINT16_MAX && motor_event[c] == new_motor_event) {
         if (new_motor_effort == 0)
             new_status = MOTOR_FLAG_BRAKE;
-        else if (new_motor_effort > 0)
+        else if (new_motor_effort < 0)
             new_status = MOTOR_FLAG_REVERSE;
         else
             new_status = MOTOR_FLAG_NONE;

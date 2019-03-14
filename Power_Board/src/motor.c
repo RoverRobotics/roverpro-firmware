@@ -50,20 +50,9 @@ static volatile EncoderEvent event_ring_buffer[MOTOR_CHANNEL_COUNT][CAPTURE_BUFF
 /// Get a single event and note it in the buffer.
 void motor_tach_event_capture(MotorChannel channel, MotorDir dir, uint16_t captured_value_lo) {
     EncoderEvent event;
-
-    event.lo = captured_value_lo;
-    // note reading TMR4 saves the value of TMR5 into TMR5HLD.
-    // This is needed since reading TMR4 then TMR5 is not atomic
-    if (TMR4 >= captured_value_lo) {
-        // TMR4 did not yet carry into TMR5
-        event.hi = TMR5HLD;
-    } else {
-        // TMR4 did carry into TMR5
-        // We assume it only overflowed once, that is timer4 did not go through a whole
-        // 2**16 * PCY = 2**16 / 16 MHz = 4 milliseconds cycle
-        event.hi = TMR5HLD - 1;
-    }
-
+	event.lo = TMR4; // note reading TMR4 saves the value of TMR5 into TMR5HLD.
+	event.hi = TMR5HLD;
+	
     event.dir = dir;
     event_ring_buffer[channel][i_next_event[channel]] = event;
     i_next_event[channel] = (i_next_event[channel] + 1u) % CAPTURE_BUFFER_COUNT;
@@ -244,15 +233,6 @@ void outputcompare_pwm_init(OutputCompareModule oc, uint16_t pwm_freq_khz) {
         // OCM 0b110 = Edge PWM Edge-Aligned PWM mode: Output set high when OCxTMR = 0 and set low
         // when OCxTMR = OCxR
         (0b110 << _OC1CON1_OCM_POSITION)
-        // Edge-Aligned PWM Mode Operation:
-        // • When synchronization occurs, the following four events occur on the next increment
-        // cycle:
-        //   - The timer is reset to zero and resumes counting
-        //   - The OCx pin is set high (exception: if OCxRS = 0b0000, the OCx pin would not be set)
-        //	 - The OCxR and OCxRS Buffered registers are updated from OCxR and OCxRS
-        //	 - Interrupt flag, OCxIF, is set
-        // • When the timer and OCxR match, the pin would be set low. This match does not generate
-        // interrupts.
     );
 
     *oc.OCxCON2 = (
