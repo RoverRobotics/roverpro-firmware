@@ -1,11 +1,12 @@
+#ifndef BOOTYPIC
 #include "main.h"
+#endif
+
 #include "hardware_definitions.h"
 #include "power.h"
 #include "battery.h"
 #include "i2clib.h"
 #include "string.h"
-
-extern void drive_set_coast_lock(bool is_on);
 
 /// Activation routine for some batteries
 static void turn_on_power_bus_old_method();
@@ -75,7 +76,7 @@ const char DEVICE_NAME_NEW_BATTERY[] = "BT-70791B";
 const char DEVICE_NAME_BT70791_CK[] = "BT-70791CK";
 const char DEVICE_NAME_CUSTOM_BATTERY[] = "ROBOTEX";
 
-void init_power() {
+void power_init() {
     init_battery_io();
 
     // if the power bus is already active (like the bootloader did it)
@@ -151,6 +152,7 @@ void init_power() {
     turn_on_power_bus_hybrid_method();
 }
 
+#ifndef BOOTYPIC
 // The battery has an power protection feature that will kill power if we draw too much current.
 // So if we see the current spike, we kill the motors in order to prevent this.
 static void power_tick_discharging() {
@@ -210,3 +212,4 @@ void power_tick() {
         power_tick_discharging();
     }
 }
+#endif

@@ -188,7 +188,6 @@ USE_HTAGS              = NO
 VERBATIM_HEADERS       = YES
 CLANG_ASSISTED_PARSING = NO
 CLANG_OPTIONS          =
-CLANG_COMPILATION_DATABASE_PATH= 0
 #---------------------------------------------------------------------------
 # Configuration options related to the alphabetical class index
 #---------------------------------------------------------------------------

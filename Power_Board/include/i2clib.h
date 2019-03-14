@@ -139,6 +139,7 @@ I2CResult i2c_tick(I2CBus bus, const I2COperationDef *op, I2CProgress *progress)
 
 /// Synchronously force the operation to completion
 /// @param bus Which I2C bus to perform the I2C operation.
+/// @param op Operation definition to perform
 /// @return I2C_NOTYET if the operation is not yet complete.
 ///          I2C_OKAY if the operation completed successfully
 ///          other values if the operation failed

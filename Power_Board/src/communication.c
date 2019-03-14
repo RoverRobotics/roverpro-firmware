@@ -159,15 +159,15 @@ void uart_tick() {
     bool has_fan_command = false;
 
     // // debug:
-    //UARTCommand test_verb = UART_COMMAND_GET;
-    //uint8_t test_arg = 40;
-   	//uint8_t RQ_VERSION_MSG[7] = {253,130,130,125,test_verb,test_arg,0};
-    //RQ_VERSION_MSG[6] = checksum(5,RQ_VERSION_MSG+1);
-    //bq_try_push(&uart_rx_q, sizeof(RQ_VERSION_MSG), RQ_VERSION_MSG);
+    // UARTCommand test_verb = UART_COMMAND_GET;
+    // uint8_t test_arg = 40;
+    // uint8_t RQ_TEST_MSG[7] = {253, 128, 128, 125, test_verb, test_arg, 0};
+    // RQ_TEST_MSG[6] = checksum(5, RQ_TEST_MSG + 1);
+    // bq_try_push(&uart_rx_q, sizeof(RQ_TEST_MSG), RQ_TEST_MSG);
     // // end debug
 
     while (bq_can_pop(&uart_rx_q, RX_PACKET_SIZE)) {
-    	uint8_t packet[RX_PACKET_SIZE] = {0};
+        uint8_t packet[RX_PACKET_SIZE] = {0};
         bq_try_pop(&uart_rx_q, 1, packet);
         if (packet[0] != UART_START_BYTE)
             continue;

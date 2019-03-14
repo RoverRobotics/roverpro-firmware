@@ -6,8 +6,6 @@
 /// Motors should not switch direction too abruptly. This is the number of drive ticks we have
 /// ignored a motor command.
 uint16_t dead_time_counter[MOTOR_CHANNEL_COUNT] = {0};
-/// The motors should be turned off
-bool coast_lock = false;
 
 /// For motor state machine. The requested motor state based in inbound motor speed commands, which
 /// informs state machine transitions
@@ -33,8 +31,6 @@ MotorEvent effort_to_event(int16_t effort) {
     else
         return STOP;
 }
-
-void drive_set_coast_lock(bool is_on) { coast_lock = is_on; }
 
 void drive_tick_motor(MotorChannel c, int16_t new_motor_effort) {
     MotorStatusFlag new_status;
@@ -70,7 +66,7 @@ void drive_tick_motor(MotorChannel c, int16_t new_motor_effort) {
 
 void drive_tick() {
     MotorChannel c;
-    if (coast_lock || g_state.power.overcurrent) {
+    if (g_state.power.overcurrent) {
         for (EACH_MOTOR_CHANNEL(c)) {
             g_state.drive.motor_status[c] = motor_update(c, MOTOR_FLAG_COAST, 0);
         }

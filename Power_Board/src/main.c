@@ -38,7 +38,7 @@ void rover_init() {
     i2c_enable(I2C_BUS2);
     i2c_enable(I2C_BUS3);
 
-    init_power();
+    power_init();
     uart_init();
     analog_init();
     drive_init();

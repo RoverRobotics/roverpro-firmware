@@ -1,18 +1,18 @@
 #! python3.7
 import argparse
-from functools import partial
-
-import trio
 import configparser
 import logging
 import os
 from pathlib import Path
+import shutil
+import subprocess
 import urllib.parse
 import webbrowser
-import git
 
 import coloredlogs
+import git
 import github
+import trio
 
 from mplab import MPLabProject
 
@@ -51,7 +51,7 @@ async def build_project(p):
 
 
 async def exec(pargs, **kwargs):
-    async with trio.subprocess.Process(pargs, **kwargs, stdout=trio.subprocess.PIPE, stderr=trio.subprocess.PIPE) as process:
+    async with trio.Process(pargs, **kwargs, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as process:
         assert await process.wait() == 0
 
 
@@ -69,17 +69,21 @@ async def main():
     logging.info('Building all project in directory: %s', base_dir)
     mcp_files = [f.absolute() for f in Path(base_dir).rglob('*.mcp')]
 
-    hex_files = []
+    artifacts = []
     async with trio.open_nursery() as nursery:
-        for doxygen_file in Path(base_dir).rglob('Doxyfile'):
-            nursery.start_soon(partial(exec, ['doxygen', str(doxygen_file)], cwd=doxygen_file.parent))
-
         for mcp_file in mcp_files:
             async def make_project(mcp):
                 mplab_project = MPLabProject(mcp, debug_build=command_line_options.debug)
-                hex_files.append(await build_project(mplab_project))
+                artifacts.append(await build_project(mplab_project))
 
             nursery.start_soon(make_project, mcp_file)
+
+    for doxyfile in Path(base_dir).rglob('Doxyfile'):
+        # todo: make this async. For some reason it was just hanging when I tried
+        subprocess.run(['doxygen', str(doxyfile)], cwd=doxyfile.parent)
+        z = shutil.make_archive(doxyfile.parent / 'doc' / (doxyfile.parent.stem + "_documentation"), 'zip',
+                                Path(doxyfile.parent) / 'doc/html')
+        artifacts.append(Path(z))
 
     if command_line_options.upload:
         logging.info('Uploading to git...')
@@ -87,7 +91,7 @@ async def main():
         local = git.Repo(base_dir, search_parent_directories=True)
         SECTION = 'github-release'
         git_file = os.path.join(local.git_dir, 'config')
-        with  local.config_writer() as git_config:
+        with local.config_writer() as git_config:
             try:
                 git_config.add_section(SECTION)
             except configparser.DuplicateSectionError:
@@ -150,7 +154,7 @@ async def main():
         )
         logging.info('Created GitHub release. Adding assets...')
 
-        for b in hex_files:
+        for b in artifacts:
             asset = release.upload_asset(str(b))
             new_name = f'{b.stem}-{tag or "UNTAGGED"}{b.suffix}'
             asset.update_asset(new_name, new_name)
