@@ -30,14 +30,7 @@
 ///
 /// ### UART Command Verbs
 ///
-/// |      | Name                 | Description                                                  |
-/// | ---- | -------------------- | ------------------------------------------------------------ |
-/// | 0    | ---                  | No additional action                                         |
-/// | 10   | get data             | Rover will respond with the data element specified by arg    |
-/// | 20   | set fan target speed | Rover will set the cooling fan speed to the arg (0-240) for a while (333ms) |
-/// | 230  | restart              | Rover will restart. If arg=0, then the bootloader will be skipped. If arg=0, then the rover will skip the bootloader. If arg=1, then the rover will enter the Bootloader upon restart. |
-/// |~~240~~| ~~set drive mode~~  | If arg = 0, rover will be driven in open loop mode (commanded speeds will be the direction and effort of the motor)<br />If arg=1, rover will be driven in closed loop mode (commanded speeds will be the intended speed of the motor) |
-/// | 230  | flipper calibrate    | If arg = 230, calibrate the flipper. Note the robot must be manually cycled before it will accept additional commands. |
+/// See @ref UARTCommand fer details
 ///
 /// ### UART Data Elements
 ///
@@ -108,18 +101,23 @@ typedef enum UARTCommand {
     UART_COMMAND_NONE = 0,
     /// Robot should respond with the data element specified by argument.
     UART_COMMAND_GET = 10,
-    /// Robot should set the fan speed to argument
+    /// Robot should set the cooling fan speed to the arg (0-240) for a while (333ms)
     UART_COMMAND_SET_FAN_SPEED = 20,
-    /// Robot should restart
+    /// Robot should restart immediately into the bootloader. If no attempt is made to communicate
+    /// with the bootloader (10 seconds), rover will proceed to normal operation
     UART_COMMAND_RESTART = 230,
     /// @deprecated
-    /// Robot should set the closed loop mode to argument.
+    /// If arg = 0, rover will be driven in open loop mode (commanded speeds will be the direction
+    /// and effort of the motor)
+    /// If arg=1, rover will be driven in closed loop mode (commanded speeds will be the intended
+    /// speed of the motor)
     UART_COMMAND_SET_DRIVE_MODE = 240,
-    /// Robot should calibrate the flipper
+    /// If arg = 230, calibrate the flipper and save the results to NVM. Note the robot must be
+    /// manually cycled before it will accept additional commands.
     UART_COMMAND_FLIPPER_CALIBRATE = 250,
-    /// Forget settings and reload default startup values
+    /// Forget settings and reload default startup values from NVM
     UART_COMMAND_SETTINGS_RELOAD = 1,
-    /// Current settings should be saved as the new default startup values
+    /// Current settings should be saved as the new default startup values in NVM
     UART_COMMAND_SETTINGS_COMMIT = 2,
 
     /// Set power polling interval in ms
@@ -132,7 +130,7 @@ typedef enum UARTCommand {
     UART_COMMAND_SETTINGS_SET_OVERCURRENT_RECOVER_THRESHOLD = 6,
     /// Set OC recover duration in units of 5ms
     UART_COMMAND_SETTINGS_SET_OVERCURRENT_RECOVER_DURATION = 7,
-    /// Set PWM frequency in khz
+    /// Set PWM frequency (arg = new frequency in kHz)
     UART_COMMAND_SETTINGS_SET_PWM_FREQUENCY = 8,
 } UARTCommand;
 

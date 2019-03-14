@@ -11,10 +11,13 @@
 /// power buses: The "digital bus" (which powers this microcontroller and we can't turn off) and the
 /// "main bus" (which powers the motor and payload). We are only dealing here with the main bus,
 /// but a hardware overcurrent condition would kill power to both!
-void init_power();
+void power_init();
 
+#ifndef BOOTYPIC
 /// Does an incremental amount of work to protect robot and the batteries.
 /// - If charging, only connects one battery at a time to the main power bus
 /// - If discharging, warns (via the overcurrent flag) if current draw is trending too high
 void power_tick();
+#endif
+
 #endif

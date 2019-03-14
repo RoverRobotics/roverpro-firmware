@@ -173,7 +173,7 @@ file_034=..\bootypic\devices\pic24fj256gb106\p24FJ256GB106_app.gld
 file_035=prebuild.py
 [SUITE_INFO]
 suite_guid={9BCCB495-CD65-480A-BA76-63D8E78B117F}
-suite_state=
+suite_state=-omf=elf
 [TOOL_SETTINGS]
 TS{8493B2ED-D539-4951-86C9-24D5331F0393}=-g
 TS{F9CE474D-6A6C-401D-A11E-BEE01B244D79}=-g -ffunction-sections -Wall
