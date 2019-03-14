@@ -1,18 +1,20 @@
+/// @file
+/// Declares shared globals @ref g_settings and @ref g_state for all rover functional areas
+
 #ifndef MAIN_H
 #define MAIN_H
 
-#include "settings.h"
 #include "stdhdr.h"
+#include "settings.h"
+#include "state.h"
 
+/// The current settings of the robot. Does not change over normal robot operation. May be changed
+/// by commands sent over UART.
 extern Settings g_settings;
-extern bool g_overcurrent;
 
-#define REGISTER_START()
-#define REGISTER(a, b, c, d, e) extern e a;
-#define REGISTER_END()
-#include "registers.h"
-#undef REGISTER_START
-#undef REGISTER
-#undef REGISTER_END
+/// The current state of the robot. Values may change frequently over normal robot operation. Some
+/// additional state may be present in file-static or function-static variables, but any state
+/// variable written by one variable and read by another should live here.
+extern State g_state;
 
 #endif

@@ -36,7 +36,7 @@
 /// | 10   | get data             | Rover will respond with the data element specified by arg    |
 /// | 20   | set fan target speed | Rover will set the cooling fan speed to the arg (0-240) for a while (333ms) |
 /// | 230  | restart              | Rover will restart. If arg=0, then the bootloader will be skipped. If arg=0, then the rover will skip the bootloader. If arg=1, then the rover will enter the Bootloader upon restart. |
-/// |~~240~~| set drive mode       | If arg = 0, rover will be driven in open loop mode (commanded speeds will be the direction and effort of the motor)<br />If arg=1, rover will be driven in closed loop mode (commanded speeds will be the intended speed of the motor) |
+/// |~~240~~| ~~set drive mode~~  | If arg = 0, rover will be driven in open loop mode (commanded speeds will be the direction and effort of the motor)<br />If arg=1, rover will be driven in closed loop mode (commanded speeds will be the intended speed of the motor) |
 /// | 230  | flipper calibrate    | If arg = 230, calibrate the flipper. Note the robot must be manually cycled before it will accept additional commands. |
 ///
 /// ### UART Data Elements
@@ -52,14 +52,14 @@
 /// | 12   | right motor current            | 34 = 1A                                                      |                                                              |
 /// | 14   | left motor encoder count       | 0 - 65535                                                    | May overflow or underflow. Increments when motor driven forward, decrements backward |
 /// | 16   | right motor encoder count      | 0 - 65535                                                    | May overflow or underflow. Increments when motor driven forward, decrements backward |
-/// | 18   | motors fault flag              | Bit flags                                                    | (value & 0x0100) = left motor (value & 0x0001) = right motor |
+/// |~~18~~| ~~motors fault flag~~          | Bit flags                                                    | (value & 0x0100) = left motor (value & 0x0001) = right motor |
 /// | 20   | left motor temperature         | degrees celsius                                              |                                                              |
 /// |~~22~~| ~~right motor temperature~~    | degrees celsius                                              |                                                              |
 /// | 24   | battery A voltage (external) [^1] | 58 = 1V                                                      |                                                              |
 /// | 26   | battery B voltage (external) [^1] | 58 = 1V                                                      |                                                              |
 /// | 28   | left motor encoder interval    |                                                              | 0 when motor stopped. Else proportional to motor period (inverse motor speed) |
 /// | 30   | right motor encoder interval   |                                                              |                                                              |
-/// |~~32~~| flipper motor encoder interval |                                                              |                                                              |
+/// |~~32~~|~~flipper motor encoder interval~~|                                                              |                                                              |
 /// | 34   | battery A state of charge      | 0-100 %                                                      | 0 = battery empty; 100 = battery fully charged               |
 /// | 36   | battery B state of charge      | 0-100 %                                                      |                                                              |
 /// | 38   | battery charging state         | 0 or 0xdada=56026                                            | 0 = not charging; 0xdada = charging                          |
@@ -68,7 +68,7 @@
 /// | 44   | battery B current (external) [^1] | 0-1023, 34 = 1A                                              |                                                              |
 /// | 46   | motor flipper angle            | 0-360, degrees (actual data range needs to be tested)        | Flipper angle                                                |
 /// | 48   | fan speed                      | 0-240,                                                       | Actual fan speed, reported by fan controller                 |
-/// |~~50~~| drive mode                     | 0 (open loop) or 1 (closed loop)                             |                                                              |
+/// |~~50~~|~~drive mode~~                  | 0 (open loop) or 1 (closed loop)                             |                                                              |
 /// | 52   | battery A status               | Bit flags                                                    | Alarm bits:<br />* 0x8000 OVER_CHARGED_ALARM<br />* 0x4000 TERMINATE_CHARGE_ALARM<br />* 0x1000 OVER_TEMP_ALARM<br />* 0x0800 TERMINATE_DISCHARGE_ALARM<br />* 0x0200 REMAINING_CAPACITY_ALARM<br />* 0x0100 REMAINING_TIME_ALARM<br />Status bits:<br />* 0x0080 INITIALIZED<br />* 0x0040 DISCHARGING<br />* 0x0020 FULLY_CHARGED<br />* 0x0010 FULLY_DISCHARGED |
 /// | 54   | battery B status               | Bit flags                                                    |                                                              |
 /// | 56   | battery A mode                 | Bit flags                                                    | Bit 7 (value & 0x80) gives whether battery needs a condition cycle. Other values probably useless |
@@ -79,12 +79,15 @@
 /// | 66   | battery B voltage (internal) [^1] | Voltage of battery in mV                                     |                                                              |
 /// | 68   | battery A current (internal) [^1] | (signed) Current of battery in mA                            | negative values for discharge, positive for charging         |
 /// | 70   | battery B current (internal) [^1] | (signed) Current of battery in mA                            | negative values for discharge, positive for charging         |
+/// | 72   | Left motor status              | Bit flags (MotorStatusFlag)                                     |                                                              |
+/// | 74   | Right motor status             | Bit flags (MotorStatusFlag)                                     |                                                              |
+/// | 76   | Flipper motor status           | Bit flags (MotorStatusFlag)                                     |                                                              |
 ///
 /// [^1]: for battery reporting, "internal" means the value comes from the SmartBattery's internal sensor. "external" means the value is reported by circuitry outside the SmartBattery
 // clang-format on
 
-#ifndef UART_CONTROL_H
-#define UART_CONTROL_H
+#ifndef COMMUNICATION_H
+#define COMMUNICATION_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -129,7 +132,8 @@ typedef enum UARTCommand {
     UART_COMMAND_SETTINGS_SET_OVERCURRENT_RECOVER_THRESHOLD = 6,
     /// Set OC recover duration in units of 5ms
     UART_COMMAND_SETTINGS_SET_OVERCURRENT_RECOVER_DURATION = 7,
-
+    /// Set PWM frequency in khz
+    UART_COMMAND_SETTINGS_SET_PWM_FREQUENCY = 8,
 } UARTCommand;
 
 #endif

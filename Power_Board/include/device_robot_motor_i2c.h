@@ -1,5 +1,5 @@
 /// @file
-/// Communication between the robot and various devices over I2C.
+/// Internal digital communication between the MCU and various devices over I2C.
 
 #ifndef DEVICE_ROBOT_MOTOR_I2C
 #define DEVICE_ROBOT_MOTOR_I2C

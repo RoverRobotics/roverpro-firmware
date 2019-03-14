@@ -1,11 +1,21 @@
+/// @file
+/// Settings are persistent values that do not change in regular operation of the rover. They
+/// are reloaded from non-volatile memory when the robot boots up.
+
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
 #include "stdint.h"
 #include "stdbool.h"
-#include "stddef.h"
 
+/// Persistent values that do not change in regular operation of the rover. @ref g_settings =
+/// current settings Settings is grouped according to the functional area affected.
 typedef struct Settings {
+    struct {
+        char build_date[12];
+        char build_time[12];
+        uint16_t release_version_flat;
+    } firmware;
     struct {
         /// How often to update the motor pwm / direction protection
         uint16_t drive_poll_ms;
@@ -47,12 +57,15 @@ typedef struct Settings {
         uint16_t step_timeout_ms;
     } i2c;
     struct {
-        uint16_t pwm_hz;
+        uint16_t motor_pwm_frequency_khz;
         uint16_t motor_protect_direction_delay_ms;
     } drive;
 } Settings;
 
+/// Load and return settings from non-volatile memory
 Settings settings_load();
+
+/// Save the specified settings to non-volatile memory
 void settings_save(const Settings *settings);
 
 #endif

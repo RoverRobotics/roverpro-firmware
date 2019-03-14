@@ -3,7 +3,9 @@
         {
             "name": "Mac",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "/Applications/microchip/xc16/v1.36/support/generic/h",
+                "/Applications/microchip/xc16/v1.36/support/PIC24F/h"
             ],
             "defines": ["__PIC24FJ256GB106__"],
             "macFrameworkPath": [
@@ -12,7 +14,7 @@
             "compilerPath": "/Applications/microchip/xc16/v1.36/bin/xc16-gcc",
             "cStandard": "c11",
             "cppStandard": "c++17",
-            "intelliSenseMode": "clang-x64"
+            "intelliSenseMode": "gcc-x64"
         }
     ],
     "version": 4

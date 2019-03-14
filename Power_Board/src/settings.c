@@ -1,34 +1,49 @@
-#include "main.h"
 #include "settings.h"
 #include "stdhdr.h"
 #include "xc.h"
+#include "version.GENERATED.h"
 
-// the address of a particular 24-bit word in memory.
-// proper addresses have lsb 0
+/// Address in non-volatile memory. Points to a 24-bit instruction in memory
+/// See the reference manual section "PIC24F Flash Program Memory" for more info.
 typedef uint_least24_t eeptr;
+
+/// Get the table page of the address; i.e. the value for TBLPAG
+uint16_t eepage(eeptr addr) { return (uint16_t)(addr >> 16); }
+
+/// Get the offset of the address; i.e. the first argument for __builtin_tbl[rd/wr][l/h]
+uint16_t eeoffset(eeptr addr) { return (uint16_t)addr; }
 
 // these define how many addresses to skip in between addresses
 // e.g. to get the start of the erase block at address x, use (x/BLOCK_STRIDE)*BLOCK_STRIDE
-// 3 bytes per word, packed into the lowes bit
+
+/// Amount to increment NVM address between words
 #define WORD_STRIDE 0x2UL
-// 64 words per row
+/// Amount to increment NVM address between rows; i.e. the basic unit of writing instructions
+/// 64 words per row
 #define ROW_STRIDE 0x80UL
-// 512 instructions per erase
+/// Amount to increment NVM address between rows; i.e. the minimum size of an erase operation
+/// 512 instructions per erase
 #define BLOCK_STRIDE 0x400UL
-// 16 bit offset in page
+/// Amount to increment NVM address between pages; i.e. the maximum amount of NVM that can be mapped
+/// to RAM at a time using PSV 16 bit offset in page
 #define PAGE_STRIDE 0x10000UL
 
-// although a word is 3 bytes, PSV only uses 2 of them
+/// Although a word is 3 bytes, PSV only exposes 2 of them
 const int BYTES_PER_PSV_WORD = 2;
 
-// Get an eeptr corresponding to the address of the given object in PSV
+/// Get an eeptr corresponding to the address of the given object in PSV
 #define EEADDR(ptr) ((((eeptr)__builtin_tblpage(ptr)) << 16) | __builtin_tbloffset(ptr))
 
-uint16_t eepage(eeptr addr) { return (uint16_t)(addr >> 16); }
-uint16_t eeoffset(eeptr addr) { return (uint16_t)addr; }
-
+/// The robot settings to be loaded when the robot starts up.
+/// The values here are defaults. They may be changed by the @ref settings_save function
 const static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = {
     //
+    .firmware =
+        {
+            .build_date = BUILD_DATE,
+            .build_time = BUILD_TIME,
+            .release_version_flat = RELEASE_VERSION_FLAT,
+        },
     .main =
         {
             .drive_poll_ms = 5,
@@ -39,8 +54,9 @@ const static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = {
             .flipper_poll_ms = 8,
         },
     .communication =
-        {	.rx_bufsize_bytes = 256,
-	        .tx_bufsize_bytes = 256,
+        {
+            .rx_bufsize_bytes = 256,
+            .tx_bufsize_bytes = 256,
             .baud_rate = 57600,
             .drive_command_timeout_ms = 333,
             .fan_command_timeout_ms = 333,
@@ -63,15 +79,16 @@ const static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = {
         },
     .drive =
         {
-            .pwm_hz = 1000,
+            .motor_pwm_frequency_khz = 8,
             .motor_protect_direction_delay_ms = 10,
         },
 };
 
-const uint16_t NVMCON_ERASE_BLOCK = 0x4042;
-const uint16_t NVMCON_WRITE_ROW = 0x4001;
-
+/// Erase the given block of NVM.
 void nvm_erase_block(eeptr dest) {
+    /// Value for NVMCON to begin a block erase operation
+    const uint16_t NVMCON_ERASE_BLOCK = 0x4042;
+
     uint16_t old_tblpag = TBLPAG;
     BREAKPOINT_IF(dest % BLOCK_STRIDE != 0);
     TBLPAG = eepage(dest);
@@ -84,8 +101,11 @@ void nvm_erase_block(eeptr dest) {
     TBLPAG = old_tblpag;
 }
 
+/// Copy the data from the write latches into an NVM row.
 void flush_psv_row() {
-    // flush the current row to NVM
+    /// Value for NVMCON to begin a row write operation
+    const uint16_t NVMCON_WRITE_ROW = 0x4001;
+
     NVMCON = NVMCON_WRITE_ROW;
     __builtin_disi(5);
     __builtin_write_NVM();
@@ -93,7 +113,7 @@ void flush_psv_row() {
 
 /// Copy the given value to the EEPROM program space.
 /// We only take advantage of the 16 lowest bits of each instruction
-/// We also assume the target address has already been erased
+/// We also assume the destination block has already been erased.
 /// @param dest destination address in EEPROM
 /// @param src source address in RAM
 /// @param count number of bytes to copy. Generally sizeof(*src).
@@ -112,8 +132,11 @@ void psv_write(eeptr dest, const void *src, size_t count) {
         uint16_t value;
         if (i_src + 1 == count) {
             value = (*(uint8_t *)(src + i_src)) | 0xff00;
-        } else {
+        } else if (i_src < count) {
             value = *(uint16_t *)(src + i_src);
+        } else {
+            // this leaves the data in NVM unchanged
+            value = 0xffff;
         }
         __builtin_tblwth(dest_addr, 0xff);
         __builtin_tblwtl(dest_addr, value);
@@ -121,14 +144,12 @@ void psv_write(eeptr dest, const void *src, size_t count) {
         i_src += BYTES_PER_PSV_WORD;
         dest_addr += WORD_STRIDE;
 
-        if (i_src >= count) {
-            flush_psv_row();
-            break;
-        }
         if (dest_addr % ROW_STRIDE == 0) {
             flush_psv_row();
         }
-        if (dest_addr % PAGE_STRIDE == 0) {
+        if (i_src >= count) {
+            break;
+        } else if (dest_addr % PAGE_STRIDE == 0) {
             TBLPAG = eepage(dest_addr);
         }
     }

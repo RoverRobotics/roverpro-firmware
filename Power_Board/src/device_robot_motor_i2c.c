@@ -1,6 +1,6 @@
 #include "main.h"
-#include "device_robot_motor.h"
 #include "i2clib.h"
+#include "hardware_definitions.h"
 #include "device_robot_motor_i2c.h"
 
 // A step may be reached by either falling through into it (first try)
@@ -63,53 +63,52 @@ void i2c2_tick() {
     case 0:
         // Fan Controller read Temperature channel 1
         I2C_ASYNCHRONOUSLY(i2c_op_read_byte(FAN_CONTROLLER_ADDRESS, 0x00, &a_byte))
-        REG_MOTOR_TEMP_STATUS.left = (i2c_result == I2C_OKAY);
-        REG_MOTOR_TEMP.left = a_byte;
+        g_state.i2c.temperature_sensor_valid[0] = (i2c_result == I2C_OKAY);
+        g_state.i2c.temperature_sensor[0] = a_byte;
 
         // Fan Controller read Temperature channel 2
         // This tends to fail. Does it ever work?
         I2C_ASYNCHRONOUSLY(i2c_op_read_byte(FAN_CONTROLLER_ADDRESS, 0x01, &a_byte))
-        REG_MOTOR_TEMP_STATUS.right = (i2c_result == I2C_OKAY);
-        REG_MOTOR_TEMP.right = a_byte;
+        g_state.i2c.temperature_sensor_valid[1] = (i2c_result == I2C_OKAY);
+        g_state.i2c.temperature_sensor[1] = a_byte;
 
-        // Fan Controller write PWM1 target duty cycle
-        a_byte = REG_MOTOR_SIDE_FAN_SPEED;
+        a_byte = g_state.communication.fan_speed;
         I2C_ASYNCHRONOUSLY(i2c_op_write_byte(FAN_CONTROLLER_ADDRESS, 0x0b, &a_byte));
 
         // Smart Battery read RelativeStateOfCharge
         I2C_ASYNCHRONOUSLY(i2c_op_read_word(BATTERY_ADDRESS, 0x0d, &a_word))
         if (i2c_result == I2C_OKAY) {
-            REG_ROBOT_REL_SOC_A = a_word;
+            g_state.i2c.smartbattery_soc[0] = a_word;
         }
 
         // Smart Battery read BatteryStatus
         I2C_ASYNCHRONOUSLY(i2c_op_read_word(BATTERY_ADDRESS, 0x16, &a_word))
         if (i2c_result == I2C_OKAY) {
-            REG_BATTERY_STATUS_A = a_word;
+            g_state.i2c.smartbattery_status[0] = a_word;
         }
 
         // Smart Battery read BatteryMode
         I2C_ASYNCHRONOUSLY(i2c_op_read_word(BATTERY_ADDRESS, 0x03, &a_word))
         if (i2c_result == I2C_OKAY) {
-            REG_BATTERY_MODE_A = a_word;
+            g_state.i2c.smartbattery_mode[0] = a_word;
         }
 
         // Smart Battery read Temperature
         I2C_ASYNCHRONOUSLY(i2c_op_read_word(BATTERY_ADDRESS, 0x08, &a_word))
         if (i2c_result == I2C_OKAY) {
-            REG_BATTERY_TEMP_A = a_word;
+            g_state.i2c.smartbattery_temperature[0] = a_word;
         }
 
         // Smart Battery read Voltage
         I2C_ASYNCHRONOUSLY(i2c_op_read_word(BATTERY_ADDRESS, 0x09, &a_word))
         if (i2c_result == I2C_OKAY) {
-            REG_BATTERY_VOLTAGE_A = a_word;
+            g_state.i2c.smartbattery_voltage[0] = a_word;
         }
 
         // Smart Battery read Current
         I2C_ASYNCHRONOUSLY(i2c_op_read_word(BATTERY_ADDRESS, 0x0a, &a_word))
         if (i2c_result == I2C_OKAY) {
-            REG_BATTERY_CURRENT_A = a_word;
+            g_state.i2c.smartbattery_current[0] = a_word;
         }
 
         resume_at = 0;
@@ -136,46 +135,46 @@ void i2c3_tick() {
         // Smart Battery read RelativeStateOfCharge
         I2C_ASYNCHRONOUSLY(i2c_op_read_word(BATTERY_ADDRESS, 0x0d, &a_word))
         if (i2c_result == I2C_OKAY) {
-            REG_ROBOT_REL_SOC_B = a_word;
+            g_state.i2c.smartbattery_soc[1] = a_word;
         }
 
         // See Internal_Charger firmware for slave device logic.
         // Note the battery charger is expected to be unreachable except while charging
         I2C_ASYNCHRONOUSLY(i2c_op_read_word(BATTERY_CHARGER_ADDRESS, 0xca, &a_word))
         if (i2c_result == I2C_OKAY) {
-            REG_MOTOR_CHARGER_STATE = a_word;
+            g_state.i2c.charger_state = a_word;
         } else {
-            REG_MOTOR_CHARGER_STATE = 0;
+            g_state.i2c.charger_state = 0;
         }
 
         // Smart Battery read BatteryStatus
         I2C_ASYNCHRONOUSLY(i2c_op_read_word(BATTERY_ADDRESS, 0x16, &a_word))
         if (i2c_result == I2C_OKAY) {
-            REG_BATTERY_STATUS_B = a_word;
+            g_state.i2c.smartbattery_status[1] = a_word;
         }
 
         // Smart Battery read BatteryMode
         I2C_ASYNCHRONOUSLY(i2c_op_read_word(BATTERY_ADDRESS, 0x03, &a_word))
         if (i2c_result == I2C_OKAY) {
-            REG_BATTERY_MODE_B = a_word;
+            g_state.i2c.smartbattery_mode[1] = a_word;
         }
 
         // Smart Battery read Temperature
         I2C_ASYNCHRONOUSLY(i2c_op_read_word(BATTERY_ADDRESS, 0x08, &a_word))
         if (i2c_result == I2C_OKAY) {
-            REG_BATTERY_TEMP_B = a_word;
+            g_state.i2c.smartbattery_temperature[1] = a_word;
         }
 
         // Smart Battery read Voltage
         I2C_ASYNCHRONOUSLY(i2c_op_read_word(BATTERY_ADDRESS, 0x09, &a_word))
         if (i2c_result == I2C_OKAY) {
-            REG_BATTERY_VOLTAGE_B = a_word;
+            g_state.i2c.smartbattery_voltage[1] = a_word;
         }
 
         // Smart Battery read Current
         I2C_ASYNCHRONOUSLY(i2c_op_read_word(BATTERY_ADDRESS, 0x0a, &a_word))
         if (i2c_result == I2C_OKAY) {
-            REG_BATTERY_CURRENT_B = a_word;
+            g_state.i2c.smartbattery_current[1] = a_word;
         }
 
         resume_at = 0;
