@@ -1,13 +1,12 @@
 /// Device-specific implementation details
 #include "xc.h"
 #include "boot_user.h"
-#include "device_power_bus.h"
+#include "power.h"
 
 void pre_boot(){
-	power_bus_init();
+	power_init();
 }
 
-	
 void initOsc(void){
     CLKDIV = 0;
     return;
