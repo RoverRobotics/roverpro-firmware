@@ -37,19 +37,4 @@
 /// Block for the specified amount of time. Periodically resets the Watchdog Timer so a long wait
 /// doesn't trigger a reset
 void block_ms(uint16_t ms);
-
-/// @return the nearest integer within the given range (inclusive)
-int16_t clamp(int16_t value, int16_t lo, int16_t hi);
-
-/// @return the nearest float within the given range
-float clamp_f(float value, float lo, float hi);
-
-/// @return the mean of the array of ints
-int16_t mean(size_t count, int16_t *values);
-
-/// @return the mean of the array of unsigned ints
-uint16_t mean_u(size_t count, uint16_t *values);
-
-#include "HardwareProfile.h"
-
 #endif

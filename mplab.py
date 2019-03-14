@@ -1,4 +1,5 @@
 from functools import partial
+import subprocess
 
 import trio
 import configparser
@@ -9,7 +10,6 @@ from trio import Path
 import re
 from subprocess import list2cmdline
 import winreg
-import trio.subprocess
 
 
 class BuildToolSuite:
@@ -80,7 +80,7 @@ class MPLabProject:
         else:
             argstring = list2cmdline(args)
         logging.debug('Executing: %s', argstring)
-        process = trio.subprocess.Process(args, stderr=trio.subprocess.PIPE, stdout=trio.subprocess.PIPE, cwd=self.path.parent)
+        process = trio.Process(args, stderr=subprocess.PIPE, stdout=subprocess.PIPE, cwd=self.path.parent)
 
         async def log_stdout():
             stdout = (await process.stdout.receive_some(1000)).decode()
@@ -279,7 +279,7 @@ class MPLabProject:
                 return await self.exec_subprocess(value.split(' '))
 
         logging.debug('No prebuild step')
-        return
+        return None
 
     async def project_postbuild(self):
         if self.config.getboolean('CUSTOM_BUILD', 'Post-BuildEnabled'):
@@ -288,4 +288,4 @@ class MPLabProject:
                 return await self.exec_subprocess(value.split(' '))
 
         logging.debug('No postbuild step')
-        return
+        return None
