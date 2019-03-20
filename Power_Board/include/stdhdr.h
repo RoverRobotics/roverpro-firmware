@@ -10,7 +10,7 @@
 #include <stdbool.h>
 
 /// Instruction clock frequency in Hz
-#define FCY 16000000UL
+#define FCY (16000000UL)
 
 /// When built in release mode, does nothing.
 /// When built in DEBUG, if a PICkit is attached, halts execution. Note the behavior of timers and
@@ -36,5 +36,7 @@
 
 /// Block for the specified amount of time. Periodically resets the Watchdog Timer so a long wait
 /// doesn't trigger a reset
-void block_ms(uint16_t ms);
+void block_ms(uint32_t milliseconds);
+void block_us(uint32_t microseconds);
+void block_s(float seconds);
 #endif
