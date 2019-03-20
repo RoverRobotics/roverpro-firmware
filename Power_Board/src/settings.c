@@ -1,6 +1,7 @@
 #include "settings.h"
 #include "stdhdr.h"
 #include "xc.h"
+#include "libpic30.h"
 #include "version.GENERATED.h"
 
 /// Address in non-volatile memory. Points to a 24-bit instruction in memory
@@ -19,11 +20,11 @@ uint16_t eeoffset(eeptr addr) { return (uint16_t)addr; }
 /// Amount to increment NVM address between words
 #define WORD_STRIDE 0x2UL
 /// Amount to increment NVM address between rows; i.e. the basic unit of writing instructions
-/// 64 words per row
-#define ROW_STRIDE 0x80UL
+#define ROW_STRIDE (_FLASH_ROW * WORD_STRIDE)
 /// Amount to increment NVM address between rows; i.e. the minimum size of an erase operation
-/// 512 instructions per erase
-#define BLOCK_STRIDE 0x400UL
+/// Yes, I know they call it _FLASH_PAGE. this is incredibly confusing, but they mean the erase
+/// block size
+#define BLOCK_STRIDE (_FLASH_PAGE * WORD_STRIDE)
 /// Amount to increment NVM address between pages; i.e. the maximum amount of NVM that can be mapped
 /// to RAM at a time using PSV 16 bit offset in page
 #define PAGE_STRIDE 0x10000UL
@@ -86,14 +87,11 @@ const static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = {
 
 /// Erase the given block of NVM.
 void nvm_erase_block(eeptr dest) {
-    /// Value for NVMCON to begin a block erase operation
-    const uint16_t NVMCON_ERASE_BLOCK = 0x4042;
-
     uint16_t old_tblpag = TBLPAG;
     BREAKPOINT_IF(dest % BLOCK_STRIDE != 0);
     TBLPAG = eepage(dest);
     // assuming that eeprom_config fits in a single block
-    NVMCON = NVMCON_ERASE_BLOCK;
+    NVMCON = _FLASH_ERASE_CODE;          //  0x4042;
     __builtin_tblwtl(eeoffset(dest), 0); // Dummy write to select the block
     __builtin_disi(5);
     __builtin_write_NVM();
@@ -104,9 +102,7 @@ void nvm_erase_block(eeptr dest) {
 /// Copy the data from the write latches into an NVM row.
 void flush_psv_row() {
     /// Value for NVMCON to begin a row write operation
-    const uint16_t NVMCON_WRITE_ROW = 0x4001;
-
-    NVMCON = NVMCON_WRITE_ROW;
+    NVMCON = _FLASH_WRITE_ROW_CODE;
     __builtin_disi(5);
     __builtin_write_NVM();
 }
