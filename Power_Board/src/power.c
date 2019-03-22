@@ -162,8 +162,8 @@ static void power_tick_discharging() {
     // Not charging. Use both batteries.
     set_active_batteries(BATTERY_FLAG_ALL);
 
-    uint16_t trigger_thresh = g_settings.power.overcurrent_trigger_threshold_ma * 34 / 1000;
-    uint16_t reset_thresh = g_settings.power.overcurrent_reset_threshold_ma * 34 / 1000;
+    uint16_t trigger_thresh = g_settings.power.overcurrent_trigger_threshold_ma / 1000 * 34;
+    uint16_t reset_thresh = g_settings.power.overcurrent_reset_threshold_ma / 1000 * 34;
 
     if (g_state.analog.battery_current[0] >= trigger_thresh ||
         g_state.analog.battery_current[1] >= trigger_thresh) {
