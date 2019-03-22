@@ -20,7 +20,7 @@ The rover includes an onboard bootloader to allow you to update the firmware.
 5. Flash the firmware with booty
 
    ```bash
-   booty --port COM3 --baudrate 57600 --hexfile "Downloads/PowerBoard-1.7.3.hex" --erase --load --verify
+   booty --port COM3 --baudrate 57600 --hexfile "Downloads/PowerBoard-1.7.4.hex" --erase --load --verify
    ```
 
 ### Troubleshooting bootloader

@@ -123,7 +123,7 @@ void psv_write(eeptr dest, const void *src, size_t count) {
     uint16_t old_tblpag = TBLPAG;
 
     // number of bytes we are offset from the beginning of src
-    size_t i_src;
+    size_t i_src = 0;
     // pointer to the current address in dest
     eeptr dest_addr = dest;
 

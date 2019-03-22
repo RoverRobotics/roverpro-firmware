@@ -1,15 +1,16 @@
-from functools import partial
-import subprocess
-
-import trio
 import configparser
 from dataclasses import dataclass
 from fnmatch import fnmatch
+from functools import partial
 import logging
-from trio import Path
 import re
+import shlex
+import subprocess
 from subprocess import list2cmdline
 import winreg
+
+import trio
+from trio import Path
 
 
 class BuildToolSuite:
@@ -22,6 +23,7 @@ class BuildToolSuite:
 class BuildToolsXC16(BuildToolSuite):
     cc: Path
     cc_uuid = '{F9CE474D-6A6C-401D-A11E-BEE01B244D79}'
+    ld_uuid = '{21A8AA9B-E75C-40B6-B3AE-9CBC16FF2EF9}'
     hx: Path
 
     @classmethod
@@ -43,6 +45,7 @@ class BuildToolsXC16(BuildToolSuite):
 class BuildToolsC30(BuildToolSuite):
     cc: Path
     cc_uuid = '{25AC22BD-2378-4FDB-BFB6-7345A15512D3}'
+    ld_uuid = '{7DAC9A1D-4C45-45D6-B25A-D117C74E8F5A}'
     hx: Path
 
     @classmethod
@@ -126,7 +129,8 @@ class MPLabProject:
 
     @property
     def target_executable_path(self):
-        return trio.Path(self.base_dir, self.config['PATH_INFO']['dir_bin'], self.project_name + '.' + self.target_suffix)
+        return trio.Path(self.base_dir, self.config['PATH_INFO']['dir_bin'],
+                         self.project_name + '.' + self.target_suffix)
 
     @property
     def target_hex_path(self):
@@ -159,7 +163,8 @@ class MPLabProject:
         return result
 
     def get_file_source_path(self, file_id):
-        return trio.Path(self.base_dir, self.config['PATH_INFO']['dir_src'], self.config['FILE_INFO']['file_' + file_id])
+        return trio.Path(self.base_dir, self.config['PATH_INFO']['dir_src'],
+                         self.config['FILE_INFO']['file_' + file_id])
 
     def get_file_object_path(self, file_id):
         filename = Path(self.config['FILE_INFO']['file_' + file_id]).with_suffix('.o').name
@@ -184,10 +189,10 @@ class MPLabProject:
             result = result.replace('$(' + k + ')', v)
         return result
 
-    def get_tool_flags(self, tool_guid, file_id):
+    def get_tool_flags(self, tool_guid, file_id=None):
         assert re.match('{.+}', tool_guid)
         result = None
-        if self.config['TOOL_SETTINGS'].get('TS' + tool_guid + file_id + '_active') == 'yes':
+        if file_id is not None and self.config['TOOL_SETTINGS'].get('TS' + tool_guid + file_id + '_active') == 'yes':
             result = self.config['TOOL_SETTINGS'].get('TS' + tool_guid + file_id)
         if result is None:
             result = self.config['TOOL_SETTINGS'].get('TS' + tool_guid)
@@ -244,18 +249,18 @@ class MPLabProject:
         if obj_files is None:
             obj_files = [str(self.get_file_object_path(fid)) for fid in self.get_source_file_ids()]
 
-        linker_options = '-Wl,' + ','.join([
-            *(["-L" + self.config['PATH_INFO']['dir_lib']] if self.config['PATH_INFO']['dir_lib'] else []),
-            '-T' + self.linker_script,
-            '--defsym=__MPLAB_DEBUG=1'
-        ])
+        ld_flags_str = self.get_tool_flags(self.tool_suite.ld_uuid, None)
+        ld_flags = ['-T' + self.linker_script,
+                    *(["-L" + shlex.quote(self.config['PATH_INFO']['dir_lib'])] if self.config['PATH_INFO'][
+                        'dir_lib'] else []),
+                    *shlex.split(ld_flags_str)]
 
         args = [
             str(self.tool_suite.cc),
             self.cpu_flag,
             *obj_files,
-            '-o', str(target_file),
-            linker_options
+            *[flag for flag in ld_flags if flag.startswith('-o')],
+            '-Wl,' + ','.join([flag for flag in ld_flags if not flag.startswith('-o')])
         ]
         await self.exec_subprocess(args)
         assert await target_file.is_file()
