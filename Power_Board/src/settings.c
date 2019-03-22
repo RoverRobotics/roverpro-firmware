@@ -79,7 +79,7 @@ const static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = {
         },
     .drive =
         {
-            .motor_pwm_frequency_khz = 1,
+            .motor_pwm_frequency_khz = 8,
             .motor_protect_direction_delay_ms = 10,
         },
 };

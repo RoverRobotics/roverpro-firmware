@@ -5,6 +5,7 @@
 #include "hardware_definitions.h"
 #include "power.h"
 #include "battery.h"
+#include "stdhdr.h"
 #include "i2clib.h"
 #include "string.h"
 
