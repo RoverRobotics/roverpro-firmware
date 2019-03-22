@@ -50,9 +50,9 @@ static volatile EncoderEvent event_ring_buffer[MOTOR_CHANNEL_COUNT][CAPTURE_BUFF
 /// Get a single event and note it in the buffer.
 void motor_tach_event_capture(MotorChannel channel, MotorDir dir, uint16_t captured_value_lo) {
     EncoderEvent event;
-	event.lo = TMR4; // note reading TMR4 saves the value of TMR5 into TMR5HLD.
-	event.hi = TMR5HLD;
-	
+    event.lo = TMR4; // note reading TMR4 saves the value of TMR5 into TMR5HLD.
+    event.hi = TMR5HLD;
+
     event.dir = dir;
     event_ring_buffer[channel][i_next_event[channel]] = event;
     i_next_event[channel] = (i_next_event[channel] + 1u) % CAPTURE_BUFFER_COUNT;
@@ -232,8 +232,7 @@ void outputcompare_pwm_init(OutputCompareModule oc, uint16_t pwm_freq_khz) {
         (0b111 << _OC1CON1_OCTSEL_POSITION) |
         // OCM 0b110 = Edge PWM Edge-Aligned PWM mode: Output set high when OCxTMR = 0 and set low
         // when OCxTMR = OCxR
-        (0b110 << _OC1CON1_OCM_POSITION)
-    );
+        (0b110 << _OC1CON1_OCM_POSITION));
 
     *oc.OCxCON2 = (
         // Trigger/Synchronization source
@@ -263,24 +262,24 @@ MotorStatusFlag motor_update(MotorChannel channel, MotorStatusFlag status, uint1
         M1_DIR = !(status & MOTOR_FLAG_REVERSE);
         M1_MODE = !(status & MOTOR_FLAG_DECAY_MODE);
         outputcompare_pwm_set_duty(OUTPUT_COMPARE_1, duty / 1000.0f);
-        return (status & ~MOTOR_FLAG_MASK_FEEDBACK) | (MOTOR_FLAG_FAULT1 * !M1_FF1) |
-               (MOTOR_FLAG_FAULT2 * !M1_FF2);
+        return (status & ~MOTOR_FLAG_MASK_FEEDBACK) | (!M1_FF1 ? MOTOR_FLAG_FAULT1 : 0) |
+               (!M1_FF2 ? MOTOR_FLAG_FAULT2 : 0);
     case (MOTOR_RIGHT):
         M2_COAST = !(status & MOTOR_FLAG_COAST);
         M2_BRAKE = !(status & MOTOR_FLAG_BRAKE);
         M2_DIR = !(status & MOTOR_FLAG_REVERSE);
         M2_MODE = !(status & MOTOR_FLAG_DECAY_MODE);
         outputcompare_pwm_set_duty(OUTPUT_COMPARE_2, duty / 1000.0f);
-        return (status & ~MOTOR_FLAG_MASK_FEEDBACK) | (MOTOR_FLAG_FAULT1 * !M2_FF1) |
-               (MOTOR_FLAG_FAULT2 * !M2_FF2);
+        return (status & ~MOTOR_FLAG_MASK_FEEDBACK) | (!M2_FF1 ? MOTOR_FLAG_FAULT1 : 0) |
+               (!M2_FF2 ? MOTOR_FLAG_FAULT2 : 0);
     case (MOTOR_FLIPPER):
         M3_COAST = !(status & MOTOR_FLAG_COAST);
         M3_BRAKE = !(status & MOTOR_FLAG_BRAKE);
         M3_DIR = !(status & MOTOR_FLAG_REVERSE);
         M3_MODE = !(status & MOTOR_FLAG_DECAY_MODE);
         outputcompare_pwm_set_duty(OUTPUT_COMPARE_3, duty / 1000.0f);
-        return (status & ~MOTOR_FLAG_MASK_FEEDBACK) | (MOTOR_FLAG_FAULT1 * !M3_FF1) |
-               (MOTOR_FLAG_FAULT2 * !M3_FF2);
+        return (status & ~MOTOR_FLAG_MASK_FEEDBACK) | (!M3_FF1 ? MOTOR_FLAG_FAULT1 : 0) |
+               (!M3_FF2 ? MOTOR_FLAG_FAULT2 : 0);
     }
     BREAKPOINT();
     return 0;

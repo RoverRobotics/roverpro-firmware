@@ -14,12 +14,12 @@ typedef enum MotorStatusFlag {
     /// No flags at all.
     MOTOR_FLAG_NONE = 0,
 
-    /// Feedback flag: Does motor experience high current? Healthy value is 1; 0 indicates some sort
-    /// of long-circuit condition
+    /// Feedback flag: Does motor experience high current? 1 indicates some sort of long-circuit
+    /// condition
     MOTOR_FLAG_FAULT1 = 1 << 0,
 
-    /// Feedback flag: Does motor experience low current? Healthy value is 0; 1 indicates some sort
-    /// of short-circuit condition
+    /// Feedback flag: Does motor experience low current? 1 indicates some sort of short-circuit
+    /// condition
     MOTOR_FLAG_FAULT2 = 1 << 1,
 
     /// Control flag: Should use fast current decay?

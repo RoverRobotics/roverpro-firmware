@@ -16,10 +16,9 @@
 /// because it is only set and cleared in power.h
 typedef struct State {
     struct DriveState {
-        uint16_t motor_current[MOTOR_CHANNEL_COUNT];
         uint32_t motor_encoder_count[2];
-        uint16_t flipper_angle;
         uint16_t motor_encoder_period[2];
+        uint16_t flipper_angle;
         MotorStatusFlag motor_status[MOTOR_CHANNEL_COUNT];
     } drive;
     struct AnalogState {
