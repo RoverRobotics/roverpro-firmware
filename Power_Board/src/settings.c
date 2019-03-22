@@ -80,7 +80,7 @@ const static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = {
         },
     .drive =
         {
-            .motor_pwm_frequency_khz = 1,
+            .motor_pwm_frequency_khz = 8,
             .motor_protect_direction_delay_ms = 10,
         },
 };
@@ -119,7 +119,7 @@ void psv_write(eeptr dest, const void *src, size_t count) {
     uint16_t old_tblpag = TBLPAG;
 
     // number of bytes we are offset from the beginning of src
-    size_t i_src;
+    size_t i_src = 0;
     // pointer to the current address in dest
     eeptr dest_addr = dest;
 

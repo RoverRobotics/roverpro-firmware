@@ -11,6 +11,7 @@ coloredlogs = "*"
 pygithub = "*"
 gitpython = "*"
 trio = "*"
+intelhex = "*"
 
 [requires]
 python_version = "3.7"

@@ -14,9 +14,10 @@ import git
 import github
 import trio
 
-from mplab import MPLabProject
+from buildtools.mplab import MPLabProject
 
 parser = argparse.ArgumentParser(description='Build the OpenRover firmware')
+parser.add_argument('sourceroot', help='path to the firmware source code')
 parser.add_argument('--debug', action='store_true', help='Build in debug mode')
 parser.add_argument('--upload', action='store_true', help='Create a release draft on GitHub when done building')
 parser.add_argument('--verbose', '-v', action='count', help='Log more verbosely. --v = INFO, --vv = DEBUG')
@@ -65,7 +66,7 @@ async def main():
         log_level = 'DEBUG'
     coloredlogs.install(level=log_level)
 
-    base_dir = os.path.dirname(os.path.realpath(__file__))
+    base_dir = Path( command_line_options.sourceroot).absolute()
     logging.info('Building all project in directory: %s', base_dir)
     mcp_files = [f.absolute() for f in Path(base_dir).rglob('*.mcp')]
 

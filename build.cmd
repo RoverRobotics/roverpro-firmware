@@ -1,1 +1,1 @@
-py %~dp0/build.py %*
+py %~dp0/buildtools/build.py %*
