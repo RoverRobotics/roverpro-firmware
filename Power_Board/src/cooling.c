@@ -1,7 +1,7 @@
-#include "main.h"
 #include "cooling.h"
-#include "i2clib.h"
 #include "hardware_definitions.h"
+#include "i2clib.h"
+#include "main.h"
 
 void cooling_blast_fan() {
     uint8_t a_byte;

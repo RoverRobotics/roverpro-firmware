@@ -1,11 +1,11 @@
 #include "drive.h"
-#include "motor.h"
 #include "main.h"
 #include "math.h"
+#include "motor.h"
 
 /// Motors should not switch direction too abruptly. This is the number of drive ticks we have
 /// ignored a motor command.
-uint16_t dead_time_counter[MOTOR_CHANNEL_COUNT] = {0};
+uint16_t g_dead_time_counter[MOTOR_CHANNEL_COUNT] = {0};
 
 /// For motor state machine. The requested motor state based in inbound motor speed commands, which
 /// informs state machine transitions
@@ -21,40 +21,42 @@ typedef enum MotorEvent {
     COAST = 0xFF04,
 } MotorEvent;
 
-static MotorEvent motor_event[MOTOR_CHANNEL_COUNT] = {NO_EVENT, NO_EVENT, NO_EVENT};
+static MotorEvent g_motor_event[MOTOR_CHANNEL_COUNT] = {NO_EVENT, NO_EVENT, NO_EVENT};
 
 MotorEvent effort_to_event(int16_t effort) {
-    if (effort < 0)
+    if (effort < 0) {
         return BACK;
-    else if (effort > 0)
+    } else if (effort > 0) {
         return GO;
-    else
+    } else {
         return STOP;
+    }
 }
 
 void drive_tick_motor(MotorChannel c, int16_t new_motor_effort) {
     MotorStatusFlag new_status;
     MotorEvent new_motor_event = effort_to_event(new_motor_effort);
 
-    if (dead_time_counter[c] == UINT16_MAX && motor_event[c] == new_motor_event) {
-        if (new_motor_effort == 0)
+    if (g_dead_time_counter[c] == UINT16_MAX && g_motor_event[c] == new_motor_event) {
+        if (new_motor_effort == 0) {
             new_status = MOTOR_FLAG_BRAKE;
-        else if (new_motor_effort < 0)
+        } else if (new_motor_effort < 0) {
             new_status = MOTOR_FLAG_REVERSE;
-        else
+        } else {
             new_status = MOTOR_FLAG_NONE;
+        }
 
         // Note the motor direction here is reversed, since the motor is installed backwards :-)
         if (c == MOTOR_RIGHT)
             new_status ^= MOTOR_FLAG_REVERSE;
     } else {
         new_status = MOTOR_FLAG_COAST;
-        dead_time_counter[c]++;
-        if (dead_time_counter[c] * g_settings.main.drive_poll_ms >
+        g_dead_time_counter[c]++;
+        if (g_dead_time_counter[c] * g_settings.main.drive_poll_ms >
             g_settings.drive.motor_protect_direction_delay_ms) {
             // next iteration we're going to stop coasting
-            motor_event[c] = new_motor_event;
-            dead_time_counter[c] = UINT16_MAX;
+            g_motor_event[c] = new_motor_event;
+            g_dead_time_counter[c] = UINT16_MAX;
         }
     }
 

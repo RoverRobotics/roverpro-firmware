@@ -2,7 +2,7 @@
 #include "stdhdr.h"
 
 #ifndef min
-#define min(a, b) (a < b ? a : b)
+#define min(a, b) ((a) < (b) ? (a) : (b))
 #endif
 
 /** I2C ack bit. Transmitted in response to any data received. */
@@ -102,29 +102,30 @@ I2CState i2c_state(I2CBus bus) {
     I2CControlBits con = *bus->CON;
     I2CStatusBits stat = *bus->STAT;
 
-    if (con.SEN)
+    if (con.SEN) {
         state = I2C_STARTING;
-    else if (con.RSEN)
+    } else if (con.RSEN) {
         state = I2C_RESTARTING;
-    else if (con.PEN)
+    } else if (con.PEN) {
         state = I2C_STOPPING;
-    else if (con.RCEN)
+    } else if (con.RCEN) {
         state = I2C_RECEIVING;
-    else if (con.ACKEN)
+    } else if (con.ACKEN) {
         state = I2C_ACKING;
-    else if (!con.I2CEN)
+    } else if (!con.I2CEN) {
         state = I2C_DISABLED;
 
-    else if (stat.BCL)
+    } else if (stat.BCL) {
         state = I2C_BUS_COLLISION;
-    else if (stat.TRSTAT)
+    } else if (stat.TRSTAT) {
         state = I2C_TRANSMITTING;
-    else if (stat.RBF)
+    } else if (stat.RBF) {
         state = I2C_RECEIVE_BUFFER_FULL;
-    else if (stat.ACKSTAT == NACK)
+    } else if (stat.ACKSTAT == NACK) {
         state = I2C_IDLE_NACK;
-    else
+    } else {
         state = I2C_IDLE_ACK;
+    }
 
     return state;
 }

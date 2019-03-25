@@ -1,7 +1,8 @@
+#include "analog.h"
 #include "flipper.h"
 #include "main.h"
+#include "math.h"
 #include "motor.h"
-#include "analog.h"
 
 // invalid flipper pot thresholds.  These are very wide because the flipper pots are on a
 // different 3.3V supply than the PIC If the flipper pot is below this threshold, it is invalid
@@ -14,7 +15,10 @@
 static uint16_t get_flipper_angle(uint16_t pot_1_value, uint16_t pot_2_value);
 static uint16_t return_combined_pot_angle(uint16_t pot_1_value, uint16_t pot_2_value);
 /// returns the given angle, normalized to between 0 and 360
-uint16_t wrap_angle(int16_t value) { return (uint16_t)((value % 360 + 360) % 360); }
+float wrap_angle(float value) {
+    float angle = fmodf(value, 360.0f);
+    return (angle < 0.0f) ? angle + 360.0f : angle;
+}
 
 void flipper_feedback_calibrate() {
     MotorChannel c;
@@ -45,13 +49,7 @@ void tick_flipper_feedback() {
 }
 
 uint16_t return_combined_pot_angle(uint16_t pot_1_value, uint16_t pot_2_value) {
-    int combined_pot_angle = 0;
-    int pot_angle_1 = 0;
-    int pot_angle_2 = 0;
-    int temp1 = 0;
-    int temp2 = 0;
-    float scale_factor = 0;
-    int temp_pot1_value = 0;
+    float combined_pot_angle;
 
     // correct for pot 2 turning the opposite direction
     pot_2_value = 1023 - pot_2_value;
@@ -70,18 +68,20 @@ uint16_t return_combined_pot_angle(uint16_t pot_1_value, uint16_t pot_2_value) {
     else if ((pot_2_value < LOW_POT_THRESHOLD) || (pot_2_value > HIGH_POT_THRESHOLD)) {
         // 333.3 degrees, 1023 total counts, 333.3/1023 = .326
         // 13.35 degrees + 45 degrees = 58.35 degrees
-        combined_pot_angle = (int)pot_1_value * .326 + 13.35 + FLIPPER_POT_OFFSET;
-
+        combined_pot_angle = pot_1_value * .326 + 13.35 + FLIPPER_POT_OFFSET;
     }
     // if both pot 1 and pot 2 values are valid
     else {
         // figure out which one is closest to the end of range
-        temp1 = pot_1_value - 512;
-        temp2 = pot_2_value - 512;
+        int16_t temp1 = pot_1_value - 512;
+        int16_t temp2 = pot_2_value - 512;
+        float pot_angle_1 = 0;
+        float pot_angle_2 = 0;
+        float scale_factor = 0;
 
         // offset, so that both pot values should be the same
         // FLIPPER_POT_OFFSET/333.33*1023 = 168.8 for 55 degrees
-        temp_pot1_value = pot_1_value - 168.8;
+        float temp_pot1_value = pot_1_value - 168.8;
 
         pot_angle_1 = wrap_angle(temp_pot1_value * .326 + 13.35);
         pot_angle_2 = wrap_angle(pot_2_value * .326 + 13.35);
@@ -104,29 +104,26 @@ uint16_t return_combined_pot_angle(uint16_t pot_1_value, uint16_t pot_2_value) {
         // combined_pot_angle = combined_pot_value*.326+13.35;
     }
 
-    combined_pot_angle = wrap_angle(combined_pot_angle);
-
-    return (unsigned int)combined_pot_angle;
+    return (uint16_t)wrap_angle(combined_pot_angle);
 }
 
 uint16_t get_flipper_angle(uint16_t pot_1_value, uint16_t pot_2_value) {
     uint16_t combined_pot_angle = 0;
-    uint16_t calibrated_pot_angle = 0;
 
     combined_pot_angle = return_combined_pot_angle(pot_1_value, pot_2_value);
 
     // special case -- invalid reading
-    if (combined_pot_angle == 10000)
+    if (combined_pot_angle == 10000) {
         return 10000;
-    else if (combined_pot_angle == 0xffff)
+    } else if (combined_pot_angle == 0xffff) {
         return 0xffff;
+    }
 
     // if calibration didn't work right, return angle with no offset
     if (!g_settings.flipper.is_calibrated) {
         return combined_pot_angle;
     } else {
         uint16_t flipper_angle_offset = g_settings.flipper.angle_offset;
-        calibrated_pot_angle = wrap_angle(combined_pot_angle - flipper_angle_offset);
-        return calibrated_pot_angle;
+        return (uint16_t)wrap_angle(combined_pot_angle - flipper_angle_offset);
     }
 }

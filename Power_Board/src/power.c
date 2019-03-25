@@ -2,11 +2,11 @@
 #include "main.h"
 #endif
 
-#include "hardware_definitions.h"
-#include "power.h"
 #include "battery.h"
-#include "stdhdr.h"
+#include "hardware_definitions.h"
 #include "i2clib.h"
+#include "power.h"
+#include "stdhdr.h"
 #include "string.h"
 
 /// Activation routine for some batteries

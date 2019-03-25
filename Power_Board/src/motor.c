@@ -1,7 +1,7 @@
 /*---------------------------Dependencies-------------------------------------*/
+#include "hardware_definitions.h"
 #include "main.h"
 #include "motor.h"
-#include "hardware_definitions.h"
 #include "xc.h"
 
 /*---------------------------Macros-------------------------------------------*/
@@ -38,12 +38,12 @@ typedef struct {
 } EncoderEvent;
 
 /// Index into the event_ring_buffer for the next event capture
-static volatile size_t i_next_event[MOTOR_CHANNEL_COUNT];
+static volatile size_t g_i_next_event[MOTOR_CHANNEL_COUNT];
 
 /// The most recent encoder events. We only need 2 encoder events to compute an interval,
 /// and old values should be purged.
 // todo: change this to a LIFO data structure
-static volatile EncoderEvent event_ring_buffer[MOTOR_CHANNEL_COUNT][CAPTURE_BUFFER_COUNT];
+static volatile EncoderEvent g_event_ring_buffer[MOTOR_CHANNEL_COUNT][CAPTURE_BUFFER_COUNT];
 
 /*---------------------------Interrupt Service Routines (ISRs)----------------*/
 
@@ -54,8 +54,8 @@ void motor_tach_event_capture(MotorChannel channel, MotorDir dir, uint16_t captu
     event.hi = TMR5HLD;
 
     event.dir = dir;
-    event_ring_buffer[channel][i_next_event[channel]] = event;
-    i_next_event[channel] = (i_next_event[channel] + 1u) % CAPTURE_BUFFER_COUNT;
+    g_event_ring_buffer[channel][g_i_next_event[channel]] = event;
+    g_i_next_event[channel] = (g_i_next_event[channel] + 1u) % CAPTURE_BUFFER_COUNT;
 }
 
 /// Interrupt function for PIC24 Input Capture module 1
@@ -64,10 +64,11 @@ void __attribute__((__interrupt__, auto_psv)) _IC1Interrupt(void) {
     while (IC1CON1bits.ICBNE) {
         motor_tach_event_capture(MOTOR_LEFT, dir, IC1BUF);
 
-        if (dir == MOTOR_DIR_REVERSE)
+        if (dir == MOTOR_DIR_REVERSE) {
             g_state.drive.motor_encoder_count[MOTOR_LEFT]--;
-        else
+        } else {
             g_state.drive.motor_encoder_count[MOTOR_LEFT]++;
+        }
     }
     _IC1IF = 0; // clear the source of the interrupt
 }
@@ -79,10 +80,11 @@ void __attribute__((__interrupt__, auto_psv)) _IC2Interrupt(void) {
     while (IC2CON1bits.ICBNE) {
         motor_tach_event_capture(MOTOR_RIGHT, dir, IC2BUF);
 
-        if (dir == MOTOR_DIR_REVERSE)
+        if (dir == MOTOR_DIR_REVERSE) {
             g_state.drive.motor_encoder_count[MOTOR_RIGHT]--;
-        else
+        } else {
             g_state.drive.motor_encoder_count[MOTOR_RIGHT]++;
+        }
     }
     _IC2IF = 0;
 }
@@ -114,10 +116,10 @@ float motor_tach_get_period(MotorChannel channel) {
     // We are betting we can get through this before the data we're interested in is clobbered.
 
     // index of second-most-recent event
-    size_t i = (i_next_event[channel] + CAPTURE_BUFFER_COUNT - 2) % CAPTURE_BUFFER_COUNT;
+    size_t i = (g_i_next_event[channel] + CAPTURE_BUFFER_COUNT - 2) % CAPTURE_BUFFER_COUNT;
 
-    EncoderEvent event0 = event_ring_buffer[channel][i];
-    EncoderEvent event1 = event_ring_buffer[channel][(i + 1) % CAPTURE_BUFFER_COUNT];
+    EncoderEvent event0 = g_event_ring_buffer[channel][i];
+    EncoderEvent event1 = g_event_ring_buffer[channel][(i + 1) % CAPTURE_BUFFER_COUNT];
     uint16_t interval = event1.lo - event0.lo;
 
     // if motor changed direction, can't trust encoder
@@ -135,10 +137,11 @@ float motor_tach_get_period(MotorChannel channel) {
     if (event1.hi - event0.hi == 1 && event1.lo > event0.lo)
         return 0;
 
-    if (event1.dir == MOTOR_DIR_REVERSE)
+    if (event1.dir == MOTOR_DIR_REVERSE) {
         return -(float)interval;
-    else
+    } else {
         return +(float)interval;
+    }
 }
 
 /*---------------------------Private Function Definitions---------------------*/
@@ -249,7 +252,7 @@ void outputcompare_pwm_init(OutputCompareModule oc, uint16_t pwm_freq_khz) {
 void outputcompare_pwm_set_duty(OutputCompareModule oc, float duty_factor) {
     BREAKPOINT_IF(duty_factor < 0.0f);
     BREAKPOINT_IF(duty_factor > 1.0f);
-    *oc.OCxR = *oc.OCxRS * duty_factor;
+    *oc.OCxR = (uint16_t)(*oc.OCxRS * duty_factor + 0.5f);
 }
 
 MotorStatusFlag motor_update(MotorChannel channel, MotorStatusFlag status, uint16_t duty) {

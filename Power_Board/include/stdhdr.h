@@ -36,7 +36,7 @@
 
 /// Block for the specified amount of time. Periodically resets the Watchdog Timer so a long wait
 /// doesn't trigger a reset
-void block_ms(uint32_t milliseconds);
-void block_us(uint32_t microseconds);
+void block_ms(uint32_t ms);
+void block_us(uint32_t us);
 void block_s(float seconds);
 #endif

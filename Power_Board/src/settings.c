@@ -1,8 +1,8 @@
+#include "libpic30.h"
 #include "settings.h"
 #include "stdhdr.h"
-#include "xc.h"
-#include "libpic30.h"
 #include "version.GENERATED.h"
+#include "xc.h"
 
 /// Address in non-volatile memory. Points to a 24-bit instruction in memory
 /// See the reference manual section "PIC24F Flash Program Memory" for more info.
@@ -38,7 +38,7 @@ const int BYTES_PER_PSV_WORD = 2;
 
 /// The robot settings to be loaded when the robot starts up.
 /// The values here are defaults. They may be changed by the @ref settings_save function
-static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = {
+static __psv__ Settings g_settings_nvm __attribute__((space(auto_psv))) = {
     //
     .firmware =
         {
@@ -109,8 +109,8 @@ void flush_psv_row() {
 }
 
 /// Copy the given value to the EEPROM program space.
-/// We only take advantage of the 16 lowest bits of each instruction (contrast with EDS which uses the full 24 bits)
-/// We also assume the destination block has already been erased.
+/// We only take advantage of the 16 lowest bits of each instruction (contrast with EDS which uses
+/// the full 24 bits) We also assume the destination block has already been erased.
 /// @param dest destination address in EEPROM
 /// @param src source address in RAM
 /// @param count number of bytes to copy. Generally sizeof(*src).
@@ -155,7 +155,7 @@ void psv_write(eeptr dest, const void *src, size_t count) {
 
 void settings_save(const Settings *settings) {
     // Equivalent to the (hypothetical but illegal) code: eeprom_config = *settings_current;
-    psv_write(EEADDR(&settings_nvm), settings, sizeof(*settings));
+    psv_write(EEADDR(&g_settings_nvm), settings, sizeof(*settings));
 }
 
-Settings settings_load() { return settings_nvm; }
+Settings settings_load() { return g_settings_nvm; }

@@ -8,14 +8,14 @@
 #include "main.h"
 #include "motor.h"
 
-#include "device_robot_motor_i2c.h"
-#include "i2clib.h"
-#include "communication.h"
-#include "power.h"
-#include "flipper.h"
-#include "drive.h"
 #include "analog.h"
+#include "communication.h"
 #include "cooling.h"
+#include "device_robot_motor_i2c.h"
+#include "drive.h"
+#include "flipper.h"
+#include "i2clib.h"
+#include "power.h"
 
 /// Perform initialization of all rover subsystems
 void rover_init();
@@ -84,8 +84,8 @@ void IniTimer1() {
     T1CON = 0x0000;         // clear register
     T1CONbits.TCKPS = 0b00; // 0b00 = 1:1 prescale
     TMR1 = 0;               // clear timer1 register
-    uint16_t FREQUENCY_HZ = 1000;
-    PR1 = (FCY / FREQUENCY_HZ) - 1;
+    uint16_t frequency_hz = 1000;
+    PR1 = (FCY / frequency_hz) - 1;
     T1CONbits.TON = 1; // start timer
 }
 
