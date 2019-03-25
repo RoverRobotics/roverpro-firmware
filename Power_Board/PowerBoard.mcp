@@ -8,7 +8,7 @@ dir_src=
 dir_bin=./bin
 dir_tmp=./obj
 dir_sin=
-dir_inc=.\microchip;.\include
+dir_inc=./include;C:\Program Files (x86)\Microchip\xc16\v1.36\include
 dir_lib=
 dir_lkr=
 [CAT_FILTERS]

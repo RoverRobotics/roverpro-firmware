@@ -1,9 +1,6 @@
 #include "i2clib.h"
 #include "stdhdr.h"
-
-#ifndef min
-#define min(a, b) ((a) < (b) ? (a) : (b))
-#endif
+#include "stdlib.h"
 
 /** I2C ack bit. Transmitted in response to any data received. */
 typedef enum I2CAck {
@@ -316,7 +313,7 @@ const I2CBus I2C_BUS3 = &I2C_BUS3_DEF;
 // Begin device-independent I2C Stuff.
 
 I2CResult i2c_tick(I2CBus bus, const I2COperationDef *op, I2CProgress *progress) {
-    I2CResult result;
+    I2CResult result = I2C_ILLEGAL;
     while (true) {
         switch (progress->resume_at) {
 
