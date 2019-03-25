@@ -30,6 +30,7 @@ uint16_t eeoffset(eeptr addr) { return (uint16_t)addr; }
 #define PAGE_STRIDE 0x10000UL
 
 /// Although a word is 3 bytes, PSV only exposes 2 of them
+/// This is in contrast to eds, which uses the full 3 bytes.
 const int BYTES_PER_PSV_WORD = 2;
 
 /// Get an eeptr corresponding to the address of the given object in PSV
@@ -37,7 +38,7 @@ const int BYTES_PER_PSV_WORD = 2;
 
 /// The robot settings to be loaded when the robot starts up.
 /// The values here are defaults. They may be changed by the @ref settings_save function
-const static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = {
+static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = {
     //
     .firmware =
         {
@@ -108,7 +109,7 @@ void flush_psv_row() {
 }
 
 /// Copy the given value to the EEPROM program space.
-/// We only take advantage of the 16 lowest bits of each instruction
+/// We only take advantage of the 16 lowest bits of each instruction (contrast with EDS which uses the full 24 bits)
 /// We also assume the destination block has already been erased.
 /// @param dest destination address in EEPROM
 /// @param src source address in RAM
