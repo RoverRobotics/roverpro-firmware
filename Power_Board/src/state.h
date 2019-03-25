@@ -6,6 +6,7 @@
 
 #include "motor.h"
 #include "battery.h"
+#include "bytequeue.h"
 #include "stdbool.h"
 #include "stdint.h"
 
@@ -52,6 +53,8 @@ typedef struct State {
         uint16_t smartbattery_voltage[BATTERY_COUNT];
     } i2c;
     struct CommunicationState {
+	    ByteQueue rx_q;
+	    ByteQueue tx_q;
         bool use_manual_fan_speed;
         /// value ranges from 0 (off) to 240 (100%)
         uint8_t fan_speed;

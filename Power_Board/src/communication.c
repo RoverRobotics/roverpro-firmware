@@ -12,9 +12,6 @@
 
 static uint16_t g_ticks_since_last_drive_command = UINT16_MAX;
 static uint16_t g_ticks_since_last_fan_command = UINT16_MAX;
-/// Queues for UART data
-static ByteQueue g_uart_rx_q = BYTE_QUEUE_NULL;
-static ByteQueue g_uart_tx_q = BYTE_QUEUE_NULL;
 
 /// In the OpenRover protocol, this byte signifies the start of a message
 const uint8_t UART_START_BYTE = 253;
@@ -35,8 +32,8 @@ uint8_t checksum(size_t count, const uint8_t *data) {
 void uart_init() {
     U1MODEbits.UARTEN = 0;
 
-    bq_try_resize(&g_uart_rx_q, g_settings.communication.rx_bufsize_bytes);
-    bq_try_resize(&g_uart_tx_q, g_settings.communication.tx_bufsize_bytes);
+    bq_try_resize(&g_state.communication.rx_q, g_settings.communication.rx_bufsize_bytes);
+    bq_try_resize(&g_state.communication.tx_q, g_settings.communication.tx_bufsize_bytes);
 
     // Assign U1RX To U1RX, Uart receive channnel
     _U1RXR = U1RX_RPn;
@@ -72,7 +69,7 @@ void __attribute__((__interrupt__, auto_psv)) _U1RXInterrupt() {
     while (U1STAbits.URXDA) {
         uint8_t a_byte = (uint8_t)U1RXREG;
         // Pop the next byte off the read queue
-        bq_try_push(&g_uart_rx_q, 1, &a_byte);
+        bq_try_push(&g_state.communication.rx_q, 1, &a_byte);
     }
     // if receiver overflowed this resets the module
     if (U1STAbits.OERR) {
@@ -90,7 +87,7 @@ void __attribute__((__interrupt__, auto_psv)) _U1TXInterrupt() {
     // transmit data
     while (U1STAbits.UTXBF == 0) { // while transmit shift buffer is not full
         uint8_t a_byte;
-        if (bq_try_pop(&g_uart_tx_q, 1, &a_byte)) {
+        if (bq_try_pop(&g_state.communication.tx_q, 1, &a_byte)) {
             U1TXREG = a_byte;
         } else {
             return;
@@ -166,13 +163,13 @@ void uart_tick() {
     // bq_try_push(&uart_rx_q, sizeof(RQ_TEST_MSG), RQ_TEST_MSG);
     // // end debug
 
-    while (bq_can_pop(&g_uart_rx_q, RX_PACKET_SIZE)) {
+    while (bq_can_pop(&g_state.communication.rx_q, RX_PACKET_SIZE)) {
         uint8_t packet[RX_PACKET_SIZE] = {0};
-        bq_try_pop(&g_uart_rx_q, 1, packet);
+        bq_try_pop(&g_state.communication.rx_q, 1, packet);
         if (packet[0] != UART_START_BYTE)
             continue;
 
-        bq_try_pop(&g_uart_rx_q, RX_PACKET_SIZE - 1, packet + 1);
+        bq_try_pop(&g_state.communication.rx_q, RX_PACKET_SIZE - 1, packet + 1);
         uint8_t expected_checksum = checksum(RX_PACKET_SIZE - 2, packet + 1);
         if (expected_checksum != packet[RX_PACKET_SIZE - 1]) {
             // checksum mismatch. discard.
@@ -207,7 +204,7 @@ void uart_tick() {
             out_packet[1] = arg;
             uart_serialize_out_data(out_packet + 2, arg);
             out_packet[4] = checksum(3, out_packet + 1);
-            if (!bq_try_push(&g_uart_tx_q, TX_PACKET_SIZE, out_packet)) {
+            if (!bq_try_push(&g_state.communication.tx_q, TX_PACKET_SIZE, out_packet)) {
                 BREAKPOINT();
             }
             // Start transmission
