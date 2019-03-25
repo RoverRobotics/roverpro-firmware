@@ -27,9 +27,9 @@ The rover includes an onboard bootloader to allow you to update the firmware.
 
  * Your port may vary. On my Windows computer it is `COM3`, on a Linux computer it may be `ttyUSB0` or something similar. Make sure you have the correct port selected, and the baud rate is 57600.
  * If booty says "device not responding", it means that either the rover has no booted or the rover is no longer in bootloader mode:
-    * If the green serial board LED is **off**, the rover has not yet run its boot sequence. Make sure the battery has charge.
+   * If the green serial board LED is **off**, the rover has not yet run its boot sequence. Make sure the battery has charge.
    * If the green serial board LED is **on**, the has run its boot sequence. The rover only remains in bootloader mode for 10 seconds after being powered on - if that time is elapsed, you need to reboot the robot. Hold down the red side power button for 5 seconds to restart the rover into bootloader mode then retry (note the light may or may not turn off immediately upon reboot).
-* The location of your hexfile may vary. If not found, booty will report "no such file or directory"
+ * The location of your hexfile may vary. If not found, booty will report "no such file or directory"
 
 ## Development
 
