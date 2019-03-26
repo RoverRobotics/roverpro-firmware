@@ -11,10 +11,10 @@
 #include "analog.h"
 #include "communication.h"
 #include "cooling.h"
-#include "poll_i2c.h"
 #include "drive.h"
 #include "flipper.h"
 #include "i2clib.h"
+#include "poll_i2c.h"
 #include "power.h"
 #include "power2.h"
 

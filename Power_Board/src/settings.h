@@ -5,8 +5,8 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
-#include "stdint.h"
 #include "stdbool.h"
+#include "stdint.h"
 
 /// Persistent values that do not change in regular operation of the rover. @ref g_settings =
 /// current settings Settings is grouped according to the functional area affected.
@@ -53,7 +53,7 @@ typedef struct Settings {
         bool is_calibrated;
         /// Value needed to compute the actual flippera angle from onboard sensors. Computed by the
         /// flipper calibration routine
-        uint16_t angle_offset;
+        int16_t angle_offset;
     } flipper;
     struct {
         uint16_t step_timeout_ms;

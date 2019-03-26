@@ -55,7 +55,7 @@ void motor_tach_event_capture(MotorChannel channel, MotorDir dir, uint16_t captu
 
     event.dir = dir;
     g_event_ring_buffer[channel][g_i_next_event[channel]] = event;
-    g_i_next_event[channel] = (g_i_next_event[channel] + 1u) % CAPTURE_BUFFER_COUNT;
+    g_i_next_event[channel] = (g_i_next_event[channel] + 1U) % CAPTURE_BUFFER_COUNT;
 }
 
 /// Interrupt function for PIC24 Input Capture module 1
@@ -250,9 +250,9 @@ void outputcompare_pwm_init(OutputCompareModule oc, uint16_t pwm_freq_khz) {
 }
 
 void outputcompare_pwm_set_duty(OutputCompareModule oc, float duty_factor) {
-    BREAKPOINT_IF(duty_factor < 0.0f);
-    BREAKPOINT_IF(duty_factor > 1.0f);
-    *oc.OCxR = (uint16_t)(*oc.OCxRS * duty_factor + 0.5f);
+    BREAKPOINT_IF(duty_factor < 0.0F);
+    BREAKPOINT_IF(duty_factor > 1.0F);
+    *oc.OCxR = (uint16_t)(*oc.OCxRS * duty_factor + 0.5F);
 }
 
 MotorStatusFlag motor_update(MotorChannel channel, MotorStatusFlag status, uint16_t duty) {
@@ -264,7 +264,7 @@ MotorStatusFlag motor_update(MotorChannel channel, MotorStatusFlag status, uint1
         M1_BRAKE = !(status & MOTOR_FLAG_BRAKE);
         M1_DIR = !(status & MOTOR_FLAG_REVERSE);
         M1_MODE = !(status & MOTOR_FLAG_DECAY_MODE);
-        outputcompare_pwm_set_duty(OUTPUT_COMPARE_1, duty / 1000.0f);
+        outputcompare_pwm_set_duty(OUTPUT_COMPARE_1, duty / 1000.0F);
         return (status & ~MOTOR_FLAG_MASK_FEEDBACK) | (!M1_FF1 ? MOTOR_FLAG_FAULT1 : 0) |
                (!M1_FF2 ? MOTOR_FLAG_FAULT2 : 0);
     case (MOTOR_RIGHT):
@@ -272,7 +272,7 @@ MotorStatusFlag motor_update(MotorChannel channel, MotorStatusFlag status, uint1
         M2_BRAKE = !(status & MOTOR_FLAG_BRAKE);
         M2_DIR = !(status & MOTOR_FLAG_REVERSE);
         M2_MODE = !(status & MOTOR_FLAG_DECAY_MODE);
-        outputcompare_pwm_set_duty(OUTPUT_COMPARE_2, duty / 1000.0f);
+        outputcompare_pwm_set_duty(OUTPUT_COMPARE_2, duty / 1000.0F);
         return (status & ~MOTOR_FLAG_MASK_FEEDBACK) | (!M2_FF1 ? MOTOR_FLAG_FAULT1 : 0) |
                (!M2_FF2 ? MOTOR_FLAG_FAULT2 : 0);
     case (MOTOR_FLIPPER):
@@ -280,7 +280,7 @@ MotorStatusFlag motor_update(MotorChannel channel, MotorStatusFlag status, uint1
         M3_BRAKE = !(status & MOTOR_FLAG_BRAKE);
         M3_DIR = !(status & MOTOR_FLAG_REVERSE);
         M3_MODE = !(status & MOTOR_FLAG_DECAY_MODE);
-        outputcompare_pwm_set_duty(OUTPUT_COMPARE_3, duty / 1000.0f);
+        outputcompare_pwm_set_duty(OUTPUT_COMPARE_3, duty / 1000.0F);
         return (status & ~MOTOR_FLAG_MASK_FEEDBACK) | (!M3_FF1 ? MOTOR_FLAG_FAULT1 : 0) |
                (!M3_FF2 ? MOTOR_FLAG_FAULT2 : 0);
     }

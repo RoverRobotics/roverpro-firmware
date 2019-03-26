@@ -118,7 +118,7 @@ I2CState i2c_state(I2CBus bus) {
         state = I2C_TRANSMITTING;
     } else if (stat.RBF) {
         state = I2C_RECEIVE_BUFFER_FULL;
-    } else if (stat.ACKSTAT == NACK) {
+    } else if ((I2CAck)(stat.ACKSTAT) == NACK) {
         state = I2C_IDLE_NACK;
     } else {
         state = I2C_IDLE_ACK;

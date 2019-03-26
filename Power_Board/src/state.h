@@ -4,9 +4,9 @@
 #ifndef STATE_H
 #define STATE_H
 
-#include "motor.h"
 #include "battery.h"
 #include "bytequeue.h"
+#include "motor.h"
 #include "stdbool.h"
 #include "stdint.h"
 
@@ -64,8 +64,8 @@ typedef struct State {
     } i2c;
     /// State of the communication subsystem
     struct CommunicationState {
-	    ByteQueue rx_q;
-	    ByteQueue tx_q;
+        ByteQueue rx_q;
+        ByteQueue tx_q;
         bool use_manual_fan_speed;
         /// Last requested fan speed. Value ranges from 0 (off) to 240 (100%)
         uint8_t fan_speed;

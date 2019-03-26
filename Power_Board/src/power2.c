@@ -1,5 +1,5 @@
-#include "main.h"
 #include "battery.h"
+#include "main.h"
 #include "power2.h"
 #include "stdhdr.h"
 #include "string.h"

@@ -1,7 +1,7 @@
-#include "poll_i2c.h"
 #include "hardware_definitions.h"
 #include "i2clib.h"
 #include "main.h"
+#include "poll_i2c.h"
 
 // A step may be reached by either falling through into it (first try)
 // Or by jumping back to it (every retry)

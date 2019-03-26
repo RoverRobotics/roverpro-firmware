@@ -43,7 +43,7 @@ void uart_init() {
     // Enable the UART.
     U1MODE = 0x0000;
     uint32_t baud_rate = g_settings.communication.baud_rate;
-    if (baud_rate < FCY / 4.0f) {
+    if (baud_rate < FCY / 4.0F) {
         U1MODEbits.BRGH = 0; // High Baud Rate Select bit = off
         U1BRG = FCY / 16 / baud_rate - 1;
     } else {

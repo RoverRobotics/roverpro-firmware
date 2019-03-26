@@ -82,8 +82,8 @@
 #ifndef COMMUNICATION_H
 #define COMMUNICATION_H
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 /// Initialize UART module. Will cause _U1TXInterrupt() and _U1RXInterrupt() to occasionally be
 /// called, which transfer data between a the device's hardware UART module and various software

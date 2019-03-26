@@ -4,9 +4,9 @@
 #ifndef MAIN_H
 #define MAIN_H
 
-#include "stdhdr.h"
 #include "settings.h"
 #include "state.h"
+#include "stdhdr.h"
 
 /// The current settings of the robot. Does not change over normal robot operation. May be changed
 /// by commands sent over UART.

@@ -70,7 +70,7 @@ typedef enum MotorChannel {
 ///     // ...
 /// @endcode
 // clang-format off
-#define EACH_MOTOR_CHANNEL(i) i = 0; i < MOTOR_CHANNEL_COUNT; i++
+#define EACH_MOTOR_CHANNEL(i) i = 0; (i) < MOTOR_CHANNEL_COUNT; (i)++
 // clang-format on
 
 /// Initialize driving control for the motor

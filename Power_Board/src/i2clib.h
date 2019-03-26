@@ -5,8 +5,8 @@
 #ifndef I2CLIB_H
 #define I2CLIB_H
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 /// The result of an I2C operation.
 /// The I2C_ERROR_... values are all runtime errors which may be encountered during an elementary

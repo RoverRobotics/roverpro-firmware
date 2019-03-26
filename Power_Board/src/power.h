@@ -1,6 +1,7 @@
 /// @file
-/// Handle bringing up the power supply. Prevents too-high current draw so the battery doesn't kill power.
-/// Note this file is also used by the bootloader, so it shouldn't rely on rover settings or any other rover subsystem
+/// Handle bringing up the power supply. Prevents too-high current draw so the battery doesn't kill
+/// power. Note this file is also used by the bootloader, so it shouldn't rely on rover settings or
+/// any other rover subsystem
 
 #ifndef POWER_H
 #define POWER_H
