@@ -10,11 +10,11 @@
 /// 2. Left motor speed - (0-124 = backwards, 125 = hard brake, 126-250 = forward)
 /// 3. Right motor speed
 /// 4. Flipper motor speed
-/// 5. Command Verb
+/// 5. Command Verb (@ref UARTCommand)
 /// 6. Command Argument
 /// 7. Checksum = 255 - (sum of all bytes except start byte) % 255
 ///
-/// The rover only responds if command verb is 10. All values are 16-bit integers, unsigned unless
+/// The rover only responds if command verb is @ref UART_COMMAND_GET. All values are 16-bit integers, unsigned unless
 /// noted below.
 ///
 /// The response is 5 bytes:

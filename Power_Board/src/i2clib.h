@@ -1,3 +1,4 @@
+/// @file
 /// Dan's glorious I2C library.
 /// A high-level wrapper around PIC24's I2C primitives.
 

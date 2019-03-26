@@ -50,7 +50,10 @@ bool bq_try_push(ByteQueue *self, size_t n, void *data_in);
 ///         false if not enough bytes were present.
 bool bq_try_pop(ByteQueue *self, size_t n, void *data_out);
 
+/// Check whether the ByteQueue has at least n bytes of free space
 bool bq_can_push(ByteQueue *self, size_t n);
+
+/// Check whether the ByteQueue has at least n bytes of data
 bool bq_can_pop(ByteQueue *self, size_t n);
 
 #endif

@@ -40,7 +40,7 @@ add_custom_command(
 add_executable(Power_Board
         src/motor.c
         src/device_robot_motor.c
-        src/device_robot_motor_i2c.c
+        src/polling_i2c.c
         src/i2clib.c
         src/main.c
         src/stdfunctions.c

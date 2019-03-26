@@ -1,7 +1,6 @@
 /// @file
-/// Handle the power supply. Prevents and warns of too-high current draw. Although the batteries
-/// have protection circuitry to prevent damage, doing so will cause the power supply to black out
-/// and this firmware (as well as any payload hardware) to lose power.
+/// Handle bringing up the power supply. Prevents too-high current draw so the battery doesn't kill power.
+/// Note this file is also used by the bootloader, so it shouldn't rely on rover settings or any other rover subsystem
 
 #ifndef POWER_H
 #define POWER_H
@@ -12,12 +11,5 @@
 /// "main bus" (which powers the motor and payload). We are only dealing here with the main bus,
 /// but a hardware overcurrent condition would kill power to both!
 void power_init();
-
-#ifndef BOOTYPIC
-/// Does an incremental amount of work to protect robot and the batteries.
-/// - If charging, only connects one battery at a time to the main power bus
-/// - If discharging, warns (via the overcurrent flag) if current draw is trending too high
-void power_tick();
-#endif
 
 #endif

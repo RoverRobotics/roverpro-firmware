@@ -12,7 +12,9 @@
 /// current settings Settings is grouped according to the functional area affected.
 typedef struct Settings {
     struct {
+        /// Date when the firmware was compiled
         char build_date[12];
+        /// Time when the firmware was compiled
         char build_time[12];
         uint16_t release_version_flat;
     } firmware;
@@ -57,7 +59,9 @@ typedef struct Settings {
         uint16_t step_timeout_ms;
     } i2c;
     struct {
+        /// Frequency of PWM signal to motor controllers
         uint16_t motor_pwm_frequency_khz;
+        /// Amount of time to coast the motors in between direction changes
         uint16_t motor_protect_direction_delay_ms;
     } drive;
 } Settings;

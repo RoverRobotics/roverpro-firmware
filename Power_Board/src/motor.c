@@ -196,17 +196,17 @@ static void InitIC3(uint8_t RPn) {
 
 /// PIC 24F DS39723 Output Compare with Dedicated Timers
 typedef struct {
-    // Control Register 1
+    /// Control Register 1
     volatile uint16_t *OCxCON1;
-    // Control Register 2
+    /// Control Register 2
     volatile uint16_t *OCxCON2;
-    // Data Register
+    /// Data Register
     volatile uint16_t *OCxR;
-    // Secondary Data Register
+    /// Secondary Data Register
     volatile uint16_t *OCxRS;
-    // Internal Time Base Register
+    /// Internal Time Base Register
     volatile uint16_t *OCxTMR;
-    // Output value associated with this port for remappable output
+    /// Output value associated with this port for remappable output
     uint16_t RPnR;
 } OutputCompareModule;
 
