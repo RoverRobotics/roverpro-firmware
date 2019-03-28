@@ -11,7 +11,7 @@ static void turn_on_power_bus_immediate() { set_active_batteries(BATTERY_FLAG_AL
 /// Pulse the power bus with constant-length pulses
 /// (10 ms on + 40 ms off) x 20
 static void turn_on_power_bus_old_method(void) {
-    unsigned int i;
+    uint32_t i;
     for (i = 0; i < 20; i++) {
         set_active_batteries(BATTERY_FLAG_ALL);
         block_ms(10);
@@ -21,13 +21,11 @@ static void turn_on_power_bus_old_method(void) {
     set_active_batteries(BATTERY_FLAG_ALL);
 }
 
-/// Pulse the power bus with quadric-length pulses
-/// (250 + (i**2 / 32) microseconds on + 10 ms off) x 238
+/// Pulse the power bus with quadratic-length pulses
+/// (250 + (i**2 / 32) microseconds on + 10 ms off) x 300
 static void turn_on_power_bus_new_method() {
-    uint16_t i = 0;
-    // Note: i previously counted to 300, but I reduced it to 238 because
-    // greater values would cause short pulses again so probably not needed
-    for (i = 0; i < 238; i++) {
+    uint32_t i = 0;
+    for (i = 0; i < 300; i++) {
         set_active_batteries(BATTERY_FLAG_ALL);
         block_us(250 + i * i / 32);
         set_active_batteries(BATTERY_FLAG_NONE);
@@ -36,10 +34,10 @@ static void turn_on_power_bus_new_method() {
     set_active_batteries(BATTERY_FLAG_ALL);
 }
 
-/// Pulse the power bus with quadric-length pulses, capping the pulses at 1.25 ms
+/// Pulse the power bus with quadratic-length pulses, capping the pulses at 1.25 ms
 /// (250 + (i**2 / 32) microseconds on + 40 ms off) x 200
 static void turn_on_power_bus_hybrid_method() {
-    uint16_t i;
+    uint32_t i;
     for (i = 0; i < 200; i++) {
         set_active_batteries(BATTERY_FLAG_ALL);
         block_us(250 + i * i / 32);

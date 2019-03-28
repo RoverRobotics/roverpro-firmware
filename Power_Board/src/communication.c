@@ -158,9 +158,9 @@ void uart_tick() {
     // // debug:
     // UARTCommand test_verb = UART_COMMAND_GET;
     // uint8_t test_arg = 40;
-    // uint8_t RQ_TEST_MSG[7] = {253, 128, 128, 125, test_verb, test_arg, 0};
+    // uint8_t RQ_TEST_MSG[7] = {253, 125, 125, 125, test_verb, test_arg, 0};
     // RQ_TEST_MSG[6] = checksum(5, RQ_TEST_MSG + 1);
-    // bq_try_push(&uart_rx_q, sizeof(RQ_TEST_MSG), RQ_TEST_MSG);
+    // bq_try_push(&g_state.communication.rx_q, sizeof(RQ_TEST_MSG), RQ_TEST_MSG);
     // // end debug
 
     while (bq_can_pop(&g_state.communication.rx_q, RX_PACKET_SIZE)) {

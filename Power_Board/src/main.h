@@ -14,7 +14,7 @@ extern Settings g_settings;
 
 /// The current state of the robot. Values may change frequently over normal robot operation. Some
 /// additional state may be present in file-static or function-static variables, but any state
-/// variable written by one variable and read by another should live here.
+/// variable written by one functional area and read by another should live here.
 extern State g_state;
 
 #endif
