@@ -35,17 +35,27 @@ typedef struct Settings {
         uint16_t flipper_poll_ms;
     } main;
     struct {
+	    /// How long to keep moving after receiving the last motor command
         uint16_t drive_command_timeout_ms;
+        /// How long to keep the cooling fan going after receiving the last fan commannd
         uint16_t fan_command_timeout_ms;
+        /// How many incoming data bytes to hold before discarding data
         uint16_t rx_bufsize_bytes;
+        /// How many outgoing data bytes to hold before discarding data
         uint16_t tx_bufsize_bytes;
+        /// The number of bits per second for communication (both sending and receiving)
         uint32_t baud_rate;
     } communication;
     struct {
+	    /// The level of current (for either battery) at which we should start worrying
         uint16_t overcurrent_trigger_threshold_ma;
+        /// How long the current should be at the trigger threshold for us to panic
         uint16_t overcurrent_trigger_duration_ms;
+        /// How low the current must be (for both batteries) to stop panicking
         uint16_t overcurrent_reset_threshold_ma;
+        /// If the current doesn't go down to the reset threshold, how long to stop panicking
         uint16_t overcurrent_reset_duration_ms;
+        /// When charging, how often to alternate the power bus
         uint16_t charging_battery_switch_ms;
     } power;
     struct {
@@ -56,6 +66,9 @@ typedef struct Settings {
         int16_t angle_offset;
     } flipper;
     struct {
+	    /// How long to wait for a I2C communication step to time out
+	    // TODO: this is waaay longer than needed. it should probably be in microseconds (also I2C should probably be interrupt-driven)
+	    //       profile the UART stuff and find out.
         uint16_t step_timeout_ms;
     } i2c;
     struct {
