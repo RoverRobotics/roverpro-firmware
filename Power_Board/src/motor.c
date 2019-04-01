@@ -1,24 +1,9 @@
 /*---------------------------Dependencies-------------------------------------*/
+#include "clock.h"
 #include "hardware_definitions.h"
 #include "main.h"
 #include "motor.h"
 #include "xc.h"
-
-/*---------------------------Macros-------------------------------------------*/
-#define CAPTURE_BUFFER_COUNT 4
-/*---------------------------Helper Function Prototypes-----------------------*/
-
-/// Initialize PIC modules Timer4 and Timer5 together as a 32-bit timer
-static void InitTimer4Timer5(void);
-/// Set up PIC input capture module 1 for events on pin RPn
-static void InitIC1(uint8_t RPn);
-/// Set up PIC input capture module 2 for events on pin RPn
-static void InitIC2(uint8_t RPn);
-/// Set up PIC input capture module 3 for events on pin RPn
-static void InitIC3(uint8_t RPn);
-
-/// IC module constant: Clock source of Timer4 is the clock source of the capture counter
-static const uint16_t IC_SELECT_TIMER4 = 0b010;
 
 /// Motor direction constants for M1_DIRO bits as well as other motors
 typedef enum {
@@ -26,173 +11,58 @@ typedef enum {
     MOTOR_DIR_REVERSE = 0,
 } MotorDir;
 
-/// A single event of the motor encoder. Three events in the same direction correspond to one
-/// revolution.
-typedef struct {
-    /// 32-bit timestamp high half
-    uint16_t hi;
-    /// 32-bit timestamp low half
-    uint16_t lo;
-    /// direction that the motor is spinning
-    MotorDir dir;
-} EncoderEvent;
-
-/// Index into the event_ring_buffer for the next event capture
-static volatile size_t g_i_next_event[MOTOR_CHANNEL_COUNT];
-
-/// The most recent encoder events. We only need 2 encoder events to compute an interval,
-/// and old values should be purged.
-// todo: change this to a LIFO data structure
-static volatile EncoderEvent g_event_ring_buffer[MOTOR_CHANNEL_COUNT][CAPTURE_BUFFER_COUNT];
-
 /*---------------------------Interrupt Service Routines (ISRs)----------------*/
 
-/// Get a single event and note it in the buffer.
-void motor_tach_event_capture(MotorChannel channel, MotorDir dir, uint16_t captured_value_lo) {
-    EncoderEvent event;
-    event.lo = TMR4; // note reading TMR4 saves the value of TMR5 into TMR5HLD.
-    event.hi = TMR5HLD;
+int64_t g_tach_output[MOTOR_CHANNEL_COUNT] = {0};
 
-    event.dir = dir;
-    g_event_ring_buffer[channel][g_i_next_event[channel]] = event;
-    g_i_next_event[channel] = (g_i_next_event[channel] + 1U) % CAPTURE_BUFFER_COUNT;
-}
+#define clamp(x, lo, hi) ((x) < (lo) ? (lo) : (x) > (hi) ? (hi) : (x))
 
-/// Interrupt function for PIC24 Input Capture module 1
-void __attribute__((__interrupt__, auto_psv)) _IC1Interrupt(void) {
-    MotorDir dir = (M1_DIRO ? MOTOR_DIR_REVERSE : MOTOR_DIR_FORWARD);
-    while (IC1CON1bits.ICBNE) {
-        motor_tach_event_capture(MOTOR_LEFT, dir, IC1BUF);
+void __attribute__((__interrupt__, auto_psv)) _CNInterrupt(void) {
+    static bool last_tacho[MOTOR_CHANNEL_COUNT];
+    static uint64_t last_time[MOTOR_CHANNEL_COUNT];
+    static MotorDir last_diro[MOTOR_CHANNEL_COUNT];
 
-        if (dir == MOTOR_DIR_REVERSE) {
-            g_state.drive.motor_encoder_count[MOTOR_LEFT]--;
-        } else {
-            g_state.drive.motor_encoder_count[MOTOR_LEFT]++;
+    bool tacho[MOTOR_CHANNEL_COUNT] = {_RD11, _RF3, _RD5};
+    bool diro[MOTOR_CHANNEL_COUNT] = {M1_DIRO, M2_DIRO, M3_DIRO};
+
+    uint64_t now = clock_ticks();
+    MotorChannel c;
+    for (EACH_MOTOR_CHANNEL(c)) {
+        int dir_sgn = (diro[c] == MOTOR_DIR_FORWARD) ^ (c == MOTOR_RIGHT) ? +1 : -1;
+
+        if (!last_tacho[c] && tacho[c]) {
+            if (diro[c] == last_diro[c]) {
+                g_tach_output[c] = ((int64_t)(now - last_time[c])) * dir_sgn;
+            }
+            g_state.drive.motor_encoder_count[c] += dir_sgn;
+
+            last_time[c] = now;
+            last_diro[c] = diro[c];
+            last_tacho[c] = tacho[c];
         }
     }
-    _IC1IF = 0; // clear the source of the interrupt
-}
-
-/// Interrupt function for PIC24 Input Capture module 2
-void __attribute__((__interrupt__, auto_psv)) _IC2Interrupt(void) {
-    // Note the motor direction is reversed here, since the motor is installed backwards
-    MotorDir dir = (M2_DIRO ? MOTOR_DIR_FORWARD : MOTOR_DIR_REVERSE);
-    while (IC2CON1bits.ICBNE) {
-        motor_tach_event_capture(MOTOR_RIGHT, dir, IC2BUF);
-
-        if (dir == MOTOR_DIR_REVERSE) {
-            g_state.drive.motor_encoder_count[MOTOR_RIGHT]--;
-        } else {
-            g_state.drive.motor_encoder_count[MOTOR_RIGHT]++;
-        }
-    }
-    _IC2IF = 0;
-}
-
-// Interrupt function for PIC24 Input Capture module 3
-void __attribute__((__interrupt__, auto_psv)) _IC3Interrupt(void) {
-    MotorDir dir = (M3_DIRO ? MOTOR_DIR_REVERSE : MOTOR_DIR_FORWARD);
-    while (IC2CON1bits.ICBNE) {
-        motor_tach_event_capture(MOTOR_FLIPPER, dir, IC3BUF);
-    }
-    _IC3IF = 0;
+    _CNIF = 0;
 }
 
 /*---------------------------Public Function Definitions----------------------*/
 void motor_tach_init() {
-    /// We use Timer4 + Timer5 as the basis of our tachometry.
-    /// with a 16 MHz instruction clock a 256 prescale, and a 16 bit input capture, we can measure
-    /// as fast as 1/(16MHz) * 256 = 16 us ~= 3.8 M RPM
-    /// as slow as 1/(16MHz) * 256 * 2**16  = 1.1 s ~= 57 RPM
-    InitTimer4Timer5();
+    _CN14IE = 1; // M3_TACHO
+    _CN56IE = 1; // M1_TACHO
+    _CN71IE = 1; // M2_TACHO
 
-    InitIC1(M1_TACHO_RPN);
-    InitIC2(M2_TACHO_RPN);
-    InitIC3(M3_TACHO_RPN);
+    _CNIF = 0;
+    _CNIE = 1;
 }
 
-float motor_tach_get_period(MotorChannel channel) {
+int64_t motor_tach_get_period(MotorChannel channel) {
     BREAKPOINT_IF(channel > MOTOR_CHANNEL_COUNT);
-    // We are betting we can get through this before the data we're interested in is clobbered.
-
-    // index of second-most-recent event
-    size_t i = (g_i_next_event[channel] + CAPTURE_BUFFER_COUNT - 2) % CAPTURE_BUFFER_COUNT;
-
-    EncoderEvent event0 = g_event_ring_buffer[channel][i];
-    EncoderEvent event1 = g_event_ring_buffer[channel][(i + 1) % CAPTURE_BUFFER_COUNT];
-    uint16_t interval = event1.lo - event0.lo;
-
-    // if motor changed direction, can't trust encoder
-    if (event0.dir != event1.dir)
-        return 0;
-
-    // if it's been too long since last timestamp, can't trust encoder
-    if (TMR5 - event1.hi > 1)
-        return 0;
-
-    // if the motor is moving very slowly (<~1hz)
-    if (event1.hi - event0.hi > 1)
-        return 0;
-
-    if (event1.hi - event0.hi == 1 && event1.lo > event0.lo)
-        return 0;
-
-    if (event1.dir == MOTOR_DIR_REVERSE) {
-        return -(float)interval;
-    } else {
-        return +(float)interval;
-    }
+    _CNIE = 0;
+    int64_t result = g_tach_output[channel];
+    _CNIE = 1;
+    return result;
 }
 
 /*---------------------------Private Function Definitions---------------------*/
-static void InitTimer4Timer5(void) {
-    T4CON = T5CON = 0x00; // clear timers configuration
-    TMR4 = 0;             // reset both timers to 0
-    TMR5 = 0;
-    PR4 = UINT16_MAX; // set timer maximum count.
-    PR5 = UINT16_MAX;
-    T4CONbits.TCKPS = 0b11; // prescale by 1:256
-    T4CONbits.T32 = 1;      // mark timers as forming a 32-bit timer pair
-    T4CONbits.TON = 1; // turn on the timer (don't need to enable T5, it is automatically enabled)
-}
-
-static void InitIC1(uint8_t RPn) {
-    IC1CON1 = 0x00; // reset the input capture module
-
-    // set up the input capture for "Normal Configuration"
-    // configure the input capture
-    IC1CON1bits.ICTSEL = 0b010; // use Timer4 as the time base
-    IC1CON1bits.ICI = 0b00;     // fire the interrupt every capture event
-    IC1CON1bits.ICM = 0b011;    // capture event on every rising edge
-
-    _IC1R = RPn; // set the input pin to watch
-    _IC1IF = 0;  // begin with the interrupt flag cleared
-    _IC1IE = 1;  // enable this interrupt
-}
-
-static void InitIC2(uint8_t RPn) {
-    IC2CON1 = 0x00; // reset the input capture module
-
-    IC2CON1bits.ICTSEL = IC_SELECT_TIMER4;
-    IC2CON1bits.ICI = 0b00;
-    IC2CON1bits.ICM = 0b011;
-
-    _IC2R = RPn;
-    _IC2IF = 0;
-    _IC2IE = 1;
-}
-
-static void InitIC3(uint8_t RPn) {
-    IC3CON1 = 0x00; // reset the input capture module
-
-    IC3CON1bits.ICTSEL = IC_SELECT_TIMER4;
-    IC3CON1bits.ICI = 0b00;
-    IC3CON1bits.ICM = 0b011;
-
-    _IC3R = RPn;
-    _IC2IF = 0;
-    _IC2IE = 1;
-}
 
 /// PIC 24F DS39723 Output Compare with Dedicated Timers
 typedef struct {

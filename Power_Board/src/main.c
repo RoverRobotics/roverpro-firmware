@@ -9,6 +9,7 @@
 #include "motor.h"
 
 #include "analog.h"
+#include "clock.h"
 #include "communication.h"
 #include "cooling.h"
 #include "drive.h"
@@ -38,7 +39,7 @@ bool tick_counter(uint16_t *value, uint16_t limit) {
 void rover_init() {
     i2c_enable(I2C_BUS2);
     i2c_enable(I2C_BUS3);
-
+    clock_init();
     power_init();
     uart_init();
     analog_init();

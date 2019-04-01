@@ -78,11 +78,14 @@ void drive_tick() {
         }
     }
 
-    // read out measured motor periods.
+    // read out measured motor periods, dividing by 256 to match old behavior.
+    int64_t period;
+    period = labs(motor_tach_get_period(MOTOR_LEFT) / 256);
     g_state.drive.motor_encoder_period[MOTOR_LEFT] =
-        (uint16_t)fabs(motor_tach_get_period(MOTOR_LEFT));
+        period > UINT16_MAX ? UINT16_MAX : (uint16_t)period;
+    period = labs(motor_tach_get_period(MOTOR_RIGHT) / 256);
     g_state.drive.motor_encoder_period[MOTOR_RIGHT] =
-        (uint16_t)fabs(motor_tach_get_period(MOTOR_RIGHT));
+        period > UINT16_MAX ? UINT16_MAX : (uint16_t)period;
 }
 
 void drive_init() {
