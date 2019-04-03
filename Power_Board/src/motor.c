@@ -15,8 +15,6 @@ typedef enum {
 
 int64_t g_tach_output[MOTOR_CHANNEL_COUNT] = {0};
 
-#define clamp(x, lo, hi) ((x) < (lo) ? (lo) : (x) > (hi) ? (hi) : (x))
-
 void __attribute__((__interrupt__, auto_psv)) _CNInterrupt(void) {
     static bool last_tacho[MOTOR_CHANNEL_COUNT];
     static uint64_t last_time[MOTOR_CHANNEL_COUNT];
@@ -25,7 +23,7 @@ void __attribute__((__interrupt__, auto_psv)) _CNInterrupt(void) {
     bool tacho[MOTOR_CHANNEL_COUNT] = {_RD11, _RF3, _RD5};
     bool diro[MOTOR_CHANNEL_COUNT] = {M1_DIRO, M2_DIRO, M3_DIRO};
 
-    uint64_t now = clock_ticks();
+    uint64_t now = clock_now();
     MotorChannel c;
     for (EACH_MOTOR_CHANNEL(c)) {
         int dir_sgn = (diro[c] == MOTOR_DIR_FORWARD) ^ (c == MOTOR_RIGHT) ? +1 : -1;
@@ -125,7 +123,8 @@ void outputcompare_pwm_set_duty(OutputCompareModule oc, float duty_factor) {
     *oc.OCxR = (uint16_t)(*oc.OCxRS * duty_factor + 0.5F);
 }
 
-MotorStatusFlag motor_update(MotorChannel channel, MotorStatusFlag status, uint16_t duty) {
+MotorStatusFlag motor_update(MotorChannel channel, MotorStatusFlag status, float duty) {
+
     // NOTE: all the hardware flags are active-low. So we negate the values before assigning and
     // when retrieving
     switch (channel) {
@@ -134,7 +133,7 @@ MotorStatusFlag motor_update(MotorChannel channel, MotorStatusFlag status, uint1
         M1_BRAKE = !(status & MOTOR_FLAG_BRAKE);
         M1_DIR = !(status & MOTOR_FLAG_REVERSE);
         M1_MODE = !(status & MOTOR_FLAG_DECAY_MODE);
-        outputcompare_pwm_set_duty(OUTPUT_COMPARE_1, duty / 1000.0F);
+        outputcompare_pwm_set_duty(OUTPUT_COMPARE_1, duty);
         return (status & ~MOTOR_FLAG_MASK_FEEDBACK) | (!M1_FF1 ? MOTOR_FLAG_FAULT1 : 0) |
                (!M1_FF2 ? MOTOR_FLAG_FAULT2 : 0);
     case (MOTOR_RIGHT):
@@ -142,7 +141,7 @@ MotorStatusFlag motor_update(MotorChannel channel, MotorStatusFlag status, uint1
         M2_BRAKE = !(status & MOTOR_FLAG_BRAKE);
         M2_DIR = !(status & MOTOR_FLAG_REVERSE);
         M2_MODE = !(status & MOTOR_FLAG_DECAY_MODE);
-        outputcompare_pwm_set_duty(OUTPUT_COMPARE_2, duty / 1000.0F);
+        outputcompare_pwm_set_duty(OUTPUT_COMPARE_2, duty);
         return (status & ~MOTOR_FLAG_MASK_FEEDBACK) | (!M2_FF1 ? MOTOR_FLAG_FAULT1 : 0) |
                (!M2_FF2 ? MOTOR_FLAG_FAULT2 : 0);
     case (MOTOR_FLIPPER):
@@ -150,7 +149,7 @@ MotorStatusFlag motor_update(MotorChannel channel, MotorStatusFlag status, uint1
         M3_BRAKE = !(status & MOTOR_FLAG_BRAKE);
         M3_DIR = !(status & MOTOR_FLAG_REVERSE);
         M3_MODE = !(status & MOTOR_FLAG_DECAY_MODE);
-        outputcompare_pwm_set_duty(OUTPUT_COMPARE_3, duty / 1000.0F);
+        outputcompare_pwm_set_duty(OUTPUT_COMPARE_3, duty);
         return (status & ~MOTOR_FLAG_MASK_FEEDBACK) | (!M3_FF1 ? MOTOR_FLAG_FAULT1 : 0) |
                (!M3_FF2 ? MOTOR_FLAG_FAULT2 : 0);
     }
@@ -160,7 +159,7 @@ MotorStatusFlag motor_update(MotorChannel channel, MotorStatusFlag status, uint1
 
 void motor_init(MotorChannel c) {
     uint16_t pwm_khz = g_settings.drive.motor_pwm_frequency_khz;
-    motor_update(c, MOTOR_FLAG_COAST, 0);
+    motor_update(c, MOTOR_FLAG_COAST, 0.F);
     OutputCompareModule oc;
     switch (c) {
     case MOTOR_LEFT:

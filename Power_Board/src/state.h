@@ -23,6 +23,9 @@ typedef struct State {
         uint16_t motor_encoder_period[2];
         uint16_t flipper_angle;
         MotorStatusFlag motor_status[MOTOR_CHANNEL_COUNT];
+        uint64_t last_update_time;
+        /// The last effort sent to the motors
+        float last_motor_effort[MOTOR_CHANNEL_COUNT];
     } drive;
     /// State of the analog monitoring subsystem
     struct AnalogState {
@@ -66,11 +69,15 @@ typedef struct State {
     struct CommunicationState {
         ByteQueue rx_q;
         ByteQueue tx_q;
-        bool use_manual_fan_speed;
+        uint64_t fan_command_timestamp;
         /// Last requested fan speed. Value ranges from 0 (off) to 240 (100%)
         uint8_t fan_speed;
-        /// Last requested motor effort. Values from -1000 to 1000
-        int16_t motor_effort[MOTOR_CHANNEL_COUNT];
+        uint64_t drive_command_timestamp;
+        /// Last requested motor effort. Values from -1.0 to 1.0
+        float motor_effort[MOTOR_CHANNEL_COUNT];
+        /// Whether a 0 motor speed should be interpreted as a brake. Otherwise, interpret it as a
+        /// coast.
+        bool brake_when_stopped[MOTOR_CHANNEL_COUNT];
     } communication;
 } State;
 

@@ -35,8 +35,12 @@ typedef struct Settings {
         uint16_t flipper_poll_ms;
     } main;
     struct {
-	    /// How long to keep moving after receiving the last motor command
+        /// How long to keep moving after receiving the last motor command
         uint16_t drive_command_timeout_ms;
+        /// When we stop receiving a motor command, should we brake? (otherwise coast)
+        bool brake_on_drive_timeout;
+        /// When we stop receiving a motor command, should we brake? (otherwise coast)
+        bool brake_on_zero_speed_command;
         /// How long to keep the cooling fan going after receiving the last fan commannd
         uint16_t fan_command_timeout_ms;
         /// How many incoming data bytes to hold before discarding data
@@ -47,7 +51,7 @@ typedef struct Settings {
         uint32_t baud_rate;
     } communication;
     struct {
-	    /// The level of current (for either battery) at which we should start worrying
+        /// The level of current (for either battery) at which we should start worrying
         uint16_t overcurrent_trigger_threshold_ma;
         /// How long the current should be at the trigger threshold for us to panic
         uint16_t overcurrent_trigger_duration_ms;
@@ -61,21 +65,31 @@ typedef struct Settings {
     struct {
         /// Whether or not the calibration routine has been run and angle_offset can be trusted
         bool is_calibrated;
-        /// Value needed to compute the actual flippera angle from onboard sensors. Computed by the
+        /// Value needed to compute the actual flipper angle from onboard sensors. Computed by the
         /// flipper calibration routine
         int16_t angle_offset;
     } flipper;
     struct {
-	    /// How long to wait for a I2C communication step to time out
-	    // TODO: this is waaay longer than needed. it should probably be in microseconds (also I2C should probably be interrupt-driven)
-	    //       profile the UART stuff and find out.
+        /// How long to wait for a I2C communication step to time out
+        // TODO: this is waaay longer than needed. it should probably be in microseconds (also I2C
+        // should probably be interrupt-driven)
+        //       profile the UART stuff and find out.
         uint16_t step_timeout_ms;
     } i2c;
     struct {
         /// Frequency of PWM signal to motor controllers
         uint16_t motor_pwm_frequency_khz;
+        /// @deprecated
         /// Amount of time to coast the motors in between direction changes
         uint16_t motor_protect_direction_delay_ms;
+        /// How much we should limit acceleration. If at a full stop, and commanded to go full speed
+        /// ahead, this will be how long to ramp up motor commands to that speed.
+        float time_to_full_speed;
+        /// Should we use slow current decay mode in the motor controller?
+        bool motor_slow_decay_mode;
+        /// The most we can change the motor effort in one iteration.
+        /// If acceleration limit is reasonable, this will not make a difference.
+        float max_instantaneous_delta_effort;
     } drive;
 } Settings;
 

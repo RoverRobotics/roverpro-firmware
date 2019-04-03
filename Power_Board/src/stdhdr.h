@@ -39,4 +39,6 @@
 void block_ms(uint32_t ms);
 void block_us(uint32_t us);
 void block_s(float seconds);
+
+#define clamp(x, lo, hi) ((x) < (lo) ? (lo) : (x) > (hi) ? (hi) : (x))
 #endif

@@ -62,6 +62,8 @@ static __psv__ Settings g_settings_nvm __attribute__((space(auto_psv))) = {
             .baud_rate = 57600,
             .drive_command_timeout_ms = 333,
             .fan_command_timeout_ms = 333,
+            .brake_on_drive_timeout = true,
+            .brake_on_zero_speed_command = false,
         },
     .power =
         {
@@ -83,6 +85,9 @@ static __psv__ Settings g_settings_nvm __attribute__((space(auto_psv))) = {
         {
             .motor_pwm_frequency_khz = 8,
             .motor_protect_direction_delay_ms = 10,
+            .time_to_full_speed = 5.0F,
+            .motor_slow_decay_mode = false,
+            .max_instantaneous_delta_effort = 0.2F,
         },
 };
 

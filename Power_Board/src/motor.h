@@ -1,7 +1,6 @@
 /// @file
 /// Low-level motor details for speed control and tachometry
-/// Uses timer4 + timer5, input capture 0, input capture 1, input capture 2, output compare 1,
-/// output compare 2, output compare 3
+
 #ifndef MOTOR_H
 #define MOTOR_H
 
@@ -66,7 +65,7 @@ typedef enum MotorChannel {
 /// Helper macro for iterating all motors and storing the result in variable i.
 /// e.g. @code{.c}
 /// int k;
-/// for (EACH_MOTOR_CHANNEL(k))`
+/// for (EACH_MOTOR_CHANNEL(k))
 ///     // ...
 /// @endcode
 // clang-format off
@@ -88,8 +87,8 @@ int64_t motor_tach_get_period(MotorChannel channel);
 /// @param channel Which motor to update?
 /// @param status  What the new status flags should be. Only control flags will be used - fault
 /// flags will be ignored
-/// @param duty    The duty cycle of the motor; from 0 to 1000
-/// @return The new motor status, with any new fault flags
-MotorStatusFlag motor_update(MotorChannel channel, MotorStatusFlag status, uint16_t duty);
+/// @param duty    The duty cycle to send to the motor; from 0 to 1
+/// @return        The new motor status, with any new fault flags
+MotorStatusFlag motor_update(MotorChannel channel, MotorStatusFlag status, float duty);
 
 #endif

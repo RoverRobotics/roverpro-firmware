@@ -132,6 +132,13 @@ typedef enum UARTCommand {
     UART_COMMAND_SETTINGS_SET_OVERCURRENT_RECOVER_DURATION = 7,
     /// Set PWM frequency in kHz
     UART_COMMAND_SETTINGS_SET_PWM_FREQUENCY = 8,
+    /// Should we brake when commanded a speed of 0? (versus coast)
+    UART_COMMAND_SETTINGS_SET_BRAKE_ON_ZERO_SPEED_COMMAND = 9,
+    /// Should we brake when the speed times out? (versus coast)
+    UART_COMMAND_SETTINGS_SET_BRAKE_ON_DRIVE_TIMEOUT = 11,
+    /// Should the motors use slow decay mode?
+    UART_COMMAND_SETTINGS_SET_MOTOR_SLOW_DECAY_MODE = 12,
+    UART_COMMAND_SETTINGS_SET_TIME_TO_FULL_SPEED = 13
 } UARTCommand;
 
 #endif

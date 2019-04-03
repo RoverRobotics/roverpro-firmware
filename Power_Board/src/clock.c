@@ -17,13 +17,11 @@ void clock_init(void) {
     T2CONbits.TON = 1; // turn on the 32-bit timer
 }
 
-uint16_t clock_ticks_u16() { return TMR2; }
-
-uint64_t clock_ticks() {
+uint64_t clock_now() {
     BREAKPOINT_IF(g_timer_overflow == UINT64_MAX);
-    uint16_t ticks1 = clock_ticks_u16();
+    uint16_t ticks1 = TMR2;
     uint64_t oflow1 = g_timer_overflow;
-    uint16_t ticks2 = clock_ticks_u16();
+    uint16_t ticks2 = TMR2;
 
     if (ticks1 < ticks2) {
         // no overflow happened while retrieving oflow1
