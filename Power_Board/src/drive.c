@@ -13,7 +13,6 @@ void drive_tick() {
     uint64_t t0 = g_state.drive.last_update_time;
     uint64_t t1 = g_state.drive.last_update_time = clock_now();
     bool overcurrent = g_state.power.overcurrent;
-    uint64_t delta_time = t1 - t0;
     float max_delta_effort = min((t1 - t0) * (1.0F / CLOCK_S) / g_settings.drive.time_to_full_speed,
                                  g_settings.drive.max_instantaneous_delta_effort);
 

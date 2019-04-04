@@ -154,11 +154,11 @@ void uart_tick() {
     bool has_fan_command = false;
 
     // // debug:
-    // UARTCommand test_verb = UART_COMMAND_GET;
-    // uint8_t test_arg = 40;
-    // uint8_t RQ_TEST_MSG[7] = {253, 125, 125, 125, test_verb, test_arg, 0};
-    // RQ_TEST_MSG[6] = checksum(5, RQ_TEST_MSG + 1);
-    // bq_try_push(&g_state.communication.rx_q, sizeof(RQ_TEST_MSG), RQ_TEST_MSG);
+    UARTCommand test_verb = UART_COMMAND_GET;
+    uint8_t test_arg = 40;
+    uint8_t rq_test_msg[7] = {253, 250, 250, 125, test_verb, test_arg, 0};
+    rq_test_msg[6] = checksum(5, rq_test_msg + 1);
+    bq_try_push(&g_state.communication.rx_q, sizeof(rq_test_msg), rq_test_msg);
     // // end debug
 
     while (bq_can_pop(&g_state.communication.rx_q, RX_PACKET_SIZE)) {
@@ -242,9 +242,9 @@ void uart_tick() {
         case UART_COMMAND_SETTINGS_SET_MOTOR_SLOW_DECAY_MODE:
             g_settings.drive.motor_slow_decay_mode = (bool)arg;
             break;
-		case UART_COMMAND_SETTINGS_SET_TIME_TO_FULL_SPEED:
-			g_settings.drive.time_to_full_speed = (float)arg;
-			break;
+        case UART_COMMAND_SETTINGS_SET_TIME_TO_FULL_SPEED:
+            g_settings.drive.time_to_full_speed = (float)arg;
+            break;
         case UART_COMMAND_SET_DRIVE_MODE:
             break;
             // fallthrough

@@ -138,6 +138,7 @@ typedef enum UARTCommand {
     UART_COMMAND_SETTINGS_SET_BRAKE_ON_DRIVE_TIMEOUT = 11,
     /// Should the motors use slow decay mode?
     UART_COMMAND_SETTINGS_SET_MOTOR_SLOW_DECAY_MODE = 12,
+    /// How long it should take from a stop to go to full throttle
     UART_COMMAND_SETTINGS_SET_TIME_TO_FULL_SPEED = 13
 } UARTCommand;
 
