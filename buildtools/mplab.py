@@ -57,10 +57,15 @@ class BuildToolsC30(BuildToolSuite):
 
     @classmethod
     def from_registry(cls):
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microchip\MPLAB IDE\Tool Locations") as key:
-            cc, _ = winreg.QueryValueEx(key, 'T_dsPICcc.C30')
-            hx, _ = winreg.QueryValueEx(key, 'T_dsPICbin2hex.C30')
-        return cls(cc=Path(cc), hx=Path(hx))
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microchip\MPLAB IDE\Tool Locations") as key:
+                cc, _ = winreg.QueryValueEx(key, 'T_dsPICcc.C30')
+                hx, _ = winreg.QueryValueEx(key, 'T_dsPICbin2hex.C30')
+            return cls(cc=Path(cc), hx=Path(hx))
+        except FileNotFoundError as e:
+            raise Exception(
+                "Could not find MPLAB C30 build tools."
+                "Download from https://www.microchip.com/development-tools/pic-and-dspic-downloads-archive")  from e
 
 
 class MPLabProject:
@@ -240,7 +245,7 @@ class MPLabProject:
 
         return scripts[0]
 
-    async def link_project(self, obj_files=None, linker_script=None):
+    async def link_project(self, obj_files=None):
         target_file = self.target_executable_path
         try:
             await target_file.unlink()
@@ -249,18 +254,26 @@ class MPLabProject:
         if obj_files is None:
             obj_files = [str(self.get_file_object_path(fid)) for fid in self.get_source_file_ids()]
 
-        ld_flags_str = self.get_tool_flags(self.tool_suite.ld_uuid, None)
-        ld_flags = ['-T' + self.linker_script,
-                    *(["-L" + shlex.quote(self.config['PATH_INFO']['dir_lib'])] if self.config['PATH_INFO'][
-                        'dir_lib'] else []),
-                    *shlex.split(ld_flags_str)]
+        gcc_ld_flags_string = self.get_tool_flags(self.tool_suite.ld_uuid, None)
+
+        gcc_flags = []
+        ld_flags = []
+
+        for flag in shlex.split(gcc_ld_flags_string):
+            if flag.startswith('-o') or flag == '-fast-math':
+                gcc_flags.append(flag)
+            else:
+                ld_flags.append(flag)
+        ld_flags.append('-T' + self.linker_script)
+        if self.config['PATH_INFO']['dir_lib']:
+            ld_flags.append("-L" + shlex.quote(self.config['PATH_INFO']['dir_lib']))
 
         args = [
             str(self.tool_suite.cc),
             self.cpu_flag,
             *obj_files,
-            *[flag for flag in ld_flags if flag.startswith('-o')],
-            '-Wl,' + ','.join([flag for flag in ld_flags if not flag.startswith('-o')])
+            *gcc_flags,
+            '-Wl,' + ','.join(ld_flags)
         ]
         await self.exec_subprocess(args)
         assert await target_file.is_file()
