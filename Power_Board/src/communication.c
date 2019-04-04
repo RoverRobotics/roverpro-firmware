@@ -174,9 +174,9 @@ void uart_tick() {
             continue;
         }
 
-        g_state.communication.motor_effort[MOTOR_LEFT] = (float)(packet[1] - 125) / 250.0F;
-        g_state.communication.motor_effort[MOTOR_RIGHT] = (float)(packet[2] - 125) / 250.0F;
-        g_state.communication.motor_effort[MOTOR_FLIPPER] = (float)(packet[3] - 125) / 250.0F;
+        g_state.communication.motor_effort[MOTOR_LEFT] = (float)(packet[1] - 125) / 125.0F;
+        g_state.communication.motor_effort[MOTOR_RIGHT] = (float)(packet[2] - 125) / 125.0F;
+        g_state.communication.motor_effort[MOTOR_FLIPPER] = (float)(packet[3] - 125) / 125.0F;
 
         has_drive_command = true;
         UARTCommand verb = packet[4];
