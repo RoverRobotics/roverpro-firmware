@@ -25,7 +25,7 @@ void flipper_feedback_calibrate() {
 
     // Coast all the motors
     for (EACH_MOTOR_CHANNEL(c))
-        motor_update(c, MOTOR_FLAG_COAST, 0);
+        motor_update(c, MOTOR_FLAG_COAST, 0.F);
 
     g_settings.flipper.is_calibrated = true;
     g_settings.flipper.angle_offset = return_combined_pot_angle(g_state.analog.flipper_sensors[0],

@@ -1,4 +1,5 @@
 #include "bytequeue.h"
+#include "clock.h"
 #include "communication.h"
 #include "cooling.h"
 #include "drive.h"
@@ -9,9 +10,6 @@
 
 #define RX_PACKET_SIZE 7
 #define TX_PACKET_SIZE 5
-
-static uint16_t g_ticks_since_last_drive_command = UINT16_MAX;
-static uint16_t g_ticks_since_last_fan_command = UINT16_MAX;
 
 /// In the OpenRover protocol, this byte signifies the start of a message
 const uint8_t UART_START_BYTE = 253;
@@ -156,11 +154,11 @@ void uart_tick() {
     bool has_fan_command = false;
 
     // // debug:
-    // UARTCommand test_verb = UART_COMMAND_GET;
-    // uint8_t test_arg = 40;
-    // uint8_t RQ_TEST_MSG[7] = {253, 125, 125, 125, test_verb, test_arg, 0};
-    // RQ_TEST_MSG[6] = checksum(5, RQ_TEST_MSG + 1);
-    // bq_try_push(&g_state.communication.rx_q, sizeof(RQ_TEST_MSG), RQ_TEST_MSG);
+    UARTCommand test_verb = UART_COMMAND_GET;
+    uint8_t test_arg = 40;
+    uint8_t rq_test_msg[7] = {253, 250, 250, 125, test_verb, test_arg, 0};
+    rq_test_msg[6] = checksum(5, rq_test_msg + 1);
+    bq_try_push(&g_state.communication.rx_q, sizeof(rq_test_msg), rq_test_msg);
     // // end debug
 
     while (bq_can_pop(&g_state.communication.rx_q, RX_PACKET_SIZE)) {
@@ -176,9 +174,9 @@ void uart_tick() {
             continue;
         }
 
-        g_state.communication.motor_effort[MOTOR_LEFT] = packet[1] * 8 - 1000;
-        g_state.communication.motor_effort[MOTOR_RIGHT] = packet[2] * 8 - 1000;
-        g_state.communication.motor_effort[MOTOR_FLIPPER] = packet[3] * 8 - 1000;
+        g_state.communication.motor_effort[MOTOR_LEFT] = (float)(packet[1] - 125) / 250.0F;
+        g_state.communication.motor_effort[MOTOR_RIGHT] = (float)(packet[2] - 125) / 250.0F;
+        g_state.communication.motor_effort[MOTOR_FLIPPER] = (float)(packet[3] - 125) / 250.0F;
 
         has_drive_command = true;
         UARTCommand verb = packet[4];
@@ -235,6 +233,18 @@ void uart_tick() {
             g_settings.drive.motor_pwm_frequency_khz = arg;
             drive_init();
             break;
+        case UART_COMMAND_SETTINGS_SET_BRAKE_ON_ZERO_SPEED_COMMAND:
+            g_settings.communication.brake_on_zero_speed_command = (bool)arg;
+            break;
+        case UART_COMMAND_SETTINGS_SET_BRAKE_ON_DRIVE_TIMEOUT:
+            g_settings.communication.brake_on_drive_timeout = (bool)arg;
+            break;
+        case UART_COMMAND_SETTINGS_SET_MOTOR_SLOW_DECAY_MODE:
+            g_settings.drive.motor_slow_decay_mode = (bool)arg;
+            break;
+        case UART_COMMAND_SETTINGS_SET_TIME_TO_FULL_SPEED:
+            g_settings.drive.time_to_full_speed = (float)arg;
+            break;
         case UART_COMMAND_SET_DRIVE_MODE:
             break;
             // fallthrough
@@ -246,22 +256,29 @@ void uart_tick() {
     }
 
     if (has_drive_command) {
-        g_ticks_since_last_drive_command = 0;
-    } else if (g_ticks_since_last_drive_command == UINT16_MAX) {
-        // do nothing
-    } else if (++g_ticks_since_last_drive_command * g_settings.main.communication_poll_ms >
-               g_settings.communication.drive_command_timeout_ms) {
+        g_state.communication.drive_command_timestamp = clock_now();
+        MotorChannel c;
+        for (EACH_MOTOR_CHANNEL(c)) {
+            g_state.communication.brake_when_stopped[c] =
+                g_settings.communication.brake_on_zero_speed_command;
+        }
+    } else if (g_state.communication.drive_command_timestamp +
+                   g_settings.communication.drive_command_timeout_ms * CLOCK_MS <
+               clock_now()) {
         // long time no motor commands. stop moving.
-        g_state.communication.motor_effort[MOTOR_LEFT] = 0;
-        g_state.communication.motor_effort[MOTOR_RIGHT] = 0;
-        g_state.communication.motor_effort[MOTOR_FLIPPER] = 0;
-        g_ticks_since_last_drive_command = UINT16_MAX;
+        MotorChannel c;
+        for (EACH_MOTOR_CHANNEL(c)) {
+            g_state.communication.motor_effort[c] = 0;
+            g_state.communication.brake_when_stopped[c] =
+                g_settings.communication.brake_on_drive_timeout;
+        }
     }
 
     if (has_fan_command) {
-        g_state.communication.use_manual_fan_speed = true;
-        g_ticks_since_last_fan_command = 0;
-    } else if (g_ticks_since_last_fan_command == UINT16_MAX) {
+        g_state.communication.fan_command_timestamp = clock_now();
+    } else if (g_state.communication.fan_command_timestamp +
+                   g_settings.communication.fan_command_timeout_ms * CLOCK_MS >
+               clock_now()) {
         // If we don't have any fan commands, run the fan if the motors are running
         if (g_state.communication.motor_effort[MOTOR_LEFT] == 0 &&
             g_state.communication.motor_effort[MOTOR_RIGHT] == 0) {
@@ -269,10 +286,6 @@ void uart_tick() {
         } else {
             g_state.communication.fan_speed = 240;
         }
-    } else if (++g_ticks_since_last_fan_command * g_settings.main.communication_poll_ms >
-               g_settings.communication.fan_command_timeout_ms) {
-        g_state.communication.use_manual_fan_speed = false;
-        g_ticks_since_last_fan_command = UINT16_MAX;
     }
 
     _U1TXIF = 1;
