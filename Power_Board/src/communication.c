@@ -154,11 +154,11 @@ void uart_tick() {
     bool has_fan_command = false;
 
     // // debug:
-    UARTCommand test_verb = UART_COMMAND_GET;
-    uint8_t test_arg = 40;
-    uint8_t rq_test_msg[7] = {253, 250, 250, 125, test_verb, test_arg, 0};
-    rq_test_msg[6] = checksum(5, rq_test_msg + 1);
-    bq_try_push(&g_state.communication.rx_q, sizeof(rq_test_msg), rq_test_msg);
+    // UARTCommand test_verb = UART_COMMAND_GET;
+    // uint8_t test_arg = 40;
+    // uint8_t rq_test_msg[7] = {253, 250, 250, 125, test_verb, test_arg, 0};
+    // rq_test_msg[6] = checksum(5, rq_test_msg + 1);
+    // bq_try_push(&g_state.communication.rx_q, sizeof(rq_test_msg), rq_test_msg);
     // // end debug
 
     while (bq_can_pop(&g_state.communication.rx_q, RX_PACKET_SIZE)) {
