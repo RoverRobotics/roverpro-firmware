@@ -77,11 +77,8 @@ void motor_init(MotorChannel channel);
 
 /// Initialize motor feedback (tachometry)
 void motor_tach_init();
-
-/// Get the last-measured period of a motor in units of clock ticks
-/// @param channel which motor?
-/// @return Period of the motor in units of clock ticks.
-int64_t motor_tach_get_period(MotorChannel channel);
+/// Watchdog for slow tachometry
+void tach_tick();
 
 /// Tell the motor controller what to do with the motor
 /// @param channel Which motor to update?
