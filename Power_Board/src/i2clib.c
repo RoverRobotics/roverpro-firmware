@@ -1,9 +1,6 @@
 #include "i2clib.h"
 #include "stdhdr.h"
-
-#ifndef min
-#define min(a, b) (a < b ? a : b)
-#endif
+#include "stdlib.h"
 
 /** I2C ack bit. Transmitted in response to any data received. */
 typedef enum I2CAck {
@@ -102,29 +99,30 @@ I2CState i2c_state(I2CBus bus) {
     I2CControlBits con = *bus->CON;
     I2CStatusBits stat = *bus->STAT;
 
-    if (con.SEN)
+    if (con.SEN) {
         state = I2C_STARTING;
-    else if (con.RSEN)
+    } else if (con.RSEN) {
         state = I2C_RESTARTING;
-    else if (con.PEN)
+    } else if (con.PEN) {
         state = I2C_STOPPING;
-    else if (con.RCEN)
+    } else if (con.RCEN) {
         state = I2C_RECEIVING;
-    else if (con.ACKEN)
+    } else if (con.ACKEN) {
         state = I2C_ACKING;
-    else if (!con.I2CEN)
+    } else if (!con.I2CEN) {
         state = I2C_DISABLED;
 
-    else if (stat.BCL)
+    } else if (stat.BCL) {
         state = I2C_BUS_COLLISION;
-    else if (stat.TRSTAT)
+    } else if (stat.TRSTAT) {
         state = I2C_TRANSMITTING;
-    else if (stat.RBF)
+    } else if (stat.RBF) {
         state = I2C_RECEIVE_BUFFER_FULL;
-    else if (stat.ACKSTAT == NACK)
+    } else if ((I2CAck)(stat.ACKSTAT) == NACK) {
         state = I2C_IDLE_NACK;
-    else
+    } else {
         state = I2C_IDLE_ACK;
+    }
 
     return state;
 }
@@ -315,7 +313,7 @@ const I2CBus I2C_BUS3 = &I2C_BUS3_DEF;
 // Begin device-independent I2C Stuff.
 
 I2CResult i2c_tick(I2CBus bus, const I2COperationDef *op, I2CProgress *progress) {
-    I2CResult result;
+    I2CResult result = I2C_ILLEGAL;
     while (true) {
         switch (progress->resume_at) {
 

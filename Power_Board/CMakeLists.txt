@@ -12,7 +12,7 @@ add_compile_options(
         -no-legacy-libc
 )
 include_directories(
-        ${PROJECT_SOURCE_DIR}/include
+        ${PROJECT_SOURCE_DIR}/src
 )
 include_directories(SYSTEM
         "${xc16}/include"
@@ -31,7 +31,7 @@ file(GLOB HEADERS ${PROJECT_SOURCE_DIR}/**.h)
 
 configure_file(prebuild.py prebuild.py)
 add_custom_command(
-        OUTPUT include/version.GENERATED.h
+        OUTPUT src/version.GENERATED.h
         COMMAND py ${CMAKE_directory}prebuild.py
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         DEPENDS prebuild.py
@@ -40,7 +40,7 @@ add_custom_command(
 add_executable(Power_Board
         src/motor.c
         src/device_robot_motor.c
-        src/device_robot_motor_i2c.c
+        src/polling_i2c.c
         src/i2clib.c
         src/main.c
         src/stdfunctions.c
@@ -51,7 +51,7 @@ add_executable(Power_Board
         src/settings.c
         src/flipper.c
         ../bootypic/devices/pic24fj256gb106/p24FJ256GB106_app.gld
-        include/version.GENERATED.h
+        src/version.GENERATED.h
         ${HEADERS}
 )
 set(CMAKE_EXECUTABLE_FORMAT elf)

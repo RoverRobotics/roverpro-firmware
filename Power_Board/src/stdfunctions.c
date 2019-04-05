@@ -2,19 +2,29 @@
 
 // built in delay function
 extern void __delay32(unsigned long cycles);
-#define __delay_ms(d)                                                                              \
-    { __delay32((unsigned long)(((unsigned long long)d) * (FCY) / 1000ULL)); }
-
-void block_ms(uint16_t ms) {
-    const int ms_chunk = 128;
-    int i;
+void delay32wd(uint32_t cycles) {
     __builtin_clrwdt();
+    // this should be long enough to not trigger the WDT
+    const uint32_t CHUNK = 1000;
+    if (cycles < CHUNK) {
+        __delay32(cycles);
+    } else {
+        uint32_t n_chunks = cycles / CHUNK;
+        uint32_t i;
 
-    for (i = 0; i < (ms / ms_chunk); i++) {
-        __delay_ms(ms_chunk);
+        __builtin_clrwdt();
+        for (i = 0; i < n_chunks; i++) {
+            __delay32(CHUNK);
+            __builtin_clrwdt();
+        }
+        __delay32(cycles - n_chunks * CHUNK);
         __builtin_clrwdt();
     }
-
-    __delay_ms(ms % ms_chunk);
     __builtin_clrwdt();
 }
+
+void block_ms(uint32_t ms) { delay32wd(ms * (FCY / 1000ULL)); }
+
+void block_us(uint32_t us) { delay32wd(us * (FCY / 1000000ULL)); }
+
+void block_s(float s) { delay32wd((uint32_t)(s * FCY)); }

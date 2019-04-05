@@ -1,11 +1,11 @@
 # Style file for pre-commit code checks with clang-tidy
 
 ---
-Checks:          '-*,readability-*,-readability-else-after-return,bugprone-*,clang-portability-*'
+Checks:          '-*,readability-*,-readability-else-after-return,bugprone-*,-readability-magic-numbers,clang-portability-*,llvm-include-order'
 WarningsAsErrors: ''
 HeaderFilterRegex: ''
 CheckOptions:
-  - key:             readability-identifier-naming.GlobalConstantCase
+  - key:             readability-identifier-naming.ConstantCase
     value:           UPPER_CASE
   - key:             readability-identifier-naming.StructCase
     value:           CamelCase
@@ -20,4 +20,6 @@ CheckOptions:
   - key:             readability-identifier-naming.EnumConstantCase
     value:           UPPER_CASE
   - key:             readability-braces-around-statements.ShortStatementLines
-    value:           1
+    value:           2
+  - key:             readability-identifier-naming.GlobalVariablePrefix
+    value:           "g_"

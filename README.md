@@ -27,13 +27,9 @@ The rover includes an onboard bootloader to allow you to update the firmware.
 
  * Your port may vary. On my Windows computer it is `COM3`, on a Linux computer it may be `ttyUSB0` or something similar. Make sure you have the correct port selected, and the baud rate is 57600.
  * If booty says "device not responding", it means that either the rover has no booted or the rover is no longer in bootloader mode:
-    * If the green serial board LED is **off**, the rover has not yet run its boot sequence. Make sure the battery has charge.
+   * If the green serial board LED is **off**, the rover has not yet run its boot sequence. Make sure the battery has charge.
    * If the green serial board LED is **on**, the has run its boot sequence. The rover only remains in bootloader mode for 10 seconds after being powered on - if that time is elapsed, you need to reboot the robot. Hold down the red side power button for 5 seconds to restart the rover into bootloader mode then retry (note the light may or may not turn off immediately upon reboot).
-* The location of your hexfile may vary. If not found, booty will report "no such file or directory"
-
-
-## UART Protocol
-
+ * The location of your hexfile may vary. If not found, booty will report "no such file or directory"
 
 ## Development
 
@@ -78,7 +74,7 @@ This will tidy up all locally modified files. You can make this a precommit hook
 
 Code tips for debuggability as of MPLAB v8.92:
 
-* You can build the executable as either an ELF or COF (Project -> Build Options ... -> Project -> XC16 ASM/C Suite -> Output-File Format). ELF has the benefit that you can isolate each function in a section and remove unused sections to get a smaller build size. COF has the benefit that the debugger works more reliably and you can use the "Locate Headers" tool to find headers you've `#include`d not mentioned in the mcp file. If you cannot view local variables, try switching to COF.
+* You can build the executable as either an ELF or COF (Project -> Build Options ... -> Project -> XC16 ASM/C Suite -> Output-File Format). ELF has the benefit that you can isolate each function in a section and remove unused sections to get a smaller build size. COF has the benefit that the debugger works more reliably and you can use the "Locate Headers" tool to find headers you've included not mentioned in the mcp file. If you cannot view local variables, try switching to COF.
 
 * Typedef'd types should have a name anyway. It looks redundant, but the debugger will display the value as an enum instead of an int without that first "my_enum".
 
@@ -108,4 +104,4 @@ Given a released hex file, you can deploy to the robot power board with MPLAB in
 
 The main robot firmware code is the Power Board. This is responsible for communicating with the motors / batteries / fans / serial port.
 
-firmware.mcp = main project file. Open this with MPLab IDE v8.89
+firmware.mcp = main project file. Open this with MPLab IDE v8, not MPLAB X

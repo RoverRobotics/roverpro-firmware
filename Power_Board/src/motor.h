@@ -1,7 +1,6 @@
 /// @file
 /// Low-level motor details for speed control and tachometry
-/// Uses timer4 + timer5, input capture 0, input capture 1, input capture 2, output compare 1,
-/// output compare 2, output compare 3
+
 #ifndef MOTOR_H
 #define MOTOR_H
 
@@ -14,14 +13,14 @@ typedef enum MotorStatusFlag {
     /// No flags at all.
     MOTOR_FLAG_NONE = 0,
 
-    /// Feedback flag: Does motor experience high current? Healthy value is 1; 0 indicates some sort
-    /// of long-circuit condition
+    /// Feedback flag: Does motor experience high current? 1 indicates some sort of long-circuit
+    /// condition
     MOTOR_FLAG_FAULT1 = 1 << 0,
 
-    /// Feedback flag: Does motor experience low current? Healthy value is 0; 1 indicates some sort
-    /// of short-circuit condition
+    /// Feedback flag: Does motor experience low current? 1 indicates some sort of short-circuit
+    /// condition
     MOTOR_FLAG_FAULT2 = 1 << 1,
-    //@}
+
     /// Control flag: Should use fast current decay?
     /// Fast mode has higher dynamic response but worse for maintaining speed.
     /// Ignored when coasting or braking.
@@ -66,11 +65,11 @@ typedef enum MotorChannel {
 /// Helper macro for iterating all motors and storing the result in variable i.
 /// e.g. @code{.c}
 /// int k;
-/// for (EACH_MOTOR_CHANNEL(k))`
+/// for (EACH_MOTOR_CHANNEL(k))
 ///     // ...
 /// @endcode
 // clang-format off
-#define EACH_MOTOR_CHANNEL(i) i = 0; i < MOTOR_CHANNEL_COUNT; i++
+#define EACH_MOTOR_CHANNEL(i) i = 0; (i) < MOTOR_CHANNEL_COUNT; (i)++
 // clang-format on
 
 /// Initialize driving control for the motor
@@ -78,18 +77,15 @@ void motor_init(MotorChannel channel);
 
 /// Initialize motor feedback (tachometry)
 void motor_tach_init();
-
-/// Get the last-measured period of a motor in units of 16-microseconds
-/// @param channel which motor?
-/// @return Period of the motor in units of 16 microseconds. If the motor period is long, returns 0.
-float motor_tach_get_period(MotorChannel channel);
+/// Watchdog for slow tachometry
+void tach_tick();
 
 /// Tell the motor controller what to do with the motor
 /// @param channel Which motor to update?
 /// @param status  What the new status flags should be. Only control flags will be used - fault
 /// flags will be ignored
-/// @param duty    The duty cycle of the motor; from 0 to 1000
-/// @return The new motor status, with any new fault flags
-MotorStatusFlag motor_update(MotorChannel channel, MotorStatusFlag status, uint16_t duty);
+/// @param duty    The duty cycle to send to the motor; from 0 to 1
+/// @return        The new motor status, with any new fault flags
+MotorStatusFlag motor_update(MotorChannel channel, MotorStatusFlag status, float duty);
 
 #endif

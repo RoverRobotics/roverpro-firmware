@@ -39,5 +39,8 @@ debug\.log
 
 Power_Board/doc/
 /Power_Board/build/
-/Power_Board/dist/
 Power_Board/nbproject/
+
+*.mptags
+
+*.tagsrc

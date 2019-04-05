@@ -1,20 +1,15 @@
-#include "xc.h"
-#include "main.h"
-#include "hardware_definitions.h"
+#include "bytequeue.h"
+#include "clock.h"
 #include "communication.h"
+#include "cooling.h"
 #include "drive.h"
 #include "flipper.h"
-#include "cooling.h"
-#include "bytequeue.h"
+#include "hardware_definitions.h"
+#include "main.h"
+#include "xc.h"
 
 #define RX_PACKET_SIZE 7
 #define TX_PACKET_SIZE 5
-
-static uint16_t ticks_since_last_drive_command = UINT16_MAX;
-static uint16_t ticks_since_last_fan_command = UINT16_MAX;
-/// Queues for UART data
-static ByteQueue uart_rx_q = BYTE_QUEUE_NULL;
-static ByteQueue uart_tx_q = BYTE_QUEUE_NULL;
 
 /// In the OpenRover protocol, this byte signifies the start of a message
 const uint8_t UART_START_BYTE = 253;
@@ -35,8 +30,8 @@ uint8_t checksum(size_t count, const uint8_t *data) {
 void uart_init() {
     U1MODEbits.UARTEN = 0;
 
-    bq_try_resize(&uart_rx_q, g_settings.communication.rx_bufsize_bytes);
-    bq_try_resize(&uart_tx_q, g_settings.communication.tx_bufsize_bytes);
+    bq_try_resize(&g_state.communication.rx_q, g_settings.communication.rx_bufsize_bytes);
+    bq_try_resize(&g_state.communication.tx_q, g_settings.communication.tx_bufsize_bytes);
 
     // Assign U1RX To U1RX, Uart receive channnel
     _U1RXR = U1RX_RPn;
@@ -46,7 +41,7 @@ void uart_init() {
     // Enable the UART.
     U1MODE = 0x0000;
     uint32_t baud_rate = g_settings.communication.baud_rate;
-    if (baud_rate < FCY / 4.0f) {
+    if (baud_rate < FCY / 4.0F) {
         U1MODEbits.BRGH = 0; // High Baud Rate Select bit = off
         U1BRG = FCY / 16 / baud_rate - 1;
     } else {
@@ -72,7 +67,7 @@ void __attribute__((__interrupt__, auto_psv)) _U1RXInterrupt() {
     while (U1STAbits.URXDA) {
         uint8_t a_byte = (uint8_t)U1RXREG;
         // Pop the next byte off the read queue
-        bq_try_push(&uart_rx_q, 1, &a_byte);
+        bq_try_push(&g_state.communication.rx_q, 1, &a_byte);
     }
     // if receiver overflowed this resets the module
     if (U1STAbits.OERR) {
@@ -90,7 +85,7 @@ void __attribute__((__interrupt__, auto_psv)) _U1TXInterrupt() {
     // transmit data
     while (U1STAbits.UTXBF == 0) { // while transmit shift buffer is not full
         uint8_t a_byte;
-        if (bq_try_pop(&uart_tx_q, 1, &a_byte)) {
+        if (bq_try_pop(&g_state.communication.tx_q, 1, &a_byte)) {
             U1TXREG = a_byte;
         } else {
             return;
@@ -103,7 +98,7 @@ void uart_serialize_out_data(uint8_t *out_bytes, uint8_t uart_data_identifier) {
 
 #define CASE(n, REGISTER)                                                                          \
     case (n):                                                                                      \
-        intval = (uint16_t)REGISTER;                                                               \
+        intval = (uint16_t)(REGISTER);                                                             \
         out_bytes[0] = (intval >> 8);                                                              \
         out_bytes[1] = (intval);                                                                   \
         break;
@@ -158,30 +153,31 @@ void uart_tick() {
     bool has_drive_command = false;
     bool has_fan_command = false;
 
-    // // debug:
+    // debug:
     // UARTCommand test_verb = UART_COMMAND_GET;
     // uint8_t test_arg = 40;
-    // uint8_t RQ_TEST_MSG[7] = {253, 128, 128, 125, test_verb, test_arg, 0};
-    // RQ_TEST_MSG[6] = checksum(5, RQ_TEST_MSG + 1);
-    // bq_try_push(&uart_rx_q, sizeof(RQ_TEST_MSG), RQ_TEST_MSG);
-    // // end debug
+    // uint8_t rq_test_msg[7] = {253, 160, 160, 125, test_verb, test_arg, 0};
+    // rq_test_msg[6] = checksum(5, rq_test_msg + 1);
+    // bq_try_push(&g_state.communication.rx_q, sizeof(rq_test_msg), rq_test_msg);
+    // end debug
 
-    while (bq_can_pop(&uart_rx_q, RX_PACKET_SIZE)) {
+    while (bq_can_pop(&g_state.communication.rx_q, RX_PACKET_SIZE)) {
         uint8_t packet[RX_PACKET_SIZE] = {0};
-        bq_try_pop(&uart_rx_q, 1, packet);
+        bq_try_pop(&g_state.communication.rx_q, 1, packet);
         if (packet[0] != UART_START_BYTE)
             continue;
 
-        bq_try_pop(&uart_rx_q, RX_PACKET_SIZE - 1, packet + 1);
+        bq_try_pop(&g_state.communication.rx_q, RX_PACKET_SIZE - 1, packet + 1);
         uint8_t expected_checksum = checksum(RX_PACKET_SIZE - 2, packet + 1);
         if (expected_checksum != packet[RX_PACKET_SIZE - 1]) {
             // checksum mismatch. discard.
             continue;
         }
 
-        g_state.communication.motor_effort[MOTOR_LEFT] = packet[1] * 8 - 1000;
-        g_state.communication.motor_effort[MOTOR_RIGHT] = packet[2] * 8 - 1000;
-        g_state.communication.motor_effort[MOTOR_FLIPPER] = packet[3] * 8 - 1000;
+        g_state.communication.drive_command_timestamp = clock_now();
+        g_state.communication.motor_effort[MOTOR_LEFT] = (float)packet[1] / 125.0F - 1.0F;
+        g_state.communication.motor_effort[MOTOR_RIGHT] = (float)packet[2] / 125.0F - 1.0F;
+        g_state.communication.motor_effort[MOTOR_FLIPPER] = (float)packet[3] / 125.0F - 1.0F;
 
         has_drive_command = true;
         UARTCommand verb = packet[4];
@@ -189,6 +185,7 @@ void uart_tick() {
 
         switch (verb) {
         case UART_COMMAND_SET_FAN_SPEED:
+            g_state.communication.fan_command_timestamp = clock_now();
             g_state.communication.fan_speed = arg;
             has_fan_command = true;
             break;
@@ -207,7 +204,7 @@ void uart_tick() {
             out_packet[1] = arg;
             uart_serialize_out_data(out_packet + 2, arg);
             out_packet[4] = checksum(3, out_packet + 1);
-            if (!bq_try_push(&uart_tx_q, TX_PACKET_SIZE, out_packet)) {
+            if (!bq_try_push(&g_state.communication.tx_q, TX_PACKET_SIZE, out_packet)) {
                 BREAKPOINT();
             }
             // Start transmission
@@ -238,6 +235,18 @@ void uart_tick() {
             g_settings.drive.motor_pwm_frequency_khz = arg;
             drive_init();
             break;
+        case UART_COMMAND_SETTINGS_SET_BRAKE_ON_ZERO_SPEED_COMMAND:
+            g_settings.communication.brake_on_zero_speed_command = (bool)arg;
+            break;
+        case UART_COMMAND_SETTINGS_SET_BRAKE_ON_DRIVE_TIMEOUT:
+            g_settings.communication.brake_on_drive_timeout = (bool)arg;
+            break;
+        case UART_COMMAND_SETTINGS_SET_MOTOR_SLOW_DECAY_MODE:
+            g_settings.drive.motor_slow_decay_mode = (bool)arg;
+            break;
+        case UART_COMMAND_SETTINGS_SET_TIME_TO_FULL_SPEED:
+            g_settings.drive.time_to_full_speed = (float)arg;
+            break;
         case UART_COMMAND_SET_DRIVE_MODE:
             break;
             // fallthrough
@@ -249,32 +258,31 @@ void uart_tick() {
     }
 
     if (has_drive_command) {
-        ticks_since_last_drive_command = 0;
-    } else if (ticks_since_last_drive_command == UINT16_MAX) {
-        // do nothing
-    } else if (++ticks_since_last_drive_command * g_settings.main.communication_poll_ms >
-               g_settings.communication.drive_command_timeout_ms) {
+        MotorChannel c;
+        for (EACH_MOTOR_CHANNEL(c)) {
+            g_state.communication.brake_when_stopped[c] =
+                g_settings.communication.brake_on_zero_speed_command;
+        }
+    } else if (clock_now() - g_state.communication.drive_command_timestamp >
+               g_settings.communication.drive_command_timeout_ms * CLOCK_MS) {
         // long time no motor commands. stop moving.
-        g_state.communication.motor_effort[MOTOR_LEFT] = 0;
-        g_state.communication.motor_effort[MOTOR_RIGHT] = 0;
-        g_state.communication.motor_effort[MOTOR_FLIPPER] = 0;
-        ticks_since_last_drive_command = UINT16_MAX;
+        MotorChannel c;
+        for (EACH_MOTOR_CHANNEL(c)) {
+            g_state.communication.motor_effort[c] = 0;
+            g_state.communication.brake_when_stopped[c] =
+                g_settings.communication.brake_on_drive_timeout;
+        }
     }
-
     if (has_fan_command) {
-        g_state.communication.use_manual_fan_speed = true;
-        ticks_since_last_fan_command = 0;
-    } else if (ticks_since_last_fan_command == UINT16_MAX) {
+    } else if (clock_now() - g_state.communication.fan_command_timestamp >
+               g_settings.communication.fan_command_timeout_ms * CLOCK_MS) {
         // If we don't have any fan commands, run the fan if the motors are running
         if (g_state.communication.motor_effort[MOTOR_LEFT] == 0 &&
-            g_state.communication.motor_effort[MOTOR_RIGHT] == 0)
+            g_state.communication.motor_effort[MOTOR_RIGHT] == 0) {
             g_state.communication.fan_speed = 0;
-        else
+        } else {
             g_state.communication.fan_speed = 240;
-    } else if (++ticks_since_last_fan_command * g_settings.main.communication_poll_ms >
-               g_settings.communication.fan_command_timeout_ms) {
-        g_state.communication.use_manual_fan_speed = false;
-        ticks_since_last_fan_command = UINT16_MAX;
+        }
     }
 
     _U1TXIF = 1;

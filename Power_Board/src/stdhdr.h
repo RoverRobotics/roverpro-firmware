@@ -4,13 +4,13 @@
 #ifndef STDHDR_H
 #define STDHDR_H
 
-#include <stdlib.h>
-#include <stdint.h>
 #include "xc.h"
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
 
 /// Instruction clock frequency in Hz
-#define FCY 16000000UL
+#define FCY (16000000UL)
 
 /// When built in release mode, does nothing.
 /// When built in DEBUG, if a PICkit is attached, halts execution. Note the behavior of timers and
@@ -36,5 +36,9 @@
 
 /// Block for the specified amount of time. Periodically resets the Watchdog Timer so a long wait
 /// doesn't trigger a reset
-void block_ms(uint16_t ms);
+void block_ms(uint32_t ms);
+void block_us(uint32_t us);
+void block_s(float seconds);
+
+#define clamp(x, lo, hi) ((x) < (lo) ? (lo) : (x) > (hi) ? (hi) : (x))
 #endif

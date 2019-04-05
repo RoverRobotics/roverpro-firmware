@@ -1,7 +1,8 @@
+#include "libpic30.h"
 #include "settings.h"
 #include "stdhdr.h"
-#include "xc.h"
 #include "version.GENERATED.h"
+#include "xc.h"
 
 /// Address in non-volatile memory. Points to a 24-bit instruction in memory
 /// See the reference manual section "PIC24F Flash Program Memory" for more info.
@@ -19,16 +20,17 @@ uint16_t eeoffset(eeptr addr) { return (uint16_t)addr; }
 /// Amount to increment NVM address between words
 #define WORD_STRIDE 0x2UL
 /// Amount to increment NVM address between rows; i.e. the basic unit of writing instructions
-/// 64 words per row
-#define ROW_STRIDE 0x80UL
+#define ROW_STRIDE (_FLASH_ROW * WORD_STRIDE)
 /// Amount to increment NVM address between rows; i.e. the minimum size of an erase operation
-/// 512 instructions per erase
-#define BLOCK_STRIDE 0x400UL
+/// Yes, I know they call it _FLASH_PAGE. this is incredibly confusing, but they mean the erase
+/// block size
+#define BLOCK_STRIDE (_FLASH_PAGE * WORD_STRIDE)
 /// Amount to increment NVM address between pages; i.e. the maximum amount of NVM that can be mapped
 /// to RAM at a time using PSV 16 bit offset in page
 #define PAGE_STRIDE 0x10000UL
 
 /// Although a word is 3 bytes, PSV only exposes 2 of them
+/// This is in contrast to eds, which uses the full 3 bytes.
 const int BYTES_PER_PSV_WORD = 2;
 
 /// Get an eeptr corresponding to the address of the given object in PSV
@@ -36,7 +38,7 @@ const int BYTES_PER_PSV_WORD = 2;
 
 /// The robot settings to be loaded when the robot starts up.
 /// The values here are defaults. They may be changed by the @ref settings_save function
-const static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = {
+static __psv__ Settings g_settings_nvm __attribute__((space(auto_psv))) = {
     //
     .firmware =
         {
@@ -60,6 +62,8 @@ const static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = {
             .baud_rate = 57600,
             .drive_command_timeout_ms = 333,
             .fan_command_timeout_ms = 333,
+            .brake_on_drive_timeout = true,
+            .brake_on_zero_speed_command = false,
         },
     .power =
         {
@@ -81,19 +85,19 @@ const static __psv__ Settings settings_nvm __attribute__((space(auto_psv))) = {
         {
             .motor_pwm_frequency_khz = 8,
             .motor_protect_direction_delay_ms = 10,
+            .time_to_full_speed = 5.0F,
+            .motor_slow_decay_mode = false,
+            .max_instantaneous_delta_effort = 0.2F,
         },
 };
 
 /// Erase the given block of NVM.
 void nvm_erase_block(eeptr dest) {
-    /// Value for NVMCON to begin a block erase operation
-    const uint16_t NVMCON_ERASE_BLOCK = 0x4042;
-
     uint16_t old_tblpag = TBLPAG;
     BREAKPOINT_IF(dest % BLOCK_STRIDE != 0);
     TBLPAG = eepage(dest);
     // assuming that eeprom_config fits in a single block
-    NVMCON = NVMCON_ERASE_BLOCK;
+    NVMCON = _FLASH_ERASE_CODE;          //  0x4042;
     __builtin_tblwtl(eeoffset(dest), 0); // Dummy write to select the block
     __builtin_disi(5);
     __builtin_write_NVM();
@@ -104,16 +108,14 @@ void nvm_erase_block(eeptr dest) {
 /// Copy the data from the write latches into an NVM row.
 void flush_psv_row() {
     /// Value for NVMCON to begin a row write operation
-    const uint16_t NVMCON_WRITE_ROW = 0x4001;
-
-    NVMCON = NVMCON_WRITE_ROW;
+    NVMCON = _FLASH_WRITE_ROW_CODE;
     __builtin_disi(5);
     __builtin_write_NVM();
 }
 
 /// Copy the given value to the EEPROM program space.
-/// We only take advantage of the 16 lowest bits of each instruction
-/// We also assume the destination block has already been erased.
+/// We only take advantage of the 16 lowest bits of each instruction (contrast with EDS which uses
+/// the full 24 bits) We also assume the destination block has already been erased.
 /// @param dest destination address in EEPROM
 /// @param src source address in RAM
 /// @param count number of bytes to copy. Generally sizeof(*src).
@@ -158,7 +160,7 @@ void psv_write(eeptr dest, const void *src, size_t count) {
 
 void settings_save(const Settings *settings) {
     // Equivalent to the (hypothetical but illegal) code: eeprom_config = *settings_current;
-    psv_write(EEADDR(&settings_nvm), settings, sizeof(*settings));
+    psv_write(EEADDR(&g_settings_nvm), settings, sizeof(*settings));
 }
 
-Settings settings_load() { return settings_nvm; }
+Settings settings_load() { return g_settings_nvm; }

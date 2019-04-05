@@ -1,14 +1,14 @@
-#include "main.h"
 #include "analog.h"
 #include "hardware_definitions.h"
-#include "xc.h"
+#include "main.h"
 #include "math.h"
+#include "xc.h"
 
 /// Number of samples to keep of running metrics for power management, like battery temperature and
 /// voltage
 #define ADC_SAMPLE_LENGTH 4
-uint16_t adc_samples[ANALOG_CHANNEL_COUNT][ADC_SAMPLE_LENGTH] = {{0}};
-size_t i_adc_sample = 0;
+uint16_t g_adc_samples[ANALOG_CHANNEL_COUNT][ADC_SAMPLE_LENGTH] = {{0}};
+size_t g_i_adc_sample = 0;
 
 /// Configure and start analog/digital converter
 void analog_init() {
@@ -105,9 +105,9 @@ void analog_tick() {
 
     AnalogChannel c;
     for (c = 0; c < ANALOG_CHANNEL_COUNT; c++) {
-        adc_samples[c][i_adc_sample] = get_sample(c);
+        g_adc_samples[c][g_i_adc_sample] = get_sample(c);
     }
-    i_adc_sample = (i_adc_sample + 1) % ADC_SAMPLE_LENGTH;
+    g_i_adc_sample = (g_i_adc_sample + 1) % ADC_SAMPLE_LENGTH;
 
     g_state.analog.motor_current[MOTOR_LEFT] = analog_get_value(ADC_MOTOR_LEFT_CURRENT);
     g_state.analog.motor_current[MOTOR_RIGHT] = analog_get_value(ADC_MOTOR_RIGHT_CURRENT);
@@ -129,7 +129,7 @@ uint16_t analog_get_value(AnalogChannel c) {
     uint32_t total = 0;
     size_t i;
     for (i = 0; i < ADC_SAMPLE_LENGTH; i++) {
-        total += adc_samples[c][i];
+        total += g_adc_samples[c][i];
     }
     uint32_t mean = total / ADC_SAMPLE_LENGTH;
     BREAKPOINT_IF(mean > UINT16_MAX);
