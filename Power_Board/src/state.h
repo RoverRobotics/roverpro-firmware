@@ -18,9 +18,11 @@
 typedef struct State {
     /// State of the drive subsystem
     struct DriveState {
+        uint64_t last_encoder_timestamp[MOTOR_CHANNEL_COUNT];
         /// Motor encoder values. Increments when moving forward, decrements backward.
-        uint32_t motor_encoder_count[2];
-        uint16_t motor_encoder_period[2];
+        uint16_t motor_encoder_count[MOTOR_CHANNEL_COUNT];
+        /// Motor encoder period - proportional to the inverse of the speed
+        uint16_t motor_encoder_period[MOTOR_CHANNEL_COUNT];
         uint16_t flipper_angle;
         MotorStatusFlag motor_status[MOTOR_CHANNEL_COUNT];
         uint64_t last_update_time;

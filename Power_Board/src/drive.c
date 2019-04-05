@@ -13,9 +13,9 @@ void drive_tick() {
     uint64_t t0 = g_state.drive.last_update_time;
     uint64_t t1 = g_state.drive.last_update_time = clock_now();
     bool overcurrent = g_state.power.overcurrent;
-    float max_delta_effort = min((t1 - t0) * (1.0F / CLOCK_S) / g_settings.drive.time_to_full_speed,
-                                 g_settings.drive.max_instantaneous_delta_effort);
-
+    float max_delta_effort =
+        (float)(t1 - t0) * (1.0F / CLOCK_S) / g_settings.drive.time_to_full_speed;
+    max_delta_effort = min(max_delta_effort, g_settings.drive.max_instantaneous_delta_effort);
     MotorChannel c;
     for (EACH_MOTOR_CHANNEL(c)) {
         float duty;
@@ -38,10 +38,9 @@ void drive_tick() {
                 motor_flag |=
                     g_state.communication.brake_when_stopped ? MOTOR_FLAG_BRAKE : MOTOR_FLAG_COAST;
             }
-
             if (g_settings.drive.motor_slow_decay_mode) {
                 // in slow decay mode, 0 duty = reverse, 0.5 = still, 1 = forward
-                duty = (fabsf(smoothed_effort) + 1.F) * 0.5F;
+                duty = fabsf(smoothed_effort) * 0.5F + 0.5F;
                 motor_flag |= MOTOR_FLAG_DECAY_MODE;
             } else {
                 duty = fabsf(smoothed_effort);
@@ -49,15 +48,7 @@ void drive_tick() {
         }
         g_state.drive.motor_status[c] = motor_update(c, motor_flag, duty);
     }
-
-    // read out measured motor periods, taking the absolute value and dividing by 256 to match old
-    // behavior.
-    int64_t period = labs(motor_tach_get_period(MOTOR_LEFT) / 256);
-    g_state.drive.motor_encoder_period[MOTOR_LEFT] =
-        period > UINT16_MAX ? UINT16_MAX : (uint16_t)period;
-    period = labs(motor_tach_get_period(MOTOR_RIGHT) / 256);
-    g_state.drive.motor_encoder_period[MOTOR_RIGHT] =
-        period > UINT16_MAX ? UINT16_MAX : (uint16_t)period;
+    tach_tick();
 }
 
 void drive_init() {

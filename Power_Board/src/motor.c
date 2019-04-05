@@ -5,20 +5,10 @@
 #include "motor.h"
 #include "xc.h"
 
-/// Motor direction constants for M1_DIRO bits as well as other motors
-typedef enum {
-    MOTOR_DIR_FORWARD = 1,
-    MOTOR_DIR_REVERSE = 0,
-} MotorDir;
-
 /*---------------------------Interrupt Service Routines (ISRs)----------------*/
 
-int64_t g_tach_output[MOTOR_CHANNEL_COUNT] = {0};
-
 void __attribute__((__interrupt__, auto_psv)) _CNInterrupt(void) {
-    static bool last_tacho[MOTOR_CHANNEL_COUNT];
-    static uint64_t last_time[MOTOR_CHANNEL_COUNT];
-    static MotorDir last_diro[MOTOR_CHANNEL_COUNT];
+    static bool last_tacho[MOTOR_CHANNEL_COUNT] = {0};
 
     bool tacho[MOTOR_CHANNEL_COUNT] = {_RD11, _RF3, _RD5};
     bool diro[MOTOR_CHANNEL_COUNT] = {M1_DIRO, M2_DIRO, M3_DIRO};
@@ -26,16 +16,15 @@ void __attribute__((__interrupt__, auto_psv)) _CNInterrupt(void) {
     uint64_t now = clock_now();
     MotorChannel c;
     for (EACH_MOTOR_CHANNEL(c)) {
-        int dir_sgn = (diro[c] == MOTOR_DIR_FORWARD) ^ (c == MOTOR_RIGHT) ? +1 : -1;
-
-        if (!last_tacho[c] && tacho[c]) {
-            if (diro[c] == last_diro[c]) {
-                g_tach_output[c] = ((int64_t)(now - last_time[c])) * dir_sgn;
+        if (last_tacho[c] != tacho[c]) {
+            g_state.drive.motor_encoder_period[c] =
+                min((now - g_state.drive.last_encoder_timestamp[c]) / 256, UINT16_MAX);
+            if ((diro[c] == 0) ^ (c == MOTOR_RIGHT)) {
+                g_state.drive.motor_encoder_count[c]++;
+            } else {
+                g_state.drive.motor_encoder_count[c]--;
             }
-            g_state.drive.motor_encoder_count[c] += dir_sgn;
-
-            last_time[c] = now;
-            last_diro[c] = diro[c];
+            g_state.drive.last_encoder_timestamp[c] = now;
             last_tacho[c] = tacho[c];
         }
     }
@@ -52,12 +41,19 @@ void motor_tach_init() {
     _CNIE = 1;
 }
 
-int64_t motor_tach_get_period(MotorChannel channel) {
-    BREAKPOINT_IF(channel > MOTOR_CHANNEL_COUNT);
+void tach_tick() {
     _CNIE = 0;
-    int64_t result = g_tach_output[channel];
+    uint64_t now = clock_now();
+    MotorChannel c;
+    for (EACH_MOTOR_CHANNEL(c)) {
+        uint64_t period_so_far = (now - g_state.drive.last_encoder_timestamp[c]) / 256;
+        if (period_so_far > UINT16_MAX) {
+            g_state.drive.motor_encoder_period[c] = 0;
+        } else if (period_so_far > g_state.drive.motor_encoder_period[c]) {
+            g_state.drive.motor_encoder_period[c] = period_so_far;
+        }
+    }
     _CNIE = 1;
-    return result;
 }
 
 /*---------------------------Private Function Definitions---------------------*/
@@ -124,7 +120,6 @@ void outputcompare_pwm_set_duty(OutputCompareModule oc, float duty_factor) {
 }
 
 MotorStatusFlag motor_update(MotorChannel channel, MotorStatusFlag status, float duty) {
-
     // NOTE: all the hardware flags are active-low. So we negate the values before assigning and
     // when retrieving
     switch (channel) {

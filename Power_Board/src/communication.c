@@ -153,13 +153,13 @@ void uart_tick() {
     bool has_drive_command = false;
     bool has_fan_command = false;
 
-    // // debug:
+    // debug:
     // UARTCommand test_verb = UART_COMMAND_GET;
     // uint8_t test_arg = 40;
-    // uint8_t rq_test_msg[7] = {253, 250, 250, 125, test_verb, test_arg, 0};
+    // uint8_t rq_test_msg[7] = {253, 160, 160, 125, test_verb, test_arg, 0};
     // rq_test_msg[6] = checksum(5, rq_test_msg + 1);
     // bq_try_push(&g_state.communication.rx_q, sizeof(rq_test_msg), rq_test_msg);
-    // // end debug
+    // end debug
 
     while (bq_can_pop(&g_state.communication.rx_q, RX_PACKET_SIZE)) {
         uint8_t packet[RX_PACKET_SIZE] = {0};
@@ -174,9 +174,10 @@ void uart_tick() {
             continue;
         }
 
-        g_state.communication.motor_effort[MOTOR_LEFT] = (float)(packet[1] - 125) / 125.0F;
-        g_state.communication.motor_effort[MOTOR_RIGHT] = (float)(packet[2] - 125) / 125.0F;
-        g_state.communication.motor_effort[MOTOR_FLIPPER] = (float)(packet[3] - 125) / 125.0F;
+        g_state.communication.drive_command_timestamp = clock_now();
+        g_state.communication.motor_effort[MOTOR_LEFT] = (float)packet[1] / 125.0F - 1.0F;
+        g_state.communication.motor_effort[MOTOR_RIGHT] = (float)packet[2] / 125.0F - 1.0F;
+        g_state.communication.motor_effort[MOTOR_FLIPPER] = (float)packet[3] / 125.0F - 1.0F;
 
         has_drive_command = true;
         UARTCommand verb = packet[4];
@@ -184,6 +185,7 @@ void uart_tick() {
 
         switch (verb) {
         case UART_COMMAND_SET_FAN_SPEED:
+            g_state.communication.fan_command_timestamp = clock_now();
             g_state.communication.fan_speed = arg;
             has_fan_command = true;
             break;
@@ -256,15 +258,13 @@ void uart_tick() {
     }
 
     if (has_drive_command) {
-        g_state.communication.drive_command_timestamp = clock_now();
         MotorChannel c;
         for (EACH_MOTOR_CHANNEL(c)) {
             g_state.communication.brake_when_stopped[c] =
                 g_settings.communication.brake_on_zero_speed_command;
         }
-    } else if (g_state.communication.drive_command_timestamp +
-                   g_settings.communication.drive_command_timeout_ms * CLOCK_MS <
-               clock_now()) {
+    } else if (clock_now() - g_state.communication.drive_command_timestamp >
+               g_settings.communication.drive_command_timeout_ms * CLOCK_MS) {
         // long time no motor commands. stop moving.
         MotorChannel c;
         for (EACH_MOTOR_CHANNEL(c)) {
@@ -273,12 +273,9 @@ void uart_tick() {
                 g_settings.communication.brake_on_drive_timeout;
         }
     }
-
     if (has_fan_command) {
-        g_state.communication.fan_command_timestamp = clock_now();
-    } else if (g_state.communication.fan_command_timestamp +
-                   g_settings.communication.fan_command_timeout_ms * CLOCK_MS >
-               clock_now()) {
+    } else if (clock_now() - g_state.communication.fan_command_timestamp >
+               g_settings.communication.fan_command_timeout_ms * CLOCK_MS) {
         // If we don't have any fan commands, run the fan if the motors are running
         if (g_state.communication.motor_effort[MOTOR_LEFT] == 0 &&
             g_state.communication.motor_effort[MOTOR_RIGHT] == 0) {
