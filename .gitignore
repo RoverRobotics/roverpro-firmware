@@ -42,9 +42,9 @@ Power_Board/doc/
 Power_Board/nbproject/
 
 *.mptags
-
 *.tagsrc
 
 Power_Board/Makefile
-
 Power_Board/NMakefile
+
+Power_Board/files\.tmp\.txt
