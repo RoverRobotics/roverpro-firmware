@@ -55,7 +55,7 @@ with open(targetpath, 'w') as f:
 #define RELEASE_VERSION_NAME "{version}"
 /// Semantic version as per semver.org
 typedef struct {{
-	/// serial number for incompatible API changes
+    /// serial number for incompatible API changes
     unsigned major;
     /// serial number for feature releases
     unsigned minor;
