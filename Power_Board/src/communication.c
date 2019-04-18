@@ -244,8 +244,8 @@ void uart_tick() {
         case UART_COMMAND_SETTINGS_SET_MOTOR_SLOW_DECAY_MODE:
             g_settings.drive.motor_slow_decay_mode = (bool)arg;
             break;
-        case UART_COMMAND_SETTINGS_SET_TIME_TO_FULL_SPEED:
-            g_settings.drive.time_to_full_speed = (float)arg;
+        case UART_COMMAND_SETTINGS_SET_TIME_TO_FULL_SPEED_DECISECONDS:
+            g_settings.drive.time_to_full_speed = (float)arg * 0.1F;
             break;
         case UART_COMMAND_SET_DRIVE_MODE:
             break;
