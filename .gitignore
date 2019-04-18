@@ -44,3 +44,7 @@ Power_Board/nbproject/
 *.mptags
 
 *.tagsrc
+
+Power_Board/Makefile
+
+Power_Board/NMakefile
