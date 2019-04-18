@@ -29,19 +29,19 @@ if git_branch_match:
     [baseversion] = git_branch_match.groups()
     git_commits_since_branch = syscall('git', 'rev-list', '--count', '^' + git_branch, 'HEAD')
     assert re.fullmatch(r'\d+', git_commits_since_branch)
-    label = 'rc' + git_commits_since_branch + '+' + git_commit_id
+    suffix = '+pre' + git_commits_since_branch + '-' + git_commit_id
 else:
     baseversion = git_tag = syscall('git', 'describe', '--abbrev=0')
     print('Basing version number on tag:', git_tag)
     git_commits_since_tag = syscall('git', 'rev-list', '--count', '^' + git_tag, 'HEAD')
     assert re.fullmatch(r'\d+', git_commits_since_tag)
     if int(git_commits_since_tag) == 0:
-        label = ''
+        suffix = ''
     else:
-        label = 'post' + git_commits_since_tag + '+' + git_commit_id
+        suffix = '+post' + git_commits_since_tag + '-' + git_commit_id
 
 major, minor, patch = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)', baseversion).groups()
-version = '{}.{}.{}{}'.format(major, minor, patch, label)
+version = f'{major}.{minor}.{patch}{suffix}'
 
 print('version determined to be:', version)
 with open(targetpath, 'w') as f:
@@ -66,7 +66,7 @@ typedef struct {{
     /// string value to track ad-hoc changes and non-released versions
     char prerelease[];
 }} ReleaseVersion;
-#define RELEASE_VERSION {{{major}, {minor}, {patch}, "{label}"}}
+#define RELEASE_VERSION {{{major}, {minor}, {patch}, "{suffix}"}}
 #define RELEASE_VERSION_FLAT {int(major) * 10000 + int(minor) * 100 + int(patch)}
 #define BUILD_DATE "{now.date().isoformat()}"
 #define BUILD_TIME "{now.time().replace(microsecond=0).isoformat()}"
