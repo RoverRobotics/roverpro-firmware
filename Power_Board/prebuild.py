@@ -27,9 +27,7 @@ git_branch_match = re.fullmatch(r'release/(.*)', git_branch)
 if git_branch_match:
     print('Basing version number on branch:', git_branch)
     [baseversion] = git_branch_match.groups()
-    git_commits_since_branch = syscall('git', 'rev-list', '--count', '^' + git_branch, 'HEAD')
-    assert re.fullmatch(r'\d+', git_commits_since_branch)
-    suffix = '+pre' + git_commits_since_branch + '-' + git_commit_id
+    suffix = git_commit_id
 else:
     baseversion = git_tag = syscall('git', 'describe', '--abbrev=0')
     print('Basing version number on tag:', git_tag)
@@ -38,10 +36,10 @@ else:
     if int(git_commits_since_tag) == 0:
         suffix = ''
     else:
-        suffix = '+post' + git_commits_since_tag + '-' + git_commit_id
+        suffix = git_commit_id
 
 major, minor, patch = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)', baseversion).groups()
-version = f'{major}.{minor}.{patch}{suffix}'
+version = f'{major}.{minor}.{patch}{"+" if suffix else ""}{suffix}'
 
 print('version determined to be:', version)
 with open(targetpath, 'w') as f:
