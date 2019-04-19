@@ -73,7 +73,7 @@ typedef enum MotorChannel {
 // clang-format on
 
 /// Initialize driving control for the motor
-void motor_init(MotorChannel channel);
+void motor_init(MotorChannel channel, float pwm_frequency_hz);
 
 /// Initialize motor feedback (tachometry)
 void motor_tach_init();

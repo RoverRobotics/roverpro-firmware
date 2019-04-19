@@ -78,7 +78,7 @@ typedef struct Settings {
     } i2c;
     struct {
         /// Frequency of PWM signal to motor controllers
-        uint16_t motor_pwm_frequency_khz;
+        float motor_pwm_frequency_hz;
         /// @deprecated
         /// Amount of time to coast the motors in between direction changes
         uint16_t motor_protect_direction_delay_ms;

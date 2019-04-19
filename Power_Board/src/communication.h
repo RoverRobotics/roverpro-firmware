@@ -130,8 +130,9 @@ typedef enum UARTCommand {
     UART_COMMAND_SETTINGS_SET_OVERCURRENT_RECOVER_THRESHOLD = 6,
     /// Set OC recover duration in units of 5ms
     UART_COMMAND_SETTINGS_SET_OVERCURRENT_RECOVER_DURATION = 7,
-    /// Set PWM frequency in kHz
-    UART_COMMAND_SETTINGS_SET_PWM_FREQUENCY = 8,
+	/// @deprecated use UART_COMMAND_SETTINGS_SET_PWM_FREQUENCY_HHZ instead
+    /// Set PWM frequency in kilohertz
+    UART_COMMAND_SETTINGS_SET_PWM_FREQUENCY_KHZ = 8,
     /// Should we brake when commanded a speed of 0? (versus coast)
     UART_COMMAND_SETTINGS_SET_BRAKE_ON_ZERO_SPEED_COMMAND = 9,
     /// Should we brake when the speed times out? (versus coast)
@@ -139,7 +140,9 @@ typedef enum UARTCommand {
     /// Should the motors use slow decay mode?
     UART_COMMAND_SETTINGS_SET_MOTOR_SLOW_DECAY_MODE = 12,
     /// How long it should take from a stop to go to full throttle
-    UART_COMMAND_SETTINGS_SET_TIME_TO_FULL_SPEED_DECISECONDS = 13
+    UART_COMMAND_SETTINGS_SET_TIME_TO_FULL_SPEED_DECISECONDS = 13,
+    /// Set PWM frequency in hectohertz
+    UART_COMMAND_SETTINGS_SET_PWM_FREQUENCY_HHZ = 14,
 } UARTCommand;
 
 #endif
