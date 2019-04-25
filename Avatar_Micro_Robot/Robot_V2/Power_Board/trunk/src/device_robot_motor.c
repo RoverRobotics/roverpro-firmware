@@ -217,6 +217,7 @@ unsigned int adc_test_reg = 0;
 	#define P1_Fan_Command 20
 	#define P1_Low_Speed_Set 240
 	#define P1_Calibration_Flipper 250
+	#define P1_Restart 230
 	uint8_t Xbee_Low_Speed_mode=0;
 	uint8_t Xbee_Calibration=0;
 #endif
@@ -3164,6 +3165,9 @@ void Motor_U1RXInterrupt(void)
 							Xbee_Calibration=1;
 						}
 						break;
+					case P1_Restart:
+			            asm volatile("RESET");
+            			break;
 				}
 				//REG_MOTOR_VELOCITY.left=300; 
  				//REG_MOTOR_VELOCITY.right=800;
