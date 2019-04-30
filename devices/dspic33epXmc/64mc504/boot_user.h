@@ -1,5 +1,5 @@
-#ifndef _BOOT_USER_H
-#define _BOOT_USER_H
+#ifndef _BOOTLOADER_H
+#define _BOOTLOADER_H
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -54,19 +54,13 @@
  * allow faster programming operations, but will consume more RAM.
  */
 #define MAX_PROG_SIZE 0x80
-#define APPLICATION_START_ADDRESS 0x1000
+#define APPLICATION_START_ADDRESS 0x1400
 #define TIME_PER_TMR2_50k 0.213
 #define FCY 60000000UL  /* instruction clock frequency, in Hz */
 
 #define NUM_OF_TMR2_OVERFLOWS (uint16_t)((BOOT_LOADER_TIME/TIME_PER_TMR2_50k) + 1.0)
 
-#if defined(__dsPIC33EP32MC204__)
-#define PLATFORM_STRING "dspic33ep32mc204"
-#elif defined(__dsPIC33EP64MC504__)
 #define PLATFORM_STRING "dspic33ep64mc504"
-#else 
-#warning "your device may not be supported"
-#endif
 
 /**
  * @brief initializes the oscillator
