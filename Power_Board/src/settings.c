@@ -83,7 +83,7 @@ static __psv__ Settings g_settings_nvm __attribute__((space(auto_psv))) = {
         },
     .drive =
         {
-            .motor_pwm_frequency_khz = 8,
+            .motor_pwm_frequency_hz = 8000.0F,
             .time_to_full_speed = 0.7F,
             .motor_slow_decay_mode = false,
             .max_instantaneous_delta_effort = 0.2F,

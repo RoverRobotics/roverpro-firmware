@@ -317,8 +317,11 @@ void uart_tick() {
         case UART_COMMAND_SETTINGS_SET_OVERCURRENT_RECOVER_DURATION:
             g_settings.power.overcurrent_trigger_threshold_ma = arg * 5;
             break;
-        case UART_COMMAND_SETTINGS_SET_PWM_FREQUENCY:
-            g_settings.drive.motor_pwm_frequency_khz = arg;
+        case UART_COMMAND_SETTINGS_SET_PWM_FREQUENCY_KHZ:
+            g_settings.drive.motor_pwm_frequency_hz = (float)arg * 0.001F;
+            drive_init();
+        case UART_COMMAND_SETTINGS_SET_PWM_FREQUENCY_HHZ:
+            g_settings.drive.motor_pwm_frequency_hz = (float)arg * 0.01F;
             drive_init();
             break;
         case UART_COMMAND_SETTINGS_SET_BRAKE_ON_ZERO_SPEED_COMMAND:
