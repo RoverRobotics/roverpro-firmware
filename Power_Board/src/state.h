@@ -7,8 +7,8 @@
 #include "battery.h"
 #include "bytequeue.h"
 #include "motor.h"
-#include "stdbool.h"
-#include "stdint.h"
+#include <stdbool.h>
+#include <stdint.h>
 
 /// Transient state of the rover at any point in time.
 /// State is grouped according to the functional area that *sets* the value.
@@ -80,6 +80,22 @@ typedef struct State {
         /// Whether a 0 motor speed should be interpreted as a brake. Otherwise, interpret it as a
         /// coast.
         bool brake_when_stopped[MOTOR_CHANNEL_COUNT];
+
+        /// A history of times we have faulted. When this fills up and we fault, we enter a runaway
+        /// condition.
+        uint64_t *overspeed_fault_times;
+        /// The time we went over the speed limit. This does not necessarily mean we have faulted
+        /// yet.
+        uint64_t overspeed_time;
+        /// The time we faulted.
+        uint64_t overspeed_fault_time;
+        /// The last time a runaway condition has been hit
+        uint64_t overspeed_runaway_time;
+        /// The last time we have gone below the runaway_reset_effort threshold
+        /// Any faults before this time should be forgiven.
+        uint64_t overspeed_runaway_reset_time;
+        /// The last time we have hit a runaway condition.
+        bool overspeed_runaway;
     } communication;
 } State;
 

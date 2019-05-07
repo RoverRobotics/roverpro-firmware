@@ -64,6 +64,12 @@ static __psv__ Settings g_settings_nvm __attribute__((space(auto_psv))) = {
             .fan_command_timeout_ms = 333,
             .brake_on_drive_timeout = true,
             .brake_on_zero_speed_command = false,
+            .overspeed_runaway_limit = 2,
+            .overspeed_fault_effort = 0.8F,
+            .overspeed_fault_trigger_s = 1.0F,
+            .overspeed_fault_recover_s = 1.0F,
+            .overspeed_runaway_history_s = 30.0F,
+            .overspeed_runaway_reset_effort = 0.05F,
         },
     .power =
         {

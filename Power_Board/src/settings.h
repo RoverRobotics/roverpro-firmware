@@ -5,8 +5,9 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
-#include "stdbool.h"
-#include "stdint.h"
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
 /// Persistent values that do not change in regular operation of the rover. @ref g_settings =
 /// current settings Settings is grouped according to the functional area affected.
@@ -49,6 +50,21 @@ typedef struct Settings {
         uint16_t tx_bufsize_bytes;
         /// The number of bits per second for communication (both sending and receiving)
         uint32_t baud_rate;
+
+        size_t overspeed_runaway_limit;
+        // Proportion of full motor power below which is considered "normal"
+        float overspeed_fault_effort;
+        // High motor efforts for shorter than this value are considered "normal"
+        float overspeed_fault_trigger_s;
+        // If we have abnormal motor commands, this is how long to ignore motor commands.
+        float overspeed_fault_recover_s;
+
+        // Forgive any overspeed faults this long ago or longer
+        float overspeed_runaway_history_s;
+        // If we are in a runaway condition, wait for motor efforts to be below this value before
+        // obeying any motor commands
+        float overspeed_runaway_reset_effort;
+
     } communication;
     struct {
         /// The level of current (for either battery) at which we should start worrying
