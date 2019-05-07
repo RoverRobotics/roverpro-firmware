@@ -143,6 +143,8 @@ typedef enum UARTCommand {
     UART_COMMAND_SETTINGS_SET_TIME_TO_FULL_SPEED_DECISECONDS = 13,
     /// Set PWM frequency in hectohertz
     UART_COMMAND_SETTINGS_SET_PWM_FREQUENCY_HHZ = 14,
+    /// Set overspeed threshold in percent
+    UART_COMMAND_SETTINGS_SET_SPEED_LIMIT_PERCENT = 15,
 } UARTCommand;
 
 #endif
