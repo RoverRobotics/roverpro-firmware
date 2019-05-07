@@ -78,7 +78,7 @@ const OutputCompareModule OUTPUT_COMPARE_1 = {&OC1CON1, &OC1CON2, &OC1R, &OC1RS,
 const OutputCompareModule OUTPUT_COMPARE_2 = {&OC2CON1, &OC2CON2, &OC2R, &OC2RS, &OC2TMR, 19};
 const OutputCompareModule OUTPUT_COMPARE_3 = {&OC3CON1, &OC3CON2, &OC3R, &OC3RS, &OC3TMR, 20};
 
-void outputcompare_pwm_init(OutputCompareModule oc, uint16_t pwm_freq_khz) {
+void outputcompare_pwm_init(OutputCompareModule oc, float pwm_freq_hz) {
     // NOTE:
     // Refer to Data Sheet DS39723. This thing is complicated!
 
@@ -92,7 +92,7 @@ void outputcompare_pwm_init(OutputCompareModule oc, uint16_t pwm_freq_khz) {
     // If OCxCON2.SYNCSEL<4:0> = 0x1F
     // If OCxCON2.SYNCSEL<4:0> = N (where N is the alternate value to select this as the Period
     // register) If OCxCON2.OCTRIG = 1
-    *oc.OCxRS = FCY / 1000 / pwm_freq_khz - 1;
+    *oc.OCxRS = clamp(FCY / pwm_freq_hz - 1, 0.0F, UINT16_MAX);
 
     *oc.OCxCON1 = (
         // Clock source. 0b111 = peripheral clock FCY
@@ -152,8 +152,7 @@ MotorStatusFlag motor_update(MotorChannel channel, MotorStatusFlag status, float
     return 0;
 }
 
-void motor_init(MotorChannel c) {
-    uint16_t pwm_khz = g_settings.drive.motor_pwm_frequency_khz;
+void motor_init(MotorChannel c, float pwm_frequency_hz) {
     motor_update(c, MOTOR_FLAG_COAST, 0.F);
     OutputCompareModule oc;
     switch (c) {
@@ -183,5 +182,5 @@ void motor_init(MotorChannel c) {
         M3_PWM = oc.RPnR;
         break;
     }
-    outputcompare_pwm_init(oc, pwm_khz);
+    outputcompare_pwm_init(oc, pwm_frequency_hz);
 }

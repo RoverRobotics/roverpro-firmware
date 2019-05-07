@@ -54,11 +54,11 @@ void drive_tick() {
 void drive_init() {
     MotorChannel c;
     g_state.drive.last_update_time = clock_now();
-
+    float pwm_frequency_hz = g_settings.drive.motor_pwm_frequency_hz;
     for (EACH_MOTOR_CHANNEL(c)) {
         g_state.drive.motor_status[c] = motor_update(c, MOTOR_FLAG_COAST, 0.0F);
         g_state.drive.last_motor_effort[c] = 0.0F;
-        motor_init(c);
+        motor_init(c, pwm_frequency_hz);
     }
     motor_tach_init();
 }
