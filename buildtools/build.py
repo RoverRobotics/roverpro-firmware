@@ -50,12 +50,6 @@ async def build_project(p):
     await p.project_postbuild()
     return hex_file
 
-
-async def exec(pargs, **kwargs):
-    async with trio.Process(pargs, **kwargs, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as process:
-        assert await process.wait() == 0
-
-
 async def main():
     command_line_options = parser.parse_args()
     if command_line_options.verbose is None:

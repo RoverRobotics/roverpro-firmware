@@ -29,7 +29,7 @@ if git_branch_match:
     [baseversion] = git_branch_match.groups()
     suffix = git_commit_id
 else:
-    baseversion = git_tag = syscall('git', 'describe', '--abbrev=0')
+    baseversion = git_tag = syscall('git', 'describe', '--abbrev=0', '--tags')
     print('Basing version number on tag:', git_tag)
     git_commits_since_tag = syscall('git', 'rev-list', '--count', '^' + git_tag, 'HEAD')
     assert re.fullmatch(r'\d+', git_commits_since_tag)
