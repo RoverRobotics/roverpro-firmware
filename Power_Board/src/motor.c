@@ -16,16 +16,20 @@ void __attribute__((__interrupt__, auto_psv)) _CNInterrupt(void) {
     uint64_t now = clock_now();
     MotorChannel c;
     for (EACH_MOTOR_CHANNEL(c)) {
+        // tacho toggles at every commutation point.
         if (last_tacho[c] != tacho[c]) {
+            // previously, the timer had a prescale of 256, but also it was only counting every
+            // *other* commutation.
             g_state.drive.motor_encoder_period[c] =
-                min((now - g_state.drive.last_encoder_timestamp[c]) / 256, UINT16_MAX);
+                min((now - g_state.drive.last_encoder_timestamp[c]) / 128, UINT16_MAX);
+
             if ((diro[c] == 0) ^ (c == MOTOR_RIGHT)) {
                 g_state.drive.motor_encoder_count[c]++;
             } else {
                 g_state.drive.motor_encoder_count[c]--;
             }
             g_state.drive.last_encoder_timestamp[c] = now;
-            last_tacho[c] = tacho[c];
+			last_tacho[c] = tacho[c];
         }
     }
     _CNIF = 0;
