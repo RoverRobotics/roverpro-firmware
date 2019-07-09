@@ -194,7 +194,7 @@ void uart_serialize_out_data(uint8_t *out_bytes, uint8_t uart_data_identifier) {
         CASE(42, g_state.analog.battery_current[BATTERY_A])
         CASE(44, g_state.analog.battery_current[BATTERY_B])
         CASE(46, g_state.drive.flipper_angle)
-        CASE(48, g_state.communication.fan_speed)
+        // CASE(48, g_state.communication.fan_speed)
         // CASE(50, REG_MOTOR_CLOSED_LOOP)
         CASE(52, g_state.i2c.smartbattery_status[BATTERY_A])
         CASE(54, g_state.i2c.smartbattery_status[BATTERY_B])
@@ -209,6 +209,8 @@ void uart_serialize_out_data(uint8_t *out_bytes, uint8_t uart_data_identifier) {
         CASE(72, g_state.drive.motor_status[MOTOR_LEFT])
         CASE(74, g_state.drive.motor_status[MOTOR_RIGHT])
         CASE(76, g_state.drive.motor_status[MOTOR_FLIPPER])
+        CASE(78, g_state.i2c.fan_target_duty[0])
+        CASE(80, g_state.i2c.fan_target_duty[1])
     default:
         break;
     }
@@ -217,7 +219,6 @@ void uart_serialize_out_data(uint8_t *out_bytes, uint8_t uart_data_identifier) {
 
 void uart_tick() {
     bool has_drive_command = false;
-    bool has_fan_command = false;
 
     // debug:
     // UARTCommand test_verb = UART_COMMAND_GET;
@@ -254,11 +255,6 @@ void uart_tick() {
         uint8_t arg = packet[5];
 
         switch (verb) {
-        case UART_COMMAND_SET_FAN_SPEED:
-            g_state.communication.fan_command_timestamp = clock_now();
-            g_state.communication.fan_speed = arg;
-            has_fan_command = true;
-            break;
         case UART_COMMAND_RESTART:
             asm volatile("RESET");
             break;
@@ -338,25 +334,15 @@ void uart_tick() {
             g_state.communication.brake_when_stopped[c] =
                 g_settings.communication.brake_on_zero_speed_command;
         }
-    } else if (clock_now() - g_state.communication.drive_command_timestamp >
-               g_settings.communication.drive_command_timeout_ms * CLOCK_MS) {
+    } else if (
+        clock_now() - g_state.communication.drive_command_timestamp >
+        g_settings.communication.drive_command_timeout_ms * CLOCK_MS) {
         // long time no motor commands. stop moving.
         MotorChannel c;
         for (EACH_MOTOR_CHANNEL(c)) {
             g_state.communication.motor_effort[c] = 0;
             g_state.communication.brake_when_stopped[c] =
                 g_settings.communication.brake_on_drive_timeout;
-        }
-    }
-    if (has_fan_command) {
-    } else if (clock_now() - g_state.communication.fan_command_timestamp >
-               g_settings.communication.fan_command_timeout_ms * CLOCK_MS) {
-        // If we don't have any fan commands, run the fan if the motors are running
-        if (g_state.communication.motor_effort[MOTOR_LEFT] == 0 &&
-            g_state.communication.motor_effort[MOTOR_RIGHT] == 0) {
-            g_state.communication.fan_speed = 0;
-        } else {
-            g_state.communication.fan_speed = 240;
         }
     }
 

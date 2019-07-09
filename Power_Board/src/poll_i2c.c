@@ -67,13 +67,14 @@ void i2c2_tick() {
         g_state.i2c.temperature_sensor[0] = a_byte;
 
         // Fan Controller read Temperature channel 2
-        // This tends to fail. Does it ever work?
         I2C_ASYNCHRONOUSLY(i2c_op_read_byte(FAN_CONTROLLER_ADDRESS, 0x01, &a_byte))
         g_state.i2c.temperature_sensor_valid[1] = (i2c_result == I2C_OKAY);
         g_state.i2c.temperature_sensor[1] = a_byte;
 
-        a_byte = g_state.communication.fan_speed;
-        I2C_ASYNCHRONOUSLY(i2c_op_write_byte(FAN_CONTROLLER_ADDRESS, 0x0b, &a_byte));
+        I2C_ASYNCHRONOUSLY(
+            i2c_op_read_byte(FAN_CONTROLLER_ADDRESS, 0x0b, &(g_state.i2c.fan_target_duty[0])))
+        I2C_ASYNCHRONOUSLY(
+            i2c_op_read_byte(FAN_CONTROLLER_ADDRESS, 0x0c, &(g_state.i2c.fan_target_duty[1])))
 
         // Smart Battery read RelativeStateOfCharge
         I2C_ASYNCHRONOUSLY(i2c_op_read_word(BATTERY_ADDRESS, 0x0d, &a_word))

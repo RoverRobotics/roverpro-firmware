@@ -52,6 +52,8 @@ typedef struct State {
         uint16_t temperature_sensor[2];
         /// Whether @ref temperature_sensor values were successfully polled
         bool temperature_sensor_valid[2];
+        /// The fan duty (0-240) that the fan controller is currently aiming for
+        uint8_t fan_target_duty[2];
         /// Whether an external voltage supply is present. (0xdada if true, 0 otherwise)
         uint16_t charger_state;
         /// Last reported SmartBattery state of charge (0-100)
@@ -71,9 +73,6 @@ typedef struct State {
     struct CommunicationState {
         ByteQueue rx_q;
         ByteQueue tx_q;
-        uint64_t fan_command_timestamp;
-        /// Last requested fan speed. Value ranges from 0 (off) to 240 (100%)
-        uint8_t fan_speed;
         uint64_t drive_command_timestamp;
         /// Last requested motor effort. Values from -1.0 to 1.0
         float motor_effort[MOTOR_CHANNEL_COUNT];

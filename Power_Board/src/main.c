@@ -46,8 +46,9 @@ void rover_init() {
     uart_init();
     analog_init();
 
-    cooling_blast_fan();
     drive_init();
+    cooling_init();
+    cooling_blast_fan();
 }
 
 void rover_main_loop() {

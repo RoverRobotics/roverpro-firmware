@@ -5,5 +5,5 @@
 #define COOLING_H
 
 void cooling_blast_fan();
-
+void cooling_init();
 #endif
