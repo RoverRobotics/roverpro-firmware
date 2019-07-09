@@ -42,8 +42,6 @@ typedef struct Settings {
         bool brake_on_drive_timeout;
         /// When we stop receiving a motor command, should we brake? (otherwise coast)
         bool brake_on_zero_speed_command;
-        /// How long to keep the cooling fan going after receiving the last fan commannd
-        uint16_t fan_command_timeout_ms;
         /// How many incoming data bytes to hold before discarding data
         uint16_t rx_bufsize_bytes;
         /// How many outgoing data bytes to hold before discarding data
@@ -64,8 +62,19 @@ typedef struct Settings {
         // If we are in a runaway condition, wait for motor efforts to be below this value before
         // obeying any motor commands
         float overspeed_runaway_reset_effort;
-
     } communication;
+    struct {
+        /// Below this temperature, no need to run the fan, in degrees Celsius.
+        float fan_lo_temperature;
+        /// The temperature at which to run the fan full blast, in degrees Celsius.
+        float fan_hi_temperature;
+        /// When the fan kicks in, it does so at this fraction of full effort. 0.0 = fan off; 1.0 =
+        /// fan at maximum capacity.
+        float fan_lo_duty_factor;
+        /// When the fan is trying its hardest, it does so at this fraction of full effort. 0.0 =
+        /// fan off; 1.0 = fan at maximum capacity.
+        float fan_hi_duty_factor;
+    } cooling;
     struct {
         /// The level of current (for either battery) at which we should start worrying
         uint16_t overcurrent_trigger_threshold_ma;

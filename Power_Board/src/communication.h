@@ -47,7 +47,7 @@
 /// | 16   | right motor encoder count      | 0 - 65535                                                    | May overflow or underflow. Increments when motor driven forward, decrements backward |
 /// |~~18~~| ~~motors fault flag~~          | Bit flags                                                    | (value & 0x0100) = left motor (value & 0x0001) = right motor |
 /// | 20   | left motor temperature         | degrees celsius                                              |                                                              |
-/// |~~22~~| ~~right motor temperature~~    | degrees celsius                                              |                                                              |
+/// | 22   | right motor temperature        | degrees celsius                                              |                                                              |
 /// | 24   | battery A voltage (external) [^1] | 58 = 1V                                                      |                                                              |
 /// | 26   | battery B voltage (external) [^1] | 58 = 1V                                                      |                                                              |
 /// | 28   | left motor encoder interval    |                                                              | 0 when motor stopped. Else proportional to motor period (inverse motor speed) |
@@ -60,7 +60,7 @@
 /// | 42   | battery A current (external) [^1] | 0-1023, 34 = 1A                                              |                                                              |
 /// | 44   | battery B current (external) [^1] | 0-1023, 34 = 1A                                              |                                                              |
 /// | 46   | motor flipper angle            | 0-360, degrees (actual data range needs to be tested)        | Flipper angle                                                |
-/// | 48   | fan speed                      | 0-240,                                                       | Actual fan speed, reported by fan controller                 |
+/// |~~48~~|~~fan speed~~                   | 0-240,                                                       | Actual fan speed, reported by fan controller                 |
 /// |~~50~~|~~drive mode~~                  | 0 (open loop) or 1 (closed loop)                             |                                                              |
 /// | 52   | battery A status               | Bit flags                                                    | Alarm bits:<br />* 0x8000 OVER_CHARGED_ALARM<br />* 0x4000 TERMINATE_CHARGE_ALARM<br />* 0x1000 OVER_TEMP_ALARM<br />* 0x0800 TERMINATE_DISCHARGE_ALARM<br />* 0x0200 REMAINING_CAPACITY_ALARM<br />* 0x0100 REMAINING_TIME_ALARM<br />Status bits:<br />* 0x0080 INITIALIZED<br />* 0x0040 DISCHARGING<br />* 0x0020 FULLY_CHARGED<br />* 0x0010 FULLY_DISCHARGED |
 /// | 54   | battery B status               | Bit flags                                                    |                                                              |
@@ -68,13 +68,15 @@
 /// | 58   | battery B mode                 | Bit flags                                                    | Bit 7 (value & 0x80) gives whether battery needs a condition cycle. Other values probably useless |
 /// | 60   | battery A temperature          | Temperature of battery above absolute 0 in deciKelvins       |                                                              |
 /// | 62   | battery B temperature          | Temperature of battery above absolute 0 in deciKelvins       |                                                              |
-/// | 64   | battery A voltage (internal) [^1] | Voltage of battery in mV                                     |                                                              |
-/// | 66   | battery B voltage (internal) [^1] | Voltage of battery in mV                                     |                                                              |
-/// | 68   | battery A current (internal) [^1] | (signed) Current of battery in mA                            | negative values for discharge, positive for charging         |
-/// | 70   | battery B current (internal) [^1] | (signed) Current of battery in mA                            | negative values for discharge, positive for charging         |
-/// | 72   | Left motor status              | Bit flags (MotorStatusFlag)                                     |                                                              |
-/// | 74   | Right motor status             | Bit flags (MotorStatusFlag)                                     |                                                              |
-/// | 76   | Flipper motor status           | Bit flags (MotorStatusFlag)                                     |                                                              |
+/// | 64   | battery A voltage (internal) [^1] | Voltage of battery in mV                                  |                                                              |
+/// | 66   | battery B voltage (internal) [^1] | Voltage of battery in mV                                  |                                                              |
+/// | 68   | battery A current (internal) [^1] | (signed) Current of battery in mA                         | negative values for discharge, positive for charging         |
+/// | 70   | battery B current (internal) [^1] | (signed) Current of battery in mA                         | negative values for discharge, positive for charging         |
+/// | 72   | Left motor status              | Bit flags (MotorStatusFlag)                                  |                                                              |
+/// | 74   | Right motor status             | Bit flags (MotorStatusFlag)                                  |                                                              |
+/// | 76   | Flipper motor status           | Bit flags (MotorStatusFlag)                                  |                                                              |
+/// | 78   | Fan 1 target effort            | 0-240                                                        | Current target for fan 1, reported by fan controller         |
+/// | 80   | Fan 2 target effort            | 0-240                                                        | Current target for fan 2, reported by fan controller         |
 ///
 /// [^1]: for battery reporting, "internal" means the value comes from the SmartBattery's internal sensor. "external" means the value is reported by circuitry outside the SmartBattery
 // clang-format on
@@ -101,6 +103,7 @@ typedef enum UARTCommand {
     UART_COMMAND_NONE = 0,
     /// Robot should respond with the data element specified by argument.
     UART_COMMAND_GET = 10,
+    /// @deprecated
     /// Robot should set the cooling fan speed to the arg (0-240) for a while (333ms)
     UART_COMMAND_SET_FAN_SPEED = 20,
     /// Robot should restart immediately into the bootloader. If no attempt is made to communicate

@@ -29,7 +29,7 @@ void __attribute__((__interrupt__, auto_psv)) _CNInterrupt(void) {
                 g_state.drive.motor_encoder_count[c]--;
             }
             g_state.drive.last_encoder_timestamp[c] = now;
-			last_tacho[c] = tacho[c];
+            last_tacho[c] = tacho[c];
         }
     }
     _CNIF = 0;

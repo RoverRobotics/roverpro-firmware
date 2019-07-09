@@ -1,0 +1,6 @@
+-e git+https://github.com/RoverRobotics/openrover-python#egg=openrover
+coloredlogs
+pygithub
+gitpython
+trio
+intelhex
