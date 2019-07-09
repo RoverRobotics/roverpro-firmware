@@ -122,6 +122,10 @@ uint32_t getTimeTicks(){
 }
 
 bool should_abort_boot() {
+    if (!RCONbits.EXTR && !RCONbits.SWR) {
+        return true;
+    }
+
 	static const uint32_t BOOTLOADER_TIMEOUT_TICKS = (FCY / 256.0 * BOOT_LOADER_TIME);
 	if(getTimeTicks() > BOOTLOADER_TIMEOUT_TICKS){
        return true;
