@@ -122,7 +122,11 @@ uint32_t getTimeTicks(){
 }
 
 bool should_abort_boot() {
-    if (!RCONbits.EXTR && !RCONbits.SWR) {
+	// In a normal power-on boot, we don't need to run the bootloader
+	// SWR    = software reset was requested (e.g. the firmware has requested a bootload)
+	// EXTR   = hardware reset pin was hit
+	// IOPUWR = invalid opcode (e.g. the firmware is corrupt)
+    if (!RCONbits.EXTR && !RCONbits.SWR && !RCONbits.IOPUWR) {
         return true;
     }
 
