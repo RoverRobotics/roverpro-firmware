@@ -49,6 +49,8 @@ void rover_init() {
     drive_init();
     cooling_init();
     cooling_blast_fan();
+
+    RCON = 0;
 }
 
 void rover_main_loop() {

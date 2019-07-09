@@ -58,22 +58,18 @@ void power_init() {
     // if the power bus is already active (like the bootloader did it)
     // then nothing to do here.
     if (get_active_batteries() == BATTERY_FLAG_ALL) {
-        RCON = 0;
         return;
     }
 
-    // POR = "we are powering on from a black or brownout"
+    // SWR = "we did a software reset"
     // EXTR = "our reset pin was hit"
     // If the system is "warm", assume the power bus is still energized and just switch the power
     // bus back on.
-    if (!RCONbits.POR) {
+    if (RCONbits.EXTR || RCONbits.SWR) {
         turn_on_power_bus_immediate();
-        RCON = 0;
         return;
     }
 
-    // clear the restart reason
-    RCON = 0;
     char battery_data1[BATTERY_DATA_LEN] = {0};
     char battery_data2[BATTERY_DATA_LEN] = {0};
     I2CResult result;
@@ -102,14 +98,16 @@ void power_init() {
     }
 
     // If we're using the new battery (BT-70791B)
-    else if (strcmp(DEVICE_NAME_BT70791B, battery_data1) == 0 ||
-             strcmp(DEVICE_NAME_BT70791B, battery_data2) == 0) {
+    else if (
+        strcmp(DEVICE_NAME_BT70791B, battery_data1) == 0 ||
+        strcmp(DEVICE_NAME_BT70791B, battery_data2) == 0) {
         turn_on_power_bus_new_method();
     }
 
     // If we're using Bren-Tronics BT-70791C
-    else if (strcmp(DEVICE_NAME_BT70791CK, battery_data1) == 0 ||
-             strcmp(DEVICE_NAME_BT70791CK, battery_data2) == 0) {
+    else if (
+        strcmp(DEVICE_NAME_BT70791CK, battery_data1) == 0 ||
+        strcmp(DEVICE_NAME_BT70791CK, battery_data2) == 0) {
         turn_on_power_bus_new_method();
     }
 
