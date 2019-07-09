@@ -61,11 +61,9 @@ void power_init() {
         return;
     }
 
-    // SWR = "we did a software reset"
-    // EXTR = "our reset pin was hit"
     // If the system is "warm", assume the power bus is still energized and just switch the power
     // bus back on.
-    if (RCONbits.EXTR || RCONbits.SWR) {
+    if (!RCONbits.POR) {
         turn_on_power_bus_immediate();
         return;
     }
