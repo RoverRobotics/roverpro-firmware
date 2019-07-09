@@ -11,3 +11,4 @@ IndentWidth: 4
 Standard: Cpp03
 SortIncludes: false
 ColumnLimit: 100
+AlignAfterOpenBracket: AlwaysBreak

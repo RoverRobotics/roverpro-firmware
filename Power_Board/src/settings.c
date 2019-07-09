@@ -61,7 +61,6 @@ static __psv__ Settings g_settings_nvm __attribute__((space(auto_psv))) = {
             .tx_bufsize_bytes = 256,
             .baud_rate = 57600,
             .drive_command_timeout_ms = 333,
-            .fan_command_timeout_ms = 333,
             .brake_on_drive_timeout = true,
             .brake_on_zero_speed_command = false,
             .overspeed_runaway_limit = 2,
@@ -94,6 +93,14 @@ static __psv__ Settings g_settings_nvm __attribute__((space(auto_psv))) = {
             .motor_slow_decay_mode = false,
             .max_instantaneous_delta_effort = 0.2F,
         },
+    .cooling =
+        {
+            .fan_lo_temperature = 40.0F,
+            .fan_lo_duty_factor = 0.5F,
+            .fan_hi_temperature = 50.0F,
+            .fan_hi_duty_factor = 1.0F,
+        }
+
 };
 
 /// Erase the given block of NVM.
