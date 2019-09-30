@@ -78,7 +78,7 @@ typedef struct State {
         float motor_effort[MOTOR_CHANNEL_COUNT];
         /// Whether a 0 motor speed should be interpreted as a brake. Otherwise, interpret it as a
         /// coast.
-        bool brake_when_stopped[MOTOR_CHANNEL_COUNT];
+        bool brake_when_stopped;
 
         /// A history of times we have faulted. When this fills up and we fault, we enter a runaway
         /// condition.

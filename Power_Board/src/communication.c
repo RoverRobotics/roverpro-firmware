@@ -331,7 +331,7 @@ void uart_tick() {
     if (has_drive_command) {
         MotorChannel c;
         for (EACH_MOTOR_CHANNEL(c)) {
-            g_state.communication.brake_when_stopped[c] =
+            g_state.communication.brake_when_stopped =
                 g_settings.communication.brake_on_zero_speed_command;
         }
     } else if (
@@ -341,7 +341,7 @@ void uart_tick() {
         MotorChannel c;
         for (EACH_MOTOR_CHANNEL(c)) {
             g_state.communication.motor_effort[c] = 0;
-            g_state.communication.brake_when_stopped[c] =
+            g_state.communication.brake_when_stopped =
                 g_settings.communication.brake_on_drive_timeout;
         }
     }
