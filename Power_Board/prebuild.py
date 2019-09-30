@@ -12,7 +12,7 @@ print('Writing generated file to ' + targetpath)
 
 def syscall(*args: str):
     print('calling ' + subprocess.list2cmdline(args))
-    result = subprocess.check_output(args, text=True).strip()
+    result = subprocess.check_output(args).decode().strip()
     print('returned ' + result)
     return result
 
