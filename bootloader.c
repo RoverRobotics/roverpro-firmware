@@ -21,21 +21,19 @@ static uint8_t message[RX_BUF_LEN] = {0};
 static uint8_t f16_sum1 = 0, f16_sum2 = 0;
 
 int main(void) {
-	pre_boot();
-	
-	/* initialize the peripherals from the user-supplied initialization functions */
-	initPins();
-    initOsc();
-    initUart();
-    initTimers();
-	
-    /* wait until something is received on the serial port */
-    while(!should_abort_boot()){
-		ClrWdt();
-        
-        receiveBytes();
-    }
-
+	if (pre_boot()) {
+		/* initialize the peripherals from the user-supplied initialization functions */
+		initPins();
+	    initOsc();
+	    initUart();
+	    initTimers();
+		
+	    /* wait until something is received on the serial port */
+	    while(!should_abort_boot()){
+			ClrWdt();
+	        receiveBytes();
+	    }
+	}
     startApp(APPLICATION_START_ADDRESS);
     
     return 0;

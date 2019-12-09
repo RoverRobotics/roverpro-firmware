@@ -3,8 +3,15 @@
 #include "boot_user.h"
 #include "power.h"
 
-void pre_boot(){
+bool pre_boot(){
 	power_init();
+
+	bool should_run_bootloader;
+	// In a normal power-on boot, we don't need to run the bootloader
+	// if the firmware is corrupt, it will reset for an IOPUWR
+    should_run_bootloader = (RCON & ~_RCON_POR_MASK & ~_RCON_BOR_MASK);
+	RCON = 0;
+	return should_run_bootloader;
 }
 
 void initOsc(void){
@@ -122,14 +129,6 @@ uint32_t getTimeTicks(){
 }
 
 bool should_abort_boot() {
-	// In a normal power-on boot, we don't need to run the bootloader
-	// SWR    = software reset was requested (e.g. the firmware has requested a bootload)
-	// EXTR   = hardware reset pin was hit
-	// IOPUWR = invalid opcode (e.g. the firmware is corrupt)
-    if (!RCONbits.EXTR && !RCONbits.SWR && !RCONbits.IOPUWR) {
-        return true;
-    }
-
 	static const uint32_t BOOTLOADER_TIMEOUT_TICKS = (FCY / 256.0 * BOOT_LOADER_TIME);
 	if(getTimeTicks() > BOOTLOADER_TIMEOUT_TICKS){
        return true;
