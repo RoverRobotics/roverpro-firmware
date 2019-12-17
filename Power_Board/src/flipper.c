@@ -28,8 +28,8 @@ void flipper_feedback_calibrate() {
         motor_update(c, MOTOR_FLAG_COAST, 0.F);
 
     g_settings.flipper.is_calibrated = true;
-    g_settings.flipper.angle_offset = return_combined_pot_angle(g_state.analog.flipper_sensors[0],
-                                                                g_state.analog.flipper_sensors[1]);
+    g_settings.flipper.angle_offset = return_combined_pot_angle(
+        g_state.analog.flipper_sensors[0], g_state.analog.flipper_sensors[1]);
 
     Settings s = settings_load();
     s.flipper = g_settings.flipper;

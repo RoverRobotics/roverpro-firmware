@@ -95,15 +95,10 @@ void power_init() {
         turn_on_power_bus_old_method();
     }
 
-    // If we're using the new battery (BT-70791B)
+    // If we're using the new battery (BT-70791B or BT-70791C)
     else if (
         strcmp(DEVICE_NAME_BT70791B, battery_data1) == 0 ||
-        strcmp(DEVICE_NAME_BT70791B, battery_data2) == 0) {
-        turn_on_power_bus_new_method();
-    }
-
-    // If we're using Bren-Tronics BT-70791C
-    else if (
+        strcmp(DEVICE_NAME_BT70791B, battery_data2) == 0 ||
         strcmp(DEVICE_NAME_BT70791CK, battery_data1) == 0 ||
         strcmp(DEVICE_NAME_BT70791CK, battery_data2) == 0) {
         turn_on_power_bus_new_method();

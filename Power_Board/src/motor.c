@@ -3,7 +3,7 @@
 #include "hardware_definitions.h"
 #include "main.h"
 #include "motor.h"
-#include "xc.h"
+#include <xc.h>
 
 /*---------------------------Interrupt Service Routines (ISRs)----------------*/
 

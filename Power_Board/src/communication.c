@@ -6,8 +6,8 @@
 #include "flipper.h"
 #include "hardware_definitions.h"
 #include "main.h"
-#include "xc.h"
 #include <math.h>
+#include <xc.h>
 
 #define RX_PACKET_SIZE 7
 #define TX_PACKET_SIZE 5

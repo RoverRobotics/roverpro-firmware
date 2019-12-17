@@ -70,17 +70,17 @@ I2COperationDef i2c_op_read_byte(uint8_t address, uint8_t command_byte, uint8_t 
 /// Declare (but don't start) an I2C Read Word operation
 I2COperationDef i2c_op_read_word(uint8_t address, uint8_t command_byte, uint16_t *word_to_read);
 /// Declare (but don't start) an I2C Read Block operation
-I2COperationDef i2c_op_read_block(uint8_t address, uint8_t command_byte, void *block_to_read,
-                                  uint8_t maxlen);
+I2COperationDef
+i2c_op_read_block(uint8_t address, uint8_t command_byte, void *block_to_read, uint8_t maxlen);
 /// Declare (but don't start) an I2C Write Byte operation
-I2COperationDef i2c_op_write_byte(uint8_t address, uint8_t command_byte,
-                                  const uint8_t *byte_to_write);
+I2COperationDef
+i2c_op_write_byte(uint8_t address, uint8_t command_byte, const uint8_t *byte_to_write);
 /// Declare (but don't start) an I2C Write Word operation
-I2COperationDef i2c_op_write_word(uint8_t address, uint8_t command_byte,
-                                  const uint16_t *word_to_write);
+I2COperationDef
+i2c_op_write_word(uint8_t address, uint8_t command_byte, const uint16_t *word_to_write);
 /// Declare (but don't start) an I2C Write Block operation
-I2COperationDef i2c_op_write_block(uint8_t address, uint8_t command_byte, void *block_to_write,
-                                   uint8_t maxlen);
+I2COperationDef
+i2c_op_write_block(uint8_t address, uint8_t command_byte, void *block_to_write, uint8_t maxlen);
 
 /// A logical step of an I2C protocol.
 /// Not every stage is relevant to every I2C operation, and some stages may be executed multiple

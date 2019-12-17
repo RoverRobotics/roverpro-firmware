@@ -328,9 +328,7 @@ I2CResult i2c_tick(I2CBus bus, const I2COperationDef *op, I2CProgress *progress)
         case I2C_STEP_START:
             result = i2c_start(bus);
             if (result == I2C_OKAY) {
-                if (!op->no_command_byte) {
-                    progress->resume_at = I2C_STEP_ADDRESS_W;
-                } else if (op->size_writebuf > 0) {
+                if (!op->no_command_byte || op->size_writebuf > 0) {
                     progress->resume_at = I2C_STEP_ADDRESS_W;
                 } else if (op->size_readbuf > 0) {
                     progress->resume_at = I2C_STEP_ADDRESS_R;
@@ -530,8 +528,8 @@ I2COperationDef i2c_op_read_word(uint8_t address, uint8_t command_byte, uint16_t
     };
 }
 
-I2COperationDef i2c_op_read_block(uint8_t address, uint8_t command_byte, void *block_to_read,
-                                  uint8_t maxlen) {
+I2COperationDef
+i2c_op_read_block(uint8_t address, uint8_t command_byte, void *block_to_read, uint8_t maxlen) {
     return (I2COperationDef){
         .address = address,
         .command_byte = command_byte,
@@ -541,8 +539,8 @@ I2COperationDef i2c_op_read_block(uint8_t address, uint8_t command_byte, void *b
     };
 }
 
-I2COperationDef i2c_op_write_byte(uint8_t address, uint8_t command_byte,
-                                  const uint8_t *byte_to_write) {
+I2COperationDef
+i2c_op_write_byte(uint8_t address, uint8_t command_byte, const uint8_t *byte_to_write) {
     return (I2COperationDef){
         .address = address,
         .command_byte = command_byte,
@@ -551,8 +549,8 @@ I2COperationDef i2c_op_write_byte(uint8_t address, uint8_t command_byte,
     };
 }
 
-I2COperationDef i2c_op_write_word(uint8_t address, uint8_t command_byte,
-                                  const uint16_t *word_to_write) {
+I2COperationDef
+i2c_op_write_word(uint8_t address, uint8_t command_byte, const uint16_t *word_to_write) {
     return (I2COperationDef){
         .address = address,
         .command_byte = command_byte,
@@ -561,8 +559,8 @@ I2COperationDef i2c_op_write_word(uint8_t address, uint8_t command_byte,
     };
 }
 
-I2COperationDef i2c_op_write_block(uint8_t address, uint8_t command_byte, void *block_to_write,
-                                   uint8_t maxlen) {
+I2COperationDef
+i2c_op_write_block(uint8_t address, uint8_t command_byte, void *block_to_write, uint8_t maxlen) {
     return (I2COperationDef){
         .address = address,
         .command_byte = command_byte,

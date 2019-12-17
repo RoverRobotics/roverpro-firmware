@@ -20,10 +20,11 @@ add_link_options(
 
 file(GLOB HEADERS ${PROJECT_SOURCE_DIR}/**.h)
 
+find_package(Python 3.7 REQUIRED)
 configure_file(prebuild.py prebuild.py)
 add_custom_command(
   OUTPUT src/version.GENERATED.h
-  COMMAND python3 ${CMAKE_directory}prebuild.py src/version.GENERATED.h
+  COMMAND "${Python_EXECUTABLE}" ${CMAKE_directory}prebuild.py src/version.GENERATED.h
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   DEPENDS prebuild.py
 )

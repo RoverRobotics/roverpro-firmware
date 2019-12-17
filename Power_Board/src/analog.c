@@ -1,8 +1,8 @@
 #include "analog.h"
 #include "hardware_definitions.h"
 #include "main.h"
-#include "math.h"
-#include "xc.h"
+#include <math.h>
+#include <xc.h>
 
 /// Number of samples to keep of running metrics for power management, like battery temperature and
 /// voltage

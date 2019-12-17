@@ -51,16 +51,16 @@ int __builtin_addab(int Accum_a, int Accum_b);
 int __builtin_add(int Accum, int value, const int shift);
 void __builtin_btg(unsigned int *, unsigned int n);
 int __builtin_clr(void);
-int __builtin_clr_prefetch(int **xptr, int *xval, int xincr, int **yptr, int *yval, int yincr,
-                           int *AWB, int AWB_accum);
+int __builtin_clr_prefetch(
+    int **xptr, int *xval, int xincr, int **yptr, int *yval, int yincr, int *AWB, int AWB_accum);
 void __builtin_write_CRYOTP(void);
 int __builtin_dataflashoffset(unsigned int *var);
 void __builtin_disable_interrupts(void);
 void __builtin_disi(int disi_count);
 unsigned int __builtin_divf(unsigned int num, unsigned int den);
 signed int __builtin_divmodsd(signed long dividend, signed int divisor, signed int *remainder);
-unsigned int __builtin_divmodud(unsigned long dividend, unsigned int divisor,
-                                unsigned int *remainder);
+unsigned int
+__builtin_divmodud(unsigned long dividend, unsigned int divisor, unsigned int *remainder);
 int __builtin_divsd(const long num, const int den);
 unsigned int __builtin_divud(const unsigned long num, const unsigned int den);
 unsigned int __builtin_dmapage(const void *p);
@@ -73,17 +73,19 @@ void __builtin_enable_interrupts(void);
 int __builtin_fbcl(int value);
 unsigned int __builtin_get_isr_state(void);
 int __builtin_lac(int value, int shift);
-int __builtin_mac(int Accum, int a, int b, int **xptr, int *xval, int xincr, int **yptr, int *yval,
-                  int yincr, int *AWB, int AWB_accum);
+int __builtin_mac(
+    int Accum, int a, int b, int **xptr, int *xval, int xincr, int **yptr, int *yval, int yincr,
+    int *AWB, int AWB_accum);
 signed int __builtin_modsd(signed long dividend, signed int divisor);
 unsigned int __builtin_modud(unsigned long dividend, unsigned int divisor);
-int __builtin_movsac(int **xptr, int *xval, int xincr, int **yptr, int *yval, int yincr, int *AWB,
-                     int AWB_accum);
+int __builtin_movsac(
+    int **xptr, int *xval, int xincr, int **yptr, int *yval, int yincr, int *AWB, int AWB_accum);
 int __builtin_mpy(int a, int b, int **xptr, int *xval, int xincr, int **yptr, int *yval, int yincr);
-int __builtin_mpyn(int a, int b, int **xptr, int *xval, int xincr, int **yptr, int *yval,
-                   int yincr);
-int __builtin_msc(int Accum, int a, int b, int **xptr, int *xval, int xincr, int **yptr, int *yval,
-                  int yincr, int *AWB, int AWB_accum);
+int __builtin_mpyn(
+    int a, int b, int **xptr, int *xval, int xincr, int **yptr, int *yval, int yincr);
+int __builtin_msc(
+    int Accum, int a, int b, int **xptr, int *xval, int xincr, int **yptr, int *yval, int yincr,
+    int *AWB, int AWB_accum);
 signed long __builtin_mulss(const signed int p0, const signed int p1);
 signed long __builtin_mulsu(const signed int p0, const unsigned int p1);
 signed long __builtin_mulus(const unsigned int p0, const signed int p1);
@@ -109,8 +111,8 @@ void __builtin_tblwth(unsigned int offset, unsigned int data);
 void __builtin_tblwtl(unsigned int offset, unsigned int data);
 void __builtin_write_NVM(void);
 void __builtin_write_NVM_secure(unsigned int key1, unsigned int key2);
-void __builtin_write_PWMSFR(volatile unsigned int *PWM_sfr, unsigned int value,
-                            volatile unsigned int *PWM_KEY);
+void __builtin_write_PWMSFR(
+    volatile unsigned int *PWM_sfr, unsigned int value, volatile unsigned int *PWM_KEY);
 void __builtin_write_RTCWEN(void);
 void __builtin_write_OSCCONL(unsigned char value);
 void __builtin_write_OSCCONH(unsigned char value);

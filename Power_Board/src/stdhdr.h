@@ -4,10 +4,10 @@
 #ifndef STDHDR_H
 #define STDHDR_H
 
-#include "xc.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <xc.h>
 
 /// Instruction clock frequency in Hz
 #define FCY (16000000UL)

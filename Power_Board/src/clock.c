@@ -1,6 +1,6 @@
 #include "clock.h"
 #include "stdhdr.h"
-#include "xc.h"
+#include <xc.h>
 
 /// Number of clock periods
 static volatile uint64_t g_timer_overflow = UINT64_MAX;

@@ -1,8 +1,8 @@
-#include "libpic30.h"
 #include "settings.h"
 #include "stdhdr.h"
 #include "version.GENERATED.h"
-#include "xc.h"
+#include <libpic30.h>
+#include <xc.h>
 
 /// Address in non-volatile memory. Points to a 24-bit instruction in memory
 /// See the reference manual section "PIC24F Flash Program Memory" for more info.
