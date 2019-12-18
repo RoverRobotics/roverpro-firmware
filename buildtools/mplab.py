@@ -35,7 +35,8 @@ class BuildToolsXC16(BuildToolSuite):
 
     @classmethod
     def from_registry(cls):
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microchip\MPLAB IDE\Tool Locations") as key:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+            r"Software\Microchip\MPLAB IDE\Tool Locations") as key:
             cc, _ = winreg.QueryValueEx(key, 'T_XC16cc.XC16')
             hx = Path(cc).parent / 'xc16-bin2hex.exe'
         return cls(cc=Path(cc), hx=Path(hx))
@@ -58,14 +59,17 @@ class BuildToolsC30(BuildToolSuite):
     @classmethod
     def from_registry(cls):
         try:
-            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microchip\MPLAB IDE\Tool Locations") as key:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                r"Software\Microchip\MPLAB IDE\Tool Locations") as key:
                 cc, _ = winreg.QueryValueEx(key, 'T_dsPICcc.C30')
                 hx, _ = winreg.QueryValueEx(key, 'T_dsPICbin2hex.C30')
             return cls(cc=Path(cc), hx=Path(hx))
         except FileNotFoundError as e:
             raise Exception(
                 "Could not find MPLAB C30 build tools."
-                "Download from https://www.microchip.com/development-tools/pic-and-dspic-downloads-archive")  from e
+                "Download from "
+                "https://www.microchip.com/development-tools/pic-and-dspic"
+                "-downloads-archive")  from e
 
 
 class MPLabProject:
@@ -87,26 +91,19 @@ class MPLabProject:
             argstring = args
         else:
             argstring = list2cmdline(args)
-        logging.debug('Executing: %s', argstring)
-        process = trio.Process(args, stderr=subprocess.PIPE, stdout=subprocess.PIPE, cwd=self.path.parent)
 
-        async def log_stdout():
-            stdout = (await process.stdout.receive_some(1000)).decode()
-            if stdout:
-                logging.info('stdout=\n' + stdout)
-
-        async def log_err():
-            stderr = (await process.stderr.receive_some(1000)).decode()
-            if stderr:
-                logging.warning('stderr=\n' + stderr)
-
-        async def check_result():
-            assert 0 == await process.wait()
-
-        async with trio.open_nursery() as nursery:
-            nursery.start_soon(log_err)
-            nursery.start_soon(log_stdout)
-            nursery.start_soon(check_result)
+        logging.debug(f'Executing: {argstring}\n'
+                      f'In directory: {self.path.parent}')
+        p = await trio.run_process(args, capture_stdout=True,
+            capture_stderr=True,
+            cwd=self.path.parent)
+        if p.stdout:
+            logging.info('stdout = \n' + p.stdout.decode())
+        if p.stderr:
+            logging.info('stderr = \n' + p.stderr.decode())
+        if p.returncode != 0:
+            raise RuntimeError(
+                f'process ended with return code {p.returncode}')
 
     async def ensure_output_dirs(self):
         async with trio.open_nursery() as nursery:
@@ -115,7 +112,8 @@ class MPLabProject:
                 if dir_path != '':
                     for path in dir_path.split(';'):
                         p = trio.Path(self.base_dir, path)
-                        nursery.start_soon(partial(p.mkdir, exist_ok=True, parents=True))
+                        nursery.start_soon(
+                            partial(p.mkdir, exist_ok=True, parents=True))
 
     @property
     def tool_suite(self):
@@ -135,11 +133,12 @@ class MPLabProject:
     @property
     def target_executable_path(self):
         return trio.Path(self.base_dir, self.config['PATH_INFO']['dir_bin'],
-                         self.project_name + '.' + self.target_suffix)
+            self.project_name + '.' + self.target_suffix)
 
     @property
     def target_hex_path(self):
-        return trio.Path(self.base_dir, self.config['PATH_INFO']['dir_bin'], self.project_name + '.hex')
+        return trio.Path(self.base_dir, self.config['PATH_INFO']['dir_bin'],
+            self.project_name + '.hex')
 
     @property
     def target_suffix(self):
@@ -169,11 +168,13 @@ class MPLabProject:
 
     def get_file_source_path(self, file_id):
         return trio.Path(self.base_dir, self.config['PATH_INFO']['dir_src'],
-                         self.config['FILE_INFO']['file_' + file_id])
+            self.config['FILE_INFO']['file_' + file_id])
 
     def get_file_object_path(self, file_id):
-        filename = Path(self.config['FILE_INFO']['file_' + file_id]).with_suffix('.o').name
-        return trio.Path(self.base_dir, self.config['PATH_INFO']['dir_tmp'], filename)
+        filename = Path(
+            self.config['FILE_INFO']['file_' + file_id]).with_suffix('.o').name
+        return trio.Path(self.base_dir, self.config['PATH_INFO']['dir_tmp'],
+            filename)
 
     def get_include_flags(self):
         inc_flags = []
@@ -185,8 +186,8 @@ class MPLabProject:
 
     def expand_mplab_macros(self, s):
         MPLAB_MACROS = {
-            'BINDIR_':      str(self.config['PATH_INFO']['dir_bin']) + '/',
-            'TARGETBASE':   self.path.stem,
+            'BINDIR_': str(self.config['PATH_INFO']['dir_bin']) + '/',
+            'TARGETBASE': self.path.stem,
             'TARGETSUFFIX': self.target_suffix,
         }
         result = s
@@ -197,8 +198,10 @@ class MPLabProject:
     def get_tool_flags(self, tool_guid, file_id=None):
         assert re.match('{.+}', tool_guid)
         result = None
-        if file_id is not None and self.config['TOOL_SETTINGS'].get('TS' + tool_guid + file_id + '_active') == 'yes':
-            result = self.config['TOOL_SETTINGS'].get('TS' + tool_guid + file_id)
+        if file_id is not None and self.config['TOOL_SETTINGS'].get(
+            'TS' + tool_guid + file_id + '_active') == 'yes':
+            result = self.config['TOOL_SETTINGS'].get(
+                'TS' + tool_guid + file_id)
         if result is None:
             result = self.config['TOOL_SETTINGS'].get('TS' + tool_guid)
 
@@ -212,14 +215,15 @@ class MPLabProject:
         except FileNotFoundError:
             pass
 
-        file_build_flags = self.get_tool_flags(self.tool_suite.cc_uuid, file_id)
+        file_build_flags = self.get_tool_flags(self.tool_suite.cc_uuid,
+            file_id)
         await self.exec_subprocess([str(self.tool_suite.cc),
-                                    self.cpu_flag,
-                                    '-c', str(self.get_file_source_path(file_id)),
-                                    '-o', str(self.get_file_object_path(file_id)),
-                                    *self.get_include_flags(),
-                                    *(['-D__DEBUG'] if self.debug_build else []),
-                                    *file_build_flags.split(' ')])
+            self.cpu_flag,
+            '-c', str(self.get_file_source_path(file_id)),
+            '-o', str(self.get_file_object_path(file_id)),
+            *self.get_include_flags(),
+            *(['-D__DEBUG'] if self.debug_build else []),
+            *file_build_flags.split(' ')])
 
         assert await obj_file.exists()
         return obj_file
@@ -232,10 +236,13 @@ class MPLabProject:
 
     @property
     def linker_script(self):
-        scripts = [fn for fn in self.config['FILE_INFO'].values() if self.is_linker_file(fn)]
+        scripts = [fn for fn in self.config['FILE_INFO'].values() if
+            self.is_linker_file(fn)]
 
         if len(scripts) > 1:
-            logging.error('Multiple linker scripts found - only the first one will be used')
+            logging.error(
+                'Multiple linker scripts found - only the first one will be '
+                'used')
 
         if len(scripts) == 0:
             device = self.config['HEADER']['device']
@@ -252,9 +259,11 @@ class MPLabProject:
         except FileNotFoundError:
             pass
         if obj_files is None:
-            obj_files = [str(self.get_file_object_path(fid)) for fid in self.get_source_file_ids()]
+            obj_files = [str(self.get_file_object_path(fid)) for fid in
+                self.get_source_file_ids()]
 
-        gcc_ld_flags_string = self.get_tool_flags(self.tool_suite.ld_uuid, None)
+        gcc_ld_flags_string = self.get_tool_flags(self.tool_suite.ld_uuid,
+            None)
 
         gcc_flags = []
         ld_flags = []
@@ -266,7 +275,8 @@ class MPLabProject:
                 ld_flags.append(flag)
         ld_flags.append('-T' + self.linker_script)
         if self.config['PATH_INFO']['dir_lib']:
-            ld_flags.append("-L" + shlex.quote(self.config['PATH_INFO']['dir_lib']))
+            ld_flags.append(
+                "-L" + shlex.quote(self.config['PATH_INFO']['dir_lib']))
 
         args = [
             str(self.tool_suite.cc),
