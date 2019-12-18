@@ -105,6 +105,15 @@ void receiveBytes(void){
 	}
 }
 
+/// Construct a uint32 from the little endian bytes starting at data
+uint32_t from_lendian_uint32(const void * data){
+	const unsigned char * bytes = data;
+	return ((uint32_t)bytes[0] << 0)
+         | ((uint32_t)bytes[1] << 8)
+         | ((uint32_t)bytes[2] << 16)
+         | ((uint32_t)bytes[3] << 24);
+}
+
 void processCommand(uint8_t* data){
     uint16_t i;
     
@@ -159,10 +168,7 @@ void processCommand(uint8_t* data){
             
         case CMD_ERASE_PAGE:
             /* should correspond to a border */
-            address = (uint32_t)data[3] 
-                    + ((uint32_t)data[4] << 8)
-                    + ((uint32_t)data[5] << 16)
-                    + ((uint32_t)data[6] << 24);
+            address = from_lendian_uint32(data + 3);
             
             /* do not allow the bootloader to be erased */
             if((address >= BOOTLOADER_START_ADDRESS) && (address < APPLICATION_START_ADDRESS))
@@ -183,10 +189,7 @@ void processCommand(uint8_t* data){
             break;
             
         case CMD_READ_ADDR:
-            address = (uint32_t)data[3] 
-                    + ((uint32_t)data[4] << 8)
-                    + ((uint32_t)data[5] << 16)
-                    + ((uint32_t)data[6] << 24);
+            address = from_lendian_uint32(data + 3);
             progData[0] = address;
             progData[1] = readAddress(address);
             
@@ -194,10 +197,7 @@ void processCommand(uint8_t* data){
             break;
             
         case CMD_READ_MAX:
-            address = (uint32_t)data[3] 
-                    + ((uint32_t)data[4] << 8)
-                    + ((uint32_t)data[5] << 16)
-                    + ((uint32_t)data[6] << 24);
+            address = from_lendian_uint32(data + 3);
             
             progData[0] = address;
             
@@ -210,20 +210,14 @@ void processCommand(uint8_t* data){
             break;
             
         case CMD_WRITE_ROW:
-            address = ((uint32_t)data[3] << 0) 
-                    + ((uint32_t)data[4] << 8)
-                    + ((uint32_t)data[5] << 16)
-                    + ((uint32_t)data[6] << 24);
+            address = from_lendian_uint32(data + 3);
             
 			/* do not allow the bootloader to be overwritten */
             if((address >= BOOTLOADER_START_ADDRESS) && (address < APPLICATION_START_ADDRESS))
                 break;
 
             for(i=0; i<_FLASH_ROW; i++){
-                progData[i] = ((uint32_t)data[i * 4 + 7] << 0) 
-                    + ((uint32_t)data[i * 4 + 8] << 8)
-                    + ((uint32_t)data[i * 4 + 9] << 16)
-                    + ((uint32_t)data[i * 4 + 10] << 24);
+                progData[i] = from_lendian_uint32(data + 7 + i * 4);
             }
         
             /* do not allow the reset vector to be changed by the application */
@@ -234,10 +228,7 @@ void processCommand(uint8_t* data){
             break;
             
         case CMD_WRITE_MAX_PROG_SIZE:
-            address = (uint32_t)data[3] 
-                    + ((uint32_t)data[4] << 8)
-                    + ((uint32_t)data[5] << 16)
-                    + ((uint32_t)data[6] << 24);
+			address = from_lendian_uint32(data + 3);
 
 			/* do not allow the bootloader to be overwritten */
             if((address >= BOOTLOADER_START_ADDRESS) && (address < APPLICATION_START_ADDRESS))
@@ -245,11 +236,9 @@ void processCommand(uint8_t* data){
            	
             /* fill the progData array */
             for(i=0; i<MAX_PROG_SIZE; i++){
-            	progData[i] = (uint32_t)data[7 + (i * 4)]
-                        + ((uint32_t)data[8 + (i * 4)] << 8)
-                        + ((uint32_t)data[9 + (i * 4)] << 16)
-                        + ((uint32_t)data[10 + (i * 4)] << 24);
+				progData[i] = from_lendian_uint32(data + 7 + i * 4);
 			}
+
 		    /* the zero address should always go to the bootloader */
             if(address == 0){
 	            progData[0] = 0x040000 | BOOTLOADER_START_ADDRESS;
