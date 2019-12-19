@@ -2,18 +2,19 @@ cmake_minimum_required(VERSION 3.5)
 project(PowerBoard C)
 
 set(LINKER_SCRIPT "C:\\Users\\dan\\Documents\\OpenRoverFirmware\\bootypic\\devices\\pic24fj256gb106\\p24FJ256GB106_app.gld")
-string(APPEND CMAKE_EXE_LINKER_FLAGS " -Wl,--script=${LINKER_SCRIPT},--heap=2048,-Map=${CMAKE_CURRENT_BINARY_DIR}/PowerBoard.map")
 
 find_package(Python 3.7 REQUIRED)
-configure_file(prebuild.py prebuild.py)
+
+set(GENERATED_SRC_DIR "${CMAKE_CURRENT_BINARY_DIR}/src")
+set(VERSION_HEADER_FILE "${GENERATED_SRC_DIR}/version.GENERATED.h")
+
 add_custom_command(
-  OUTPUT src/version.GENERATED.h
-  COMMAND "${Python_EXECUTABLE}" ${CMAKE_directory}prebuild.py src/version.GENERATED.h
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-  DEPENDS prebuild.py
+  OUTPUT "${VERSION_HEADER_FILE}"
+  COMMAND "${Python_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/prebuild.py" "${VERSION_HEADER_FILE}"
 )
 
 file(GLOB HEADERS ${PROJECT_SOURCE_DIR}/**.h)
+
 add_executable(Power_Board
   src/analog.c
   src/battery.c
@@ -31,9 +32,14 @@ add_executable(Power_Board
   src/power2.c
   src/settings.c
   src/stdfunctions.c
-  src/version.GENERATED.h
+  ${VERSION_HEADER_FILE}
   ${HEADERS}
-)
+  )
+target_include_directories(Power_Board PRIVATE "${GENERATED_SRC_DIR}")
+
+target_link_options(Power_Board
+  PRIVATE "LINKER:--script=${LINKER_SCRIPT},--heap=2048,-Map=${CMAKE_CURRENT_BINARY_DIR}/PowerBoard.map"
+  )
 
 add_custom_command(
   TARGET Power_Board POST_BUILD
