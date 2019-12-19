@@ -4,11 +4,11 @@ import datetime
 import re
 import subprocess
 import sys
+import pathlib
 
 targetpath = sys.argv[1]
 now = datetime.datetime.now()
 print('Writing generated file to ' + targetpath)
-
 
 def syscall(*args: str):
     print('calling ' + subprocess.list2cmdline(args))
@@ -42,6 +42,7 @@ major, minor, patch = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)', baseversion).groups()
 version = f'{major}.{minor}.{patch}{"+" if suffix else ""}{suffix}'
 
 print('version determined to be:', version)
+pathlib.Path(targetpath).resolve().parent.mkdir(parents=True, exist_ok=True)
 with open(targetpath, 'w') as f:
     f.write(f"""\
 /// @file

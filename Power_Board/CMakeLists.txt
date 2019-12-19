@@ -1,33 +1,19 @@
 cmake_minimum_required(VERSION 3.5)
-project(Power_Board C ASM)
+project(PowerBoard C)
 
-set(CMAKE_C_STANDARD 90)
-set(CMAKE_SYSTEM_PROCESSOR 24FJ256GB106)
+set(LINKER_SCRIPT "C:\\Users\\dan\\Documents\\OpenRoverFirmware\\bootypic\\devices\\pic24fj256gb106\\p24FJ256GB106_app.gld")
 
-add_compile_options(
-  -mcpu=24FJ256GB106
-  -no-legacy-libc
-)
-include_directories(
-  ${PROJECT_SOURCE_DIR}/src
-)
+find_package(Python 3.7 REQUIRED)
 
-set(LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/../bootypic/devices/pic24fj256gb106/p24FJ256GB106_app.gld")
-add_link_options(
-  -T "${LINKER_SCRIPT}"
-  --architecture=${CMAKE_SYSTEM_PROCESSOR}
+set(GENERATED_SRC_DIR "${CMAKE_CURRENT_BINARY_DIR}/src")
+set(VERSION_HEADER_FILE "${GENERATED_SRC_DIR}/version.GENERATED.h")
+
+add_custom_command(
+  OUTPUT "${VERSION_HEADER_FILE}"
+  COMMAND "${Python_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/prebuild.py" "${VERSION_HEADER_FILE}"
 )
 
 file(GLOB HEADERS ${PROJECT_SOURCE_DIR}/**.h)
-
-find_package(Python 3.7 REQUIRED)
-configure_file(prebuild.py prebuild.py)
-add_custom_command(
-  OUTPUT src/version.GENERATED.h
-  COMMAND "${Python_EXECUTABLE}" ${CMAKE_directory}prebuild.py src/version.GENERATED.h
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-  DEPENDS prebuild.py
-)
 
 add_executable(Power_Board
   src/analog.c
@@ -46,9 +32,17 @@ add_executable(Power_Board
   src/power2.c
   src/settings.c
   src/stdfunctions.c
-  ../bootypic/devices/pic24fj256gb106/p24FJ256GB106_app.gld
-  src/version.GENERATED.h
+  ${VERSION_HEADER_FILE}
   ${HEADERS}
   )
-set(CMAKE_EXECUTABLE_FORMAT elf)
-set(CMAKE_EXECUTABLE_SUFFIX .elf)
+target_include_directories(Power_Board PRIVATE "${GENERATED_SRC_DIR}")
+
+target_link_options(Power_Board
+  PRIVATE "LINKER:--script=${LINKER_SCRIPT},--heap=2048,-Map=${CMAKE_CURRENT_BINARY_DIR}/PowerBoard.map"
+  )
+
+add_custom_command(
+  TARGET Power_Board POST_BUILD
+  COMMAND "${XC16}/bin/xc16-bin2hex.exe" -omf=${CMAKE_EXECUTABLE_FORMAT} "${CMAKE_CURRENT_BINARY_DIR}/Power_Board.elf"
+  BYPRODUCTS Power_Board.hex
+)

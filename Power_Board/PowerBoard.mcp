@@ -5,11 +5,11 @@ device=PIC24FJ256GB106
 [PATH_INFO]
 BuildDirPolicy=BuildDirIsProjectDir
 dir_src=
-dir_bin=./bin
-dir_tmp=./obj
-dir_sin=
-dir_inc=./src;C:\Program Files (x86)\Microchip\xc16\v1.36\include
-dir_lib=
+dir_bin=
+dir_tmp=
+dir_sin=C:\Program Files (x86)\Microchip\xc16\v1.41\src\libm
+dir_inc=C:\Program Files (x86)\Microchip\xc16\v1.41\include
+dir_lib=C:\Program Files (x86)\Microchip\xc16\v1.41\lib
 dir_lkr=
 [CAT_FILTERS]
 filter_src=*.s;*.c
