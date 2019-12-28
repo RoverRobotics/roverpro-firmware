@@ -39,7 +39,7 @@
  */
 #define MAX_PROG_SIZE 0x80
 #define APPLICATION_START_ADDRESS 0x2000
-#define FCY 16000000UL  /* instruction clock frequency, in Hz */
+#define FCY (16000000UL)  /* instruction clock frequency, in Hz */
 
 #define _FLASH_PAGE   512  /* _FLASH_PAGE should be the maximum page (in instructions) */
 #define _FLASH_ROW    64  /* _FLASH_ROW = maximum write row (in instructions) */
