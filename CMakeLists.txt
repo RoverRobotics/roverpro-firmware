@@ -30,9 +30,14 @@ set(BOOT_LINKER_SCRIPT "${DEVICE_SRC}/${MCU_NAME_2}_boot.gld")
 set_target_properties(bootypic
   PROPERTIES LINK_DEPENDS ${BOOT_LINKER_SCRIPT})
 target_link_options(bootypic
-  PRIVATE "LINKER:--script=${BOOT_LINKER_SCRIPT},-Map=${CMAKE_CURRENT_BINARY_DIR}/bootypic.map,--no-isr"
+  PRIVATE
+  "LINKER:--gc-sections"
+  "LINKER:--heap=2048"
+  "LINKER:--coresident,--defsym,__SP_init=0x800,--defsym,__SPLIM_init=0x1000,-mreserve=data@0x0:0x1000"
+  "LINKER:--script=${BOOT_LINKER_SCRIPT},-Map=${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_PROPERTY:NAME>.map,--no-isr,--save-gld,-D__DEFINE_RESET"
   )
-
+# $<TARGET_LINKER_FILE:myLib>
+#file(GENERATE OUTPUT filename CONTENT "$<TARGET_LINKER_FILE:bootypic>")
 add_custom_command(
   TARGET bootypic POST_BUILD
   COMMAND "${XC16_bin2hex_EXECUTABLE}" "$<TARGET_FILE:bootypic>"
