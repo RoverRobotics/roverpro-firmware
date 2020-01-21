@@ -37,14 +37,18 @@ Pipfile.lock
 
 debug\.log
 
-Power_Board/doc/
-/Power_Board/build/
-Power_Board/nbproject/
+PowerBoard/doc/
+/PowerBoard/build/
+PowerBoard/nbproject/
 
 *.mptags
 *.tagsrc
 
-Power_Board/Makefile
-Power_Board/NMakefile
+PowerBoard/Makefile
+PowerBoard/NMakefile
 
-Power_Board/files\.tmp\.txt
+PowerBoard/files\.tmp\.txt
+build/
+MPLABX/**/nbproject/Makefile-genesis.properties
+MPLABX/**/nbproject/private/*
+MPLABX/**/nbproject/Makefile-variables.mk

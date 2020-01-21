@@ -1,0 +1,17 @@
+/// @file
+/// Firmware version information.
+#pragma once
+
+/// Semantic version as per semver.org
+typedef struct {
+    /// serial number for incompatible API changes
+    unsigned major;
+    /// serial number for feature releases
+    unsigned minor;
+    /// serial number for bug fixes
+    unsigned patch;
+} ReleaseVersion;
+static const ReleaseVersion RELEASE_VERSION = {@PROJECT_VERSION_MAJOR@, @PROJECT_VERSION_MINOR@, @PROJECT_VERSION_PATCH@};
+#define RELEASE_VERSION_FLAT (@PROJECT_VERSION_MAJOR@*10000 + @PROJECT_VERSION_MINOR@*100 + @PROJECT_VERSION_PATCH@)
+#define BUILD_DATE "@DATE@"
+#define BUILD_TIME "@TIME@"

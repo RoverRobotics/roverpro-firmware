@@ -24,7 +24,7 @@ void drive_tick() {
         } else {
             float last_effort = g_state.drive.last_motor_effort[c];
             float max_delta_effort =
-                min((float)(t1 - t0) * (1.0F / CLOCK_S) / g_settings.drive.time_to_full_speed,
+                min((float)(t1 - t0) / seconds_to_ticks(g_settings.drive.time_to_full_speed),
                     g_settings.drive.max_instantaneous_delta_effort);
             effort = clamp(
                 g_state.communication.motor_effort[c], last_effort - max_delta_effort,

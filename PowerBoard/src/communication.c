@@ -82,7 +82,7 @@ bool should_obey_motor_commands(float left_effort, float right_effort) {
         // we are in a runaway condition and the driver needs to
         // send a low speed before we obey again
         return false;
-    } else if (now < state.overspeed_fault_time + settings.overspeed_fault_recover_s * CLOCK_S) {
+    } else if (now < state.overspeed_fault_time + seconds_to_ticks(settings.overspeed_fault_recover_s)) {
         // we are in a fault condition. Don't obey yet
         return false;
     } else if (requested_effort < settings.overspeed_fault_effort) {
@@ -93,7 +93,7 @@ bool should_obey_motor_commands(float left_effort, float right_effort) {
         // we've only been going fast for a short time. Allow it, but note the time.
         state.overspeed_time = now;
         return true;
-    } else if (now < state.overspeed_time + settings.overspeed_fault_trigger_s * CLOCK_S) {
+    } else if (now < state.overspeed_time + seconds_to_ticks(settings.overspeed_fault_trigger_s)) {
         // we've only been going fast for a short time. Allow it for now...
         return true;
     } else {
@@ -103,7 +103,7 @@ bool should_obey_motor_commands(float left_effort, float right_effort) {
         for (i = 0; i < settings.overspeed_runaway_limit; i++) {
             // if the value is before the most recent reset or too old, overwrite it.
             if (state.overspeed_fault_times[i] <= state.overspeed_runaway_reset_time ||
-                state.overspeed_fault_times[i] + CLOCK_S * settings.overspeed_runaway_history_s <
+                state.overspeed_fault_times[i] + seconds_to_ticks(settings.overspeed_runaway_history_s) <
                     now) {
                 state.overspeed_fault_times[i] = now;
                 tmp_runaway = false;
@@ -256,7 +256,7 @@ void uart_tick() {
 
         switch (verb) {
         case UART_COMMAND_RESTART:
-            asm volatile("RESET");
+            __asm__ volatile("RESET");
             break;
         case UART_COMMAND_FLIPPER_CALIBRATE:
             if (arg == UART_COMMAND_FLIPPER_CALIBRATE) {
@@ -336,7 +336,7 @@ void uart_tick() {
         }
     } else if (
         clock_now() - g_state.communication.drive_command_timestamp >
-        g_settings.communication.drive_command_timeout_ms * CLOCK_MS) {
+        g_settings.communication.drive_command_timeout_ms * seconds_to_ticks(0.001F)) {
         // long time no motor commands. stop moving.
         MotorChannel c;
         for (EACH_MOTOR_CHANNEL(c)) {

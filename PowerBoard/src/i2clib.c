@@ -1,3 +1,5 @@
+#include <xc.h>
+
 #include "i2clib.h"
 #include "stdhdr.h"
 #include "stdlib.h"
@@ -429,7 +431,7 @@ I2CResult i2c_tick(I2CBus bus, const I2COperationDef *op, I2CProgress *progress)
             if (result == I2C_OKAY) {
                 // Set the number of bytes to read based on that length or the read buffer
                 // size, whichever is smaller
-                progress->nbytes_read_len = min(op->size_readbuf, progress->nbytes_read_len);
+                progress->nbytes_read_len = op->size_readbuf < progress->nbytes_read_len ? op->size_readbuf : progress->nbytes_read_len;
 
                 if (progress->nbytes_read_len > 1) {
                     progress->resume_at = I2C_STEP_SEND_ACK;
