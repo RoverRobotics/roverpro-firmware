@@ -323,7 +323,6 @@ void uart_tick() {
             // fallthrough
         default:
             // unknown inbound command.
-            BREAKPOINT();
             break;
         }
     }

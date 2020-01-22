@@ -37,6 +37,9 @@ void drive_tick() {
             if (effort == 0.0F && g_state.communication.brake_when_stopped) {
                 motor_flag |= MOTOR_FLAG_BRAKE;
             }
+            if (effort == 0.0F && !g_state.communication.brake_when_stopped) {
+                motor_flag |= MOTOR_FLAG_COAST;
+            }
             if (g_settings.drive.motor_slow_decay_mode) {
                 motor_flag |= MOTOR_FLAG_DECAY_MODE;
             }
