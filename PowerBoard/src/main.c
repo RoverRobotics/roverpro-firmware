@@ -4,8 +4,8 @@
 // Note we can't overwrite these with the bootloader, so this is only needed
 // for writing firmware with the PICkit3
 
-#include "../../bootypic/devices/pic24fj256gb106/config.h"
 #include "main.h"
+#include "../../bootypic/devices/pic24fj256gb106/config.h"
 #include "motor.h"
 
 #include "analog.h"

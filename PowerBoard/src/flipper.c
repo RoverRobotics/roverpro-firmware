@@ -1,5 +1,5 @@
-#include "analog.h"
 #include "flipper.h"
+#include "analog.h"
 #include "main.h"
 #include "math.h"
 #include "motor.h"

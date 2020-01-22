@@ -35,19 +35,36 @@ The rover includes an onboard bootloader to allow you to update the firmware.
 
 ### IDE and build tools
 
-The MCP files can be opened in [MPLAB IDE v8.92](http://ww1.microchip.com/downloads/en/DeviceDoc/MPLAB_IDE_8_92.zip) (not MPLAB X) and should be built with the [Microchip XC16 Toolsuite](https://www.microchip.com/mplab/compilers). This toolsuite contains a compiler/linker/assembler and also standard libraries for the PIC24F MCU's.
+I recommend using a CMake-aware IDE like CLion for development.
 
-To build, use the Debug mode (if you're attaching a PICKit) or Release mode (if you're not using a PICKit). Note that if you build in Debug mode and you hit a breakpoint (`BREAKPOINT()` macro), execution will halt for the debugger. If no debugger is attached, the device will immediately restart.
+For debugging, use MPLABX.
+
+### Building with cmake
+
+1. Install XC16 the [Microchip XC16 Toolsuite](https://www.microchip.com/mplab/compilers). This toolsuite contains a compiler/linker/assembler and also standard libraries for the PIC24F MCU's. I recommend installing this to the path "C:/opt/Microchip/xc16", since the default (in "Program Files (x86)" contains spaces, which will cause MPLAB X to complain)
+2. Install Ninja (CMake on Windows w/ Visual Studio generator does not like using other C compilers)
+3. Generate build files with CMake
+
+```
+cd OpenRoverFirmware
+mkdir build; cd build
+cmake .. -DCMAKE_TOOLCHAIN_FILE="..\cmake\PowerBoard_toolchain.cmake"
+cmake --build .
+```
 
 ### Building the docs
 
 Everything should be ready for doxygen. (on Windows, `choco install doxygen.install graphviz`)
 
-To build the docs, switch to the Power_Board subfolder and run `doxygen`.
+To build the docs, switch to the PowerBoard subfolder and run `doxygen`.
 
 ### Code style tools
 
 To tidy up code, I like using **[clang-format](https://clang.llvm.org/docs/ClangFormat.html)**, and have provided a .clang-format file.
+
+### Debugging
+
+Load the .elf file into Microchip MPLAB X. (using the elf file instead of the hex will allow you to see debugging info)
 
 #### Ubuntu installation of clang-format
 
