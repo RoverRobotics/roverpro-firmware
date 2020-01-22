@@ -7,8 +7,8 @@
 #   git diff --name-only -- '*.h' '*.c' | xargs clang-format -style=file -i
 
 BasedOnStyle: LLVM
+Language: Cpp
 IndentWidth: 4
-Standard: Cpp03
-SortIncludes: false
+SortIncludes: true
 ColumnLimit: 100
 AlignAfterOpenBracket: AlwaysBreak

@@ -24,7 +24,7 @@ void drive_tick() {
         } else {
             float last_effort = g_state.drive.last_motor_effort[c];
             float max_delta_effort =
-                min((float)(t1 - t0) * (1.0F / CLOCK_S) / g_settings.drive.time_to_full_speed,
+                min((float)(t1 - t0) / seconds_to_ticks(g_settings.drive.time_to_full_speed),
                     g_settings.drive.max_instantaneous_delta_effort);
             effort = clamp(
                 g_state.communication.motor_effort[c], last_effort - max_delta_effort,
@@ -36,6 +36,9 @@ void drive_tick() {
             }
             if (effort == 0.0F && g_state.communication.brake_when_stopped) {
                 motor_flag |= MOTOR_FLAG_BRAKE;
+            }
+            if (effort == 0.0F && !g_state.communication.brake_when_stopped) {
+                motor_flag |= MOTOR_FLAG_COAST;
             }
             if (g_settings.drive.motor_slow_decay_mode) {
                 motor_flag |= MOTOR_FLAG_DECAY_MODE;
