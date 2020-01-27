@@ -16,15 +16,19 @@ set(MCU_MODEL)
 
 set(MPLABX_VER v5.30)
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL Windows)
-  set(MPLABX_ROOT "C:/opt/Microchip/MPLABX/${MPLABX_VER}" "C:/Program Files (x86)/Microchip/MPLABX/${MPLABX_VER}")
+  set(MPLABX_ROOT
+    "C:/opt/Microchip/MPLABX/${MPLABX_VER}"
+    "C:/Program Files (x86)/Microchip/MPLABX/${MPLABX_VER}")
 else()
   set(MPLABX_ROOT "/opt/microchip/mplabx/${MPLABX_VER}")
 endif()
 
 set(XC16_VER v1.41)
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL Windows)
-  #moved from the default location so that MPLAB X
-  set(XC16_ROOT "C:/opt/Microchip/xc16/${XC16_VER}" "C:/Program Files (x86)/Microchip/xc16/${XC16_VER}")
+  # I use an alternate root so MPLAB X doesn't complain about the spaces in the path to system headers.
+  set(XC16_ROOT
+    "C:/opt/Microchip/xc16/${XC16_VER}"
+    "C:/Program Files (x86)/Microchip/xc16/${XC16_VER}")
 else()
   set(XC16_ROOT "/opt/microchip/xc16/${XC16_VER}")
 endif()
