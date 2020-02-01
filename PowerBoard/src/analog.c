@@ -101,8 +101,6 @@ static uint16_t get_sample(AnalogChannel c) {
 }
 
 void analog_tick() {
-    BREAKPOINT_IF(!IFS0bits.AD1IF);
-
     AnalogChannel c;
     for (c = 0; c < ANALOG_CHANNEL_COUNT; c++) {
         g_adc_samples[c][g_i_adc_sample] = get_sample(c);

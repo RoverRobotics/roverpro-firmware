@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 
-# this is pretty dumb and assumes you have set MPLABX_ROOT appropriately
-
-# requires installing MPLAB IPE https://microchipdeveloper.com/ipe:installation
-# when installing make sure MPLAB IPE is installed with 16 bit MCU support
+# this is pretty dumb and assumes you have set MPLAB_ROOT appropriately
 
 find_program(MPLABX_ide_EXECUTABLE
   NAMES mplab_ide_64 mplab_ide

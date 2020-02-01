@@ -28,13 +28,17 @@ int64_t clock_now() {
     if (IFS0bits.T2IF && ticks_lo < 0xFFU) {
         // overflow happened but not yet represented in g_timer_overflow
         ticks_hi = ++g_timer_overflow;
-         IFS0bits.T2IF = 0;
+        IFS0bits.T2IF = 0;
     } else {
         ticks_hi = g_timer_overflow;
     }
-    IEC0bits.T2IE = 1;
 
-    return (ticks_hi << 16U) | ticks_lo;
+    uint64_t result = 0;
+    result |= (ticks_hi << 16U);
+    result |= ticks_lo;
+
+    IEC0bits.T2IE = 1;
+    return result;
 }
 
 int64_t seconds_to_ticks(float seconds) { return seconds * FCY; }

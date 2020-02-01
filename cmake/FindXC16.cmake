@@ -20,8 +20,6 @@ foreach(omf elf coff)
   endforeach()
 endforeach()
 
-add_link_options(LINKER:--report-mem)
-
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(XC16
   REQUIRED_VARS XC16_gcc_EXECUTABLE XC16_elf-gcc_EXECUTABLE XC16_coff-gcc_EXECUTABLE

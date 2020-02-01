@@ -1,6 +1,6 @@
+#include "communication.h"
 #include "bytequeue.h"
 #include "clock.h"
-#include "communication.h"
 #include "cooling.h"
 #include "drive.h"
 #include "flipper.h"
@@ -28,7 +28,8 @@ uint8_t checksum(size_t count, const uint8_t *data) {
     for (i = 0; i < count; i++) {
         total += data[i];
     }
-    return 255 - (total % 255);
+    uint8_t result = 255 - (total % 255);
+    return result;
 }
 
 void uart_init() {
@@ -82,7 +83,8 @@ bool should_obey_motor_commands(float left_effort, float right_effort) {
         // we are in a runaway condition and the driver needs to
         // send a low speed before we obey again
         return false;
-    } else if (now < state.overspeed_fault_time + seconds_to_ticks(settings.overspeed_fault_recover_s)) {
+    } else if (
+        now < state.overspeed_fault_time + seconds_to_ticks(settings.overspeed_fault_recover_s)) {
         // we are in a fault condition. Don't obey yet
         return false;
     } else if (requested_effort < settings.overspeed_fault_effort) {
@@ -103,7 +105,8 @@ bool should_obey_motor_commands(float left_effort, float right_effort) {
         for (i = 0; i < settings.overspeed_runaway_limit; i++) {
             // if the value is before the most recent reset or too old, overwrite it.
             if (state.overspeed_fault_times[i] <= state.overspeed_runaway_reset_time ||
-                state.overspeed_fault_times[i] + seconds_to_ticks(settings.overspeed_runaway_history_s) <
+                state.overspeed_fault_times[i] +
+                        seconds_to_ticks(settings.overspeed_runaway_history_s) <
                     now) {
                 state.overspeed_fault_times[i] = now;
                 tmp_runaway = false;
@@ -217,15 +220,23 @@ void uart_serialize_out_data(uint8_t *out_bytes, uint8_t uart_data_identifier) {
 #undef CASE
 }
 
+static unsigned g_ustep = 0;
+
 void uart_tick() {
     bool has_drive_command = false;
 
     // debug:
-    // UARTCommand test_verb = UART_COMMAND_GET;
-    // uint8_t test_arg = 40;
-    // uint8_t rq_test_msg[7] = {253, 160, 160, 125, test_verb, test_arg, 0};
-    // rq_test_msg[6] = checksum(5, rq_test_msg + 1);
-    // bq_try_push(&g_state.communication.rx_q, sizeof(rq_test_msg), rq_test_msg);
+    /*
+        {
+        BREAKPOINT();
+        UARTCommand test_verb = UART_COMMAND_NONE;
+        uint8_t test_arg = 0;
+        uint8_t rq_test_msg[7] = {253, 125, 125, 125, test_verb, test_arg, 0};
+        rq_test_msg[6] = checksum(5, rq_test_msg + 1);
+
+        bq_try_push(&g_state.communication.rx_q, sizeof(rq_test_msg), rq_test_msg);
+        }
+    */
     // end debug
 
     while (bq_can_pop(&g_state.communication.rx_q, RX_PACKET_SIZE)) {
@@ -256,7 +267,7 @@ void uart_tick() {
 
         switch (verb) {
         case UART_COMMAND_RESTART:
-            __asm__ volatile("RESET");
+            __asm__ volatile("reset");
             break;
         case UART_COMMAND_FLIPPER_CALIBRATE:
             if (arg == UART_COMMAND_FLIPPER_CALIBRATE) {
@@ -319,7 +330,6 @@ void uart_tick() {
         case UART_COMMAND_SETTINGS_SET_SPEED_LIMIT_PERCENT:
             g_settings.communication.overspeed_fault_effort = (float)arg * 0.01F;
         case UART_COMMAND_SET_DRIVE_MODE:
-            break;
             // fallthrough
         default:
             // unknown inbound command.
