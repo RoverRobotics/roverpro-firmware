@@ -32,17 +32,16 @@ The rover includes an onboard bootloader to allow you to update the firmware.
  * The location of your hexfile may vary. If not found, booty will report "no such file or directory"
 
 ## Development
-i
+
 ### IDE and build tools
 
 I recommend using a CMake-aware IDE like CLion for development.
 
-For debugging, use MPLABX. A big caveat: WHILE IN DEBUG MODE, DON'T USE "Read Device Memory". It will break your current debug session and output a corrupted firmware file.
+For debugging, use MPLAB 8. MPLAB X (5.30) has numerous bugs. Even its bugs have bugs.
 
-Also make sure "Maintain active connection to hardware tool" is off if you're debugging NVM stuff. 
 ### Building with cmake
 
-1. Install XC16 the [Microchip XC16 Toolsuite](https://www.microchip.com/mplab/compilers). This toolsuite contains a compiler/linker/assembler and also standard libraries for the PIC24F MCU's. I recommend installing this to the path "C:/opt/Microchip/xc16", since the default (in "Program Files (x86)" contains spaces, which will cause MPLAB X to complain)
+1. Install XC16 the [Microchip XC16 Toolsuite](https://www.microchip.com/mplab/compilers). This toolsuite contains a compiler/linker/assembler and also standard libraries for the PIC24F MCU's. I recommend installing this to the path "C:/opt/Microchip/xc16", since the default (in "Program Files (x86)" contains spaces, which can cause some build tools to complain)
 2. Install Ninja (CMake on Windows w/ Visual Studio generator does not like using other C compilers)
 3. Generate build files with CMake
 

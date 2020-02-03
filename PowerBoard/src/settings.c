@@ -109,7 +109,6 @@ void settings_save(const Settings *settings) {
     uint8_t old_tblpag = TBLPAG;
 
     // assertions that we can erase settings without harming other data
-    // assert(__builtin_tbloffset(&g_nvm_settings_page) % BLOCK_STRIDE == 0);
     _Static_assert(sizeof(g_nvm_settings_page) == BLOCK_STRIDE, "Settings end at a block boundary");
 
     TBLPAG = __builtin_tblpage(&g_nvm_settings_page);
