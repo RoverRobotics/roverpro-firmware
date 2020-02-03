@@ -104,16 +104,15 @@ typedef enum UARTCommand {
     /// Robot should respond with the data element specified by argument.
     UART_COMMAND_GET = 10,
     /// @deprecated
-    /// Robot should set the cooling fan speed to the arg (0-240) for a while (333ms)
     UART_COMMAND_SET_FAN_SPEED = 20,
     /// Robot should restart immediately into the bootloader. If no attempt is made to communicate
     /// with the bootloader (10 seconds), rover will proceed to normal operation
     UART_COMMAND_RESTART = 230,
+    /// Return any active fault conditions
+    UART_COMMAND_GET_FAULT = 231,
+    /// Clear any active fault conditions
+    UART_COMMAND_CLEAR_FAULT = 232,
     /// @deprecated
-    /// If arg = 0, rover will be driven in open loop mode (commanded speeds will be the direction
-    /// and effort of the motor)
-    /// If arg=1, rover will be driven in closed loop mode (commanded speeds will be the intended
-    /// speed of the motor)
     UART_COMMAND_SET_DRIVE_MODE = 240,
     /// If arg = 230, calibrate the flipper and save the results to NVM. Note the robot must be
     /// manually cycled before it will accept additional commands.
@@ -146,8 +145,15 @@ typedef enum UARTCommand {
     UART_COMMAND_SETTINGS_SET_TIME_TO_FULL_SPEED_DECISECONDS = 13,
     /// Set PWM frequency in hectohertz
     UART_COMMAND_SETTINGS_SET_PWM_FREQUENCY_HHZ = 14,
-    /// Set overspeed threshold in percent
+    /// @deprecated
     UART_COMMAND_SETTINGS_SET_SPEED_LIMIT_PERCENT = 15,
+    /// Set encoder speed limit in hectohertz
+    UART_COMMAND_SETTINGS_SET_OVERSPEED_ENCODER_THRESHOLD_ENCODER_HHZ = 16,
+    /// Set how long we should tolerate high speed before killing the motors, in deciseconds
+    UART_COMMAND_SETTINGS_SET_OVERSPEED_DURATION_DS = 17,
+    /// Should we brake on a fault? (versus coast)
+    UART_COMMAND_SETTINGS_SET_BRAKE_ON_FAULT = 18,
+
 } UARTCommand;
 
 #endif

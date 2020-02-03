@@ -48,18 +48,10 @@ __psv__ union {
             },
         .communication =
             {
+                .drive_command_timeout_ms = 333,
                 .rx_bufsize_bytes = 256,
                 .tx_bufsize_bytes = 256,
                 .baud_rate = 57600,
-                .drive_command_timeout_ms = 333,
-                .brake_on_drive_timeout = false,
-                .brake_on_zero_speed_command = true,
-                .overspeed_runaway_limit = 2,
-                .overspeed_fault_effort = 0.8F,
-                .overspeed_fault_trigger_s = 1.0F,
-                .overspeed_fault_recover_s = 1.0F,
-                .overspeed_runaway_history_s = 30.0F,
-                .overspeed_runaway_reset_effort = 0.05F,
             },
         .power =
             {
@@ -82,7 +74,12 @@ __psv__ union {
                 .motor_pwm_frequency_hz = 8000.0F,
                 .time_to_full_speed = 0.7F,
                 .motor_slow_decay_mode = false,
-                .max_instantaneous_delta_effort = 0.2F,
+                // roughly 1 meter/second with current motors
+                .hi_speed_encoder_hz = 730.0F,
+                .overspeed_fault_trigger_s = 3.0,
+                .brake_on_fault = false,
+                .brake_on_drive_timeout = false,
+                .brake_on_zero_speed_command = true,
             },
         .cooling =
             {
@@ -122,21 +119,12 @@ void settings_save(const Settings *settings) {
 
     uint16_t i = 0;
     while (i < BLOCK_STRIDE) {
-        /*
-                // write to non-psv byte
-                __builtin_tblwth(start_offset + i, 0x00);
-                uint8_t lobyte = (i < sizeof(Settings)) ? settings_bytes[i] : 0x00;
-                uint8_t hibyte = (i + 1 < sizeof(Settings)) ? settings_bytes[i + 1] : 0x00;
-                volatile uint16_t word = lobyte | (((uint16_t)hibyte) << 8U);
-                __builtin_tblwtl(start_offset + i, word);
-                i += 2;
-        */
-
+        // write to non-PSV byte
         __builtin_tblwthb(start_offset + i, 0x00);
-        // write to data byte 0 (wtl = data byte)
+        // write to data byte 0
         __builtin_tblwtlb(start_offset + i, i < sizeof(Settings) ? settings_bytes[i] : 0x00);
         ++i;
-        // write to data byte 1 (wtl = data byte)
+        // write to data byte 1
         __builtin_tblwtlb(start_offset + i, i < sizeof(Settings) ? settings_bytes[i] : 0x00);
         ++i;
 

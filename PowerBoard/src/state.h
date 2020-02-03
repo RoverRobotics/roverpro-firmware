@@ -28,6 +28,9 @@ typedef struct State {
         uint64_t last_update_time;
         /// The last effort sent to the motors
         float last_motor_effort[MOTOR_CHANNEL_COUNT];
+
+        int64_t last_lo_speed_timestamp;
+        int64_t last_overspeed_fault_timestamp;
     } drive;
     /// State of the analog monitoring subsystem
     struct AnalogState {
@@ -44,7 +47,7 @@ typedef struct State {
     struct PowerState {
         /// If true, we are drawing too much battery power and are at risk of triggering a hardware
         /// overcurrent condition if we continue at current consumption.
-        bool overcurrent;
+        int64_t last_overcurrent_fault_timestamp;
     } power;
     /// State of the digital monitoring subsystem
     struct I2CState {
@@ -76,26 +79,13 @@ typedef struct State {
         uint64_t drive_command_timestamp;
         /// Last requested motor effort. Values from -1.0 to 1.0
         float motor_effort[MOTOR_CHANNEL_COUNT];
-        /// Whether a 0 motor speed should be interpreted as a brake. Otherwise, interpret it as a
-        /// coast.
-        bool brake_when_stopped;
-
-        /// A history of times we have faulted. When this fills up and we fault, we enter a runaway
-        /// condition.
-        uint64_t *overspeed_fault_times;
-        /// The time we went over the speed limit. This does not necessarily mean we have faulted
-        /// yet.
-        uint64_t overspeed_time;
-        /// The time we faulted.
-        uint64_t overspeed_fault_time;
-        /// The last time a runaway condition has been hit
-        uint64_t overspeed_runaway_time;
-        /// The last time we have gone below the runaway_reset_effort threshold
-        /// Any faults before this time should be forgiven.
-        uint64_t overspeed_runaway_reset_time;
-        /// The last time we have hit a runaway condition.
-        bool overspeed_runaway;
     } communication;
 } State;
+
+typedef enum Fault {
+    FAULT_NONE = 0,
+    FAULT_OVERSPEED = 1U << 0U,
+    FAULT_OVERCURRENT = 1U << 1U,
+} Fault;
 
 #endif
