@@ -1,6 +1,6 @@
 #include "bytequeue.h"
 #include "stdhdr.h"
-#include "stdlib.h"
+#include <stdlib.h>
 
 bool bq_try_resize(ByteQueue *self, size_t new_capacity) {
     ByteQueue new_q = BYTE_QUEUE_NULL;

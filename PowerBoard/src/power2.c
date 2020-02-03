@@ -3,7 +3,7 @@
 #include "clock.h"
 #include "main.h"
 #include "stdhdr.h"
-#include "string.h"
+#include <string.h>
 
 /// The battery has an power protection feature that will kill power if we draw too much current.
 /// So if we see the current spike, we kill the motors in order to prevent this.

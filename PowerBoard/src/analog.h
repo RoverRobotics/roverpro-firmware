@@ -4,7 +4,7 @@
 #ifndef ANALOG_H
 #define ANALOG_H
 
-#include "stdint.h"
+#include <stdint.h>
 
 typedef enum {
     ADC_MOTOR_LEFT_CURRENT = 0,

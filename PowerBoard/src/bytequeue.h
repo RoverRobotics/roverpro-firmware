@@ -5,9 +5,9 @@
 #ifndef BYTEQUEUE_N
 #define BYTEQUEUE_N
 
-#include "stdbool.h"
-#include "stddef.h"
-#include "stdint.h"
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
 /// A ring queue used to buffer incoming and outgoing data
 /// It is safe for data to be enqueued by one function and dequeued by an interrupt or vice versa.
