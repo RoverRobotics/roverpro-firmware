@@ -6,8 +6,8 @@ device=PIC24FJ256GB106
 BuildDirPolicy=BuildDirIsSourceDir
 dir_src=C:\Users\dan\Documents\OpenRoverFirmware\PowerBoard\src
 dir_bin=C:\Users\dan\Documents\OpenRoverFirmware\build\mplab\PowerBoard
-dir_tmp=C:\Users\dan\Documents\OpenRoverFirmware\build\mplab\PowerBoard
-dir_sin=C:\opt\Microchip\xc16\v1.41\src\libm
+dir_tmp=C:\Users\dan\Documents\OpenRoverFirmware\build\mplab
+dir_sin=C:\opt\Microchip\xc16\v1.50\src\libm
 dir_inc=C:\Users\dan\Documents\OpenRoverFirmware\build\clion\PowerBoard\src;C:\opt\Microchip\xc16\v1.50\include
 dir_lib=C:\Users\dan\Documents\OpenRoverFirmware\build\mplab\PowerBoard
 dir_lkr=
@@ -60,6 +60,7 @@ file_032=.
 file_033=.
 file_034=.
 file_035=.
+file_036=.
 [GENERATED_FILES]
 file_000=no
 file_001=no
@@ -96,7 +97,8 @@ file_031=no
 file_032=no
 file_033=no
 file_034=no
-file_035=no
+file_035=yes
+file_036=no
 [OTHER_FILES]
 file_000=no
 file_001=no
@@ -134,6 +136,7 @@ file_032=no
 file_033=no
 file_034=no
 file_035=no
+file_036=no
 [FILE_INFO]
 file_000=..\..\PowerBoard\src\analog.c
 file_001=..\..\PowerBoard\src\battery.c
@@ -170,13 +173,14 @@ file_031=..\..\PowerBoard\src\settings.h
 file_032=..\..\PowerBoard\src\state.h
 file_033=..\..\PowerBoard\src\stdhdr.h
 file_034=..\..\PowerBoard\src\xc16_clang_tools_stubs.h
-file_035=..\..\bootypic\devices\pic24fj256gb106\linkerscript_app.gld
+file_035=C:\Users\dan\Documents\OpenRoverFirmware\build\clion\PowerBoard\src\version.GENERATED.h
+file_036=..\..\bootypic\devices\pic24fj256gb106\linkerscript_app.gld
 [SUITE_INFO]
 suite_guid={9BCCB495-CD65-480A-BA76-63D8E78B117F}
 suite_state=-omf=elf
 [TOOL_SETTINGS]
-TS{8493B2ED-D539-4951-86C9-24D5331F0393}=-g
-TS{F9CE474D-6A6C-401D-A11E-BEE01B244D79}=-g  -fno-short-double -Wall -omf=elf -no-legacy-libc -fast-math
+TS{8493B2ED-D539-4951-86C9-24D5331F0393}=-g --fatal-warnings
+TS{F9CE474D-6A6C-401D-A11E-BEE01B244D79}=-g -Werror -fno-short-double -Wall -omf=elf -no-legacy-libc -fast-math
 TS{F9CE474D-6A6C-401D-A11E-BEE01B244D79}_alt=yes
 TS{21A8AA9B-E75C-40B6-B3AE-9CBC16FF2EF9}=--heap=2048  --gc-sections -Map="$(BINDIR_)$(TARGETBASE).map" --report-mem --cref --warn-section-align -o"$(BINDIR_)PowerBoard.$(TARGETSUFFIX)"
 TS{21A8AA9B-E75C-40B6-B3AE-9CBC16FF2EF9}_alt=yes
@@ -190,3 +194,9 @@ Pre-Build=
 Pre-BuildEnabled=1
 Post-Build=
 Post-BuildEnabled=1
+[TOOL_LOCKING]
+ToolsAreLocked=1
+T{C6E07232-414F-4A0C-AF99-CD44E2B71960}=C:\opt\Microchip\xc16\v1.50\bin\xc16-as.exe
+T{B1442D91-FF1F-4E60-9714-C39C1BA9DB62}=C:\opt\Microchip\xc16\v1.50\bin\xc16-gcc.exe
+T{6836D8CA-42BB-48FB-9E77-3F0AA8005073}=C:\opt\Microchip\xc16\v1.50\bin\xc16-ld.exe
+T{E60A4887-34FE-4D4F-81A8-A80F1E936E0D}=C:\opt\Microchip\xc16\v1.50\bin\xc16-ar.exe

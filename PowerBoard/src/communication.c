@@ -220,8 +220,6 @@ void uart_serialize_out_data(uint8_t *out_bytes, uint8_t uart_data_identifier) {
 #undef CASE
 }
 
-static unsigned g_ustep = 0;
-
 void uart_tick() {
     bool has_drive_command = false;
 
