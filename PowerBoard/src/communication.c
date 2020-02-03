@@ -158,6 +158,8 @@ void uart_serialize_out_data(uint8_t *out_bytes, uint8_t uart_data_identifier) {
 #undef CASE
 }
 
+float motor_uint8_to_float(uint8_t value) { return ((int8_t)(value - 125)) * (1 / 125.F); }
+
 void uart_tick() {
     bool has_drive_command = false;
 
@@ -182,13 +184,11 @@ void uart_tick() {
             continue;
         }
 
-        float tmp_left = (float)packet[1] / 125.0F - 1.0F;
-        float tmp_right = (float)packet[2] / 125.0F - 1.0F;
-
         g_state.communication.drive_command_timestamp = clock_now();
-        g_state.communication.motor_effort[MOTOR_LEFT] = tmp_left;
-        g_state.communication.motor_effort[MOTOR_RIGHT] = tmp_right;
-        g_state.communication.motor_effort[MOTOR_FLIPPER] = (float)packet[3] / 125.0F - 1.0F;
+        g_state.communication.motor_effort[MOTOR_LEFT] = motor_uint8_to_float(packet[1]);
+        g_state.communication.motor_effort[MOTOR_RIGHT] = motor_uint8_to_float(packet[2]);
+        g_state.communication.motor_effort[MOTOR_FLIPPER] = motor_uint8_to_float(packet[3]);
+
         has_drive_command = true;
 
         UARTCommand verb = packet[4];
