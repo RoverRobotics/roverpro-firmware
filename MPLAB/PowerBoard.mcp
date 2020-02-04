@@ -8,8 +8,8 @@ dir_src=C:\Users\dan\Documents\OpenRoverFirmware\PowerBoard\src
 dir_bin=C:\Users\dan\Documents\OpenRoverFirmware\build\mplab\PowerBoard
 dir_tmp=C:\Users\dan\Documents\OpenRoverFirmware\build\mplab
 dir_sin=C:\opt\Microchip\xc16\v1.50\src\libm
-dir_inc=C:\Users\dan\Documents\OpenRoverFirmware\build\clion\PowerBoard\src;C:\opt\Microchip\xc16\v1.50\include
-dir_lib=C:\Users\dan\Documents\OpenRoverFirmware\build\mplab\PowerBoard
+dir_inc=C:\Users\dan\Documents\OpenRoverFirmware\bootypic\devices\pic24fj256gb106;C:\Users\dan\Documents\OpenRoverFirmware\build\clion\PowerBoard\src;C:\opt\Microchip\xc16\v1.50\include
+dir_lib=C:\Users\dan\Documents\OpenRoverFirmware\build\mplab\PowerBoard;C:\opt\Microchip\xc16\v1.50\lib
 dir_lkr=
 [CAT_FILTERS]
 filter_src=*.s;*.c
@@ -180,7 +180,7 @@ suite_guid={9BCCB495-CD65-480A-BA76-63D8E78B117F}
 suite_state=-omf=elf
 [TOOL_SETTINGS]
 TS{8493B2ED-D539-4951-86C9-24D5331F0393}=-g --fatal-warnings
-TS{F9CE474D-6A6C-401D-A11E-BEE01B244D79}=-g -Werror -fno-short-double -Wall -omf=elf -no-legacy-libc -fast-math
+TS{F9CE474D-6A6C-401D-A11E-BEE01B244D79}=-g -Werror -fno-short-double -Wall -omf=elf -no-legacy-libc -fast-math -O1
 TS{F9CE474D-6A6C-401D-A11E-BEE01B244D79}_alt=yes
 TS{21A8AA9B-E75C-40B6-B3AE-9CBC16FF2EF9}=--heap=2048  --gc-sections -Map="$(BINDIR_)$(TARGETBASE).map" --report-mem --cref --warn-section-align -o"$(BINDIR_)PowerBoard.$(TARGETSUFFIX)"
 TS{21A8AA9B-E75C-40B6-B3AE-9CBC16FF2EF9}_alt=yes
