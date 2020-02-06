@@ -56,7 +56,7 @@ typedef struct State {
         /// Whether @ref temperature_sensor values were successfully polled
         bool temperature_sensor_valid[2];
         /// The fan duty (0-240) that the fan controller is currently aiming for
-        uint8_t fan_target_duty[2];
+        uint8_t fan_duty[2];
         /// Whether an external voltage supply is present. (0xdada if true, 0 otherwise)
         uint16_t charger_state;
         /// Last reported SmartBattery state of charge (0-100)

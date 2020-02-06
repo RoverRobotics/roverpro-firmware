@@ -72,9 +72,9 @@ void i2c2_tick() {
         g_state.i2c.temperature_sensor[1] = a_byte;
 
         I2C_ASYNCHRONOUSLY(
-            i2c_op_read_byte(FAN_CONTROLLER_ADDRESS, 0x0b, &(g_state.i2c.fan_target_duty[0])))
+            i2c_op_read_byte(FAN_CONTROLLER_ADDRESS, 0x0d, &(g_state.i2c.fan_duty[0])))
         I2C_ASYNCHRONOUSLY(
-            i2c_op_read_byte(FAN_CONTROLLER_ADDRESS, 0x0c, &(g_state.i2c.fan_target_duty[1])))
+            i2c_op_read_byte(FAN_CONTROLLER_ADDRESS, 0x0e, &(g_state.i2c.fan_duty[1])))
 
         // Smart Battery read RelativeStateOfCharge
         I2C_ASYNCHRONOUSLY(i2c_op_read_word(BATTERY_ADDRESS, 0x0d, &a_word))

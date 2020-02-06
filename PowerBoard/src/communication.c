@@ -149,8 +149,8 @@ void uart_serialize_out_data(uint8_t *out_bytes, uint8_t uart_data_identifier) {
         CASE(72, g_state.drive.motor_status[MOTOR_LEFT])
         CASE(74, g_state.drive.motor_status[MOTOR_RIGHT])
         CASE(76, g_state.drive.motor_status[MOTOR_FLIPPER])
-        CASE(78, g_state.i2c.fan_target_duty[0])
-        CASE(80, g_state.i2c.fan_target_duty[1])
+        CASE(78, g_state.i2c.fan_duty[0])
+        CASE(80, g_state.i2c.fan_duty[1])
         CASE(82, get_fault())
     default:
         break;
