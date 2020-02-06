@@ -48,8 +48,10 @@ string(JOIN " " CMAKE_C_FLAGS_INIT
   # -save-temps
   )
 
-set(CMAKE_C_FLAGS_DEBUG_INIT "-g")
-set(CMAKE_EXE_LINKER_FLAGS_DEBUG_INIT "-Wl,--defsym=__DEBUG=1,-D__DEBUG=__DEBUG,--no-gc-sections")
+# note: the __IDC2RAM symbol makes the linker script provision RAM for the PICkit3.
+# without it, the PICkit3 would not complain, but would give very strange results at runtime
+set(CMAKE_C_FLAGS_DEBUG_INIT "-g -D__DEBUG")
+set(CMAKE_EXE_LINKER_FLAGS_DEBUG_INIT "-Wl,--defsym=__ICD2RAM=1,--no-gc-sections")
 
 # note: -ffunction-sections impedes the MPLAB 8 debugger, so we only add it for non-debug builds
 set(CMAKE_C_FLAGS_MINSIZEREL_INIT "-Os -DNDEBUG -ffunction-sections")
@@ -59,8 +61,7 @@ set(CMAKE_C_FLAGS_RELEASE_INIT "-O3 -ffunction-sections")
 set(CMAKE_EXE_LINKER_FLAGS_RELEASE_INIT "-Wl,--gc-sections")
 
 set(CMAKE_C_FLAGS_RELWITHDEBINFO_INIT "-O2 -g -DNDEBUG")
-set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO_INIT "-Wl,--no-gc-sections")
-
+set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO_INIT "-Wl,--defsym=__ICD2RAM=1,--no-gc-sections")
 
 # these should be detected by compiler identification, but since they're not...
 set(CMAKE_C_STANDARD_INCLUDE_DIRECTORIES "${XC16_ROOT_DIR}/include" "${XC16_ROOT_DIR}/support/generic/h" )

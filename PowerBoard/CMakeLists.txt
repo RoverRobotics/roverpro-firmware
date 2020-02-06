@@ -52,7 +52,7 @@ target_link_options(PowerBoard
   # linker script
   "LINKER:-D_LINK_APP,--data-init,--pack-data,--script=${LINKER_SCRIPT},--save-gld=${CMAKE_CURRENT_BINARY_DIR}/linkerscript.gld"
   # remove unused code, save output for debugging
-  "LINKER:--gc-sections,-Map=$<TARGET_PROPERTY:NAME>.map"
+  "LINKER:-Map=${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_PROPERTY:NAME>.map"
   # add a heap for malloc
   "LINKER:--heap=2048"
   )

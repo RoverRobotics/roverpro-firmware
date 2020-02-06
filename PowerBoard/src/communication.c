@@ -164,7 +164,7 @@ void uart_tick() {
     bool has_drive_command = false;
 
     // // debug:
-    // UARTCommand test_verb = UART_COMMAND_SETTINGS_COMMIT;
+    // UARTCommand test_verb = UART_COMMAND_NONE;
     // uint8_t test_arg = 0;
     // uint8_t rq_test_msg[7] = {253, 135, 135, 125, test_verb, test_arg, 0};
     // rq_test_msg[6] = checksum(5, rq_test_msg + 1);
