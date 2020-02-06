@@ -48,31 +48,28 @@ string(JOIN " " CMAKE_C_FLAGS_INIT
   # -save-temps
   )
 
-set(CMAKE_C_FLAGS_DEBUG_INIT "-g -D__DEBUG")
+set(CMAKE_C_FLAGS_DEBUG_INIT "-g")
+set(CMAKE_EXE_LINKER_FLAGS_DEBUG_INIT "-Wl,--defsym=__DEBUG=1,-D__DEBUG=__DEBUG,--no-gc-sections")
+
+# note: -ffunction-sections impedes the MPLAB 8 debugger, so we only add it for non-debug builds
 set(CMAKE_C_FLAGS_MINSIZEREL_INIT "-Os -DNDEBUG -ffunction-sections")
-set(CMAKE_C_FLAGS_RELEASE_INIT "-O3 -DNDEBUG -ffunction-sections")
+set(CMAKE_EXE_LINKER_FLAGS_MINSIZEREL_INIT "-Wl,--gc-sections")
+
+set(CMAKE_C_FLAGS_RELEASE_INIT "-O3 -ffunction-sections")
+set(CMAKE_EXE_LINKER_FLAGS_RELEASE_INIT "-Wl,--gc-sections")
+
 set(CMAKE_C_FLAGS_RELWITHDEBINFO_INIT "-O2 -g -DNDEBUG")
+set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO_INIT "-Wl,--no-gc-sections")
+
 
 # these should be detected by compiler identification, but since they're not...
-set(CMAKE_C_IMPLICIT_INCLUDE_DIRECTORIES "${XC16_ROOT_DIR}/include" "${XC16_ROOT_DIR}/support/generic/h" )
 set(CMAKE_C_STANDARD_INCLUDE_DIRECTORIES "${XC16_ROOT_DIR}/include" "${XC16_ROOT_DIR}/support/generic/h" )
 set(CMAKE_C_IMPLICIT_LINK_DIRECTORIES "${XC16_ROOT_DIR}/lib")
-set(CMAKE_C_IMPLICIT_LINK_LIBRARIES "c")
+set(CMAKE_C_IMPLICIT_LINK_LIBRARIES c pic30)
 # I don't know if these are correct:
-#set(CMAKE_C_LIBRARY_ARCHITECTURE "pic24")
-#set(CMAKE_C_SIZEOF_DATA_PTR 2)
-#set(CMAKE_C_COMPILER_ABI ELF)
+set(CMAKE_C_LIBRARY_ARCHITECTURE "pic24")
+set(CMAKE_C_SIZEOF_DATA_PTR 2)
+set(CMAKE_C_COMPILER_ABI ELF)
+
 set(CMAKE_C_COMPILER_AR "${XC16_elf-ar_EXECUTABLE}" )
 set(CMAKE_C_COMPILER_RANLIB "${XC16_elf-ranlib_EXECUTABLE}" )
-
-
-foreach(config DEBUG MINSIZEREL RELEASE RELEASEWITHDEBINFO)
-  if ("${config}" IN_LIST "RELEASE;MINSIZEREL")
-    # note: -ffunction-sections impedes the MPLAB 8 debugger, so we only add it for non-debug builds
-    string(APPEND CMAKE_C_FLAGS_${config}_INIT " -ffunction-sections")
-    string(APPEND CMAKE_EXE_LINKER_FLAGS_${config}_INIT " --gc-sections")
-  else()
-    # string(APPEND CMAKE_C_FLAGS_${config}_INIT " -g")
-    set(CMAKE_EXE_LINKER_FLAGS_${config}_INIT "-Wl,--defsym=__DEBUG=1,-D__DEBUG=__DEBUG,--defsym=__MPLAB_DEBUGGER_PK3=1,--defsym=__ICD2RAM=1")
-  endif()
-endforeach(config)
