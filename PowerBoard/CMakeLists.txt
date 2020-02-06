@@ -49,7 +49,6 @@ set_target_properties(PowerBoard
 
 target_link_options(PowerBoard
   PRIVATE
-  -omf=elf
   # linker script
   "LINKER:-D_LINK_APP,--data-init,--pack-data,--script=${LINKER_SCRIPT},--save-gld=${CMAKE_CURRENT_BINARY_DIR}/linkerscript.gld"
   # remove unused code, save output for debugging
@@ -88,11 +87,11 @@ set(DOXYGEN_CALL_GRAPH YES)
 set(DOXYGEN_CALLER_GRAPH YES)
 set(DOXYGEN_MACRO_EXPANSION YES)
 set(DOXYGEN_CLASS_DIAGRAMS YES)
-set(DOXYGEN_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/doxygen")
+set(DOXYGEN_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/docs")
 
 doxygen_add_docs(docs
   src
   ${README_MD}
   ALL)
 
-install(DIRECTORY "${DOXYGEN_OUTPUT_DIRECTORY}" DESTINATION docs)
+install(DIRECTORY "${DOXYGEN_OUTPUT_DIRECTORY}" DESTINATION .)
