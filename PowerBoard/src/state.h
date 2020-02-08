@@ -45,8 +45,8 @@ typedef struct State {
     } analog;
     /// State of the overcurrent protection subsystem
     struct PowerState {
-        /// If true, we are drawing too much battery power and are at risk of triggering a hardware
-        /// overcurrent condition if we continue at current consumption.
+        /// If nonzero, we are drawing too much battery power and are at risk of triggering a
+        /// hardware overcurrent condition if we continue at current consumption.
         int64_t last_overcurrent_fault_timestamp;
     } power;
     /// State of the digital monitoring subsystem
@@ -86,6 +86,6 @@ typedef enum Fault {
     FAULT_NONE = 0,
     FAULT_OVERSPEED = 1U << 0U,
     FAULT_OVERCURRENT = 1U << 1U,
-} Fault;
+} SystemFaultFlag;
 
 #endif

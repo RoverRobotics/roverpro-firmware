@@ -121,14 +121,13 @@ int main(void) {
     }
 }
 
-void clear_fault() {
-    g_state.drive.last_overspeed_fault_timestamp = 0;
+void clear_system_fault() {
+    drive_init();
     g_state.power.last_overcurrent_fault_timestamp = 0;
 }
 
-Fault get_fault() {
-    Fault result = FAULT_NONE;
-
+SystemFaultFlag get_system_fault() {
+    SystemFaultFlag result = FAULT_NONE;
     if (g_state.drive.last_overspeed_fault_timestamp) {
         result |= FAULT_OVERSPEED;
     }

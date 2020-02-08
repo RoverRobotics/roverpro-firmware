@@ -75,8 +75,9 @@
 /// | 72   | Left motor status              | Bit flags (MotorStatusFlag)                                  |                                                              |
 /// | 74   | Right motor status             | Bit flags (MotorStatusFlag)                                  |                                                              |
 /// | 76   | Flipper motor status           | Bit flags (MotorStatusFlag)                                  |                                                              |
-/// | 78   | Fan 1 target effort            | 0-240                                                        | Current target for fan 1, reported by fan controller         |
-/// | 80   | Fan 2 target effort            | 0-240                                                        | Current target for fan 2, reported by fan controller         |
+/// | 78   | Fan 1 duty                     | 0-240                                                        | Current speed of fan 1, reported by fan controller           |
+/// | 80   | Fan 2 duty                     | 0-240                                                        | Current speed of fan 2, reported by fan controller           |
+/// | 82   | System fault flags             | Bit flags (SystemFaultFlag)                                  |                                                              |
 ///
 /// [^1]: for battery reporting, "internal" means the value comes from the SmartBattery's internal sensor. "external" means the value is reported by circuitry outside the SmartBattery
 // clang-format on
@@ -108,10 +109,8 @@ typedef enum UARTCommand {
     /// Robot should restart immediately into the bootloader. If no attempt is made to communicate
     /// with the bootloader (10 seconds), rover will proceed to normal operation
     UART_COMMAND_RESTART = 230,
-    /// Return any active fault conditions
-    UART_COMMAND_GET_FAULT = 231,
     /// Clear any active fault conditions
-    UART_COMMAND_CLEAR_FAULT = 232,
+    UART_COMMAND_CLEAR_SYSTEM_FAULT = 232,
     /// @deprecated
     UART_COMMAND_SET_DRIVE_MODE = 240,
     /// If arg = 230, calibrate the flipper and save the results to NVM. Note the robot must be

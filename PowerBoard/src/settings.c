@@ -74,7 +74,7 @@ __psv__ union {
                 .motor_pwm_frequency_hz = 8000.0F,
                 .time_to_full_speed = 0.7F,
                 .motor_slow_decay_mode = false,
-                // roughly 1 meter/second with current motors
+                // 730 = roughly 1 meter/second with current motors
                 .hi_speed_encoder_hz = 730.0F,
                 .overspeed_fault_trigger_s = 3.0,
                 .brake_on_fault = false,

@@ -151,7 +151,7 @@ void uart_serialize_out_data(uint8_t *out_bytes, uint8_t uart_data_identifier) {
         CASE(76, g_state.drive.motor_status[MOTOR_FLIPPER])
         CASE(78, g_state.i2c.fan_duty[0])
         CASE(80, g_state.i2c.fan_duty[1])
-        CASE(82, get_fault())
+        CASE(82, get_system_fault())
     default:
         break;
     }
@@ -256,18 +256,20 @@ void uart_tick() {
         case UART_COMMAND_SETTINGS_SET_TIME_TO_FULL_SPEED_DECISECONDS:
             g_settings.drive.time_to_full_speed = (float)arg * 0.1F;
             break;
-        case UART_COMMAND_SETTINGS_SET_SPEED_LIMIT_PERCENT:
+        case UART_COMMAND_SETTINGS_SET_OVERSPEED_ENCODER_THRESHOLD_ENCODER_HHZ:
+            g_settings.drive.hi_speed_encoder_hz = (float)arg * 10.0F;
             break;
-        case UART_COMMAND_SET_DRIVE_MODE:
+        case UART_COMMAND_SETTINGS_SET_OVERSPEED_DURATION_DS:
+            g_settings.drive.overspeed_fault_trigger_s = (float)arg * 0.1F;
             break;
-        case UART_COMMAND_CLEAR_FAULT:
-            clear_fault();
+        case UART_COMMAND_CLEAR_SYSTEM_FAULT:
+            clear_system_fault();
             break;
         case UART_COMMAND_SETTINGS_SET_BRAKE_ON_FAULT:
             g_settings.drive.brake_on_fault = (bool)arg;
             break;
         default:
-            // unknown inbound command.
+            // unknown or deprecated inbound command.
             break;
         }
     }

@@ -50,7 +50,7 @@ void drive_tick() {
 
     float command_age_s =
         ticks_to_seconds(clock_now() - g_state.communication.drive_command_timestamp);
-    if (get_fault() != FAULT_NONE) {
+    if (get_system_fault() != FAULT_NONE) {
         brake_on_zero_speed = g_settings.drive.brake_on_fault;
     } else if (
         g_settings.communication.drive_command_timeout_ms > 0 &&
