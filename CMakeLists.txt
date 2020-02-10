@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(OpenRoverFirmware VERSION 1.9.3 LANGUAGES C)
+project(OpenRoverFirmware VERSION 1.10.0 LANGUAGES C)
 
 set(BOOTYPIC_DEVICE_DIR "${CMAKE_CURRENT_LIST_DIR}/bootypic/devices/pic24fj256gb106")
 

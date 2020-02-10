@@ -184,9 +184,9 @@ suite_guid={9BCCB495-CD65-480A-BA76-63D8E78B117F}
 suite_state=-omf=elf
 [TOOL_SETTINGS]
 TS{8493B2ED-D539-4951-86C9-24D5331F0393}=-g
-TS{F9CE474D-6A6C-401D-A11E-BEE01B244D79}=-g -fno-short-double -Wall -no-legacy-libc -fast-math
+TS{F9CE474D-6A6C-401D-A11E-BEE01B244D79}=-g -fno-short-double -Wall
 TS{F9CE474D-6A6C-401D-A11E-BEE01B244D79}_alt=yes
-TS{21A8AA9B-E75C-40B6-B3AE-9CBC16FF2EF9}=--heap=2048 --gc-sections -Map="$(BINDIR_)$(TARGETBASE).map" --report-mem --cref --warn-section-align -o"$(BINDIR_)$(TARGETBASE).$(TARGETSUFFIX)" --save-gld=$(TMPDIR_)link.gld
+TS{21A8AA9B-E75C-40B6-B3AE-9CBC16FF2EF9}=--heap=2048 --gc-sections -Map="$(BINDIR_)$(TARGETBASE).map" --report-mem --cref --warn-section-align -o"$(BINDIR_)$(TARGETBASE).$(TARGETSUFFIX)" --save-gld=$(TMPDIR_)link.gld -fast-math
 TS{21A8AA9B-E75C-40B6-B3AE-9CBC16FF2EF9}_alt=yes
 TS{45B3B6E0-6DAF-4E40-8D20-CFB1B620134D}=
 [INSTRUMENTED_TRACE]
