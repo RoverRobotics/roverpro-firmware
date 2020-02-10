@@ -48,11 +48,11 @@ I recommend using a CMake-aware IDE like CLion for development.
 
 For debugging, use MPLAB 8. MPLAB X (5.30) has numerous bugs. Even its bugs have bugs.
 
-### Building with Cmake
+### Building with CMake
 
 1. Install XC16 the [Microchip XC16 Toolsuite](https://www.microchip.com/mplab/compilers). This toolsuite contains a compiler/linker/assembler and also standard libraries for the PIC24F MCU's. I recommend installing this to the path "C:/opt/Microchip/xc16", since the default (in "Program Files (x86)" contains spaces, which can cause some build tools to complain)
-2. Install Ninja (CMake on Windows w/ Visual Studio generator does not like using other C compilers)
-3. Generate build files with CMake
+2. Generate build files with CMake
+3. Build it!
 
 ```
 cd OpenRoverFirmware
@@ -60,6 +60,12 @@ mkdir build; cd build
 cmake .. -DCMAKE_TOOLCHAIN_FILE="..\cmake\PowerBoard_toolchain.cmake"
 cmake --build .
 ```
+
+Note that ABI detection can fail due to [a bug in the XC16 compiler](https://www.microchip.com/forums/m1126857.aspx). I have not found this to cause a problem beyond some scary-looking warnings and failure of code autocomplete in CLion.
+
+### IDE iteration
+
+You can build in the MPLAB IDE using the project files in the MPLAB subfolder, though there may be some gotchas. Due to difficulties wtih XC16 and how MPLAB handles command line arguments, it is likely that the projects will build with the legacy libc and pic32 libraries. (in the `*.map` file this looks like `lega-pic30-elf` and `lega-c-elf` instead of `pic30-elf` and `c-elf`).
 
 ### Code style tools
 

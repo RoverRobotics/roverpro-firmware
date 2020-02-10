@@ -69,7 +69,6 @@ add_custom_command(
 install(FILES "$<TARGET_FILE:PowerBoard>" DESTINATION "." RENAME "PowerBoard-${PROJECT_VERSION}.elf")
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${POWERBOARD_HEX}" DESTINATION "." RENAME "PowerBoard-${PROJECT_VERSION}.hex")
 
-# on windows, pdf requires miktex: choco install miktex
 find_package(Doxygen)
 set(DOXYGEN_PROJECT_NAME "OpenRover Power Board Firmware")
 set(DOXYGEN_MULTILINE_CPP_IS_BRIEF YES)
