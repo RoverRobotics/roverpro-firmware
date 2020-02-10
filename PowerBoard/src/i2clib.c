@@ -2,7 +2,7 @@
 
 #include "i2clib.h"
 #include "stdhdr.h"
-#include "stdlib.h"
+#include <stdlib.h>
 
 /** I2C ack bit. Transmitted in response to any data received. */
 typedef enum I2CAck {
@@ -42,9 +42,6 @@ typedef enum I2CState {
                              ///< re-enable the I2C module and issue a start.
     I2C_DISABLED,            ///< The I2C module is not running
 } I2CState;
-
-#ifdef __PIC24F__
-#include <p24Fxxxx.h>
 
 /** I2C Control Register, based on the PIC24 MCU documentation */
 typedef struct I2CControlBits {
@@ -310,7 +307,6 @@ static const I2CBusDefinition I2C_BUS3_DEF = {
 const I2CBus I2C_BUS1 = &I2C_BUS1_DEF;
 const I2CBus I2C_BUS2 = &I2C_BUS2_DEF;
 const I2CBus I2C_BUS3 = &I2C_BUS3_DEF;
-#endif
 
 // Begin device-independent I2C Stuff.
 
@@ -431,7 +427,9 @@ I2CResult i2c_tick(I2CBus bus, const I2COperationDef *op, I2CProgress *progress)
             if (result == I2C_OKAY) {
                 // Set the number of bytes to read based on that length or the read buffer
                 // size, whichever is smaller
-                progress->nbytes_read_len = op->size_readbuf < progress->nbytes_read_len ? op->size_readbuf : progress->nbytes_read_len;
+                progress->nbytes_read_len = op->size_readbuf < progress->nbytes_read_len
+                                                ? op->size_readbuf
+                                                : progress->nbytes_read_len;
 
                 if (progress->nbytes_read_len > 1) {
                     progress->resume_at = I2C_STEP_SEND_ACK;

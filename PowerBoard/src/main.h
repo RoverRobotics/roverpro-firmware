@@ -17,4 +17,7 @@ extern Settings g_settings;
 /// variable written by one functional area and read by another should live here.
 extern State g_state;
 
+void clear_system_fault();
+SystemFaultFlag get_system_fault();
+
 #endif

@@ -1,5 +1,5 @@
 #include "stdhdr.h"
-#include "stdint.h"
+#include <stdint.h>
 #pragma once
 
 /// Set up timers for the high-precision timestamp

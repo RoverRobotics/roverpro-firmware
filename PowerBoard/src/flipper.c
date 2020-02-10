@@ -1,8 +1,8 @@
 #include "flipper.h"
 #include "analog.h"
 #include "main.h"
-#include "math.h"
 #include "motor.h"
+#include <math.h>
 
 // invalid flipper pot thresholds.  These are very wide because the flipper pots are on a
 // different 3.3V supply than the PIC If the flipper pot is below this threshold, it is invalid

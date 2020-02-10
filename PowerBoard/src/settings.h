@@ -38,30 +38,12 @@ typedef struct Settings {
     struct {
         /// How long to keep moving after receiving the last motor command
         uint16_t drive_command_timeout_ms;
-        /// When we stop receiving a motor command, should we brake? (otherwise coast)
-        bool brake_on_drive_timeout;
-        /// When we stop receiving a motor command, should we brake? (otherwise coast)
-        bool brake_on_zero_speed_command;
         /// How many incoming data bytes to hold before discarding data
         uint16_t rx_bufsize_bytes;
         /// How many outgoing data bytes to hold before discarding data
         uint16_t tx_bufsize_bytes;
         /// The number of bits per second for communication (both sending and receiving)
         uint32_t baud_rate;
-
-        size_t overspeed_runaway_limit;
-        // Proportion of full motor power below which is considered "normal"
-        float overspeed_fault_effort;
-        // High motor efforts for shorter than this value are considered "normal"
-        float overspeed_fault_trigger_s;
-        // If we have abnormal motor commands, this is how long to ignore motor commands.
-        float overspeed_fault_recover_s;
-
-        // Forgive any overspeed faults this long ago or longer
-        float overspeed_runaway_history_s;
-        // If we are in a runaway condition, wait for motor efforts to be below this value before
-        // obeying any motor commands
-        float overspeed_runaway_reset_effort;
     } communication;
     struct {
         /// Below this temperature, no need to run the fan, in degrees Celsius.
@@ -104,17 +86,23 @@ typedef struct Settings {
     struct {
         /// Frequency of PWM signal to motor controllers
         float motor_pwm_frequency_hz;
-        /// @deprecated
-        /// Amount of time to coast the motors in between direction changes
-        uint16_t motor_protect_direction_delay_ms;
         /// How much we should limit acceleration. If at a full stop, and commanded to go full speed
         /// ahead, this will be how long to ramp up motor commands to that speed.
         float time_to_full_speed;
         /// Should we use slow current decay mode in the motor controller?
         bool motor_slow_decay_mode;
-        /// The most we can change the motor effort in one iteration.
-        /// If acceleration limit is reasonable, this will not make a difference.
-        float max_instantaneous_delta_effort;
+
+        /// If encoder is above this frequency for a time, we are going too fast.
+        float hi_speed_encoder_hz;
+        /// If encoder is too fast, for this long trigger an overspeed fault
+        float overspeed_fault_trigger_s;
+
+        /// When we are in a fault condition, should we brake? (otherwise coast)
+        bool brake_on_fault;
+        /// When we stop receiving a motor command, should we brake? (otherwise coast)
+        bool brake_on_zero_speed_command;
+        /// When we stop receiving a motor command, should we brake? (otherwise coast)
+        bool brake_on_drive_timeout;
     } drive;
 } Settings;
 

@@ -1,8 +1,9 @@
 #include "power2.h"
 #include "battery.h"
+#include "clock.h"
 #include "main.h"
 #include "stdhdr.h"
-#include "string.h"
+#include <string.h>
 
 /// The battery has an power protection feature that will kill power if we draw too much current.
 /// So if we see the current spike, we kill the motors in order to prevent this.
@@ -24,7 +25,7 @@ static void power_tick_discharging() {
 
         if (current_spike_counter * g_settings.main.power_poll_ms >=
             g_settings.power.overcurrent_trigger_duration_ms) {
-            g_state.power.overcurrent = true;
+            g_state.power.last_overcurrent_fault_timestamp = clock_now();
         }
     } else {
         current_recover_counter++;
@@ -35,7 +36,7 @@ static void power_tick_discharging() {
         }
         if (current_recover_counter * g_settings.main.power_poll_ms >=
             g_settings.power.overcurrent_reset_duration_ms) {
-            g_state.power.overcurrent = false;
+            g_state.power.last_overcurrent_fault_timestamp = 0;
         }
     }
 }
