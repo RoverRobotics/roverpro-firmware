@@ -1,4 +1,3 @@
 [submodule "bootypic"]
 	path = bootypic
-	url = git@github.com:RoverRobotics/bootypic.git
-	branch = master-openrover
+	url = https://github.com/RoverRobotics/bootypic.git
