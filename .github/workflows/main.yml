@@ -15,7 +15,10 @@ jobs:
 
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v2
+    - name: Get firmware source code
+      uses: actions/checkout@v2
+      with:
+        path: src
 
     # Runs a single command using the runners shell
     - name: Install XC16
@@ -30,5 +33,5 @@ jobs:
     - name: Build firmware
       run: |
         mkdir build
-        cmake -S $GITHUB_WORKSPACE/openrover-firmware -B ${GITHUB_WORKSPACE}/build -GNinja
+        cmake -S $GITHUB_WORKSPACE/src -B ${GITHUB_WORKSPACE}/src -GNinja
         cmake --build ${GITHUB_WORKSPACE}/build
