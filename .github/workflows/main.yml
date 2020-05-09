@@ -22,13 +22,14 @@ jobs:
         submodules: true
 
     # Runs a single command using the runners shell
-    - name: Install XC16
+    - name: Install Dependencies
       run: |
         # latest = https://www.microchip.com/mplabxc16linux
         # current = http://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.50-full-install-linux64-installer.run 
         curl --output xc16-linux-installer.run --silent https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.50-full-install-linux64-installer.run
         chmod +x xc16-linux-installer.run
         sudo ./xc16-linux-installer.run --mode unattended --netservername "" --debuglevel 4
+        sudo apt install doxygen
 
     # Runs a set of commands using the runners shell
     - name: Build firmware
