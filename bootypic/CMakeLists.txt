@@ -32,8 +32,7 @@ target_link_options(bootypic
   PRIVATE
   "LINKER:--gc-sections"
   "LINKER:--heap=2048"
-  "LINKER:--coresident,--defsym,__SP_init=0x800,--defsym,__SPLIM_init=0x1000,-mreserve=data@0x0:0x1000"
-  "LINKER:--script=${BOOT_LINKER_SCRIPT},-Map=${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_PROPERTY:NAME>.map,--no-isr,-D__DEFINE_RESET" # --save-gld=${CMAKE_CURRENT_BINARY_DIR}/linkerscript.gld
+  "LINKER:--script=${BOOT_LINKER_SCRIPT},-Map=${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_PROPERTY:NAME>.map,--no-isr,-D__DEFINE_RESET"
   )
 
 add_custom_command(
