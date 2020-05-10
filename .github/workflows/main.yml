@@ -25,7 +25,7 @@ jobs:
           mkdir -p downloads
           [[ ! -f $XC16_INSTALLER ]] && curl --silent --output $XC16_INSTALLER $XC16_INSTALLER_URL
           chmod +x $XC16_INSTALLER
-          sudo $XC16_INSTALLER --mode unattended --netservername "" --debuglevel 4
+          sudo $XC16_INSTALLER --mode unattended --netservername ""
           sudo apt install doxygen graphviz
         env:
           XC16_INSTALLER: downloads/xc16-linux-installer.run
@@ -42,5 +42,12 @@ jobs:
       - name: Build firmware
         run: |
           mkdir build
-          cmake -S $GITHUB_WORKSPACE/src -B ${GITHUB_WORKSPACE}/build -DCMAKE_TOOLCHAIN_FILE=${GITHUB_WORKSPACE}/src/cmake/PowerBoard_toolchain.cmake
-          cmake --build ${GITHUB_WORKSPACE}/build
+          cmake -S src -B build -DCMAKE_TOOLCHAIN_FILE="$(pwd)/src/cmake/PowerBoard_toolchain.cmake"
+          cmake --build build
+
+      - name: Upload build
+        uses: actions/upload-artifact@v1
+        if: failure()
+        with:
+          name: firmware-build
+          path: build
