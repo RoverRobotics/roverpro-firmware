@@ -23,8 +23,8 @@ target_include_directories(bootypic
 
 target_compile_options(bootypic PRIVATE -O1 -ffunction-sections)
 target_compile_definitions(bootypic PRIVATE BOOTYPIC)
-set(APP_LINKER_SCRIPT "${DEVICE_SRC}/${MCU_NAME_2}_app.gld")
-set(BOOT_LINKER_SCRIPT "${DEVICE_SRC}/${MCU_NAME_2}_boot.gld")
+set(APP_LINKER_SCRIPT "${DEVICE_SRC}/app.gld")
+set(BOOT_LINKER_SCRIPT "${DEVICE_SRC}/boot.gld")
 
 set_target_properties(bootypic
   PROPERTIES LINK_DEPENDS ${BOOT_LINKER_SCRIPT})
@@ -33,7 +33,7 @@ target_link_options(bootypic
   "LINKER:--gc-sections"
   "LINKER:--heap=2048"
   "LINKER:--coresident,--defsym,__SP_init=0x800,--defsym,__SPLIM_init=0x1000,-mreserve=data@0x0:0x1000"
-  "LINKER:--script=${BOOT_LINKER_SCRIPT},-Map=${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_PROPERTY:NAME>.map,--no-isr,--save-gld,-D__DEFINE_RESET"
+  "LINKER:--script=${BOOT_LINKER_SCRIPT},-Map=${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_PROPERTY:NAME>.map,--no-isr,--save-gld=${CMAKE_CURRENT_BINARY_DIR}/linkerscript.gld,-D__DEFINE_RESET"
   )
 
 add_custom_command(

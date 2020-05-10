@@ -41,7 +41,7 @@ set(README_MD ${CMAKE_CURRENT_SOURCE_DIR}/../README.md)
 target_include_directories(PowerBoard
   PRIVATE "${GENERATED_SRC_DIR}")
 
-set(LINKER_SCRIPT "${BOOTYPIC_DEVICE_DIR}/linkerscript_app.gld")
+set(LINKER_SCRIPT "${BOOTYPIC_DEVICE_DIR}/app.gld")
 set_target_properties(PowerBoard
   PROPERTIES
   LINK_DEPENDS "${LINKER_SCRIPT}"
