@@ -14,26 +14,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - name: Get firmware source code
-      uses: actions/checkout@v2
-      with:
-        path: src
-        submodules: true
+      - name: Install Dependencies
+        run: |
+          # latest = https://www.microchip.com/mplabxc16linux
+          # current = http://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.50-full-install-linux64-installer.run 
+          curl --output xc16-linux-installer.run --silent https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.50-full-install-linux64-installer.run
+          chmod +x xc16-linux-installer.run
+          sudo ./xc16-linux-installer.run --mode unattended --netservername "" --debuglevel 4
+          sudo apt install doxygen graphviz
 
-    # Runs a single command using the runners shell
-    - name: Install Dependencies
-      run: |
-        # latest = https://www.microchip.com/mplabxc16linux
-        # current = http://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.50-full-install-linux64-installer.run 
-        curl --output xc16-linux-installer.run --silent https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.50-full-install-linux64-installer.run
-        chmod +x xc16-linux-installer.run
-        sudo ./xc16-linux-installer.run --mode unattended --netservername "" --debuglevel 4
-        sudo apt install doxygen graphviz
+      - name: Get firmware source code
+        uses: actions/checkout@v2
+        with:
+          path: src
+          submodules: true
 
-    # Runs a set of commands using the runners shell
-    - name: Build firmware
-      run: |
-        mkdir build
-        cmake -S $GITHUB_WORKSPACE/src -B ${GITHUB_WORKSPACE}/build
-        cmake --build ${GITHUB_WORKSPACE}/build
+      - name: Build firmware
+        run: |
+          mkdir build
+          cmake -S $GITHUB_WORKSPACE/src -B ${GITHUB_WORKSPACE}/build -DCMAKE_TOOLCHAIN_FILE=${GITHUB_WORKSPACE}/src/cmake/PowerBoard_toolchain.cmake
+          cmake --build ${GITHUB_WORKSPACE}/build
