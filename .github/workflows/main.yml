@@ -52,7 +52,8 @@ jobs:
         run: |
           mkdir build
           cmake -S src -B build -DCMAKE_TOOLCHAIN_FILE="$(pwd)/src/cmake/PowerBoard_toolchain.cmake"
-          cmake --build build --target install --prefix install
+          cmake --build build
+          cmake --install build --prefix install
 
       - name: Upload build folder (for debuggirg)
         uses: actions/upload-artifact@v2
