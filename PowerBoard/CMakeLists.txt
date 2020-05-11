@@ -68,7 +68,7 @@ add_custom_command(OUTPUT "${POWERBOARD_HEX}"
   DEPENDS PowerBoard
 )
 
-install(FILES "${POWERBOARD_HEX}" DESTINATION ".")
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${POWERBOARD_HEX}" DESTINATION ".")
 
 find_package(Doxygen)
 set(DOXYGEN_PROJECT_NAME "OpenRover Power Board Firmware")
