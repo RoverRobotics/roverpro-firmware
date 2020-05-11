@@ -4,7 +4,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Cache xc16
+      - name: Cache downloads
         uses: actions/cache@v1
         with:
           path: downloads
@@ -20,7 +20,7 @@ jobs:
         env:
           XC16_INSTALLER: downloads/xc16-linux-installer.run
           # latest = https://www.microchip.com/mplabxc16linux
-          # current = http://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.50-full-install-linux64-installer.run 
+          # current = http://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.50-full-install-linux64-installer.run
           XC16_INSTALLER_URL: https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.50-full-install-linux64-installer.run
 
       - name: Get firmware source code
@@ -34,10 +34,16 @@ jobs:
           mkdir build
           cmake -S src -B build -DCMAKE_TOOLCHAIN_FILE="$(pwd)/src/cmake/PowerBoard_toolchain.cmake"
           cmake --build build
+          cmake --install build --prefix install
 
-      - name: Upload build
-        uses: actions/upload-artifact@v1
-        if: failure()
+      - name: Upload build folder (for debuggirg)
+        uses: actions/upload-artifact@v2
         with:
-          name: firmware-build
+          name: build
           path: build
+
+      - name: Upload install folder
+        uses: actions/upload-artifact@v2
+        with:
+          name: install
+          path: install

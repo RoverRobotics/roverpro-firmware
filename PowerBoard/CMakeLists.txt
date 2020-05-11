@@ -57,17 +57,17 @@ target_link_options(PowerBoard
   "LINKER:--heap=2048"
   )
 
+install(TARGETS PowerBoard)
+
 set(POWERBOARD_HEX "PowerBoard.hex")
-
-add_custom_command(
-  TARGET PowerBoard
-  POST_BUILD
+add_custom_target(PowerBoardHex ALL
+  DEPENDS "${POWERBOARD_HEX}"
+)
+add_custom_command(OUTPUT "${POWERBOARD_HEX}"
   COMMAND "${XC16_bin2hex_EXECUTABLE}" "$<TARGET_FILE:PowerBoard>"
-  BYPRODUCTS "${POWERBOARD_HEX}"
-)   #todo: regularize this file with hexmate
-
-install(FILES "$<TARGET_FILE:PowerBoard>" DESTINATION "." RENAME "PowerBoard-${PROJECT_VERSION}.elf")
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${POWERBOARD_HEX}" DESTINATION "." RENAME "PowerBoard-${PROJECT_VERSION}.hex")
+  DEPENDS PowerBoard
+)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${POWERBOARD_HEX}" DESTINATION ".")
 
 find_package(Doxygen)
 set(DOXYGEN_PROJECT_NAME "OpenRover Power Board Firmware")
