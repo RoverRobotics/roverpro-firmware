@@ -34,12 +34,14 @@ target_link_options(bootypic
   "LINKER:--heap=2048"
   "LINKER:--script=${BOOT_LINKER_SCRIPT},-Map=${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_PROPERTY:NAME>.map,--no-isr,-D__DEFINE_RESET"
   )
-
-add_custom_command(
-  TARGET bootypic
-  POST_BUILD
-  COMMAND "${XC16_bin2hex_EXECUTABLE}" "$<TARGET_FILE:bootypic>"
-  BYPRODUCTS bootypic.hex
-)
-
 install(TARGETS bootypic)
+
+set(BOOTYPIC_HEX "bootypic.hex")
+add_custom_target(bootypicHex ALL
+  DEPENDS "${BOOTYPIC_HEX}"
+)
+add_custom_command(OUTPUT "${BOOTYPIC_HEX}"
+  COMMAND "${XC16_bin2hex_EXECUTABLE}" "$<TARGET_FILE:bootypic>"
+  DEPENDS bootypic
+)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${BOOTYPIC_HEX}" DESTINATION ".")
