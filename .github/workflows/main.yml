@@ -20,7 +20,7 @@ jobs:
         env:
           XC16_INSTALLER: downloads/xc16-linux-installer.run
           # latest = https://www.microchip.com/mplabxc16linux
-          # current = http://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.50-full-install-linux64-installer.run 
+          # current = http://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.50-full-install-linux64-installer.run
           XC16_INSTALLER_URL: https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.50-full-install-linux64-installer.run
 
       - name: Get firmware source code
@@ -29,25 +29,6 @@ jobs:
           path: src
           submodules: true
 
-      # - name: Build firmware
-      #   run: |
-      #     mkdir build
-      #     cmake -S src -B build -DCMAKE_TOOLCHAIN_FILE="$(pwd)/src/cmake/PowerBoard_toolchain.cmake"
-      #     cmake --build build --target package
-
-      # - name: Upload build folder (for debuggirg)
-      #   uses: actions/upload-artifact@v2
-      #   if: always()
-      #   with:
-      #     name: build
-      #     path: build
-
-      # - name: Upload built firmware
-      #   uses: actions/upload-artifact@v2
-      #   with:
-      #     name: packaged
-      #     path: build/OpenRoverFirmware-*.zip
-      
       - name: Build firmware
         run: |
           mkdir build
@@ -57,7 +38,6 @@ jobs:
 
       - name: Upload build folder (for debuggirg)
         uses: actions/upload-artifact@v2
-        if: always()
         with:
           name: build
           path: build
