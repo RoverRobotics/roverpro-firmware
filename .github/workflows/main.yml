@@ -35,9 +35,9 @@ jobs:
           cmake -S src -B build -DCMAKE_TOOLCHAIN_FILE="$(pwd)/src/cmake/PowerBoard_toolchain.cmake"
           cmake --build build --target package
 
-      - name: Upload build on failure
+      - name: Upload build folder (for debuggirg)
         uses: actions/upload-artifact@v2
-        if: failure()
+        if: always()
         with:
           name: firmware-build
           path: build
@@ -45,6 +45,5 @@ jobs:
       - name: Upload built package
         uses: actions/upload-artifact@v2
         with:
-          name: OpenRoverFirmware.zip
-          # e.g. CPack: - package: /home/runner/work/openrover-firmware/openrover-firmware/build/OpenRoverFirmware-1.10.0.zip generated.
+          name: OpenRoverFirmware
           path: build/OpenRoverFirmware-*.zip
