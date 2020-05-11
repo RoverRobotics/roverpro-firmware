@@ -64,10 +64,9 @@ add_custom_command(
   POST_BUILD
   COMMAND "${XC16_bin2hex_EXECUTABLE}" "$<TARGET_FILE:PowerBoard>"
   BYPRODUCTS "${POWERBOARD_HEX}"
-)   #todo: regularize this file with hexmate
+)
 
-install(FILES "$<TARGET_FILE:PowerBoard>" DESTINATION "." RENAME "PowerBoard-${PROJECT_VERSION}.elf")
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${POWERBOARD_HEX}" DESTINATION "." RENAME "PowerBoard-${PROJECT_VERSION}.hex")
+install(TARGETS PowerBoard)
 
 find_package(Doxygen)
 set(DOXYGEN_PROJECT_NAME "OpenRover Power Board Firmware")

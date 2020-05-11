@@ -36,7 +36,10 @@ target_link_options(bootypic
   )
 
 add_custom_command(
-  TARGET bootypic POST_BUILD
+  TARGET bootypic
+  POST_BUILD
   COMMAND "${XC16_bin2hex_EXECUTABLE}" "$<TARGET_FILE:bootypic>"
   BYPRODUCTS bootypic.hex
 )
+
+install(TARGETS bootypic)
