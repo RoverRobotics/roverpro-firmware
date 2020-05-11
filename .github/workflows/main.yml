@@ -33,11 +33,11 @@ jobs:
         run: |
           mkdir build
           cmake -S src -B build -DCMAKE_TOOLCHAIN_FILE="$(pwd)/src/cmake/PowerBoard_toolchain.cmake"
-          cmake --build build
+          cmake --build build --target package
 
       - name: Upload build
         uses: actions/upload-artifact@v1
-        if: failure()
+        # if: failure()
         with:
           name: firmware-build
           path: build
