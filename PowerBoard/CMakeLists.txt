@@ -60,7 +60,7 @@ target_link_options(PowerBoard
 set(POWERBOARD_HEX "PowerBoard.hex")
 
 add_custom_target(PowerBoardHex ALL
-  DEPENDS "${POWERBOARD_HEX}""
+  DEPENDS "${POWERBOARD_HEX}"
 )
 
 add_custom_command(OUTPUT "${POWERBOARD_HEX}"
