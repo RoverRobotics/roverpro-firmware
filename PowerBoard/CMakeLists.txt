@@ -59,14 +59,13 @@ target_link_options(PowerBoard
 
 set(POWERBOARD_HEX "PowerBoard.hex")
 
-add_custom_command(
-  TARGET PowerBoard
-  POST_BUILD
+add_custom_target(PowerBoardHex ALL
   COMMAND "${XC16_bin2hex_EXECUTABLE}" "$<TARGET_FILE:PowerBoard>"
+  DEPENDS "$<TARGET_FILE:PowerBoard>"
   BYPRODUCTS "${POWERBOARD_HEX}"
 )
 
-install(TARGETS PowerBoard)
+install(TARGETS PowerBoardHex)
 
 find_package(Doxygen)
 set(DOXYGEN_PROJECT_NAME "OpenRover Power Board Firmware")
