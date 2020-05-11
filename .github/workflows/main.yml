@@ -4,7 +4,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Cache xc16
+      - name: Cache downloads
         uses: actions/cache@v1
         with:
           path: downloads
@@ -35,9 +35,16 @@ jobs:
           cmake -S src -B build -DCMAKE_TOOLCHAIN_FILE="$(pwd)/src/cmake/PowerBoard_toolchain.cmake"
           cmake --build build --target package
 
-      - name: Upload build
-        uses: actions/upload-artifact@v1
-        # if: failure()
+      - name: Upload build on failure
+        uses: actions/upload-artifact@v2
+        if: failure()
         with:
           name: firmware-build
           path: build
+
+      - name: Upload built package
+        uses: actions/upload-artifact@v2
+        with:
+          name: OpenRoverFirmware.zip
+          # e.g. CPack: - package: /home/runner/work/openrover-firmware/openrover-firmware/build/OpenRoverFirmware-1.10.0.zip generated.
+          path: build/OpenRoverFirmware-*.zip
