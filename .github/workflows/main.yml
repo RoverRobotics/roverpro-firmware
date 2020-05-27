@@ -60,11 +60,26 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: '3.6'
-      - name: Run pitstop
+      - name: debug stuff
         run: |
+          which python3
+          python3 -m pip install --upgrade pip setuptools
+          python3 -m pip install openrover
+      - name: venv
+        run: |
+          which python3
           python3 -m venv venv
           source venv/bin/activate
-          pip3 install openrover
+          which python3
+      - run: |
+          which python3
+          python3 -m pip install --upgrade pip setuptools
+          python3 -m pip install openrover
+
+      - name: Run pitstop
+        run: |
+          # # ubuntu python stuff (that should be part of python)
+          # sudo apt install python3-venv python3-pip
           pitstop -f install/PowerBoard.hex -m 0
           sleep 30
           pitstop -m 0
