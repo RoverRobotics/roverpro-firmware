@@ -68,6 +68,7 @@ jobs:
           ./venv/bin/pip install --upgrade pip setuptools
           ./venv/bin/pip install openrover
       - name: Run pitstop
+        timeout-minutes: 5
         run: |
           source venv/bin/activate
           # note this requires permission: sudo usermod -a -G dialout $(whoami)
