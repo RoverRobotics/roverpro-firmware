@@ -47,3 +47,21 @@ jobs:
         with:
           name: install
           path: install
+  test:
+    # todo : add runner definition for Rover with an interface, right now, we just assume Rhea
+    runs-on: self-hosted
+    steps:
+      - name: Download install folder
+        uses: actions/download-artifact@v2
+        with:
+          name: install
+          path: install
+      - name: Set up python
+        run: |
+          python3 -m venv venv
+          source venv/bin/activate
+          pip3 install openrover
+          tree install
+          pitstop -f install/PowerBoard.hex -m 0
+          sleep 30
+          pitstop -m 0
