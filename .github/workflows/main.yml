@@ -47,9 +47,10 @@ jobs:
         with:
           name: install
           path: install
-  test:
+  test-bootload:
     # todo : add runner definition for Rover with an interface, right now, we just assume Rhea
     runs-on: self-hosted
+    needs: build
     steps:
       - name: Download install folder
         uses: actions/download-artifact@v2
