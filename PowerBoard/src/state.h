@@ -71,6 +71,10 @@ typedef struct State {
         int16_t smartbattery_current[BATTERY_COUNT];
         /// Last reported SmartBattery voltage
         uint16_t smartbattery_voltage[BATTERY_COUNT];
+
+        uint64_t last_manual_fan_speed_request_timestamp;
+        uint8_t manual_fan_speed;
+        uint64_t last_manual_fan_speed_done_timestamp;
     } i2c;
     /// State of the communication subsystem
     struct CommunicationState {
