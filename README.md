@@ -57,7 +57,7 @@ For debugging, use MPLAB 8. MPLAB X (5.30) has numerous bugs. Even its bugs have
 ```
 cd OpenRoverFirmware
 mkdir build; cd build
-cmake .. -DCMAKE_TOOLCHAIN_FILE="..\cmake\PowerBoard_toolchain.cmake"
+cmake .. -DCMAKE_TOOLCHAIN_FILE="../cmake/PowerBoard_toolchain.cmake"
 cmake --build .
 ```
 
