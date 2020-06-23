@@ -8,7 +8,7 @@ dir_src=..\PowerBoard
 dir_bin=..\build\mplab\PowerBoard
 dir_tmp=..\build\mplab\PowerBoard\tmp
 dir_sin=
-dir_inc=..\bootypic\devices\pic24fj256gb106;..\build\clion\PowerBoard\src
+dir_inc=..\build\PowerBoard\src;..\bootypic\devices\pic24fj256gb106
 dir_lib=
 dir_lkr=
 [CAT_FILTERS]
@@ -62,6 +62,7 @@ file_034=.
 file_035=.
 file_036=.
 file_037=.
+file_038=.
 [GENERATED_FILES]
 file_000=no
 file_001=no
@@ -99,8 +100,9 @@ file_032=no
 file_033=no
 file_034=no
 file_035=no
-file_036=yes
+file_036=no
 file_037=yes
+file_038=yes
 [OTHER_FILES]
 file_000=no
 file_001=no
@@ -138,8 +140,9 @@ file_032=no
 file_033=no
 file_034=no
 file_035=no
-file_036=yes
+file_036=no
 file_037=yes
+file_038=yes
 [FILE_INFO]
 file_000=..\PowerBoard\src\analog.c
 file_001=..\PowerBoard\src\battery.c
@@ -176,9 +179,10 @@ file_031=..\PowerBoard\src\settings.h
 file_032=..\PowerBoard\src\state.h
 file_033=..\PowerBoard\src\stdhdr.h
 file_034=..\PowerBoard\src\xc16_clang_tools_stubs.h
-file_035=..\bootypic\devices\pic24fj256gb106\linkerscript_app.gld
-file_036=..\build\mplab\PowerBoard\PowerBoard.map
-file_037=..\build\mplab\PowerBoard\tmp\link.gld.00
+file_035=..\build\PowerBoard\src\version.GENERATED.h
+file_036=..\bootypic\devices\pic24fj256gb106\app.gld
+file_037=..\build\mplab\PowerBoard\PowerBoard.map
+file_038=..\build\mplab\PowerBoard\tmp\link.gld.00
 [SUITE_INFO]
 suite_guid={9BCCB495-CD65-480A-BA76-63D8E78B117F}
 suite_state=-omf=elf
@@ -194,13 +198,7 @@ enable=0
 transport=0
 format=0
 [CUSTOM_BUILD]
-Pre-Build=
+Pre-Build=cmake -b ../build -DCMAKE_TOOLCHAIN_FILE=../cmake/PowerBoard_toolchain.cmake
 Pre-BuildEnabled=1
 Post-Build=
 Post-BuildEnabled=1
-[TOOL_LOCKING]
-ToolsAreLocked=1
-T{C6E07232-414F-4A0C-AF99-CD44E2B71960}=C:\opt\Microchip\xc16\v1.50\bin\xc16-as.exe
-T{B1442D91-FF1F-4E60-9714-C39C1BA9DB62}=C:\opt\Microchip\xc16\v1.50\bin\xc16-gcc.exe
-T{6836D8CA-42BB-48FB-9E77-3F0AA8005073}=C:\opt\Microchip\xc16\v1.50\bin\xc16-ld.exe
-T{E60A4887-34FE-4D4F-81A8-A80F1E936E0D}=C:\opt\Microchip\xc16\v1.50\bin\xc16-ar.exe

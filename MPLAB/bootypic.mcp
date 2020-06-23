@@ -76,7 +76,7 @@ file_006=..\bootypic\bootloader.h
 file_007=..\bootypic\devices\pic24fj256gb106\boot_user.h
 file_008=..\bootypic\devices\pic24fj256gb106\config.h
 file_009=..\PowerBoard\src\power.h
-file_010=..\bootypic\devices\pic24fj256gb106\linkerscript_boot.gld
+file_010=..\bootypic\devices\pic24fj256gb106\boot.gld
 file_011=..\build\mplab\bootypic\tmp\link.gld.00
 file_012=..\build\mplab\bootypic\bootypic.map
 [SUITE_INFO]
@@ -94,13 +94,7 @@ enable=0
 transport=0
 format=0
 [CUSTOM_BUILD]
-Pre-Build=
+Pre-Build=cmake -b ../build -DCMAKE_TOOLCHAIN_FILE=../cmake/PowerBoard_toolchain.cmake
 Pre-BuildEnabled=1
 Post-Build=
 Post-BuildEnabled=1
-[TOOL_LOCKING]
-ToolsAreLocked=1
-T{C6E07232-414F-4A0C-AF99-CD44E2B71960}=C:\opt\Microchip\xc16\v1.50\bin\xc16-as.exe
-T{B1442D91-FF1F-4E60-9714-C39C1BA9DB62}=C:\opt\Microchip\xc16\v1.50\bin\xc16-gcc.exe
-T{6836D8CA-42BB-48FB-9E77-3F0AA8005073}=C:\opt\Microchip\xc16\v1.50\bin\xc16-ld.exe
-T{E60A4887-34FE-4D4F-81A8-A80F1E936E0D}=C:\opt\Microchip\xc16\v1.50\bin\xc16-ar.exe

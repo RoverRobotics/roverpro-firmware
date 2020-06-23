@@ -56,16 +56,24 @@ For debugging, use MPLAB 8. MPLAB X (5.30) has numerous bugs. Even its bugs have
 
 ```
 cd OpenRoverFirmware
-mkdir build; cd build
-cmake .. -DCMAKE_TOOLCHAIN_FILE="..\cmake\PowerBoard_toolchain.cmake"
-cmake --build .
+cmake -b build -DCMAKE_TOOLCHAIN_FILE=cmake/PowerBoard_toolchain.cmake
+cmake --build build
 ```
 
 Note that ABI detection can fail due to [a bug in the XC16 compiler](https://www.microchip.com/forums/m1126857.aspx). I have not found this to cause a problem beyond some scary-looking warnings and failure of code autocomplete in CLion.
 
 ### IDE iteration
 
-You can build in the MPLAB IDE using the project files in the MPLAB subfolder, though there may be some gotchas. Due to difficulties wtih XC16 and how MPLAB handles command line arguments, it is likely that the projects will build with the legacy libc and pic32 libraries. (in the `*.map` file this looks like `lega-pic30-elf` and `lega-c-elf` instead of `pic30-elf` and `c-elf`).
+On Windows, you can attach a debugger to the powerboard in order to debug.
+
+You can build in the MPLAB IDE using the project files in the MPLAB subfolder, though there may be some gotchas. Due to difficulties with XC16 and how MPLAB handles command line arguments, it is likely that the projects will build with the legacy libc and pic32 libraries. (in the `*.map` file this looks like `lega-pic30-elf` and `lega-c-elf` instead of `pic30-elf` and `c-elf`).
+
+1. Install MPLAB IDE 8.92 and XC16 toolsuite, and plug in your PICKit
+2. Open MPLAB/PowerBoard.mcp
+3. Debugger -> Select Tool -> PicKit3
+4. F10 (or Project -> Make). This will build and run the project.
+
+Note either the Bootloader or PowerBoard can be run in this way (though the bootloader will crash when trying to run the app and the PowerBoard will skip the bootloader)
 
 ### Code style tools
 
