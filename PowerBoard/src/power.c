@@ -3,7 +3,7 @@
 #include "hardware_definitions.h"
 #include "i2clib.h"
 #include "stdhdr.h"
-#include "string.h"
+#include <string.h>
 
 /// Turn all the batteries on immediately
 static void turn_on_power_bus_immediate() { set_active_batteries(BATTERY_FLAG_ALL); }

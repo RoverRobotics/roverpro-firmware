@@ -1,8 +1,9 @@
 /*---------------------------Dependencies-------------------------------------*/
+#include "motor.h"
 #include "clock.h"
 #include "hardware_definitions.h"
 #include "main.h"
-#include "motor.h"
+
 #include <xc.h>
 
 /*---------------------------Interrupt Service Routines (ISRs)----------------*/
@@ -20,8 +21,9 @@ void __attribute__((__interrupt__, auto_psv)) _CNInterrupt(void) {
         if (last_tacho[c] != tacho[c]) {
             // previously, the timer had a prescale of 256, but also it was only counting every
             // *other* commutation.
-            g_state.drive.motor_encoder_period[c] =
-                min((now - g_state.drive.last_encoder_timestamp[c]) / 128, UINT16_MAX);
+
+            int64_t this_period = (now - g_state.drive.last_encoder_timestamp[c]) / 128;
+            g_state.drive.motor_encoder_period[c] = clamp(this_period, 0, UINT16_MAX);
 
             if ((diro[c] == 0) ^ (c == MOTOR_RIGHT)) {
                 g_state.drive.motor_encoder_count[c]++;

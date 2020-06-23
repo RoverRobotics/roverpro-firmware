@@ -1,0 +1,77 @@
+name: CI
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cache downloads
+        uses: actions/cache@v1
+        with:
+          path: downloads
+          key: ${{ runner.os }}-downloads
+
+      - name: Install Dependencies
+        run: |
+          mkdir -p downloads
+          [[ ! -f $XC16_INSTALLER ]] && curl --silent --output $XC16_INSTALLER $XC16_INSTALLER_URL
+          chmod +x $XC16_INSTALLER
+          sudo $XC16_INSTALLER --mode unattended --netservername ""
+          sudo apt install doxygen graphviz
+        env:
+          XC16_INSTALLER: downloads/xc16-linux-installer.run
+          # latest = https://www.microchip.com/mplabxc16linux
+          # current = http://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.50-full-install-linux64-installer.run
+          XC16_INSTALLER_URL: https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.50-full-install-linux64-installer.run
+
+      - name: Get firmware source code
+        uses: actions/checkout@v2
+        with:
+          path: src
+          submodules: true
+
+      - name: Build firmware
+        run: |
+          mkdir build
+          cmake -S src -B build -DCMAKE_TOOLCHAIN_FILE="$(pwd)/src/cmake/PowerBoard_toolchain.cmake"
+          cmake --build build
+          cmake --install build --prefix install
+
+      - name: Upload build folder (for debuggirg)
+        uses: actions/upload-artifact@v2
+        with:
+          name: build
+          path: build
+
+      - name: Upload install folder
+        uses: actions/upload-artifact@v2
+        with:
+          name: install
+          path: install
+  test-bootload:
+    runs-on: openrover
+    needs: build
+    steps:
+      - name: Download install folder
+        uses: actions/download-artifact@v2
+        with:
+          name: install
+          path: install
+      - name: Set up python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.6'
+      - name: venv
+        run: |
+          which python3
+          python3 -m venv venv
+          
+          ./venv/bin/pip install --upgrade pip setuptools
+          ./venv/bin/pip install openrover
+      - name: Run pitstop
+        timeout-minutes: 5
+        run: |
+          source venv/bin/activate
+          # note this requires permission: sudo usermod -a -G dialout $(whoami)
+          pitstop -f install/PowerBoard.hex -m 0
+          sleep 30
+          pitstop -m 0

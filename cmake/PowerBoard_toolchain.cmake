@@ -38,28 +38,31 @@ set(CMAKE_C_LINKER_WRAPPER_FLAG_SEP ",")
 string(JOIN " " CMAKE_C_FLAGS_INIT
   # note: -mafrlcsj turns off license check
   -mafrlcsj
-  "-mcpu=${MICROCHIP_CPU_ID}"
-  -no-legacy-libc
-  # -mcci #todo: migrate to CCI
+  -mcpu=${MICROCHIP_CPU_ID}
+  # -mcci
   -fno-short-double
   -Wall
-  -fast-math
   # keep build files; useful for debugging the preprocessor stage of the build
   # -save-temps
   )
 
+# note: the __IDC2RAM symbol makes the linker script provision RAM for the PICkit3.
+# without it, the PICkit3 would not complain, but would give very strange results at runtime
 set(CMAKE_C_FLAGS_DEBUG_INIT "-g -D__DEBUG")
-set(CMAKE_C_FLAGS_MINSIZEREL_INIT "-Os -DNDEBUG -ffunction-sections")
-set(CMAKE_C_FLAGS_RELEASE_INIT "-O3 -DNDEBUG -ffunction-sections")
-set(CMAKE_C_FLAGS_RELWITHDEBINFO_INIT "-O2 -g -DNDEBUG")
+set(CMAKE_EXE_LINKER_FLAGS_DEBUG_INIT "-Wl,--defsym=__ICD2RAM=1")
 
-foreach(config DEBUG MINSIZEREL RELEASE RELEASEWITHDEBINFO)
-  if ("${config}" IN_LIST "RELEASE;MINSIZEREL")
-    # note: -ffunction-sections impedes the MPLAB 8 debugger, so we only add it for non-debug builds
-    string(APPEND CMAKE_C_FLAGS_${config}_INIT " -ffunction-sections")
-    string(APPEND CMAKE_EXE_LINKER_FLAGS_${config}_INIT " --gc-sections")
-  else()
-    # string(APPEND CMAKE_C_FLAGS_${config}_INIT " -g")
-    set(CMAKE_EXE_LINKER_FLAGS_${config}_INIT "-Wl,--defsym=__DEBUG=1,-D__DEBUG=__DEBUG,--defsym=__MPLAB_DEBUGGER_PK3=1,--defsym=__ICD2RAM=1")
-  endif()
-endforeach(config)
+# note: -ffunction-sections impedes the MPLAB 8 debugger, so we only add it for non-debug builds
+set(CMAKE_C_FLAGS_MINSIZEREL_INIT "-Os -DNDEBUG -ffunction-sections")
+set(CMAKE_EXE_LINKER_FLAGS_MINSIZEREL_INIT "-Wl,--gc-sections")
+
+set(CMAKE_C_FLAGS_RELEASE_INIT "-O3 -ffunction-sections")
+set(CMAKE_EXE_LINKER_FLAGS_RELEASE_INIT "-Wl,--gc-sections")
+
+set(CMAKE_C_FLAGS_RELWITHDEBINFO_INIT "-O2 -g -DNDEBUG")
+set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO_INIT "-Wl,--defsym=__ICD2RAM=1")
+
+# these should be detected by compiler identification, but since they're not...
+set(CMAKE_C_IMPLICIT_INCLUDE_DIRECTORIES "${XC16_ROOT_DIR}/include" "${XC16_ROOT_DIR}/support/generic/h" )
+set(CMAKE_C_IMPLICIT_LINK_LIBRARIES "liblega-c-elf" "liblega-pic30-elf" "libm-elf" )
+set(CMAKE_C_IMPLICIT_LINK_DIRECTORIES "${XC16_ROOT_DIR}/lib")
+set(CMAKE_C_SIZEOF_DATA_PTR 2)

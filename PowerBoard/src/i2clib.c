@@ -2,7 +2,7 @@
 
 #include "i2clib.h"
 #include "stdhdr.h"
-#include "stdlib.h"
+#include <stdlib.h>
 
 /** I2C ack bit. Transmitted in response to any data received. */
 typedef enum I2CAck {

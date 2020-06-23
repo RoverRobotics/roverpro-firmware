@@ -6,6 +6,7 @@
 #include "flipper.h"
 #include "hardware_definitions.h"
 #include "main.h"
+#include "settings.h"
 #include <math.h>
 #include <xc.h>
 
@@ -60,70 +61,6 @@ void uart_init() {
     U1STAbits.UTXEN = 1;    // enable transmit
     IEC0bits.U1TXIE = 1;    // enable UART1 transmit interrupt
     IEC0bits.U1RXIE = 1;    // enable UART1 receive interrupt
-
-    free(state.overspeed_fault_times);
-    state.overspeed_fault_times = calloc(settings.overspeed_runaway_limit, sizeof(uint64_t));
-}
-
-/// There are two types of overspeed conditions:
-/// An overspeed fault is when we send too much effort to the motors for too long.
-/// An overspeed runaway is when too many faults happen in too short a time.
-bool should_obey_motor_commands(float left_effort, float right_effort) {
-    uint64_t now = clock_now();
-
-    float requested_effort = max(fabsf(left_effort), fabsf(right_effort));
-
-    if (requested_effort <= settings.overspeed_runaway_reset_effort) {
-        // we are stopped or nearly so.
-        state.overspeed_runaway_reset_time = now;
-        state.overspeed_fault_time = 0;
-        state.overspeed_time = 0;
-        return true;
-    } else if (state.overspeed_runaway_reset_time < state.overspeed_runaway_time) {
-        // we are in a runaway condition and the driver needs to
-        // send a low speed before we obey again
-        return false;
-    } else if (
-        now < state.overspeed_fault_time + seconds_to_ticks(settings.overspeed_fault_recover_s)) {
-        // we are in a fault condition. Don't obey yet
-        return false;
-    } else if (requested_effort < settings.overspeed_fault_effort) {
-        // we are not in a runaway condition and the driver has sent a low speed;
-        state.overspeed_time = 0;
-        return true;
-    } else if (!state.overspeed_time) {
-        // we've only been going fast for a short time. Allow it, but note the time.
-        state.overspeed_time = now;
-        return true;
-    } else if (now < state.overspeed_time + seconds_to_ticks(settings.overspeed_fault_trigger_s)) {
-        // we've only been going fast for a short time. Allow it for now...
-        return true;
-    } else {
-        // uh oh. We've been going fast for a while now.
-        size_t i;
-        bool tmp_runaway = true;
-        for (i = 0; i < settings.overspeed_runaway_limit; i++) {
-            // if the value is before the most recent reset or too old, overwrite it.
-            if (state.overspeed_fault_times[i] <= state.overspeed_runaway_reset_time ||
-                state.overspeed_fault_times[i] +
-                        seconds_to_ticks(settings.overspeed_runaway_history_s) <
-                    now) {
-                state.overspeed_fault_times[i] = now;
-                tmp_runaway = false;
-                break;
-            }
-        }
-
-        // so we don't trigger a fault condition immediately on ending this oone.
-        state.overspeed_time = 0;
-        if (tmp_runaway) {
-            state.overspeed_runaway_time = now;
-        } else {
-            state.overspeed_fault_time = now;
-        }
-
-        return false;
-    }
 }
 
 /// UART receive Interrupt function
@@ -197,7 +134,7 @@ void uart_serialize_out_data(uint8_t *out_bytes, uint8_t uart_data_identifier) {
         CASE(42, g_state.analog.battery_current[BATTERY_A])
         CASE(44, g_state.analog.battery_current[BATTERY_B])
         CASE(46, g_state.drive.flipper_angle)
-        // CASE(48, g_state.communication.fan_speed)
+        CASE(48, g_state.i2c.manual_fan_speed)
         // CASE(50, REG_MOTOR_CLOSED_LOOP)
         CASE(52, g_state.i2c.smartbattery_status[BATTERY_A])
         CASE(54, g_state.i2c.smartbattery_status[BATTERY_B])
@@ -212,30 +149,27 @@ void uart_serialize_out_data(uint8_t *out_bytes, uint8_t uart_data_identifier) {
         CASE(72, g_state.drive.motor_status[MOTOR_LEFT])
         CASE(74, g_state.drive.motor_status[MOTOR_RIGHT])
         CASE(76, g_state.drive.motor_status[MOTOR_FLIPPER])
-        CASE(78, g_state.i2c.fan_target_duty[0])
-        CASE(80, g_state.i2c.fan_target_duty[1])
+        CASE(78, g_state.i2c.fan_duty[0])
+        CASE(80, g_state.i2c.fan_duty[1])
+        CASE(82, get_system_fault())
     default:
         break;
     }
 #undef CASE
 }
 
+float motor_uint8_to_float(uint8_t value) { return ((int8_t)(value - 125)) * (1 / 125.F); }
+
 void uart_tick() {
     bool has_drive_command = false;
 
-    // debug:
-    /*
-        {
-        BREAKPOINT();
-        UARTCommand test_verb = UART_COMMAND_NONE;
-        uint8_t test_arg = 0;
-        uint8_t rq_test_msg[7] = {253, 125, 125, 125, test_verb, test_arg, 0};
-        rq_test_msg[6] = checksum(5, rq_test_msg + 1);
-
-        bq_try_push(&g_state.communication.rx_q, sizeof(rq_test_msg), rq_test_msg);
-        }
-    */
-    // end debug
+    // // debug:
+    // UARTCommand test_verb = UART_COMMAND_NONE;
+    // uint8_t test_arg = 0;
+    // uint8_t rq_test_msg[7] = {253, 135, 135, 125, test_verb, test_arg, 0};
+    // rq_test_msg[6] = checksum(5, rq_test_msg + 1);
+    // bq_try_push(&g_state.communication.rx_q, sizeof(rq_test_msg), rq_test_msg);
+    // // end debug
 
     while (bq_can_pop(&g_state.communication.rx_q, RX_PACKET_SIZE)) {
         uint8_t packet[RX_PACKET_SIZE] = {0};
@@ -250,15 +184,12 @@ void uart_tick() {
             continue;
         }
 
-        float tmp_left = (float)packet[1] / 125.0F - 1.0F;
-        float tmp_right = (float)packet[2] / 125.0F - 1.0F;
-        if (should_obey_motor_commands(tmp_left, tmp_right)) {
-            g_state.communication.drive_command_timestamp = clock_now();
-            g_state.communication.motor_effort[MOTOR_LEFT] = tmp_left;
-            g_state.communication.motor_effort[MOTOR_RIGHT] = tmp_right;
-            g_state.communication.motor_effort[MOTOR_FLIPPER] = (float)packet[3] / 125.0F - 1.0F;
-            has_drive_command = true;
-        }
+        g_state.communication.drive_command_timestamp = clock_now();
+        g_state.communication.motor_effort[MOTOR_LEFT] = motor_uint8_to_float(packet[1]);
+        g_state.communication.motor_effort[MOTOR_RIGHT] = motor_uint8_to_float(packet[2]);
+        g_state.communication.motor_effort[MOTOR_FLIPPER] = motor_uint8_to_float(packet[3]);
+
+        has_drive_command = true;
 
         UARTCommand verb = packet[4];
         uint8_t arg = packet[5];
@@ -269,7 +200,7 @@ void uart_tick() {
             break;
         case UART_COMMAND_FLIPPER_CALIBRATE:
             if (arg == UART_COMMAND_FLIPPER_CALIBRATE) {
-                // note flipper calibration never returns.
+                // note flipper calibration never returns
                 flipper_feedback_calibrate();
             }
             break;
@@ -290,6 +221,10 @@ void uart_tick() {
             break;
         case UART_COMMAND_SETTINGS_COMMIT:
             settings_save(&g_settings);
+            break;
+        case UART_COMMAND_SET_FAN_SPEED:
+            g_state.i2c.manual_fan_speed = arg;
+            g_state.i2c.last_manual_fan_speed_request_timestamp = clock_now();
             break;
         case UART_COMMAND_SETTINGS_SET_POWER_POLL_INTERVAL:
             g_settings.main.power_poll_ms = arg;
@@ -314,10 +249,10 @@ void uart_tick() {
             drive_init();
             break;
         case UART_COMMAND_SETTINGS_SET_BRAKE_ON_ZERO_SPEED_COMMAND:
-            g_settings.communication.brake_on_zero_speed_command = (bool)arg;
+            g_settings.drive.brake_on_zero_speed_command = (bool)arg;
             break;
         case UART_COMMAND_SETTINGS_SET_BRAKE_ON_DRIVE_TIMEOUT:
-            g_settings.communication.brake_on_drive_timeout = (bool)arg;
+            g_settings.drive.brake_on_drive_timeout = (bool)arg;
             break;
         case UART_COMMAND_SETTINGS_SET_MOTOR_SLOW_DECAY_MODE:
             g_settings.drive.motor_slow_decay_mode = (bool)arg;
@@ -325,31 +260,21 @@ void uart_tick() {
         case UART_COMMAND_SETTINGS_SET_TIME_TO_FULL_SPEED_DECISECONDS:
             g_settings.drive.time_to_full_speed = (float)arg * 0.1F;
             break;
-        case UART_COMMAND_SETTINGS_SET_SPEED_LIMIT_PERCENT:
-            g_settings.communication.overspeed_fault_effort = (float)arg * 0.01F;
-        case UART_COMMAND_SET_DRIVE_MODE:
-            // fallthrough
-        default:
-            // unknown inbound command.
+        case UART_COMMAND_SETTINGS_SET_OVERSPEED_ENCODER_THRESHOLD_ENCODER_DAHZ:
+            g_settings.drive.hi_speed_encoder_hz = (float)arg * 10.0F;
             break;
-        }
-    }
-
-    if (has_drive_command) {
-        MotorChannel c;
-        for (EACH_MOTOR_CHANNEL(c)) {
-            g_state.communication.brake_when_stopped =
-                g_settings.communication.brake_on_zero_speed_command;
-        }
-    } else if (
-        clock_now() - g_state.communication.drive_command_timestamp >
-        g_settings.communication.drive_command_timeout_ms * seconds_to_ticks(0.001F)) {
-        // long time no motor commands. stop moving.
-        MotorChannel c;
-        for (EACH_MOTOR_CHANNEL(c)) {
-            g_state.communication.motor_effort[c] = 0;
-            g_state.communication.brake_when_stopped =
-                g_settings.communication.brake_on_drive_timeout;
+        case UART_COMMAND_SETTINGS_SET_OVERSPEED_DURATION_DS:
+            g_settings.drive.overspeed_fault_trigger_s = (float)arg * 0.1F;
+            break;
+        case UART_COMMAND_CLEAR_SYSTEM_FAULT:
+            clear_system_fault();
+            break;
+        case UART_COMMAND_SETTINGS_SET_BRAKE_ON_FAULT:
+            g_settings.drive.brake_on_fault = (bool)arg;
+            break;
+        default:
+            // unknown or deprecated inbound command.
+            break;
         }
     }
 

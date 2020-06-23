@@ -1,11 +1,13 @@
 cmake_minimum_required(VERSION 3.12)
-project(OpenRoverFirmware VERSION 1.9.3 LANGUAGES C)
+project(OpenRoverFirmware VERSION 1.10.0 LANGUAGES C)
 
 set(BOOTYPIC_DEVICE_DIR "${CMAKE_CURRENT_LIST_DIR}/bootypic/devices/pic24fj256gb106")
+set(BOOTYPIC_ROOT ${CMAKE_CURRENT_LIST_DIR}/bootypic)
+set(POWERBOARD_ROOT ${CMAKE_CURRENT_LIST_DIR}/PowerBoard)
 
-add_subdirectory(bootypic)
-add_subdirectory(PowerBoard)
-#
+add_subdirectory(${BOOTYPIC_ROOT})
+add_subdirectory(${POWERBOARD_ROOT})
+
 #set(UNIFIED_HEX unified.hex)
 #add_custom_target(${UNIFIED_HEX} ALL
 #  COMMAND "${MPLABX_hexmate_EXECUTABLE}" "-O${UNIFIED_HEX}"

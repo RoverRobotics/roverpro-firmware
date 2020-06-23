@@ -3,7 +3,7 @@
 
 #ifndef BATTERY_H
 #define BATTERY_H
-#include "stdbool.h"
+#include <stdbool.h>
 
 typedef enum Battery {
     BATTERY_A = 0,
