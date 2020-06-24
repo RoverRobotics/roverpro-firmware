@@ -95,10 +95,9 @@ For debugging, use MPLAB 8. MPLAB X (5.30) has numerous bugs. Even its bugs have
 3. Build it!
 
 ```
-cd OpenRoverFirmware
-mkdir build; cd build
-cmake .. -DCMAKE_TOOLCHAIN_FILE="../cmake/PowerBoard_toolchain.cmake"
-cmake --build .
+cd openrover-firmware
+cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="cmake/PowerBoard_toolchain.cmake" 
+cmake --build build
 ```
 
 Note that ABI detection can fail due to [a bug in the XC16 compiler](https://www.microchip.com/forums/m1126857.aspx). I have not found this to cause a problem beyond some scary-looking warnings and failure of code autocomplete in CLion.
