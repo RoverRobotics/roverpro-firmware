@@ -29,8 +29,8 @@ Assuming the bootloader is installed, you don't need the PICKit to install the f
 
 ```cmd
 set %newhex%="%USERPROFILE%\Documents\OpenRoverFirmware\build\clion\PowerBoard\PowerBoard.hex"
-pip3 install --upgrade openrover
-pitstop -f %newhex%
+python3 -m pip install --upgrade openrover
+python3 -m openrover.pitstop -f %newhex%
 ```
 
 ### Troubleshooting bootloader
@@ -39,6 +39,46 @@ pitstop -f %newhex%
    * If the green serial board LED is **off**, the rover has not yet run its boot sequence. Make sure the battery has charge.
    * If the green serial board LED is **on**, the has run its boot sequence. The rover only remains in bootloader mode for 10 seconds after being powered on - if that time is elapsed, you need to reboot the robot. Hold down the red side power button for 5 seconds to restart the rover into bootloader mode then retry (note the light may or may not turn off immediately upon reboot).
  * The location of your hexfile may vary. If not found, booty will report "no such file or directory"
+
+## Creating a combo image
+
+The bootloader and the PowerBoard firmware are distributed as separate hex files but you can create a combined image so that both can be installed at once via the PicKit.
+
+Download hex files for both the bootloader and the PowerBoard. From here on in, I assume you have both files local.
+
+Note that the bootloader and the powerboard contain some conflicting data. Usually the bootloader protects its own data and ignores conflicting values when flashing new firmware, but since we're not running the bootloader, we must take care that the values from the bootloader are used:
+
+* The reset vector in the beginning (so if installed without a bootloader, it starts the firmware directly)
+* The configuration bits at the end (which affect stuff like code protection and processor speed; these are actually the same between the bootloader and the application).
+
+You can create a combo image in several ways. Below are instructions via MPLAB 8.
+
+### Creating a combo image with MPLAB 8
+
+1. configure -> Settings -> Program Loading
+2. Uncheck all the checkboxes (Clear program memory upon loading a program, Clear configuration bits upon loading a program, ...)
+3. File -> Import ...; Choose the application hex file, e.g. `PowerBoard-1.9.3.hex`
+4. File -> Import ...; Choose the bootloader hex file, e.g. `bootypic-1.9.3.hex`
+5. File -> Export (The defaults should be correct: Program memory = 0 : 0x2abf6, Configuration bits checked, File Format Intel 32-bit Hex)
+6. Name your new combo image, e.g. `combo-1.9.3.hex`
+
+### Creating a combo image with HexMerge
+
+1. Install the `intelhex` Python package, which contains `hexmerge.py`, a utility for combining hex files:
+   
+   ```
+   python3 -m pip install intelhex --force --no-binary :all:
+   ```
+   
+2. Now create a hex image of both the bootloader and the powerboard:
+   
+   ```
+   hexmerge.py PowerBoard-1.9.3.hex bootypic-1.9.3.hex -o combo-1.9.3.hex --overlap=replace
+   ```
+
+### Installing a combo image
+
+Install this image just as you would the Bootloader or the pre-bootloader firmware.
 
 ## Development
 
