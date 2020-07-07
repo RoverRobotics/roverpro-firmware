@@ -129,6 +129,9 @@ uint32_t getTimeTicks(){
 }
 
 bool should_abort_boot() {
+	if (readAddress(APPLICATION_START_ADDRESS) == 0xffffff) {
+		return false;
+	}
 	static const uint32_t BOOTLOADER_TIMEOUT_TICKS = (FCY / 256.0 * BOOT_LOADER_TIME);
 	if(getTimeTicks() > BOOTLOADER_TIMEOUT_TICKS){
        return true;
