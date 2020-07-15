@@ -22,7 +22,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          mkdir -p downloads
+          mkdir -p $DOWNLOADS_PATH
           [[ ! -f "$XC16_INSTALLER_PATH" ]] && curl -L --silent --output "$XC16_INSTALLER_PATH" "$XC16_INSTALLER_URL"
           chmod +x "$XC16_INSTALLER_PATH"
           # stupid installer requires stupid admin rights
