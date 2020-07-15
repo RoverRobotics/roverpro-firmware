@@ -14,11 +14,11 @@ jobs:
           echo "::set-env name=DOWNLOADS_PATH::$PWD/downloads"
           echo "::set-env name=XC16_INSTALLER_PATH::$PWD/downloads/xc16-linux-installer.run"
           echo "::set-env name=XC16_INSTALL_PREFIX_PATH::$PWD/xc16_prefix"
-      - name: Cache downloads
-        uses: actions/cache@v1
-        with:
-          path: ${{ env.DOWNLOADS_PATH }}
-          key: ${{ runner.os }}-downloads
+#      - name: Cache downloads
+#        uses: actions/cache@v1
+#        with:
+#          path: ${{ env.DOWNLOADS_PATH }}
+#          key: ${{ runner.os }}-downloads
 
       - name: Install Dependencies
         run: |
