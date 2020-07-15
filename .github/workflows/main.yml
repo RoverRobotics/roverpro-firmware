@@ -25,6 +25,7 @@ jobs:
           mkdir -p $DOWNLOADS_PATH
           [[ ! -f "$XC16_INSTALLER_PATH" ]] && curl -L --verbose --output "$XC16_INSTALLER_PATH" "$XC16_INSTALLER_URL"
           md5sum "$XC16_INSTALLER_PATH"
+          chmod +x "$XC16_INSTALLER_PATH"
           # stupid installer requires stupid admin rights
           sudo "$XC16_INSTALLER_PATH" --prefix "XC16_INSTALL_PREFIX_PATH" --mode unattended --ModifyAll 0 --netservername ""
           echo "::add-path::$XC16_INSTALL_PREFIX_PATH/bin"
