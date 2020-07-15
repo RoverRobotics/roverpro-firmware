@@ -4,14 +4,16 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      DOWNLOADS_PATH: ${{runner.temp + '/downloads'}}
-      XC16_INSTALLER_PATH: ${{runner.temp + '/downloads/xc16-linux-installer.run'}}
       # latest = https://www.microchip.com/mplabxc16linux
       # current = http://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.50-full-install-linux64-installer.run
       XC16_INSTALLER_URL: https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.50-full-install-linux64-installer.run
       #                            https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.50-full-install-linux64-installer.run
-      XC16_INSTALL_PREFIX_PATH: ${{runner.temp + '/xc16_prefix'}}
     steps:
+      - name: set environment variables
+        run: |
+          echo "::set-env name=DOWNLOADS_PATH::$PWD/downloads"
+          echo "::set-env name=XC16_INSTALLER_PATH::$PWD/downloads/xc16-linux-installer.run"
+          echo "::set-env name=XC16_INSTALL_PREFIX_PATH::$PWD/xc16_prefix"
       - name: Cache downloads
         uses: actions/cache@v1
         with:
