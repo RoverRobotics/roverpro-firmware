@@ -3,6 +3,14 @@ on: push
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      XC16_INSTALLER: downloads/xc16-linux-installer.run
+      # latest = https://www.microchip.com/mplabxc16linux
+      # current = http://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.50-full-install-linux64-installer.run
+      XC16_INSTALLER_URL: https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.50-full-install-linux64-installer.run
+      #                            https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.50-full-install-linux64-installer.run
+      DOWNLOADS_PATH: downloads
+      XC16_PREFIX_PATH: xc16_prefix
     steps:
       - name: Cache downloads
         uses: actions/cache@v1
@@ -13,16 +21,13 @@ jobs:
       - name: Install Dependencies
         run: |
           mkdir -p downloads
-          [[ ! -f $XC16_INSTALLER ]] && curl --silent --output $XC16_INSTALLER $XC16_INSTALLER_URL
+          [[ ! -f $XC16_INSTALLER ]] && curl -L --silent --output $XC16_INSTALLER $XC16_INSTALLER_URL
           chmod +x $XC16_INSTALLER
-          sudo $XC16_INSTALLER --mode unattended --netservername ""
-          sudo apt install doxygen graphviz
-        env:
-          XC16_INSTALLER: downloads/xc16-linux-installer.run
-          # latest = https://www.microchip.com/mplabxc16linux
-          # current = http://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.50-full-install-linux64-installer.run
-          XC16_INSTALLER_URL: https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.50-full-install-linux64-installer.run
+          # stupid installer requires stupid admin rights
+          sudo $XC16_INSTALLER --prefix "$XC16_PREFIX_PATH" --mode unattended --ModifyAll 0 --netservername ""
+          echo "::add-path::$XC16_PREFIX_PATH/bin"
 
+          sudo apt install doxygen graphviz
       - name: Get firmware source code
         uses: actions/checkout@v2
         with:
