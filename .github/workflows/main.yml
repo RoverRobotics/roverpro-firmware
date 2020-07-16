@@ -31,7 +31,8 @@ jobs:
       - name: Install Dependencies
         run: |
           chmod +x "$XC16_INSTALLER_PATH"
-          sudo apt install doxygen graphviz ia32-libs
+          sudo apt install doxygen graphviz
+          uname -m
 
           # stupid installer requires stupid admin rights
           sudo "$XC16_INSTALLER_PATH" --prefix "XC16_INSTALL_PREFIX_PATH" --mode unattended --ModifyAll 0 --netservername "" --debuglevel 4
