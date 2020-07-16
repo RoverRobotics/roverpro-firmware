@@ -13,7 +13,7 @@ jobs:
         run: |
           echo "::set-env name=DOWNLOADS_PATH::$PWD/downloads"
           echo "::set-env name=XC16_INSTALLER_PATH::$PWD/downloads/xc16-linux-installer.run"
-          echo "::set-env name=XC16_INSTALL_PREFIX_PATH::$PWD/xc16_prefix"
+          echo "::set-env name=XC16_INSTALL_PREFIX_PATH::/opt/microchip/xc16/v1.50"
 
       - id: cache-xc16
         uses: actions/cache@v2
@@ -30,15 +30,11 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          sudo dpkg --add-architecture i386
-          sudo apt update
-          sudo apt install libc6:i386
-          dpkg --print-foreign-architectures
           chmod +x "$XC16_INSTALLER_PATH"
           sudo apt install doxygen graphviz
 
-          # stupid installer requires stupid admin rights
-          sudo "$XC16_INSTALLER_PATH" --prefix "XC16_INSTALL_PREFIX_PATH" --mode unattended --ModifyAll 0 --netservername "" --debuglevel 4
+          # stupid installer requires stupid admin rights and only properly installs to global opt
+          sudo "$XC16_INSTALLER_PATH" --mode unattended --ModifyAll 0 --netservername ""
           echo "::add-path::$XC16_INSTALL_PREFIX_PATH/bin"
       - name: Get firmware source code
         uses: actions/checkout@v2
