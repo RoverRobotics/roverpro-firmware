@@ -5,9 +5,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # latest = https://www.microchip.com/mplabxc16linux
-      # current = http://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.50-full-install-linux64-installer.run
       XC16_INSTALLER_URL: https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.50-full-install-linux64-installer.run
-      #                            https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.50-full-install-linux64-installer.run
     steps:
       - name: set environment variables
         run: |
