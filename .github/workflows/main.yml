@@ -27,7 +27,7 @@ jobs:
           md5sum "$XC16_INSTALLER_PATH"
           chmod +x "$XC16_INSTALLER_PATH"
           # stupid installer requires stupid admin rights
-          sudo "$XC16_INSTALLER_PATH" --prefix "XC16_INSTALL_PREFIX_PATH" --mode unattended --ModifyAll 0 --netservername ""
+          sudo "$XC16_INSTALLER_PATH" --prefix "XC16_INSTALL_PREFIX_PATH" --mode unattended --ModifyAll 0 --netservername "" --debuglevel 4
           echo "::add-path::$XC16_INSTALL_PREFIX_PATH/bin"
 
           sudo apt install doxygen graphviz
