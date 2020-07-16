@@ -31,6 +31,7 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo dpkg --add-architecture i386
+          sudo apt update
           sudo apt install libc6:i386
           dpkg --print-foreign-architectures
           chmod +x "$XC16_INSTALLER_PATH"
