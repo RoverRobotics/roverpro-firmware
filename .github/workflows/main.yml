@@ -14,17 +14,22 @@ jobs:
           echo "::set-env name=DOWNLOADS_PATH::$PWD/downloads"
           echo "::set-env name=XC16_INSTALLER_PATH::$PWD/downloads/xc16-linux-installer.run"
           echo "::set-env name=XC16_INSTALL_PREFIX_PATH::$PWD/xc16_prefix"
-#      - name: Cache downloads
-#        uses: actions/cache@v1
-#        with:
-#          path: ${{ env.DOWNLOADS_PATH }}
-#          key: ${{ runner.os }}-downloads
+
+      - id: cache-xc16
+        uses: actions/cache@v2
+        with:
+          path: ${{ env.XC16_INSTALLER_PATH }}
+          key: ${{ env.XC16_INSTALLER_URL }}
+
+      - name: Download XC16
+        if: steps.cache-xc16.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p $DOWNLOADS_PATH
+          curl -L --verbose --output "$XC16_INSTALLER_PATH" "$XC16_INSTALLER_URL"
+          md5sum "$XC16_INSTALLER_PATH"
 
       - name: Install Dependencies
         run: |
-          mkdir -p $DOWNLOADS_PATH
-          [[ ! -f "$XC16_INSTALLER_PATH" ]] && curl -L --verbose --output "$XC16_INSTALLER_PATH" "$XC16_INSTALLER_URL"
-          md5sum "$XC16_INSTALLER_PATH"
           chmod +x "$XC16_INSTALLER_PATH"
           # stupid installer requires stupid admin rights
           sudo "$XC16_INSTALLER_PATH" --prefix "XC16_INSTALL_PREFIX_PATH" --mode unattended --ModifyAll 0 --netservername "" --debuglevel 4
@@ -72,7 +77,7 @@ jobs:
         run: |
           which python3
           python3 -m venv venv
-          
+
           ./venv/bin/pip install --upgrade pip setuptools
           ./venv/bin/pip install openrover
       - name: Run pitstop
