@@ -28,14 +28,20 @@ jobs:
           curl -L --verbose --output "$XC16_INSTALLER_PATH" "$XC16_INSTALLER_URL"
           md5sum "$XC16_INSTALLER_PATH"
 
-      - name: Install Dependencies
+      - name: Install Microchip XC16 compiler
         run: |
-          chmod +x "$XC16_INSTALLER_PATH"
-          sudo apt install doxygen graphviz
-
-          # stupid installer requires stupid admin rights and only properly installs to global opt
-          sudo "$XC16_INSTALLER_PATH" --mode unattended --ModifyAll 0 --netservername ""
           echo "::add-path::$XC16_INSTALL_PREFIX_PATH/bin"
+          if command -v xc16-gcc &> /dev/null
+          then
+            chmod +x "$XC16_INSTALLER_PATH"
+
+            # stupid installer requires stupid admin rights and only properly installs to global opt
+            sudo "$XC16_INSTALLER_PATH" --mode unattended --ModifyAll 0 --netservername ""
+          fi
+
+      - name: Install Dependencies
+        run: sudo apt install doxygen graphviz
+
       - name: Get firmware source code
         uses: actions/checkout@v2
         with:
