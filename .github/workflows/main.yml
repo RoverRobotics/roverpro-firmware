@@ -31,11 +31,11 @@ jobs:
       - name: Install Dependencies
         run: |
           chmod +x "$XC16_INSTALLER_PATH"
+          sudo apt install doxygen graphviz ia32-libs
+
           # stupid installer requires stupid admin rights
           sudo "$XC16_INSTALLER_PATH" --prefix "XC16_INSTALL_PREFIX_PATH" --mode unattended --ModifyAll 0 --netservername "" --debuglevel 4
           echo "::add-path::$XC16_INSTALL_PREFIX_PATH/bin"
-
-          sudo apt install doxygen graphviz
       - name: Get firmware source code
         uses: actions/checkout@v2
         with:
