@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(PowerBoard VERSION 1.10.0 LANGUAGES C)
+project(PowerBoard VERSION 1.10.1 LANGUAGES C)
 
 # assumes LINKER_SCRIPT
 # but making this an OPTION breaks the script

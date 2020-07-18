@@ -1,7 +1,0 @@
-<component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="PowerBoard (standalone)" type="CMakeRunConfiguration" factoryName="Application" PROGRAM_PARAMS="PowerBoard.elf" WORKING_DIR="file://$PROJECT_DIR$/build/clion/PowerBoard" PASS_PARENT_ENVS_2="true" PROJECT_NAME="OpenRoverFirmware" TARGET_NAME="PowerBoard" CONFIG_NAME="MinGW" RUN_PATH="$PROJECT_DIR$/scripts/write_mcu.bat">
-    <method v="2">
-      <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
-    </method>
-  </configuration>
-</component>

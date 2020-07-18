@@ -134,7 +134,7 @@ void uart_serialize_out_data(uint8_t *out_bytes, uint8_t uart_data_identifier) {
         CASE(42, g_state.analog.battery_current[BATTERY_A])
         CASE(44, g_state.analog.battery_current[BATTERY_B])
         CASE(46, g_state.drive.flipper_angle)
-        // CASE(48, g_state.communication.fan_speed)
+        CASE(48, g_state.i2c.manual_fan_speed)
         // CASE(50, REG_MOTOR_CLOSED_LOOP)
         CASE(52, g_state.i2c.smartbattery_status[BATTERY_A])
         CASE(54, g_state.i2c.smartbattery_status[BATTERY_B])
@@ -221,6 +221,10 @@ void uart_tick() {
             break;
         case UART_COMMAND_SETTINGS_COMMIT:
             settings_save(&g_settings);
+            break;
+        case UART_COMMAND_SET_FAN_SPEED:
+            g_state.i2c.manual_fan_speed = arg;
+            g_state.i2c.last_manual_fan_speed_request_timestamp = clock_now();
             break;
         case UART_COMMAND_SETTINGS_SET_POWER_POLL_INTERVAL:
             g_settings.main.power_poll_ms = arg;

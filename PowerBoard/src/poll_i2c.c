@@ -1,4 +1,6 @@
 #include "poll_i2c.h"
+#include "clock.h"
+#include "cooling.h"
 #include "hardware_definitions.h"
 #include "i2clib.h"
 #include "main.h"
@@ -70,6 +72,23 @@ void i2c2_tick() {
         I2C_ASYNCHRONOUSLY(i2c_op_read_byte(FAN_CONTROLLER_ADDRESS, 0x01, &a_byte))
         g_state.i2c.temperature_sensor_valid[1] = (i2c_result == I2C_OKAY);
         g_state.i2c.temperature_sensor[1] = a_byte;
+
+        if (g_state.i2c.last_manual_fan_speed_done_timestamp <
+            g_state.i2c.last_manual_fan_speed_request_timestamp) {
+            // set rate of change to instantaneous so that the fan ramps up now
+            I2C_ASYNCHRONOUSLY(i2c_op_write_byte(
+                FAN_CONTROLLER_ADDRESS, 0x12, &FAN_DUTY_RATE_OF_CHANGE_INSTANTANEOUS))
+
+            I2C_ASYNCHRONOUSLY(
+                i2c_op_write_byte(FAN_CONTROLLER_ADDRESS, 0x0b, &g_state.i2c.manual_fan_speed))
+            I2C_ASYNCHRONOUSLY(
+                i2c_op_write_byte(FAN_CONTROLLER_ADDRESS, 0x0c, &g_state.i2c.manual_fan_speed))
+
+            // reset rate of change so the fan ramps down gradually
+            I2C_ASYNCHRONOUSLY(
+                i2c_op_write_byte(FAN_CONTROLLER_ADDRESS, 0x12, &FAN_DUTY_RATE_OF_CHANGE_DEFAULT))
+            g_state.i2c.last_manual_fan_speed_done_timestamp = clock_now();
+        }
 
         I2C_ASYNCHRONOUSLY(
             i2c_op_read_byte(FAN_CONTROLLER_ADDRESS, 0x0d, &(g_state.i2c.fan_duty[0])))

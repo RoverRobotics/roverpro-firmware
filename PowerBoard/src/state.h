@@ -71,15 +71,27 @@ typedef struct State {
         int16_t smartbattery_current[BATTERY_COUNT];
         /// Last reported SmartBattery voltage
         uint16_t smartbattery_voltage[BATTERY_COUNT];
+
+        /// The last timestamp that we received a request to change the fan speed
+        uint64_t last_manual_fan_speed_request_timestamp;
+        /// The manual fan speed to override automatic fan control
+        uint8_t manual_fan_speed;
+        /// The last timestamp that we applied a manual change to fan speed
+        uint64_t last_manual_fan_speed_done_timestamp;
     } i2c;
     /// State of the communication subsystem
     struct CommunicationState {
+        /// Inbound data from UART
         ByteQueue rx_q;
+        /// Outbound data for UART
         ByteQueue tx_q;
+        /// Timestamp of the last received drive command
         uint64_t drive_command_timestamp;
         /// Last requested motor effort. Values from -1.0 to 1.0
         float motor_effort[MOTOR_CHANNEL_COUNT];
     } communication;
+    /// Data reserved for debug purposes
+    uint16_t debug_data[8];
 } State;
 
 typedef enum Fault {
