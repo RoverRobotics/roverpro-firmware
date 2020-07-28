@@ -16,10 +16,10 @@
 #define settings g_settings.communication
 #define state g_state.communication
 
-/// In the OpenRover protocol, this byte signifies the start of a message
+/// In the Rover protocol, this byte signifies the start of a message
 const uint8_t UART_START_BYTE = 253;
 
-/// Checksum of a packet. An OpenRover packet should apply this to the payload
+/// Checksum of a packet. A rover packet should apply this to the payload
 /// (contents of the message, excluding the start byte). It is calculated as
 /// 255 - (sum of bytes % 255).
 // TODO: this is a lousy checksum. Use a better checksum.

@@ -95,7 +95,7 @@ For debugging, use MPLAB 8. MPLAB X (5.30) has numerous bugs. Even its bugs have
 3. Build it!
 
 ```
-cd openrover-firmware
+cd roverpro-firmware
 cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="cmake/PowerBoard_toolchain.cmake" 
 cmake --build build
 ```
