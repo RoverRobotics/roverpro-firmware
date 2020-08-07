@@ -8,19 +8,6 @@
 /// Turn all the batteries on immediately
 static void turn_on_power_bus_immediate() { set_active_batteries(BATTERY_FLAG_ALL); }
 
-/// Pulse the power bus with constant-length pulses
-/// (10 ms on + 40 ms off) x 20
-static void turn_on_power_bus_old_method(void) {
-    uint32_t i;
-    for (i = 0; i < 20; i++) {
-        set_active_batteries(BATTERY_FLAG_ALL);
-        block_ms(10);
-        set_active_batteries(BATTERY_FLAG_NONE);
-        block_ms(40);
-    }
-    set_active_batteries(BATTERY_FLAG_ALL);
-}
-
 /// Pulse the power bus with quadratic-length pulses
 /// (600 + (i**2 / 8) microseconds on + 10 ms off) x 300
 static void turn_on_power_bus_new_method() {
@@ -48,8 +35,6 @@ static void turn_on_power_bus_hybrid_method() {
 }
 
 #define BATTERY_DATA_LEN 10
-const char DEVICE_NAME_BB2590[] = "BB-2590";
-const char DEVICE_NAME_BT70791B[] = "BT-70791B";
 const char DEVICE_NAME_BT70791CK[] = "BT-70791CK";
 
 void power_init() {
@@ -77,6 +62,11 @@ void power_init() {
     i2c_enable(I2C_BUS2);
     i2c_enable(I2C_BUS3);
 
+    uint16_t current1 = 0;
+    uint16_t current2 = 0;
+    I2CResult op1 = i2c_synchronously_await(I2C_BUS2,i2c_op_read_word(BATTERY_ADDRESS, 0x0a, &current1));
+    I2CResult op2 = i2c_synchronously_await(I2C_BUS2,i2c_op_read_word(BATTERY_ADDRESS, 0x0a, &current2));
+
     int j;
     for (j = 0; j < 3; j++) {
         // Read "Device Name" from battery
@@ -89,16 +79,9 @@ void power_init() {
         if (result == I2C_OKAY)
             break;
     }
-    // If we're using the old battery (BB-2590)
-    if (strcmp(DEVICE_NAME_BB2590, battery_data1) == 0 ||
-        strcmp(DEVICE_NAME_BB2590, battery_data2) == 0) {
-        turn_on_power_bus_old_method();
-    }
 
     // If we're using the new battery (BT-70791B or BT-70791C)
-    else if (
-        strcmp(DEVICE_NAME_BT70791B, battery_data1) == 0 ||
-        strcmp(DEVICE_NAME_BT70791B, battery_data2) == 0 ||
+    if (
         strcmp(DEVICE_NAME_BT70791CK, battery_data1) == 0 ||
         strcmp(DEVICE_NAME_BT70791CK, battery_data2) == 0) {
         turn_on_power_bus_new_method();
