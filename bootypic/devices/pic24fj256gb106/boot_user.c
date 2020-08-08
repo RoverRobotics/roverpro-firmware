@@ -4,6 +4,8 @@
 #include "power.h"
 
 bool pre_boot(){
+    i2c_enable(I2C_BUS2);
+    i2c_enable(I2C_BUS3);
 	power_init();
 
 	bool should_run_bootloader;

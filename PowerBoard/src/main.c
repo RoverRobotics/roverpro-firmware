@@ -37,12 +37,11 @@ bool tick_counter(uint16_t *value, uint16_t limit) {
 }
 
 void rover_init() {
-    clock_init();
-
     i2c_enable(I2C_BUS2);
     i2c_enable(I2C_BUS3);
-
     power_init();
+
+    clock_init();
     uart_init();
     analog_init();
 

@@ -6,20 +6,15 @@
 #include <string.h>
 
 /// Turn all the batteries on immediately
-static void turn_on_power_bus_immediate() { set_active_batteries(BATTERY_FLAG_ALL); }
-
-/// Pulse the power bus with quadratic-length pulses
-/// (600 + (i**2 / 8) microseconds on + 10 ms off) x 300
-static void turn_on_power_bus_new_method() {
-    uint32_t i = 0;
-    for (i = 0; i < 300; i++) {
-        set_active_batteries(BATTERY_FLAG_ALL);
-        block_us(600 + i * i / 8);
-        set_active_batteries(BATTERY_FLAG_NONE);
-        block_us(10000);
-    }
-    set_active_batteries(BATTERY_FLAG_ALL);
-}
+static bool try_turn_on_power_bus_immediate() {
+    if (RCONbits.POR){
+		return false;
+	}
+	// If the system is "warm", assume the power bus is still energized and just switch the power
+    // bus back on.
+	set_active_batteries(BATTERY_FLAG_ALL);
+	return true;
+ }
 
 /// Pulse the power bus with quadratic-length pulses
 /// (600 + (i**2 / 8) microseconds on + 40 ms off) x 200
@@ -34,8 +29,34 @@ static void turn_on_power_bus_hybrid_method() {
     set_active_batteries(BATTERY_FLAG_ALL);
 }
 
-#define BATTERY_DATA_LEN 10
-const char DEVICE_NAME_BT70791CK[] = "BT-70791CK";
+static bool try_turn_on_power_bus_adaptive() {
+	int32_t pulse_on_us = 600;
+	int32_t pulse_max_us = 10000;
+   	while (pulse_on_us < pulse_max_us) {
+        set_active_batteries(BATTERY_FLAG_ALL);
+        block_us(pulse_on_us);
+        set_active_batteries(BATTERY_FLAG_NONE);
+		I2CResult result[2] = {0};
+		uint16_t battery_status[2] = {0};
+
+		result[0] = i2c_synchronously_await(I2C_BUS2, i2c_op_read_word(BATTERY_ADDRESS, 0x16, &battery_status[0]));
+		result[1] = i2c_synchronously_await(I2C_BUS3, i2c_op_read_word(BATTERY_ADDRESS, 0x16, &battery_status[1]));
+
+		if (result[0] != I2C_OKAY && result[1] != I2C_OKAY){
+			// we can't communicate with either battery. Abort.
+			return false;
+		}	
+		if ((result[0] == I2C_OKAY && !(battery_status[0] & 0x0800)) ||
+			(result[1] == I2C_OKAY && !(battery_status[1] & 0x0800)))
+		{
+			// either battery reports okay power draw
+			__builtin_clrwdt();
+			pulse_on_us = pulse_on_us * 9 / 8;
+		}
+    }
+    set_active_batteries(BATTERY_FLAG_ALL);
+	return true;
+}
 
 void power_init() {
     init_battery_io();
@@ -48,47 +69,13 @@ void power_init() {
 
     // If the system is "warm", assume the power bus is still energized and just switch the power
     // bus back on.
-    if (!RCONbits.POR) {
-        turn_on_power_bus_immediate();
+    if (try_turn_on_power_bus_immediate()) {
         return;
     }
-
-    char battery_data1[BATTERY_DATA_LEN] = {0};
-    char battery_data2[BATTERY_DATA_LEN] = {0};
-    I2CResult result;
-    I2COperationDef op;
-
-    // initialize i2c buses
-    i2c_enable(I2C_BUS2);
-    i2c_enable(I2C_BUS3);
-
-    uint16_t current1 = 0;
-    uint16_t current2 = 0;
-    I2CResult op1 = i2c_synchronously_await(I2C_BUS2,i2c_op_read_word(BATTERY_ADDRESS, 0x0a, &current1));
-    I2CResult op2 = i2c_synchronously_await(I2C_BUS2,i2c_op_read_word(BATTERY_ADDRESS, 0x0a, &current2));
-
-    int j;
-    for (j = 0; j < 3; j++) {
-        // Read "Device Name" from battery
-        op = i2c_op_read_block(BATTERY_ADDRESS, 0x21, battery_data1, BATTERY_DATA_LEN);
-        result = i2c_synchronously_await(I2C_BUS2, op);
-        if (result == I2C_OKAY)
-            break;
-        op = i2c_op_read_block(BATTERY_ADDRESS, 0x21, battery_data2, BATTERY_DATA_LEN);
-        result = i2c_synchronously_await(I2C_BUS3, op);
-        if (result == I2C_OKAY)
-            break;
-    }
-
-    // If we're using the new battery (BT-70791B or BT-70791C)
-    if (
-        strcmp(DEVICE_NAME_BT70791CK, battery_data1) == 0 ||
-        strcmp(DEVICE_NAME_BT70791CK, battery_data2) == 0) {
-        turn_on_power_bus_new_method();
-    }
-
-    // if we're using an unknown battery
-    else {
-        turn_on_power_bus_hybrid_method();
-    }
+	if (try_turn_on_power_bus_adaptive()){
+		return;
+	}
+	else {
+		turn_on_power_bus_hybrid_method();
+	}
 }
