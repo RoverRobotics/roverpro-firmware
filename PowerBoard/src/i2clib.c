@@ -127,10 +127,13 @@ I2CState i2c_state(I2CBus bus) {
 }
 
 void i2c_enable(I2CBus bus) {
-    I2CControlBits blank_con = {0};
-    *(bus->CON) = blank_con;
-    *(bus->BRG) = 0xc0;
-    bus->CON->I2CEN = 1;
+    *bus->CON = (I2CControlBits){0};
+    *bus->BRG = 0xc0;
+    *bus->CON = (I2CControlBits){
+        .I2CEN = 1, // enable I2C bus
+        .SMEN = 1,  // use SMBus compatible mode
+    };
+    *bus->STAT = (I2CStatusBits){0};
 }
 void i2c_disable(I2CBus bus) { bus->CON->I2CEN = 0; }
 
