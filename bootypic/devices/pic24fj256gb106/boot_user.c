@@ -1,6 +1,7 @@
 /// Device-specific implementation details
 #include "xc.h"
 #include "boot_user.h"
+#include "i2clib.h"
 #include "power.h"
 
 bool pre_boot(){
