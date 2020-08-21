@@ -3,7 +3,7 @@ Firmware
 
 ## Release files
 
-The latest release may be acquired from https://github.com/RoverRobotics/OpenRoverFirmware-dan/releases/latest
+The latest release may be acquired from https://github.com/RoverRobotics/roverpro-firmware/releases/latest
 
 The following files are included.
 
@@ -19,7 +19,7 @@ The bootloader image is called `bootypic.hex`. This must be installed with a dev
 set pk3cmd="C:\opt\Microchip\MPLAB IDE\Programmer Utilities\PICkit3\PK3CMD.exe"
 set part=24fj256gb106
 set oldhex="%USERPROFILE%\Downloads\backup.hex"
-set newhex="%USERPROFILE%\Documents\OpenRoverFirmware\build\clion\bootypic\bootypic.hex"
+set newhex="%USERPROFILE%\Documents\roverpro-firmware\build\clion\bootypic\bootypic.hex"
 %pk3cmd% -P%part% -GF%oldhex% -R%newhex%
 ```
 
@@ -28,7 +28,7 @@ set newhex="%USERPROFILE%\Documents\OpenRoverFirmware\build\clion\bootypic\booty
 Assuming the bootloader is installed, you don't need the PICKit to install the firmware. With a header board attached to the computer via USB:
 
 ```cmd
-set %newhex%="%USERPROFILE%\Documents\OpenRoverFirmware\build\clion\PowerBoard\PowerBoard.hex"
+set %newhex%="%USERPROFILE%\Documents\roverpro-firmware\build\clion\PowerBoard\PowerBoard.hex"
 python3 -m pip install --upgrade openrover
 python3 -m openrover.pitstop -f %newhex%
 ```
@@ -95,7 +95,7 @@ For debugging, use MPLAB 8. MPLAB X (5.30) has numerous bugs. Even its bugs have
 3. Build it!
 
 ```
-cd openrover-firmware
+cd roverpro-firmware
 cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="cmake/PowerBoard_toolchain.cmake" 
 cmake --build build
 ```
