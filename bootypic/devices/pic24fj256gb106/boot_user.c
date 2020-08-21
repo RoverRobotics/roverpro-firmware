@@ -1,9 +1,12 @@
 /// Device-specific implementation details
 #include "xc.h"
 #include "boot_user.h"
+#include "i2clib.h"
 #include "power.h"
 
 bool pre_boot(){
+    i2c_enable(I2C_BUS2);
+    i2c_enable(I2C_BUS3);
 	power_init();
 
 	bool should_run_bootloader;
