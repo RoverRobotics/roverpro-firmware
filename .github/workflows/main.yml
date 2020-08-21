@@ -65,7 +65,7 @@ jobs:
           name: install
           path: install
   test-bootload:
-    runs-on: openrover
+    runs-on: roverpro
     needs: build
     steps:
       - name: Download install folder
