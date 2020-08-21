@@ -10,7 +10,7 @@ set(CMAKE_SYSTEM_PROCESSOR ${MICROCHIP_CPU_ID})
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR})
 
-set(XC16_VER v1.50)
+set(XC16_VER v1.60)
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL Windows)
   # I use an alternate root so MPLAB X doesn't complain about the spaces in the path to system headers.
   set(XC16_ROOT
@@ -25,15 +25,10 @@ find_package(XC16)
 set(ENV{XC16_OMF} elf)
 set(CMAKE_EXECUTABLE_SUFFIX_C .elf)
 
-# there are still some problems with compiler identification since XC16 mishandles the -v/--verbose flag
 # setting the compiler to elf-gcc instead of xc16-gcc seems to work slightly better
 set(CMAKE_C_COMPILER "${XC16_elf-gcc_EXECUTABLE}")
 #set(CMAKE_C_COMPILER "${XC16_gcc_EXECUTABLE}")
 
-set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
-
-set(CMAKE_C_LINKER_WRAPPER_FLAG "-Wl,")
-set(CMAKE_C_LINKER_WRAPPER_FLAG_SEP ",")
 
 string(JOIN " " CMAKE_C_FLAGS_INIT
   # note: -mafrlcsj turns off license check
@@ -60,9 +55,3 @@ set(CMAKE_EXE_LINKER_FLAGS_RELEASE_INIT "-Wl,--gc-sections")
 
 set(CMAKE_C_FLAGS_RELWITHDEBINFO_INIT "-O2 -g -DNDEBUG")
 set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO_INIT "-Wl,--defsym=__ICD2RAM=1")
-
-# these should be detected by compiler identification, but since they're not...
-set(CMAKE_C_IMPLICIT_INCLUDE_DIRECTORIES "${XC16_ROOT_DIR}/include" "${XC16_ROOT_DIR}/support/generic/h" )
-set(CMAKE_C_IMPLICIT_LINK_LIBRARIES "liblega-c-elf" "liblega-pic30-elf" "libm-elf" )
-set(CMAKE_C_IMPLICIT_LINK_DIRECTORIES "${XC16_ROOT_DIR}/lib")
-set(CMAKE_C_SIZEOF_DATA_PTR 2)
