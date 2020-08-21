@@ -29,8 +29,8 @@ Assuming the bootloader is installed, you don't need the PICKit to install the f
 
 ```cmd
 set %newhex%="%USERPROFILE%\Documents\roverpro-firmware\build\clion\PowerBoard\PowerBoard.hex"
-python3 -m pip install --upgrade openrover
-python3 -m openrover.pitstop -f %newhex%
+python3 -m pip install --upgrade roverpro
+pitstop flash %newhex%
 ```
 
 ### Troubleshooting bootloader
@@ -57,10 +57,10 @@ You can create a combo image in several ways. Below are instructions via MPLAB 8
 
 1. configure -> Settings -> Program Loading
 2. Uncheck all the checkboxes (Clear program memory upon loading a program, Clear configuration bits upon loading a program, ...)
-3. File -> Import ...; Choose the application hex file, e.g. `PowerBoard-1.9.3.hex`
-4. File -> Import ...; Choose the bootloader hex file, e.g. `bootypic-1.9.3.hex`
+3. File -> Import ...; Choose the application hex file, e.g. `PowerBoard-1.11.0.hex`
+4. File -> Import ...; Choose the bootloader hex file, e.g. `bootypic-1.11.0.hex`
 5. File -> Export (The defaults should be correct: Program memory = 0 : 0x2abf6, Configuration bits checked, File Format Intel 32-bit Hex)
-6. Name your new combo image, e.g. `combo-1.9.3.hex`
+6. Name your new combo image, e.g. `combo-1.11.0.hex`
 
 ### Creating a combo image with HexMerge
 
@@ -73,7 +73,7 @@ You can create a combo image in several ways. Below are instructions via MPLAB 8
 2. Now create a hex image of both the bootloader and the powerboard:
    
    ```
-   hexmerge.py PowerBoard-1.9.3.hex bootypic-1.9.3.hex -o combo-1.9.3.hex --overlap=replace
+   hexmerge.py PowerBoard-1.11.0.hex bootypic-1.11.0.hex -o combo-1.11.0.hex --overlap=replace
    ```
 
 ### Installing a combo image
