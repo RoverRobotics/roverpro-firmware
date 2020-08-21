@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(OpenRoverFirmware VERSION 1.10.0 LANGUAGES C)
+project("Rover Pro Firmware" VERSION 1.10.0 LANGUAGES C)
 
 set(BOOTYPIC_DEVICE_DIR "${CMAKE_CURRENT_LIST_DIR}/bootypic/devices/pic24fj256gb106")
 set(BOOTYPIC_ROOT ${CMAKE_CURRENT_LIST_DIR}/bootypic)
@@ -10,9 +10,9 @@ add_subdirectory(${POWERBOARD_ROOT})
 
 set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
 set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${PROJECT_VERSION}")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Firmware and Bootloader for OpenRover Power Board hardware")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Firmware and Bootloader for Rover Pro Power Board hardware")
 set(CPACK_GENERATOR "ZIP")
-set(CPACK_PACKAGE_VENDOR OpenRover)
+set(CPACK_PACKAGE_VENDOR "Rover Robotics")
 
 include (CPack REQUIRED)
 
