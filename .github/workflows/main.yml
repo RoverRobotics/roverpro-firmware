@@ -7,6 +7,9 @@ jobs:
       # latest = https://www.microchip.com/mplabxc16linux
       XC16_INSTALLER_URL: "https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.60-full-install-linux64-installer.run"
     steps:
+      - name: Clean workspace
+        uses: AutoModality/action-clean@v1
+
       - name: set environment variables
         run: |
           echo "::set-env name=DOWNLOADS_PATH::$PWD/downloads"
@@ -64,6 +67,7 @@ jobs:
         with:
           name: install
           path: install
+
   test-bootload:
     runs-on: roverpro
     needs: build
@@ -73,21 +77,18 @@ jobs:
         with:
           name: install
           path: install
-      - name: Set up python
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.6'
-      - name: venv
+      - name: Install openrover for Python
         run: |
           which python3
-          python3 -m venv venv
+          python3 -m venv ./venv
+          source ./venv/bin/activate
 
-          ./venv/bin/pip install --upgrade pip setuptools
-          ./venv/bin/pip install openrover
+          pip install --upgrade pip setuptools wheel
+          pip install openrover
       - name: Run pitstop
         timeout-minutes: 5
         run: |
-          source venv/bin/activate
+          source ./venv/bin/activate
           # note this requires permission: sudo usermod -a -G dialout $(whoami)
           pitstop -f install/PowerBoard.hex -m 0
           sleep 30
