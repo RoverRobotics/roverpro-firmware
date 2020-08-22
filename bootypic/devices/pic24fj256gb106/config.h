@@ -1,7 +1,6 @@
 /* PIC24FJ256GB106 Configuration Bit Settings */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
+#pragma once
 
 #pragma config JTAGEN = OFF
 #pragma config GCP = OFF
@@ -16,5 +15,3 @@
 #pragma config FNOSC = PRIPLL
 #pragma config PLLDIV = DIV5
 #pragma config IOL1WAY = ON
-
-#endif

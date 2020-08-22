@@ -82,8 +82,7 @@
 /// [^1]: for battery reporting, "internal" means the value comes from the SmartBattery's internal sensor. "external" means the value is reported by circuitry outside the SmartBattery
 // clang-format on
 
-#ifndef COMMUNICATION_H
-#define COMMUNICATION_H
+#pragma once
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -154,5 +153,3 @@ typedef enum UARTCommand {
     UART_COMMAND_SETTINGS_SET_BRAKE_ON_FAULT = 18,
 
 } UARTCommand;
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef _BOOTLOADER_H
-#define _BOOTLOADER_H
+#pragma once
 #include "boot_user.h"
 
 /** @brief the version of the transmission protocol
@@ -192,5 +191,3 @@ extern void initUart(void);
  * @brief initializes timers for bootloader timeout
  */
 extern void initTimers(void);
-
-#endif

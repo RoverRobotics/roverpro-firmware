@@ -1,6 +1,7 @@
+#pragma once
+
 #include "stdhdr.h"
 #include <stdint.h>
-#pragma once
 
 /// Set up timers for the high-precision timestamp
 void clock_init();

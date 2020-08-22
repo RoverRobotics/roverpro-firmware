@@ -1,8 +1,7 @@
 /// @file
 /// Analog sampling of various internal devices
 
-#ifndef ANALOG_H
-#define ANALOG_H
+#pragma once
 
 #include <stdint.h>
 
@@ -28,5 +27,3 @@ void analog_tick();
 /// Get the smoothed value from the given analog channel
 /// We use a simple windowed average of the last 4 samples.
 uint16_t analog_get_value(AnalogChannel c);
-
-#endif

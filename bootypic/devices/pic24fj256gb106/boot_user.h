@@ -1,5 +1,4 @@
-#ifndef _BOOT_USER_H
-#define _BOOT_USER_H
+#pragma once
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -101,4 +100,4 @@ void writeRow(uint32_t address, uint32_t *words);
  */
 void writeMax(uint32_t address, uint32_t *progData);
 
-#endif
+#pragma once

@@ -2,8 +2,7 @@
 /// Settings are persistent values that do not change in regular operation of the rover. They
 /// are reloaded from non-volatile memory when the robot boots up.
 
-#ifndef SETTINGS_H
-#define SETTINGS_H
+#pragma once
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -111,5 +110,3 @@ Settings settings_load();
 
 /// Save the specified settings to non-volatile memory
 void settings_save(const Settings *settings);
-
-#endif

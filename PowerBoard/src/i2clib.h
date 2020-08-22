@@ -2,8 +2,7 @@
 /// Dan's glorious I2C library.
 /// A high-level wrapper around PIC24's I2C primitives.
 
-#ifndef I2CLIB_H
-#define I2CLIB_H
+#pragma once
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -145,5 +144,3 @@ I2CResult i2c_tick(I2CBus bus, const I2COperationDef *op, I2CProgress *progress)
 ///          I2C_OKAY if the operation completed successfully
 ///          other values if the operation failed
 I2CResult i2c_synchronously_await(I2CBus bus, I2COperationDef op);
-
-#endif

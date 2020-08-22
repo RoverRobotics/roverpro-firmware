@@ -1,8 +1,7 @@
 /// @file
 /// Common declarations.
 
-#ifndef STDHDR_H
-#define STDHDR_H
+#pragma once
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -41,4 +40,3 @@ void block_us(uint32_t us);
 void block_s(float seconds);
 
 #define clamp(x, lo, hi) ((x) < (lo) ? (lo) : (x) > (hi) ? (hi) : (x))
-#endif

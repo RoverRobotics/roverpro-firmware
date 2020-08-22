@@ -1,8 +1,7 @@
 /// @file
 /// Low-level motor details for speed control and tachometry
 
-#ifndef MOTOR_H
-#define MOTOR_H
+#pragma once
 
 #include "stdhdr.h"
 
@@ -87,5 +86,3 @@ void tach_tick();
 /// @param duty    The duty cycle to send to the motor; from 0 to 1
 /// @return        The new motor status, with any new fault flags
 MotorStatusFlag motor_update(MotorChannel channel, MotorStatusFlag status, float duty);
-
-#endif
