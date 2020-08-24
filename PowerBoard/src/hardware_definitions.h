@@ -1,8 +1,7 @@
 /// @file
 /// Hardware details, generally derived from the electrical diagram of the rover
 
-#ifndef HARDWARE_DEFINITIONS_H
-#define HARDWARE_DEFINITIONS_H
+#pragma once
 
 #include <xc.h>
 
@@ -104,5 +103,3 @@ enum I2CDeviceAddress {
     /// respond to I2C ReadWord 0xca with value 0xdada to indicate that charging is active.
     BATTERY_CHARGER_ADDRESS = 0b0001100,
 };
-
-#endif

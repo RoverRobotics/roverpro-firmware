@@ -1,8 +1,8 @@
 /// @file
 /// Low-level battery control functions
 
-#ifndef BATTERY_H
-#define BATTERY_H
+#pragma once
+
 #include <stdbool.h>
 
 typedef enum Battery {
@@ -25,5 +25,3 @@ void set_active_batteries(BatteryFlag state);
 
 /// Get which battery/batteries we are currently drawing from
 BatteryFlag get_active_batteries();
-
-#endif

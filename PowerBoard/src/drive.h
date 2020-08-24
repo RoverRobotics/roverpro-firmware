@@ -1,10 +1,6 @@
 /// @file
 /// Controls rover driving behavior.
 
-#ifndef DRIVE_H
-#define DRIVE_H
-
+#pragma once
 void drive_init();
 void drive_tick();
-
-#endif

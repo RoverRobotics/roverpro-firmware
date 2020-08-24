@@ -1,7 +1,7 @@
 # Style file for pre-commit code checks with clang-tidy
 
 ---
-Checks:          '-*,readability-*,-readability-else-after-return,bugprone-*,-readability-magic-numbers,clang-portability-*,llvm-include-order'
+Checks:          '-*,readability-*,-readability-else-after-return,bugprone-*,-bugprone-reserved-identifier,-readability-magic-numbers,clang-portability-*,llvm-include-order'
 WarningsAsErrors: ''
 HeaderFilterRegex: ''
 CheckOptions:

@@ -31,8 +31,8 @@ static void turn_on_power_bus_new_method() {
 
 static bool try_turn_on_power_bus_adaptive() {
     int32_t pulse_on_us = 600;
-	int32_t pulse_max_us = 10000;
-   	while (pulse_on_us < pulse_max_us) {
+    int32_t pulse_max_us = 10000;
+    while (pulse_on_us < pulse_max_us) {
         set_active_batteries(BATTERY_FLAG_ALL);
         block_us(pulse_on_us);
         set_active_batteries(BATTERY_FLAG_NONE);

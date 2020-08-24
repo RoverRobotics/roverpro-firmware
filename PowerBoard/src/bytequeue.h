@@ -2,8 +2,7 @@
 /// A FIFO data structure for arbitrary binary data.
 /// Designed for single-producer, single-consumer use.
 
-#ifndef BYTEQUEUE_N
-#define BYTEQUEUE_N
+#pragma once
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -57,5 +56,3 @@ bool bq_can_push(ByteQueue *self, size_t n);
 
 /// Check whether the ByteQueue has at least n bytes of data
 bool bq_can_pop(ByteQueue *self, size_t n);
-
-#endif

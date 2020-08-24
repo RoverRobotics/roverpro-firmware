@@ -1,8 +1,7 @@
 /// @file
 /// Declares shared globals @ref g_settings and @ref g_state for all rover functional areas
 
-#ifndef MAIN_H
-#define MAIN_H
+#pragma once
 
 #include "settings.h"
 #include "state.h"
@@ -19,5 +18,3 @@ extern State g_state;
 
 void clear_system_fault();
 SystemFaultFlag get_system_fault();
-
-#endif

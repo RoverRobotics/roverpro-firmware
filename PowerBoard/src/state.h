@@ -1,8 +1,7 @@
 /// @file
 /// State of the rover.
 
-#ifndef STATE_H
-#define STATE_H
+#pragma once
 
 #include "battery.h"
 #include "bytequeue.h"
@@ -99,5 +98,3 @@ typedef enum Fault {
     FAULT_OVERSPEED = 1U << 0U,
     FAULT_OVERCURRENT = 1U << 1U,
 } SystemFaultFlag;
-
-#endif
