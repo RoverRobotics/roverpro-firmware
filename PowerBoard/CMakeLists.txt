@@ -69,7 +69,7 @@ add_custom_command(OUTPUT "${POWERBOARD_HEX}"
 )
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${POWERBOARD_HEX}" DESTINATION ".")
 
-find_package(Doxygen)
+find_package(Doxygen 1.8.17)
 set(DOXYGEN_PROJECT_NAME "Rover Pro Firmware")
 set(DOXYGEN_MULTILINE_CPP_IS_BRIEF YES)
 set(DOXYGEN_OPTIMIZE_OUTPUT_FOR_C YES)
