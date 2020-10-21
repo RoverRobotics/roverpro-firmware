@@ -40,3 +40,14 @@ void block_us(uint32_t us);
 void block_s(float seconds);
 
 #define clamp(x, lo, hi) ((x) < (lo) ? (lo) : (x) > (hi) ? (hi) : (x))
+
+#ifndef static_assert
+#ifdef __XC16__
+// work around a bug in microchip libraries
+//#define static_assert(x,y) _Pragma("GCC diagnostic push") _Pragma("GCC diagnostic ignored
+//\"-Wpointer-sign\"") _Static_assert(x,y) _Pragma("GCC diagnostic pop")
+#define static_assert(x, y) _Static_assert(x, (const void *)(y))
+#else
+#define static_assert _Static_assert
+#endif
+#endif
