@@ -69,7 +69,7 @@ jobs:
           path: install
 
   test-bootload:
-    runs-on: roverpro
+    runs-on: [self-hosted, roverpro]
     needs: build
     steps:
       - name: Download install folder
