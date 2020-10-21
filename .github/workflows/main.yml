@@ -12,9 +12,9 @@ jobs:
 
       - name: set environment variables
         run: |
-          echo "::set-env name=DOWNLOADS_PATH::$PWD/downloads"
-          echo "::set-env name=XC16_INSTALLER_PATH::$PWD/downloads/xc16-linux-installer.run"
-          echo "::set-env name=XC16_INSTALL_PREFIX_PATH::/opt/microchip/xc16/v1.60"
+          echo "DOWNLOADS_PATH=$PWD/downloads" >> $GITHUB_ENV
+          echo "XC16_INSTALLER_PATH=$PWD/downloads/xc16-linux-installer.run" >> $GITHUB_ENV
+          echo "XC16_INSTALL_PREFIX_PATH=/opt/microchip/xc16/v1.60" >> $GITHUB_ENV
 
       - id: cache-xc16
         uses: actions/cache@v2
