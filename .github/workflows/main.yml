@@ -31,7 +31,7 @@ jobs:
 
       - name: Install Microchip XC16 compiler
         run: |
-          echo "::add-path::$XC16_INSTALL_PREFIX_PATH/bin"
+          echo "$XC16_INSTALL_PREFIX_PATH/bin" >> $GITHUB_PATH
           if ! command -v xc16-gcc &> /dev/null
           then
             chmod +x "$XC16_INSTALLER_PATH"
