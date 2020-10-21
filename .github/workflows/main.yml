@@ -90,6 +90,6 @@ jobs:
         run: |
           source ./venv/bin/activate
           # note this requires permission: sudo usermod -a -G dialout $(whoami)
-          pitstop flash install/PowerBoard.hex -m 0
-          sleep 30
-          pitstop -m 0
+          pitstop flash install/PowerBoard.hex
+          sleep 10
+          pitstop checkversion 1.11
