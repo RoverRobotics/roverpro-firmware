@@ -2,7 +2,7 @@ name: CI
 on: push
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     env:
       # latest = https://www.microchip.com/mplabxc16linux
       XC16_INSTALLER_URL: "https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.60-full-install-linux64-installer.run"
