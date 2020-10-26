@@ -81,3 +81,4 @@ void IC_Deinit(void);
 #endif
 
 #define MAX_NUM_IC_PINS           9
+static volatile float periods[MAX_NUM_IC_PINS];
