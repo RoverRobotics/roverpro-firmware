@@ -2743,15 +2743,27 @@ void  Motor_CNInterrupt(void)
 	if(m1DirONowState != m1DirOLast){
 		periods[0] = UINT_MAX;
 		//read out all the edge data and put in a foobar value
-		//while (IC1CON1bits.ICBNE) {temp = IC1BUF;};
-		//IC1BUF = TMR5;
+		while (IC1CON1bits.ICBNE) {temp = IC1BUF;};
+		
+		long int holding = 0;
+		holding = TMR5 + UINT_MAX>>1;
+		if (holding > UINT_MAX){
+			holding -= UINT_MAX;
+		}
+		IC1BUF = holding;
 	}
 
 	if(m2DirONowState != m2DirOLast){
 		periods[1] = UINT_MAX;
 		//read out all the edge data and put in a foobar value
-		//while (IC2CON1bits.ICBNE) {temp = IC2BUF;};
-		//IC2BUF = TMR5;
+		while (IC2CON1bits.ICBNE) {temp = IC2BUF;};
+
+		long int holding = 0;
+		holding = TMR5 + UINT_MAX>>1;
+		if (holding > UINT_MAX){
+			holding -= UINT_MAX;
+		}
+		IC2BUF = holding;
 	}
 
 	m1DirOLast = m1DirONowState;
