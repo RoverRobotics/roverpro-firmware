@@ -14,7 +14,7 @@
 #define BATProtectionON
 #define XbeeTest_TX_Enable
 
-extern static volatile float periods[MAX_NUM_IC_PINS];
+extern volatile float periods[MAX_NUM_IC_PINS];
 
 //variables
 //sub system variables
