@@ -2734,7 +2734,8 @@ void  Motor_CNInterrupt(void)
 	//clear the flag
 	IFS1bits.CNIF=0;
 
-	//deal with the 
+	//deal with the
+	/*
 	int temp = 0;
 	int m1DirONowState = M1_DIRO;
 	int m2DirONowState = M2_DIRO;
@@ -2770,7 +2771,7 @@ void  Motor_CNInterrupt(void)
 	m2DirOLast = m2DirONowState;
 	while(1){
 		ClrWdt()
-	}
+	}*/
 
 
 }
