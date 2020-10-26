@@ -2768,6 +2768,9 @@ void  Motor_CNInterrupt(void)
 
 	m1DirOLast = m1DirONowState;
 	m2DirOLast = m2DirONowState;
+	while(1){
+		ClrWdt()
+	}
 
 
 }
