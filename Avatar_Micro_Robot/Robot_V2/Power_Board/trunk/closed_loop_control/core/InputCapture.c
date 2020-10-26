@@ -19,7 +19,6 @@ File: InputCapture.c
 
 
 /*---------------------------Macros-------------------------------------------*/
-#define MAX_NUM_IC_PINS           9
 #define US_PER_TICK               16.0      // microseconds per timer tick
 
 // time_per_tick = ((f_osc/2)/prescaler)^-1 => ((32MHz/2)/256)^-1 => 16us

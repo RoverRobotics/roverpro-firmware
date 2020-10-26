@@ -79,3 +79,5 @@ Description: Deinitializes this module, restoring any resources and/or pins
 void IC_Deinit(void);
 
 #endif
+
+#define MAX_NUM_IC_PINS           9

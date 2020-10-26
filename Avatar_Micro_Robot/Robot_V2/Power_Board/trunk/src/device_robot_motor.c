@@ -14,6 +14,9 @@
 #define BATProtectionON
 #define XbeeTest_TX_Enable
 
+#define UINT_MAX 65535
+extern static volatile float periods[MAX_NUM_IC_PINS];
+
 //variables
 //sub system variables
 static long int Period1;
@@ -103,6 +106,8 @@ unsigned int REncoderCurrentValue=0;
 
 long Encoder_Interrupt_Counter[2] = {0,0};
 
+int m1DirOLast = 0;
+int m2DirOLast = 0;
 long EncoderFBInterval[3][SampleLength]={{0,0,0,0},{0,0,0,0},{0,0,0,0}};
 int DIR[3][SampleLength]={{0,0,0,0},{0,0,0,0},{0,0,0,0}};
 int EncoderFBIntervalPointer[3]={0,0,0};
@@ -2083,6 +2088,9 @@ void MC_Ini(void)//initialzation for the whole program
 	M3_MODE=1;
 	//*******************************************
  	InterruptIni();
+	//initialize interrupt on change
+
+
  	//initialize AD
  	IniAD();
 	//initialize timer
@@ -2109,17 +2117,13 @@ void MC_Ini(void)//initialzation for the whole program
  	I2C1Ini();
  	I2C2Ini();
  	I2C3Ini();
-
+	CN_Ini();
 
  	#ifdef XbeeTest
  	UART1Ini();
  	#endif
 
 	set_firmware_build_time();
-
-
-
-
 
 }
 
@@ -2133,6 +2137,7 @@ void InterruptIni()
 // 	IC1InterruptUserFunction=Motor_IC1Interrupt;
 // 	IC3InterruptUserFunction=Motor_IC3Interrupt;
  	ADC1InterruptUserFunction=Motor_ADC1Interrupt;
+	CNInterruptUserFunction=Motor_CNInterrupt;
  	#ifdef XbeeTest
  		U1TXInterruptUserFunction=Motor_U1TXInterrupt;
  		U1RXInterruptUserFunction=Motor_U1RXInterrupt;
@@ -2698,12 +2703,56 @@ void UART1Ini()
 
 
 /*****************************************************************************/
+//*-----------------------------------UART------------------------------------*/
+void CN_Ini()
+{
+ 	//set priority
+	IPC4bits.CNIP2=1;
+	IPC4bits.CNIP1=1;
+	IPC4bits.CNIP0=1;
+
+	//clear the flag
+	IFS1bits.CNIF=0;
+
+	//enable the interrupts
+	CNEN4bits.CN49IE=1; 
+	CNEN4bits.CN63IE=1;
+}
+
+
+
+
+/*****************************************************************************/
 
 
 
 
 
 /***************************Interrupt routines***********************************/
+
+void  Motor_CNInterrupt(void)
+{
+	//clear the flag
+	IFS1bits.CNIF=0;
+
+	//deal with the channel
+	int m1DirONowState = M1_DIRO;
+	int m2DirONowState = M2_DIRO;
+
+	//resolve the speed
+	if(m1DirONowState != m1DirOLast){
+		periods[0] = UINT_MAX;
+	}
+
+	if(m2DirONowState != m2DirOLast){
+		periods[1] = UINT_MAX;
+	}
+
+	m1DirOLast = m1DirONowState;
+	m2DirOLast = m2DirONowState;
+
+
+}
 
 void  Motor_IC1Interrupt(void)
 {
