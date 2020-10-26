@@ -310,6 +310,7 @@ static void InitIC1(const uint8_t RPn) {
   IC1CON1bits.ICTSEL = 0b011;   // use Timer5 as the time base
   IC1CON1bits.ICI = 0b00;   // fire the interrupt every capture event
   IC1CON1bits.ICM = 0b011;  // capture event on every rising edge
+  IPC0bits.IC1IP2 = 0; //set lower priority
   
   //PPS_MapPeripheral(RPn, INPUT, FN_IC1);
   _IC1R = RPn;
@@ -329,6 +330,7 @@ static void InitIC2(const uint8_t RPn) {
   IC2CON1bits.ICTSEL = 0b011;   // use Timer5 as the time base
   IC2CON1bits.ICI = 0b00;
   IC2CON1bits.ICM = 0b011;
+  IPC0bits.IC2IP2 = 0; //set lower priority
 
   IC2InterruptUserFunction=IC2_ISR;
   
