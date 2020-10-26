@@ -330,7 +330,7 @@ static void InitIC2(const uint8_t RPn) {
   IC2CON1bits.ICTSEL = 0b011;   // use Timer5 as the time base
   IC2CON1bits.ICI = 0b00;
   IC2CON1bits.ICM = 0b011;
-  IPC0bits.IC2IP2 = 0; //set lower priority
+  IPC1bits.IC2IP2 = 0; //set lower priority
 
   IC2InterruptUserFunction=IC2_ISR;
   
