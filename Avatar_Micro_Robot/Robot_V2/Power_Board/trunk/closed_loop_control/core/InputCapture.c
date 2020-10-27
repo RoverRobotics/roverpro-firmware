@@ -97,7 +97,7 @@ void IC1_ISR(void) {
     last_value = current_value;
   }
   else if(M1_DIRO != lastKnownDirection){
-    protectionTimeout = 50;
+    protectionTimeout = 100;
     readingBuffer[0] = UINT_MAX;
     readingBuffer[1] = UINT_MAX;
   }
@@ -129,7 +129,7 @@ void IC2_ISR(void) {
     last_value = current_value;
   }
   else if(M2_DIRO != lastKnownDirection){
-    protectionTimeout = 50;
+    protectionTimeout = 100;
     readingBuffer[0] = UINT_MAX;
     readingBuffer[1] = UINT_MAX;
   }
