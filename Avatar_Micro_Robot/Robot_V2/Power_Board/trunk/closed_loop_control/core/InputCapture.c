@@ -85,25 +85,29 @@ void IC1_ISR(void) {
   static uint16_t last_value = 0;
   static int lastKnownDirection = 0;
   static int protectionTimeout = 0;
+  static uint16_t readingBuffer[2] = {UINT_MAX, UINT_MAX};
   uint16_t current_value = IC1BUF; // current running Timer3 tick value
                                    // (you must subtract off last value)
   
 	// handle rollover, remove old 
   if((M1_DIRO == lastKnownDirection) && protectionTimeout==0){
     // update the period
-    if (last_value < current_value) periods[0] = current_value - last_value;
-    else periods[0] = (UINT_MAX - last_value) + current_value;
+    if (last_value < current_value) readingBuffer[1] = current_value - last_value;
+    else readingBuffer[1] = (UINT_MAX - last_value) + current_value;
     last_value = current_value;
   }
   else if(M1_DIRO != lastKnownDirection){
-    protectionTimeout = 100;
-    periods[0] = UINT_MAX;
+    protectionTimeout = 10;
+    readingBuffer[0] = UINT_MAX;
+    readingBuffer[1] = UINT_MAX;
   }
   else{
     protectionTimeout--;
-    periods[0] = UINT_MAX;
+    readingBuffer[1] = UINT_MAX;
   }
   lastKnownDirection = M1_DIRO;
+  periods[0] = readingBuffer[0];
+  readingBuffer[0] = readingBuffer[1];
 }
 
 
@@ -114,24 +118,28 @@ void IC2_ISR(void) {
   static uint16_t last_value = 0;
   static int lastKnownDirection = 0;
   static int protectionTimeout = 0;
+  static uint16_t readingBuffer[2] = {UINT_MAX, UINT_MAX};
   uint16_t current_value = IC2BUF;
 
   // handle rollover, remove old 
   if((M2_DIRO == lastKnownDirection) && protectionTimeout==0){
     // update the period
-    if (last_value < current_value) periods[1] = (current_value - last_value);
-    periods[1] = (UINT_MAX - last_value) + current_value;
+    if (last_value < current_value) readingBuffer[1] = (current_value - last_value);
+    else readingBuffer[1] = (UINT_MAX - last_value) + current_value;
     last_value = current_value;
   }
   else if(M2_DIRO != lastKnownDirection){
-    protectionTimeout = 100;
-    periods[1] = UINT_MAX;
+    protectionTimeout = 10;
+    readingBuffer[0] = UINT_MAX;
+    readingBuffer[1] = UINT_MAX;
   }
   else{
     protectionTimeout--;
-    periods[1] = UINT_MAX;
+    readingBuffer[1] = UINT_MAX;
   }
-  lastKnownDirection = M2_DIRO;
+  lastKnownDirection = M1_DIRO;
+  periods[1] = readingBuffer[0];
+  readingBuffer[0] = readingBuffer[1];
 }
 
 
