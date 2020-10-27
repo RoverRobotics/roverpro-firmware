@@ -5,6 +5,7 @@ File: InputCapture.c
 /*---------------------------Dependencies-------------------------------------*/
 #include "./InputCapture.h"
 #include "./PPS.h"
+#include "../../src/device_robot_motor.h"
 #include <limits.h>           // for UINT_MAX macro
 #include <stdbool.h>      // for 'bool' boolean data type
 #include "stdhdr.h"
@@ -82,13 +83,27 @@ void IC1_ISR(void) {
   elapsed_times[0] = 0;
   
   static uint16_t last_value = 0;
+  static int lastKnownDirection = 0;
+  static int protectionTimeout = 0;
   uint16_t current_value = IC1BUF; // current running Timer3 tick value
                                    // (you must subtract off last value)
   
-	// handle rollover, remove old offset
-  if (last_value < current_value) periods[0] = current_value - last_value;
-  else periods[0] = (UINT_MAX - last_value) + current_value;
-  last_value = current_value;
+	// handle rollover, remove old 
+  if((M1_DIRO == lastKnownDirection) && protectionTimeout==0){
+    // update the period
+    if (last_value < current_value) periods[0] = current_value - last_value;
+    else periods[0] = (UINT_MAX - last_value) + current_value;
+    last_value = current_value;
+  }
+  else if(M1_DIRO != lastKnownDirection){
+    protectionTimeout = 100;
+    periods[0] = UINT_MAX;
+  }
+  else{
+    protectionTimeout--;
+    periods[0] = UINT_MAX;
+  }
+  lastKnownDirection = M1_DIRO;
 }
 
 
@@ -97,11 +112,26 @@ void IC2_ISR(void) {
   elapsed_times[1] = 0;
   
   static uint16_t last_value = 0;
+  static int lastKnownDirection = 0;
+  static int protectionTimeout = 0;
   uint16_t current_value = IC2BUF;
-  
-  if (last_value < current_value) periods[1] = (current_value - last_value);
-  else periods[1] = (UINT_MAX - last_value) + current_value;
-  last_value = current_value;
+
+  // handle rollover, remove old 
+  if((M2_DIRO == lastKnownDirection) && protectionTimeout==0){
+    // update the period
+    if (last_value < current_value) periods[1] = (current_value - last_value);
+    periods[1] = (UINT_MAX - last_value) + current_value;
+    last_value = current_value;
+  }
+  else if(M2_DIRO != lastKnownDirection){
+    protectionTimeout = 100;
+    periods[1] = UINT_MAX;
+  }
+  else{
+    protectionTimeout--;
+    periods[1] = UINT_MAX;
+  }
+  lastKnownDirection = M2_DIRO;
 }
 
 
