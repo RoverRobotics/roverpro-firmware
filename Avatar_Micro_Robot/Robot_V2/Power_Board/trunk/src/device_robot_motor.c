@@ -463,11 +463,13 @@ void GetRPM(int Channel)
 
 		if(Channel == 0)
 		{
-			REG_MOTOR_FB_RPM.left=CurrentRPM[LMotor];
+			REG_MOTOR_FB_RPM.left = 0;
+			//REG_MOTOR_FB_RPM.left=CurrentRPM[LMotor];
 		}
 		else if(Channel == 1)
 		{
-			REG_MOTOR_FB_RPM.right=CurrentRPM[RMotor];
+			REG_MOTOR_FB_RPM.right = 0;
+			//REG_MOTOR_FB_RPM.right=CurrentRPM[RMotor];
 		}
 
 			
