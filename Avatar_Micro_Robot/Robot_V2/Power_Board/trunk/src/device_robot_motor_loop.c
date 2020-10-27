@@ -209,6 +209,8 @@ float DT_speed(const kMotor motor) {
   float period = 0;
   switch (motor) {
     case kMotorLeft: {
+      //sanity check 
+      return 0;
       static int kMotorLeftLastDir = 0;
       static int kMotorLeftProtectionCounter = 0;
       period = IC_period(kIC01);
@@ -229,6 +231,7 @@ float DT_speed(const kMotor motor) {
       break;
     }
     case kMotorRight: {
+      return 0;
       static int kMotorRightLastDir = 0;
       static int kMotorRightProtectionCounter = 0;
       period = IC_period(kIC02);
