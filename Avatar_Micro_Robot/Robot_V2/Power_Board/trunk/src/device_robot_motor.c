@@ -883,8 +883,10 @@ void Device_MotorController_Process()
  		REG_MOTOR_FB_CURRENT.right=ControlCurrent[RMotor];
  		REG_MOTOR_FB_CURRENT.flipper=ControlCurrent[Flipper];
  		//update the encodercount for two driving motors
- 		REG_MOTOR_ENCODER_COUNT.left=Encoder_Interrupt_Counter[LMotor];
- 		REG_MOTOR_ENCODER_COUNT.right=Encoder_Interrupt_Counter[RMotor];
+ 		//REG_MOTOR_ENCODER_COUNT.left=Encoder_Interrupt_Counter[LMotor];
+		REG_MOTOR_ENCODER_COUNT.left=0;
+		//REG_MOTOR_ENCODER_COUNT.right=Encoder_Interrupt_Counter[RMotor];
+ 		REG_MOTOR_ENCODER_COUNT.right=0;
  		//update the mosfet driving fault flag pin 1-good 2-fault
  		REG_MOTOR_FAULT_FLAG.left=PORTDbits.RD1;
  		REG_MOTOR_FAULT_FLAG.right=PORTEbits.RE5;
