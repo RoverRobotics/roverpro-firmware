@@ -381,9 +381,15 @@ void GetControlRPM(int Channel)
 
 void GetRPM(int Channel)
 {
-	static uint16_t localPeriodHistory[2][8] = {65535};
-	static int pindex[2] = {0};
-	static int localDirectionHistory[2][8] = {0};
+	static uint16_t localPeriodHistory[2][8] = {
+		{65535, 65535, 65535, 65535, 65535, 65535, 65535, 65535},
+		{65535, 65535, 65535, 65535, 65535, 65535, 65535, 65535}
+	};
+	static int pindex[2] = {0, 0};
+	static int localDirectionHistory[2][8] =  {
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0}
+	};
  	//static long ENRPM[2] = {0};
 
 	//get the latest reading from the global, do some math
