@@ -404,7 +404,12 @@ void GetRPM(int Channel)
 	int i;
 	for(i=0; i<8; i++){
 		avg += localPeriodHistory[Channel][i];
-		(localDirectionHistory[Channel][i] > 0) ? sign += localPeriodHistory[Channel][i] : sign -= localPeriodHistory[Channel][i];
+		if (localDirectionHistory[Channel][i] > 0){
+			sign += localPeriodHistory[Channel][i];
+		}
+		else{
+			sign -= localPeriodHistory[Channel][i];
+		} 
 	}
 
 	avg = avg >> 3; // divide by 8
