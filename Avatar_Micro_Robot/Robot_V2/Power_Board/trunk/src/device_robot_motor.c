@@ -393,15 +393,16 @@ void GetRPM(int Channel)
  	//static long ENRPM[2] = {0};
 
 	//get the latest reading from the global, do some math
-	localPeriodHistory[Channel][pindex] = periods[Channel];
-	localDirectionHistory[Channel][pindex] = measuredMotorDirection[Channel];
+	localPeriodHistory[Channel][pindex[Channel]] = periods[Channel];
+	localDirectionHistory[Channel][pindex[Channel]] = measuredMotorDirection[Channel];
 	pindex[Channel] = pindex[Channel]++ % 8;
 
 
 	//compute average
 	long avg = 0;
 	long sign = 0;
-	for(int i=0; i<8; i++){
+	int i;
+	for(i=0; i<8; i++){
 		avg += localPeriodHistory[Channel][i];
 		(localDirectionHistory[Channel][i] > 0) ? sign += localPeriodHistory[Channel][i] : sign -= localPeriodHistory[Channel][i];
 	}
