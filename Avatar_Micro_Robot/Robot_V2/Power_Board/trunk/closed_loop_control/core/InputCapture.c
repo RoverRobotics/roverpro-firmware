@@ -95,7 +95,7 @@ void IC1_ISR(void) {
                                    // (you must subtract off last value)
   
 	// handle rollover, remove old 
-  if((M1_DIRO == measuredMotorDirection[0]) && protectionTimeout==0){
+  if(M1_DIRO == measuredMotorDirection[0] && protectionTimeout==0){
     // update the period
     if (last_value < current_value) periods[0] = (current_value - last_value)<<1;
     else periods[0] = ((UINT_MAX - last_value) + current_value)<<1;
@@ -124,7 +124,7 @@ void IC2_ISR(void) {
   uint16_t current_value = IC2BUF;
 
   // handle rollover, remove old 
-  if((M2_DIRO == measuredMotorDirection[1] && protectionTimeout==0){
+  if(M2_DIRO == measuredMotorDirection[1] && protectionTimeout==0){
     // update the period
     if (last_value < current_value) periods[1] = ((current_value - last_value))<<1;
     else periods[1] = ((UINT_MAX - last_value) + current_value)<<1;
