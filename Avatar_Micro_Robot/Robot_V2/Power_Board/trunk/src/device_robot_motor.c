@@ -15,6 +15,7 @@
 #define XbeeTest_TX_Enable
 
 extern volatile float periods[MAX_NUM_IC_PINS];
+extern volatile int measuredMotorDirection[MAX_NUM_IC_PINS];
 
 //variables
 //sub system variables
@@ -118,7 +119,7 @@ long RealTimeCurrent[3]={0,0,0};
 long Current4Control[3][8]={{0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0}};
 int Current4ControlPointer[3]={0,0,0};
 long ControlCurrent[3]={0,0,0};
-long CurrentRPM[3]={0,0,0};
+int16_t CurrentRPM[3]={0,0,0};
 long RPM4Control[3][8]={{0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0}};
 int RPM4ControlPointer[3]={0,0,0};
 long ControlRPM[3]={0,0,0};
@@ -380,201 +381,42 @@ void GetControlRPM(int Channel)
 
 void GetRPM(int Channel)
 {
+	static uint16_t localPeriodHistory[2][8] = {UINT16_MAX};
+	static uint16_t pindex[2] = {0};
+	static int localDirectionHistory[2][8] = {0};
+ 	static long ENRPM[2] = {0};
 
- 	static long ENRPM=0;
- 	static int ENDIR=0;
-
- 	static long BemfRPM=0;
- 	static int BemfDIR=0;
- 	static long ltemp1=0;
- 	static long ltemp2=0;
- 	static long ltemp3=0;
- 	static long ltemp4=0;
- 	static long temp=0;
- 	static long ltemp5=0;//save the Bemf AD value
- 	static int i,j;
- 	static long LastEnCount[3]={0,0,0};
-
-	ENRPM=0;
- 	ENDIR=0;
-	BemfRPM=0;
- 	BemfDIR=0;
- 	ltemp1=0;
- 	ltemp2=0;
- 	ltemp3=0;
- 	ltemp4=0;
- 	temp=0;
- 	ltemp5=0;//save the Bemf AD value
- 	i=0;
- 	j=0;
- 	
-//T1
-
- 	//RPM Calculation
- 	//encoder RPM Calculation
- 	for(j=0;j<SampleLength;j++)
- 	{
- 	 	ltemp1+=EncoderFBInterval[Channel][j];
- 		ltemp2+=DIR[Channel][j];
-// 		ltemp3+=BackEMF[Channel][ChannelA][j];
-// 		ltemp4+=BackEMF[Channel][ChannelB][j];
- 	}
+	//get the latest reading from the global, do some math
+	localPeriodHistory[Channel][pindex] = periods[Channel];
+	localDirectionHistory[Channel][pindex] = measuredMotorDirection[Channel];
+	pindex[Channel] = pindex[Channel]++ % 8;
 
 
- 	if(ltemp1>0)
- 	{
- 	 	ENRPM=24000000/(ltemp1>>ShiftBits);
-		//T4
-
- 	}
- 	else
- 	{
- 		ENRPM=0;
- 	}
-	
-	if(Channel == 0)
-	{
-		if(M1_DIRO)
-			ENDIR = -1;
-		else
-			ENDIR = 1;
-	}
-	else if(Channel == 1)
-	{
-
-		if(M2_DIRO)
-			ENDIR = 1;
-		else
-			ENDIR = -1;
-
+	//compute average
+	long avg = 0;
+	long sign = 0;
+	for(i=0; i<8; i++){
+		avg += localPeriodHistory[Channel][i];
+		(localDirectionHistory[Channel][i] > 0) ? sign += localPeriodHistory[Channel][i] : sign -= localPeriodHistory[Channel][i];
 	}
 
+	avg = avg >> 3; // divide by 8
 
-	CurrentRPM[Channel]=ENRPM*ENDIR;
-
-	//if the input capture interrupt hasn't been called, the motors are not moving
- 	if(Encoder_Interrupt_Counter[Channel] == LastEnCount[Channel])
- 	{
- 	 	CurrentRPM[Channel]=0;		
- 	}
-	//otherwise, update the RPM
-	else
-	{
-
-		if(Channel == 0)
-		{
-			REG_MOTOR_FB_RPM.left = 0;
-			//REG_MOTOR_FB_RPM.left=CurrentRPM[LMotor];
-		}
-		else if(Channel == 1)
-		{
-			REG_MOTOR_FB_RPM.right = 0;
-			//REG_MOTOR_FB_RPM.right=CurrentRPM[RMotor];
-		}
-
-			
+	if(Channel==0 && sign>=0){
+		CurrentRPM[0] = 24000000 / avg;
 	}
 
-	LastEnCount[Channel] = Encoder_Interrupt_Counter[Channel];
-
-//T3
-/*
- 	//printf("1- %d\n",temp1);
- 	if(ltemp2>=0)
- 	{
- 		ENDIR=1;
- 	}else
- 	{
- 		ENDIR=-1;
- 	}
- 	ltemp1>>=ShiftBits;// divided by 4
- 	//printf("2- %d\n",temp1);
-//T2
-
- 	if(ltemp1>0)
- 	{
- 	 	ENRPM=24000000/ltemp1;
- 	}
- 	else
- 	{
- 		ENRPM=0;
- 	}
- 	BackEmfTemp3[Channel]=ltemp3;
- 	BackEmfTemp4[Channel]=ltemp4;
- 	if(ltemp3>ltemp4)
- 	{
- 		BemfDIR=1;
- 		ltemp3>>=ShiftBits;
- 		BemfRPM=((ltemp3*BackEMFCOEF[Channel])>>7);
- 		ltemp5=ltemp3;
- 	}
- 	else
- 	{
- 		BemfDIR=-1;
- 		ltemp4>>=ShiftBits;
- 		BemfRPM=((ltemp4*BackEMFCOEF[Channel]))>>7;
- 		ltemp5=ltemp4;
- 	}
- 	BackEmfRPM[Channel]=BemfRPM; 	
- 	//if RPM by Backemf < ThresholdRPM, use backemf as RPM
- 	//if RPM by Backemf > ThresholdRPM, use encoder as RPM
-	
- 	if(BemfRPM<ThresholdRPM)
- 	{
- 		CurrentRPM[Channel]=BemfRPM*BemfDIR;	
- 	}
- 	else
- 	{
- 		CurrentRPM[Channel]=ENRPM*ENDIR;
- 	}
-
-
- 	if(EnCount[Channel]==LastEnCount[Channel])
- 	//if(ltemp5<100 && EnCount[Channel]==LastEnCount[Channel])
- 	{
- 	 	CurrentRPM[Channel]=0;
- 		//printf("%ld\n",ltemp5); 			
- 	}
- 	LastEnCount[Channel]=EnCount[Channel];
- 	//CurrentRPM[Channel]=ENRPM*ENDIR;
- 	//if RPM>2000, update the coefficient
- 	RPM4Control[Channel][RPM4ControlPointer[Channel]]=CurrentRPM[Channel];
- 	RPM4ControlPointer[Channel]++;
- 	RPM4ControlPointer[Channel]&=7;
- 	if(CurrentRPM[Channel]>=2000 || CurrentRPM[Channel]<-2000)
- 	{
- 	 	temp=0;
- 		BackEMFCOE[Channel][BackEMFCOEPointer]=(ENRPM<<7)/ltemp5;
- 		BackEMFCOEPointer++;
- 		BackEMFCOEPointer&=(SampleLength-1);
- 	 	for(i=0;i<SampleLength;i++)
- 		{
- 			temp+=BackEMFCOE[Channel][i];
- 			//printf("%d,%ld\n",i,BackEMFCOE[Channel][i]);
- 		}
- 	 	ltemp6=temp>>ShiftBits;
- 	 	if(ltemp6>2500 && ltemp6<=5500)
- 		{
- 	 		BackEMFCOEF[Channel]=ltemp6;
- 		}
- 	}*/
-
-}
-
-//reads PCB information from the EEPROM.  This is pretty inefficient, but it should only run once, while the COM Express
-//is booting.
-void read_EEPROM_string(void)
-{
-	unsigned int i;
-
-	for(i=0;i<79;i++)
-	{
-		REG_MOTOR_BOARD_DATA.data[i] = readI2C2_Reg(EEPROM_ADDRESS,i);
-		block_ms(5);
-    ClrWdt();
-
+	if(Channel==0 && sign<0){
+		CurrentRPM[0] = -24000000 / avg;
 	}
 
+	if(Channel==1 && sign>=0){
+		CurrentRPM[1] = -24000000 / avg;
+	}
+
+	if(Channel==1 && sign>=0){
+		CurrentRPM[1] = 24000000 / avg;
+	}
 
 }
 
@@ -727,8 +569,8 @@ void Device_MotorController_Process()
  	if(RPMTimerCount>=RPMTimer)
  	{
  	 	RPMTimerExpired=True;
- 	 	RPMTimerCount=0;
- 	 	RPMTimerEnabled=False;
+ 	 	//RPMTimerCount=0;
+ 	 	//RPMTimerEnabled=False;
  	}
  	if(CurrentFBTimerCount>=CurrentFBTimer)
  	{
@@ -811,7 +653,9 @@ void Device_MotorController_Process()
 
  	if(RPMTimerExpired==True)
  	{
- 	 	RPMTimerEnabled=True;
+ 	 	//RPMTimerEnabled=True;
+		RPMTimer = 0;
+		RPMTimerExpired=True;
  	 	RPMTimerExpired=False;
  		for(i=0;i<2;i++)//only two driving motors, no flipper
  		{
@@ -865,8 +709,8 @@ void Device_MotorController_Process()
  		SFREGUpdateTimerExpired=False;
 	 	//update all the software registers
  		//
- 		/*REG_MOTOR_FB_RPM.left=CurrentRPM[LMotor];
- 		REG_MOTOR_FB_RPM.right=CurrentRPM[RMotor];*/
+ 		REG_MOTOR_FB_RPM.left=CurrentRPM[LMotor];
+ 		REG_MOTOR_FB_RPM.right=CurrentRPM[RMotor];
  		//update flipper motor position
  		temp1=0;
  		temp2=0;
@@ -877,7 +721,7 @@ void Device_MotorController_Process()
  		}
  		REG_FLIPPER_FB_POSITION.pot1=temp1>>ShiftBits;
  		REG_FLIPPER_FB_POSITION.pot2=temp2>>ShiftBits;
-    REG_MOTOR_FLIPPER_ANGLE = return_calibrated_pot_angle(temp1>>ShiftBits, temp2>>ShiftBits);
+    	REG_MOTOR_FLIPPER_ANGLE = return_calibrated_pot_angle(temp1>>ShiftBits, temp2>>ShiftBits);
  		//update current for all three motors
  		REG_MOTOR_FB_CURRENT.left=ControlCurrent[LMotor];
  		REG_MOTOR_FB_CURRENT.right=ControlCurrent[RMotor];

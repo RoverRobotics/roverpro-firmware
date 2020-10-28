@@ -28,6 +28,10 @@ File: InputCapture.c
 #define T4_TICKS_PER_MS           4        // milliseconds per timer4 tick 
                                            // TODO: IS THIS RIGHT????
 
+#define STALL_PROTECTION_CYCLES     20    // number of tacho commutations required in a constant direction before 
+                                          // ISR will actually return period read (useful because motor stalls cause fast oscillations
+                                          // of TACHO and DIRO signals!!!!!!!!!!!)
+
 /*---------------------------Helper Function Prototypes-----------------------*/
 static void InitTimer4(void);
 static void InitIC1(const uint8_t RPn);
@@ -48,7 +52,8 @@ static volatile bool is_timer3_running = NO;
 static volatile uint8_t RPns[MAX_NUM_IC_PINS] = {0};
 static volatile uint32_t timeouts[MAX_NUM_IC_PINS] = {0}; // in units of [ms]
 static volatile uint32_t elapsed_times[MAX_NUM_IC_PINS] = {0};
-static volatile float periods[MAX_NUM_IC_PINS] = {0};
+static volatile float periods[MAX_NUM_IC_PINS] = {UINT_MAX};
+static volatile int measuredMotorDirection[2] = {0};
 static volatile uint32_t time = 0;  // running number of timer3 ticks
 
 /*---------------------------Test Harness-------------------------------------*/
@@ -83,28 +88,28 @@ void IC1_ISR(void) {
   elapsed_times[0] = 0;
   
   static uint16_t last_value = 0;
-  static int lastKnownDirection = 0;
+  //static int lastKnownDirection = 0;
   static int protectionTimeout = 0;
   //static uint16_t readingBuffer[2] = {UINT_MAX, UINT_MAX};
   uint16_t current_value = IC1BUF; // current running Timer3 tick value
                                    // (you must subtract off last value)
   
 	// handle rollover, remove old 
-  if((M1_DIRO == lastKnownDirection) && protectionTimeout==0){
+  if((M1_DIRO == measuredMotorDirection[0]) && protectionTimeout==0){
     // update the period
     if (last_value < current_value) periods[0] = (current_value - last_value)<<1;
     else periods[0] = ((UINT_MAX - last_value) + current_value)<<1;
     last_value = current_value;
   }
-  else if(M1_DIRO != lastKnownDirection){
-    protectionTimeout = 20;
+  else if(M1_DIRO != measuredMotorDirection[0]){
+    protectionTimeout = STALL_PROTECTION_CYCLES;
     periods[0]= UINT_MAX;
   }
   else{
     protectionTimeout--;
     periods[0]= UINT_MAX;
   }
-  lastKnownDirection = M1_DIRO;
+  measuredMotorDirection[0] = M1_DIRO;
 }
 
 
@@ -113,27 +118,27 @@ void IC2_ISR(void) {
   elapsed_times[1] = 0;
   
   static uint16_t last_value = 0;
-  static int lastKnownDirection = 0;
+  //static int lastKnownDirection = 0;
   static int protectionTimeout = 0;
   //static uint16_t readingBuffer[2] = {UINT_MAX, UINT_MAX};
   uint16_t current_value = IC2BUF;
 
   // handle rollover, remove old 
-  if((M2_DIRO == lastKnownDirection) && protectionTimeout==0){
+  if((M2_DIRO == measuredMotorDirection[1] && protectionTimeout==0){
     // update the period
     if (last_value < current_value) periods[1] = ((current_value - last_value))<<1;
     else periods[1] = ((UINT_MAX - last_value) + current_value)<<1;
     last_value = current_value;
   }
-  else if(M2_DIRO != lastKnownDirection){
-    protectionTimeout = 20;
+  else if(M2_DIRO != measuredMotorDirection[1]){
+    protectionTimeout = STALL_PROTECTION_CYCLES;
     periods[1] = UINT_MAX;
   }
   else{
     protectionTimeout--;
     periods[1] = UINT_MAX;
   }
-  lastKnownDirection = M1_DIRO;
+  measuredMotorDirection[1] = M1_DIRO;
 }
 
 
