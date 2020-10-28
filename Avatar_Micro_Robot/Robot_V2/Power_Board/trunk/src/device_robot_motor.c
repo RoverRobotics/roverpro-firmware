@@ -314,7 +314,7 @@ void DeviceRobotMotorInit()
  	FANCtrlIni();
 
 
-	read_EEPROM_string();
+	//read_EEPROM_string();
 
 
 
