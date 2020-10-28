@@ -381,10 +381,10 @@ void GetControlRPM(int Channel)
 
 void GetRPM(int Channel)
 {
-	static uint16_t localPeriodHistory[2][8] = {UINT16_MAX};
-	static uint16_t pindex[2] = {0};
+	static uint16_t localPeriodHistory[2][8] = {65535};
+	static int pindex[2] = {0};
 	static int localDirectionHistory[2][8] = {0};
- 	static long ENRPM[2] = {0};
+ 	//static long ENRPM[2] = {0};
 
 	//get the latest reading from the global, do some math
 	localPeriodHistory[Channel][pindex] = periods[Channel];
@@ -395,7 +395,7 @@ void GetRPM(int Channel)
 	//compute average
 	long avg = 0;
 	long sign = 0;
-	for(i=0; i<8; i++){
+	for(int i=0; i<8; i++){
 		avg += localPeriodHistory[Channel][i];
 		(localDirectionHistory[Channel][i] > 0) ? sign += localPeriodHistory[Channel][i] : sign -= localPeriodHistory[Channel][i];
 	}
@@ -654,7 +654,7 @@ void Device_MotorController_Process()
  	if(RPMTimerExpired==True)
  	{
  	 	//RPMTimerEnabled=True;
-		RPMTimer = 0;
+		RPMTimerCount = 0;
 		RPMTimerExpired=True;
  	 	RPMTimerExpired=False;
  		for(i=0;i<2;i++)//only two driving motors, no flipper
