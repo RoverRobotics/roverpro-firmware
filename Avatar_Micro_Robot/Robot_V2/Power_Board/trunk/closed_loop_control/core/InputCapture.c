@@ -92,8 +92,8 @@ void IC1_ISR(void) {
 	// handle rollover, remove old 
   if((M1_DIRO == lastKnownDirection) && protectionTimeout==0){
     // update the period
-    if (last_value < current_value) periods[0] = current_value - last_value;
-    else periods[0] = (UINT_MAX - last_value) + current_value;
+    if (last_value < current_value) periods[0] = (current_value - last_value)<<1;
+    else periods[0] = ((UINT_MAX - last_value) + current_value)<<1;
     last_value = current_value;
   }
   else if(M1_DIRO != lastKnownDirection){
@@ -121,8 +121,8 @@ void IC2_ISR(void) {
   // handle rollover, remove old 
   if((M2_DIRO == lastKnownDirection) && protectionTimeout==0){
     // update the period
-    if (last_value < current_value) periods[1] = (current_value - last_value);
-    else periods[1] = (UINT_MAX - last_value) + current_value;
+    if (last_value < current_value) periods[1] = ((current_value - last_value))<<1;
+    else periods[1] = ((UINT_MAX - last_value) + current_value)<<1;
     last_value = current_value;
   }
   else if(M2_DIRO != lastKnownDirection){
