@@ -442,11 +442,11 @@ void GetRPM(int Channel)
 	}*/
 
 	if(Channel == 0){
-		CurrentRPM[0] = avg;
+		CurrentRPM[0] = IC_period(0);
 	}
 	
 	if(Channel == 1){
-		CurrentRPM[1] = avg;
+		CurrentRPM[1] = IC_period(1);
 	}
 	
 }
