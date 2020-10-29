@@ -414,32 +414,31 @@ void GetRPM(int Channel)
 
 	avg = avg >> 3; // divide by 8
 	
-	/*
+	
 	if(Channel==0 && sign>=0){
-		CurrentRPM[0] = 24000000 / avg;
+		CurrentRPM[0] = 5000000 / avg;
 	}
 
 	if(Channel==0 && sign<0){
-		CurrentRPM[0] = -24000000 / avg;
+		CurrentRPM[0] = -5000000 / avg;
 	}
 
 	if(Channel==1 && sign>=0){
-		CurrentRPM[1] = -24000000 / avg;
+		CurrentRPM[1] = -5000000 / avg;
 	}
 
 	if(Channel==1 && sign<0){
-		CurrentRPM[1] = 24000000 / avg;
-	}*/
-	CurrentRPM[0] = avg;
+		CurrentRPM[1] = 5000000 / avg;
+	}
+
+	/*CurrentRPM[0] = avg;
 	if(sign >= 0){
 		CurrentRPM[1] = 1;
 	}
 	else{
 		CurrentRPM[1] = 0;
-	}
+	}*/
 	
-
-
 }
 
 
