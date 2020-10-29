@@ -420,7 +420,7 @@ void GetRPM(int Channel)
 		} 
 	}
 
-	avg = avg >> 1; // divide by 2
+	avg = (avg >> 1) & 0xFFFF; // divide by 2 and bitmask for later int conversion
 	
 	/*
 	if(Channel==0 && sign>=0){
