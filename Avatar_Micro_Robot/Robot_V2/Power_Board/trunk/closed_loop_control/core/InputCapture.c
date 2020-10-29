@@ -98,7 +98,7 @@ void IC1_ISR(void) {
 	// handle rollover, remove old 
   if(M1_DIRO == measuredMotorDirection[0] && protectionTimeout==0){
     // update the 
-    int newvalue = 0;
+    int newvalue = UINT_MAX;
     if (last_value < current_value) newvalue = (current_value - last_value)<<1;
     else newvalue = ((UINT_MAX - last_value) + current_value)<<1;
 
@@ -133,7 +133,7 @@ void IC2_ISR(void) {
   // handle rollover, remove old 
   if(M2_DIRO == measuredMotorDirection[1] && protectionTimeout==0){
     // update the period
-    int newvalue = 0;
+    int newvalue = UINT_MAX;
     if (last_value < current_value) newvalue = ((current_value - last_value))<<1;
     else newvalue = ((UINT_MAX - last_value) + current_value)<<1;
 
@@ -313,7 +313,7 @@ void IC_UpdatePeriods(void) {
     elapsed_times[i] += delta_time;
     // NB: be consistent in units of timer4 ticks
     if ((timeouts[i] * T4_TICKS_PER_MS) < elapsed_times[i]) {
-      periods[i] = 0;
+      periods[i] = UINT_MAX;
       elapsed_times[i] = 0;
       if (i == 0) {
         Nop();
