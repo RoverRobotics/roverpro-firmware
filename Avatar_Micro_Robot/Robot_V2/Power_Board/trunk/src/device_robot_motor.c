@@ -394,7 +394,7 @@ void GetRPM(int Channel)
  	//static long ENRPM[2] = {0};
 
 	//if fresh period data, collect it
-	if (localCaptureIntCounts[Channel] != IC_interuptCounts[Channel]){
+	if (localCaptureIntCounts[Channel] != IC_interuptCounts(Channel)){
 		localPeriodHistory[Channel][pindex[Channel]] = IC_period(Channel);
 	}
 	else{
@@ -403,7 +403,7 @@ void GetRPM(int Channel)
 	}
 	localDirectionHistory[Channel][pindex[Channel]] = MotorDirection(Channel);
 	pindex[Channel] = pindex[Channel]++ % 8;
-	localCaptureIntCounts[Channel] = IC_interuptCounts[Channel];
+	localCaptureIntCounts[Channel] = IC_interuptCounts(Channel);
 
 
 	//compute average
