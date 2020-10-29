@@ -424,21 +424,21 @@ void GetRPM(int Channel)
 	avg = (avg >> 1) & 0xFFFF; // divide by 2 and bitmask for later int conversion
 	*/
 	
-	if(Channel==0 && MotorDirection(0)>=0){
+	if(Channel==0 && MotorDirection(0)>0){
 		CurrentRPM[0] = (983025 / IC_period(0)) - 15;
 	}
 
-	if(Channel==0 && MotorDirection(0)<0){
+	if(Channel==0 && MotorDirection(0)==0){
 		CurrentRPM[0] = (983025 / IC_period(0)) - 15;
 		CurrentRPM[0] = -CurrentRPM[0];
 	}
 
-	if(Channel==1 && MotorDirection(1)>=0){
+	if(Channel==1 && MotorDirection(1)>0){
 		CurrentRPM[1] = (983025 / IC_period(1)) - 15;
 		CurrentRPM[1] = -CurrentRPM[1];
 	}
 
-	if(Channel==1 && MotorDirection(1)<0){
+	if(Channel==1 && MotorDirection(1)==0){
 		CurrentRPM[1] = (983025 / IC_period(1)) - 15;
 	}
 
