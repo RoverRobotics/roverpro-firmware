@@ -390,7 +390,7 @@ void GetRPM(int Channel)
 		{0, 0, 0, 0, 0, 0, 0, 0},
 		{0, 0, 0, 0, 0, 0, 0, 0}
 	};
-	static int localCaptureIntCounts[2] = {0, 0}
+	static int localCaptureIntCounts[2] = {0, 0};
  	//static long ENRPM[2] = {0};
 
 	//if fresh period data, collect it
