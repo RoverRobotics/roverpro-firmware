@@ -149,7 +149,7 @@ void IC2_ISR(void) {
     protectionTimeout--;
     periods[1] = UINT_MAX;
   }
-  measuredMotorDirection[1] = M1_DIRO;
+  measuredMotorDirection[1] = M2_DIRO;
   captureInterruptCount[1]++;
 }
 
