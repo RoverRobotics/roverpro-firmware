@@ -69,6 +69,7 @@ Description: Returns the last-computed period in units of 16-microseconds.
   chosen timeout time.
 *******************************************************************************/
 float IC_period(const kICModule module);
+int MotorDirection(int Channel);
 
 
 /*******************************************************************************

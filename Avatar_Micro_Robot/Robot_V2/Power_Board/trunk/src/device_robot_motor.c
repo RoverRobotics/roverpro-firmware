@@ -14,7 +14,7 @@
 #define BATProtectionON
 #define XbeeTest_TX_Enable
 
-extern volatile float periods[MAX_NUM_IC_PINS];
+//extern volatile float periods[MAX_NUM_IC_PINS];
 //extern volatile int measuredMotorDirection[MAX_NUM_IC_PINS];
 
 //variables
@@ -393,8 +393,8 @@ void GetRPM(int Channel)
  	//static long ENRPM[2] = {0};
 
 	//get the latest reading from the global, do some math
-	localPeriodHistory[Channel][pindex[Channel]] = periods[Channel];
-	localDirectionHistory[Channel][pindex[Channel]] = measuredMotorDirection[Channel];
+	localPeriodHistory[Channel][pindex[Channel]] = IC_period(Channel);
+	localDirectionHistory[Channel][pindex[Channel]] = MotorDirection[Channel];
 	pindex[Channel] = pindex[Channel]++ % 8;
 
 
