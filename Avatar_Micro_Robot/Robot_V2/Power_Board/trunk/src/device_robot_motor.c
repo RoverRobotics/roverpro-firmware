@@ -390,12 +390,20 @@ void GetRPM(int Channel)
 		{0, 0, 0, 0, 0, 0, 0, 0},
 		{0, 0, 0, 0, 0, 0, 0, 0}
 	};
+	static int localCaptureIntCounts[2] = {0, 0}
  	//static long ENRPM[2] = {0};
 
-	//get the latest reading from the global, do some math
-	localPeriodHistory[Channel][pindex[Channel]] = IC_period(Channel);
+	//if fresh period data, collect it
+	if (localCaptureIntCounts[Channel] != IC_interuptCounts[Channel]){
+		localPeriodHistory[Channel][pindex[Channel]] = IC_period(Channel);
+	}
+	else{
+		//assume slowest possible period if no capture events
+		localPeriodHistory[Channel][pindex[Channel]] = 65535;
+	}
 	localDirectionHistory[Channel][pindex[Channel]] = MotorDirection(Channel);
 	pindex[Channel] = pindex[Channel]++ % 8;
+	localCaptureIntCounts[Channel] = IC_interuptCounts[Channel];
 
 
 	//compute average
@@ -416,19 +424,19 @@ void GetRPM(int Channel)
 	
 	
 	if(Channel==0 && sign>=0){
-		CurrentRPM[0] = 5000000 / avg;
+		CurrentRPM[0] = (983025 / avg) - 15;
 	}
 
 	if(Channel==0 && sign<0){
-		CurrentRPM[0] = -5000000 / avg;
+		CurrentRPM[0] = -(983025 / avg) + 15;
 	}
 
 	if(Channel==1 && sign>=0){
-		CurrentRPM[1] = -5000000 / avg;
+		CurrentRPM[1] = -(983025 / avg) - 15;
 	}
 
 	if(Channel==1 && sign<0){
-		CurrentRPM[1] = 5000000 / avg;
+		CurrentRPM[1] = (983025 / avg) + 15;
 	}
 
 	/*CurrentRPM[0] = avg;
