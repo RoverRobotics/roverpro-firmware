@@ -97,10 +97,15 @@ void IC1_ISR(void) {
   
 	// handle rollover, remove old 
   if(M1_DIRO == measuredMotorDirection[0] && protectionTimeout==0){
-    // update the period
-    if (last_value < current_value) periods[0] = (current_value - last_value)<<1;
-    else periods[0] = ((UINT_MAX - last_value) + current_value)<<1;
+    // update the 
+    int newvalue = 0;
+    if (last_value < current_value) newvalue = (current_value - last_value)<<1;
+    else newvalue = ((UINT_MAX - last_value) + current_value)<<1;
+
+    if(newvalue==0) newvalue = UINT_MAX;
+    periods[0] = newvalue;
     last_value = current_value;
+    
   }
   else if(M1_DIRO != measuredMotorDirection[0]){
     protectionTimeout = STALL_PROTECTION_CYCLES;
@@ -128,8 +133,12 @@ void IC2_ISR(void) {
   // handle rollover, remove old 
   if(M2_DIRO == measuredMotorDirection[1] && protectionTimeout==0){
     // update the period
-    if (last_value < current_value) periods[1] = ((current_value - last_value))<<1;
-    else periods[1] = ((UINT_MAX - last_value) + current_value)<<1;
+    int newvalue = 0;
+    if (last_value < current_value) newvalue = ((current_value - last_value))<<1;
+    else newvalue = ((UINT_MAX - last_value) + current_value)<<1;
+
+    if (newvalue==0) newvalue = UINT_MAX;
+    periods[1] = newvalue;
     last_value = current_value;
   }
   else if(M2_DIRO != measuredMotorDirection[1]){
