@@ -394,7 +394,7 @@ void GetRPM(int Channel)
 
 	//get the latest reading from the global, do some math
 	localPeriodHistory[Channel][pindex[Channel]] = IC_period(Channel);
-	localDirectionHistory[Channel][pindex[Channel]] = MotorDirection[Channel];
+	localDirectionHistory[Channel][pindex[Channel]] = MotorDirection(Channel);
 	pindex[Channel] = pindex[Channel]++ % 8;
 
 
