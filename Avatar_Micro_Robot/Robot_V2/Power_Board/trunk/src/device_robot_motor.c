@@ -381,36 +381,36 @@ void GetControlRPM(int Channel)
 
 void GetRPM(int Channel)
 {
-	static uint16_t localPeriodHistory[2][8] = {
-		{65535, 65535, 65535, 65535, 65535, 65535, 65535, 65535},
-		{65535, 65535, 65535, 65535, 65535, 65535, 65535, 65535}
+	static uint16_t localPeriodHistory[2][2] = {
+		{65535, 65535},
+		{65535, 65535}
 	};
 	static int pindex[2] = {0, 0};
-	static int localDirectionHistory[2][8] =  {
-		{0, 0, 0, 0, 0, 0, 0, 0},
-		{0, 0, 0, 0, 0, 0, 0, 0}
+	static int localDirectionHistory[2][2] =  {
+		{0, 0},
+		{0, 0}
 	};
-	static int localCaptureIntCounts[2] = {0, 0};
+	//static int localCaptureIntCounts[2] = {0, 0};
  	//static long ENRPM[2] = {0};
 
 	//if fresh period data, collect it
-	if (localCaptureIntCounts[Channel] != IC_interuptCounts(Channel)){
-		localPeriodHistory[Channel][pindex[Channel]] = IC_period(Channel);
-	}
-	else{
+	//if (localCaptureIntCounts[Channel] != IC_interuptCounts(Channel)){
+	localPeriodHistory[Channel][pindex[Channel]] = IC_period(Channel);
+	//}
+	//else{
 		//assume slowest possible period if no capture events
-		localPeriodHistory[Channel][pindex[Channel]] = 65535;
-	}
+	//	localPeriodHistory[Channel][pindex[Channel]] = 65535;
+	//}
 	localDirectionHistory[Channel][pindex[Channel]] = MotorDirection(Channel);
-	pindex[Channel] = pindex[Channel]++ % 8;
-	localCaptureIntCounts[Channel] = IC_interuptCounts(Channel);
+	pindex[Channel] = pindex[Channel]++ % 2;
+	//localCaptureIntCounts[Channel] = IC_interuptCounts(Channel);
 
 
 	//compute average
 	long avg = 0;
 	long sign = 0;
 	int i;
-	for(i=0; i<8; i++){
+	for(i=0; i<2; i++){
 		avg += localPeriodHistory[Channel][i];
 		if (localDirectionHistory[Channel][i] > 0){
 			sign += localPeriodHistory[Channel][i];
@@ -420,7 +420,7 @@ void GetRPM(int Channel)
 		} 
 	}
 
-	avg = avg >> 3; // divide by 8
+	avg = avg >> 1; // divide by 2
 	
 	
 	if(Channel==0 && sign>=0){
