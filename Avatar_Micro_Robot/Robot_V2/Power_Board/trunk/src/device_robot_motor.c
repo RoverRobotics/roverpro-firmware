@@ -422,7 +422,7 @@ void GetRPM(int Channel)
 
 	avg = avg >> 1; // divide by 2
 	
-	/*
+	
 	if(Channel==0 && sign>=0){
 		CurrentRPM[0] = (983025 / avg) - 15;
 	}
@@ -439,15 +439,15 @@ void GetRPM(int Channel)
 
 	if(Channel==1 && sign<0){
 		CurrentRPM[1] = (983025 / avg) - 15;
-	}*/
+	}
 
-	if(Channel == 0){
+	/*if(Channel == 0){
 		CurrentRPM[0] = IC_period(0);
 	}
 	
 	if(Channel == 1){
 		CurrentRPM[1] = IC_period(1);
-	}
+	}*/
 	
 }
 
