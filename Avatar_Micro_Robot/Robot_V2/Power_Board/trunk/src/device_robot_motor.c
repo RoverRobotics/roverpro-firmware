@@ -382,36 +382,25 @@ void GetControlRPM(int Channel)
 void GetRPM(int Channel)
 {
 	/*
-	static uint16_t localPeriodHistory[2][2] = {
-		{65535, 65535},
-		{65535, 65535}
+	static unsigned int localPeriodHistory[2][4] = {
+		{65535, 65535, 65535, 65535},
+		{65535, 65535, 65535, 65535}
 	};
 	static int pindex[2] = {0, 0};
-	static int localDirectionHistory[2][2] =  {
-		{0, 0},
-		{0, 0}
+	static int localDirectionHistory[2][4] =  {
+		{0, 0, 0, 0},
+		{0, 0, 0, 0}
 	};
-	//static int localCaptureIntCounts[2] = {0, 0};
- 	//static long ENRPM[2] = {0};
-
-	//if fresh period data, collect it
-	//if (localCaptureIntCounts[Channel] != IC_interuptCounts(Channel)){
+	
 	localPeriodHistory[Channel][pindex[Channel]] = IC_period(Channel);
-	//}
-	//else{
-		//assume slowest possible period if no capture events
-	//	localPeriodHistory[Channel][pindex[Channel]] = 65535;
-	//}
 	localDirectionHistory[Channel][pindex[Channel]] = MotorDirection(Channel);
-	pindex[Channel] = pindex[Channel]++ % 2;
-	//localCaptureIntCounts[Channel] = IC_interuptCounts(Channel);
-
+	pindex[Channel] = pindex[Channel]++ % 4;
 
 	//compute average
-	long avg = 0;
-	long sign = 0;
+	unsigned long avg = 0;
+	signed long sign = 0;
 	int i;
-	for(i=0; i<2; i++){
+	for(i=0; i<4; i++){
 		avg += localPeriodHistory[Channel][i];
 		if (localDirectionHistory[Channel][i] > 0){
 			sign += localPeriodHistory[Channel][i];
@@ -421,27 +410,34 @@ void GetRPM(int Channel)
 		} 
 	}
 
-	avg = (avg >> 1) & 0xFFFF; // divide by 2 and bitmask for later int conversion
-	*/
+	avg = avg / 4; // divide by 2 and bitmask for later int conversion*/
 	
+	//if(Channel==0 && sign<=0){
 	if(Channel==0 && MotorDirection(0)>0){
-		CurrentRPM[0] = (983025 / IC_period(0)) - 15;
+		CurrentRPM[0] = (1376235 / IC_period(0)) - 21;
+		//CurrentRPM[0] = (1376235 / avg) - 21;
 		CurrentRPM[0] = -CurrentRPM[0];
 	}
 
+	//if(Channel==0 && sign>0){
 	if(Channel==0 && MotorDirection(0)==0){
-		CurrentRPM[0] = (983025 / IC_period(0)) - 15;
-		
+		CurrentRPM[0] = (1376235 / IC_period(0)) - 21;
+		//CurrentRPM[0] = (1376235 / avg) - 21;
 	}
 
+	//if(Channel==1 && sign<=0){
 	if(Channel==1 && MotorDirection(1)>0){
-		CurrentRPM[1] = (983025 / IC_period(1)) - 15;
+		CurrentRPM[1] = (1376235 / IC_period(1)) - 21;
+		//CurrentRPM[1] = (1376235 / avg) - 21;
 		
 	}
 
+	//if(Channel==1 && sign>0){
 	if(Channel==1 && MotorDirection(1)==0){
-		CurrentRPM[1] = (983025 / IC_period(1)) - 15;
+		CurrentRPM[1] = (1376235 / IC_period(1)) - 21;
+		//CurrentRPM[1] = (1376235 / avg) - 21;
 		CurrentRPM[1] = -CurrentRPM[1];
+		
 	}
 
 	/*
