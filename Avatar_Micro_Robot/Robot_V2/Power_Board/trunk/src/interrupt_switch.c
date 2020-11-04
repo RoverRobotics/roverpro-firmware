@@ -26,7 +26,6 @@ void (*ADC1InterruptUserFunction)(void) = InterruptDummyFunction;
 void (*I2C1InterruptUserFunction)(void) = InterruptDummyFunction;
 void (*U1TXInterruptUserFunction)(void) = InterruptDummyFunction;
 void (*U1RXInterruptUserFunction)(void) = InterruptDummyFunction;
-void (*CNInterruptUserFunction)(void) = InterruptDummyFunction;
 
 #pragma code
 
@@ -104,9 +103,4 @@ void  __attribute__((__interrupt__, auto_psv)) _U1RXInterrupt(void)
 void  __attribute__((__interrupt__, auto_psv)) _U1TXInterrupt(void)
 {
  	U1TXInterruptUserFunction();
-}
-
-void  __attribute__((__interrupt__, auto_psv)) _CNInterrupt(void)
-{
- 	CNInterruptUserFunction();
 }
