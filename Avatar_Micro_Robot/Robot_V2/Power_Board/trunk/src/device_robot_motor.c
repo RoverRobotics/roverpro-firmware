@@ -14,8 +14,6 @@
 #define BATProtectionON
 #define XbeeTest_TX_Enable
 
-//extern volatile float periods[MAX_NUM_IC_PINS];
-//extern volatile int measuredMotorDirection[MAX_NUM_IC_PINS];
 
 //variables
 //sub system variables
@@ -381,75 +379,26 @@ void GetControlRPM(int Channel)
 }
 
 void GetRPM(int Channel)
-{
-	/*
-	static unsigned int localPeriodHistory[2][4] = {
-		{65535, 65535, 65535, 65535},
-		{65535, 65535, 65535, 65535}
-	};
-	static int pindex[2] = {0, 0};
-	static int localDirectionHistory[2][4] =  {
-		{0, 0, 0, 0},
-		{0, 0, 0, 0}
-	};
-	
-	localPeriodHistory[Channel][pindex[Channel]] = IC_period(Channel);
-	localDirectionHistory[Channel][pindex[Channel]] = MotorDirection(Channel);
-	pindex[Channel] = pindex[Channel]++ % 4;
-
-	//compute average
-	unsigned long avg = 0;
-	signed long sign = 0;
-	int i;
-	for(i=0; i<4; i++){
-		avg += localPeriodHistory[Channel][i];
-		if (localDirectionHistory[Channel][i] > 0){
-			sign += localPeriodHistory[Channel][i];
-		}
-		else{
-			sign -= localPeriodHistory[Channel][i];
-		} 
-	}
-
-	avg = avg / 4; // divide by 2 and bitmask for later int conversion*/
-	
-	//if(Channel==0 && sign<=0){
+{	
 	if(Channel==0 && MotorDirection(0)>0){
 		CurrentRPM[0] = (1376235 / IC_period(0)) - 21;
-		//CurrentRPM[0] = (1376235 / avg) - 21;
 		CurrentRPM[0] = -CurrentRPM[0];
 	}
 
-	//if(Channel==0 && sign>0){
+	
 	if(Channel==0 && MotorDirection(0)==0){
 		CurrentRPM[0] = (1376235 / IC_period(0)) - 21;
-		//CurrentRPM[0] = (1376235 / avg) - 21;
+		
 	}
 
-	//if(Channel==1 && sign<=0){
 	if(Channel==1 && MotorDirection(1)>0){
 		CurrentRPM[1] = (1376235 / IC_period(1)) - 21;
-		//CurrentRPM[1] = (1376235 / avg) - 21;
 		
 	}
-
-	//if(Channel==1 && sign>0){
 	if(Channel==1 && MotorDirection(1)==0){
 		CurrentRPM[1] = (1376235 / IC_period(1)) - 21;
-		//CurrentRPM[1] = (1376235 / avg) - 21;
 		CurrentRPM[1] = -CurrentRPM[1];
-		
 	}
-
-	/*
-	if(Channel == 0){
-		CurrentRPM[0] = avg;
-	}
-	
-	if(Channel == 1){
-		CurrentRPM[1] = avg;
-	}*/
-	
 }
 
 

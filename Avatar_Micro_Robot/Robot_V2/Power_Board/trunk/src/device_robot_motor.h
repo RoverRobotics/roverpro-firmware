@@ -400,7 +400,6 @@ void Motor_IC3Interrupt();
 void Motor_IC4Interrupt();
 void Motor_IC5Interrupt();
 void Motor_IC6Interrupt();
-void CN_Ini();
 
 void Motor_T2Interrupt(void);
 void Motor_T3Interrupt(void);

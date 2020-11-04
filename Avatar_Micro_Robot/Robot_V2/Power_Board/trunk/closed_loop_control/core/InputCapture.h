@@ -70,7 +70,7 @@ Description: Returns the last-computed period in units of 16-microseconds.
 *******************************************************************************/
 float IC_period(const kICModule module);
 int MotorDirection(int Channel);
-int IC_interuptCounts(int Channel);
+
 
 
 
@@ -87,4 +87,3 @@ void IC_Deinit(void);
 
 static volatile float periods[MAX_NUM_IC_PINS];
 static volatile int measuredMotorDirection[2];
-static volatile int captureInterruptCount[2];
