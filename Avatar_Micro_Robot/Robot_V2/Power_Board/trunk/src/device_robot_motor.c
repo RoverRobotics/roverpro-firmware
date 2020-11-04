@@ -2530,20 +2530,7 @@ void UART1Ini()
 
 /*****************************************************************************/
 //*-----------------------------------UART------------------------------------*/
-void CN_Ini()
-{
- 	//set priority
-	IPC4bits.CNIP2=1;
-	IPC4bits.CNIP1=1;
-	IPC4bits.CNIP0=1;
 
-	//clear the flag
-	IFS1bits.CNIF=0;
-
-	//enable the interrupts
-	CNEN4bits.CN49IE=1; 
-	CNEN4bits.CN63IE=1;
-}
 
 
 
