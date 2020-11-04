@@ -217,14 +217,8 @@ float DT_speed(const kMotor motor) {
       break;
     }
     case kMotorRight: {
-      static int kMotorRightLastDir = 0;
+      
       period = IC_period(kIC02);
-
-      if (M2_DIRO != kMotorRightLastDir){
-        kMotorRightLastDir = M2_DIRO; 
-        return 0;
-      }
-      kMotorRightLastDir = M2_DIRO;
     
       if (period != 0) {
         if (M2_DIRO) return (HZ_16US / period);
