@@ -1943,7 +1943,6 @@ void MC_Ini(void)//initialzation for the whole program
  	I2C1Ini();
  	I2C2Ini();
  	I2C3Ini();
-	CN_Ini();
 
  	#ifdef XbeeTest
  	UART1Ini();
@@ -1963,7 +1962,6 @@ void InterruptIni()
 // 	IC1InterruptUserFunction=Motor_IC1Interrupt;
 // 	IC3InterruptUserFunction=Motor_IC3Interrupt;
  	ADC1InterruptUserFunction=Motor_ADC1Interrupt;
-	CNInterruptUserFunction=Motor_CNInterrupt;
  	#ifdef XbeeTest
  		U1TXInterruptUserFunction=Motor_U1TXInterrupt;
  		U1RXInterruptUserFunction=Motor_U1RXInterrupt;
