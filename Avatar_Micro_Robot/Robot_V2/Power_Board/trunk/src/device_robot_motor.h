@@ -408,8 +408,6 @@ void Motor_T5Interrupt(void);
 
 void  Motor_ADC1Interrupt(void);
 
-void Motor_CNInterrupt(void);
-
 
 //Testing functions
 void Motor_U1TXInterrupt(void);

@@ -54,7 +54,6 @@ static volatile uint32_t timeouts[MAX_NUM_IC_PINS] = {0}; // in units of [ms]
 static volatile uint32_t elapsed_times[MAX_NUM_IC_PINS] = {0};
 static volatile float periods[MAX_NUM_IC_PINS] = {UINT_MAX};
 static volatile int measuredMotorDirection[2] = {0};
-static volatile int captureInterruptCount[2] = {0};
 static volatile uint32_t time = 0;  // running number of timer3 ticks
 
 /*---------------------------Test Harness-------------------------------------*/
@@ -117,7 +116,6 @@ void IC1_ISR(void) {
     periods[0]= UINT_MAX;
   }
   measuredMotorDirection[0] = recentMotorDirReading;
-  captureInterruptCount[0]++;
 }
 
 
@@ -152,7 +150,6 @@ void IC2_ISR(void) {
     periods[1] = UINT_MAX;
   }
   measuredMotorDirection[1] = recentMotorDirReading;
-  captureInterruptCount[1]++;
 }
 
 

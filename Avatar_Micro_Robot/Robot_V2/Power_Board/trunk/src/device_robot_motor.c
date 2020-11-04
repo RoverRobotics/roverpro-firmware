@@ -104,8 +104,6 @@ unsigned int REncoderCurrentValue=0;
 
 long Encoder_Interrupt_Counter[2] = {0,0};
 
-int m1DirOLast = 0;
-int m2DirOLast = 0;
 long EncoderFBInterval[3][SampleLength]={{0,0,0,0},{0,0,0,0},{0,0,0,0}};
 int DIR[3][SampleLength]={{0,0,0,0},{0,0,0,0},{0,0,0,0}};
 int EncoderFBIntervalPointer[3]={0,0,0};
@@ -2558,52 +2556,7 @@ void CN_Ini()
 
 /***************************Interrupt routines***********************************/
 
-void  Motor_CNInterrupt(void)
-{
-	//clear the flag
-	IFS1bits.CNIF=0;
 
-	//deal with the
-	/*
-	int temp = 0;
-	int m1DirONowState = M1_DIRO;
-	int m2DirONowState = M2_DIRO;
-
-	//resolve the speed
-	if(m1DirONowState != m1DirOLast){
-		periods[0] = UINT_MAX;
-		//read out all the edge data and put in a foobar value
-		while (IC1CON1bits.ICBNE) {temp = IC1BUF;};
-		
-		long int holding = 0;
-		holding = TMR5 + UINT_MAX>>1;
-		if (holding > UINT_MAX){
-			holding -= UINT_MAX;
-		}
-		IC1BUF = holding;
-	}
-
-	if(m2DirONowState != m2DirOLast){
-		periods[1] = UINT_MAX;
-		//read out all the edge data and put in a foobar value
-		while (IC2CON1bits.ICBNE) {temp = IC2BUF;};
-
-		long int holding = 0;
-		holding = TMR5 + UINT_MAX>>1;
-		if (holding > UINT_MAX){
-			holding -= UINT_MAX;
-		}
-		IC2BUF = holding;
-	}
-
-	m1DirOLast = m1DirONowState;
-	m2DirOLast = m2DirONowState;
-	while(1){
-		ClrWdt()
-	}*/
-
-
-}
 
 void  Motor_IC1Interrupt(void)
 {
