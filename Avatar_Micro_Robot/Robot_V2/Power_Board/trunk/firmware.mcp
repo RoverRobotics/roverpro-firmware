@@ -72,6 +72,7 @@ file_044=closed_loop_control
 file_045=closed_loop_control
 file_046=devices
 file_047=.
+file_048=.
 [GENERATED_FILES]
 file_000=no
 file_001=no
@@ -121,6 +122,7 @@ file_044=no
 file_045=no
 file_046=no
 file_047=no
+file_048=no
 [OTHER_FILES]
 file_000=no
 file_001=no
@@ -170,6 +172,7 @@ file_044=no
 file_045=no
 file_046=no
 file_047=no
+file_048=no
 [FILE_INFO]
 file_000=src\main.c
 file_001=src\SA1xLibrary\SA_API.c
@@ -219,6 +222,7 @@ file_044=closed_loop_control\Filters.h
 file_045=closed_loop_control\core\InputCapture.h
 file_046=src\device_robot_motor_loop.h
 file_047=src\p24FJ256GB106.h
+file_048=..\..\..\..\bootypic\devices\pic24fj256gb106\p24FJ256GB106_app.gld
 [SUITE_INFO]
 suite_guid={479DDE59-4D56-455E-855E-FFF59A3DB57E}
 suite_state=

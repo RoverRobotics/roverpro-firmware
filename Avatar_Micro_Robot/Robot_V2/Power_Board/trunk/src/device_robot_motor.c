@@ -222,6 +222,7 @@ unsigned int adc_test_reg = 0;
 	#define P1_Fan_Command 20
 	#define P1_Low_Speed_Set 240
 	#define P1_Calibration_Flipper 250
+	#define P1_Restart 230
 	uint8_t Xbee_Low_Speed_mode=0;
 	uint8_t Xbee_Calibration=0;
 #endif
@@ -3114,6 +3115,9 @@ void Motor_U1RXInterrupt(void)
 							Xbee_Calibration=1;
 						}
 						break;
+					case P1_Restart:
+			            asm volatile("RESET");
+            			break;
 				}
 				//REG_MOTOR_VELOCITY.left=300; 
  				//REG_MOTOR_VELOCITY.right=800;
@@ -3322,7 +3326,10 @@ void calibrate_flipper_angle_sensor(void)
 
   }
 }
-
+void turn_on_power_bus_immediate(){
+	Cell_Ctrl(Cell_A,Cell_ON);
+	Cell_Ctrl(Cell_B,Cell_ON);
+}	
 void turn_on_power_bus_new_method(void)
 {
   unsigned int i = 0;
@@ -3441,10 +3448,26 @@ void handle_power_bus(void)
   //enable outputs for power bus
   CELL_A_MOS_EN(1);
   CELL_B_MOS_EN(1);
-
+  
   //initialize i2c buses
   I2C2Ini();
   I2C3Ini();
+  
+    // if the power bus is already active (like the bootloader did it)
+    // then nothing to do here.
+    if (Cell_A_MOS && Cell_B_MOS) {
+        RCON = 0;
+        return;
+    }
+
+    // _POR = "we are powering on from a black or brownout"
+    // _EXTR = "our reset pin was hit"
+    // If the system is "warm", we can just switch the power bus back on.
+    if (!_POR && !_EXTR) {
+        turn_on_power_bus_immediate();
+        RCON = 0;
+        return;
+    }
 
   for(j=0;j<3;j++)
   {
