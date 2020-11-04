@@ -297,10 +297,6 @@ int MotorDirection(int Channel){
   return measuredMotorDirection[Channel];
 }
 
-int IC_interuptCounts(int Channel){
-  return captureInterruptCount[Channel];
-}
-
 void IC_UpdatePeriods(void) {
   // reset any periods if it has been too long 
   
