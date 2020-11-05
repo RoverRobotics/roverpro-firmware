@@ -18,8 +18,8 @@ This issue isn't a firmware fault per se, but actually is a suboptimal condition
 chip that must be handled by the microcontroller. So in that sense, it is a system issue that the firmware must compensate for.
 
 During motor stall events, the tachometer and direction
-signal oscillate rapidly; much, much faster than the robot is moving, and much faster direction Changes
-than a real rover robot in the physical world could actually see. When the robot
+signal oscillate rapidly indicating highly unrealistic velocity and direction changes for a rover robot
+in the physical world. When the robot
 is stationary, the tachometer period (time between edges) is often less than 100 timer counts meaning rapid 
 speed. The direction bit is changing at a similar rate. If this condition is not handled, the firmware simply
 interprets the stall as rapid speed and highly variable direction, which is obviously suboptimal.
