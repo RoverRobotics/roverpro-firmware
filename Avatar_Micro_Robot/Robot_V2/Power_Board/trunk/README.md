@@ -58,7 +58,7 @@ The fix for this issue was also simple. Handle the rollover condition on the met
 
 The encoder count feature was not supported in 1.0.3. The variables piped into this serial message were not being updated by any ISR. Rather than allowing those variables to be a random value (whatever was in RAM at startup), those values were explicitly set to 0. This should avoid any confusion there.
 
-The GetRPM() function is now supported. This data is returned as a SIGNED 16-bit int, meaning the direction of the motors is ACTUALLY RETURNED FROM THE ROBOT. Having the robot report both it's motor speed **and** motor direction instead of just tachomoter period without direction means we can **stop assuming** the direction of the robot in the driver and start actually allowing the robot to report its current direction.
+The GetRPM() function is now supported. This data is returned as a SIGNED 16-bit int, meaning the direction of the motors is ACTUALLY RETURNED FROM THE ROBOT. Having the robot report both its motor speed **and** motor direction instead of just tachomoter period without direction means we can **stop assuming** the direction of the robot in the driver and start actually allowing the robot to report its current direction.
 
 
 
