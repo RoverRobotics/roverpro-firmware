@@ -379,22 +379,22 @@ void GetControlRPM(int Channel)
 void GetRPM(int Channel)
 {	
 	if(Channel==0 && MotorDirection(0)>0){
-		CurrentRPM[0] = (1376235 / IC_period(0)) - 21;
+		CurrentRPM[0] = (RatioCommutationPeriodToMotorRpm / IC_period(0)) - CommutationPeriodToMotorRpmOffset;
 		CurrentRPM[0] = -CurrentRPM[0];
 	}
 
 	
 	if(Channel==0 && MotorDirection(0)==0){
-		CurrentRPM[0] = (1376235 / IC_period(0)) - 21;
+		CurrentRPM[0] = (RatioCommutationPeriodToMotorRpm / IC_period(0)) - CommutationPeriodToMotorRpmOffset;
 		
 	}
 
 	if(Channel==1 && MotorDirection(1)>0){
-		CurrentRPM[1] = (1376235 / IC_period(1)) - 21;
+		CurrentRPM[1] = (RatioCommutationPeriodToMotorRpm / IC_period(1)) - CommutationPeriodToMotorRpmOffset;
 		
 	}
 	if(Channel==1 && MotorDirection(1)==0){
-		CurrentRPM[1] = (1376235 / IC_period(1)) - 21;
+		CurrentRPM[1] = (RatioCommutationPeriodToMotorRpm / IC_period(1)) - CommutationPeriodToMotorRpmOffset;
 		CurrentRPM[1] = -CurrentRPM[1];
 	}
 }
