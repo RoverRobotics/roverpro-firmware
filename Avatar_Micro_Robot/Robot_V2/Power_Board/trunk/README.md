@@ -40,10 +40,10 @@ in odometry data, closed loop control, etc etc.
 # Issue 2 - unsafe timer rollover conditions were randomly zeroing period measurements at low robot speed.
 
 In the firmware, TMR4 is utilized in conjunction with a basic routine to ensure that stale tachometer 
-measurements are purged from the system. If the robot deccelerates rapidly for example and then sits for a few
+measurements are purged from the system (when they are deemed stale by some criteria within a function). If the robot deccelerates rapidly for example and then sits for a few
 seconds, there is a decent likelihood that some residual non-zero speed is sitting in global variables from
 the capture interrupts. The code is intended to clear that non-zero speed (zero it out) after some period of time
-when it becomes stale.
+when it becomes stale, ensuring that the robot does not report non-zero speeds while stationary.
 
 While the intent was good here, the implementation lacked logic to deal with the rollover. A 32-bit meta-counter
 variable was overflowing unsafely, and as a result, the elapsed_time tracking had unpredictable behavior. Because elapsed_time
