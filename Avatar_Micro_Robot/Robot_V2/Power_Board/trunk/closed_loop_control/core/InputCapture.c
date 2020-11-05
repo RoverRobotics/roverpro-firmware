@@ -62,7 +62,7 @@ static volatile uint32_t time = 0;  // running number of timer3 ticks
 
 int main(void) {
   uint8_t RPn = 27;
-  uint8_t timeout = 50; // [ms]
+  uint8_t timeout = 10; // [ms]
   IC_Init(kIC01, RPn, timeout);
   
   float my_square_wave_period;
@@ -88,9 +88,7 @@ void IC1_ISR(void) {
   elapsed_times[0] = 0;
   
   static uint16_t last_value = 0;
-  //static int lastKnownDirection = 0;
   static int protectionTimeout = 0;
-  //static uint16_t readingBuffer[2] = {UINT_MAX, UINT_MAX};
   uint16_t current_value = IC1BUF; // current running Timer3 tick value
                                    // (you must subtract off last value)
   
@@ -124,9 +122,7 @@ void IC2_ISR(void) {
   elapsed_times[1] = 0;
   
   static uint16_t last_value = 0;
-  //static int lastKnownDirection = 0;
   static int protectionTimeout = 0;
-  //static uint16_t readingBuffer[2] = {UINT_MAX, UINT_MAX};
   uint16_t current_value = IC2BUF;
 
   // handle rollover, remove old
@@ -299,7 +295,6 @@ int MotorDirection(int Channel){
 
 void IC_UpdatePeriods(void) {
   // reset any periods if it has been too long 
-  
   static uint32_t last_time = 0;
   uint32_t current_time = time;
   uint8_t i;
@@ -307,6 +302,7 @@ void IC_UpdatePeriods(void) {
   for (i = 0; i < MAX_NUM_IC_PINS; i++) {
     //handle rollover
     if (last_time > current_time){
+      //32-bit 
       delta_time = (0xFFFFFFFF - last_time) + current_time;
     }
     else{
@@ -316,7 +312,8 @@ void IC_UpdatePeriods(void) {
     elapsed_times[i] += delta_time;
     // NB: be consistent in units of timer4 ticks
     if ((timeouts[i] * T4_TICKS_PER_MS) < elapsed_times[i]) {
-      periods[i] = 65066;
+      //The value chosen (65534) is useful for debugging. Still means 0 speed.
+      periods[i] = UINT_MAX - 1; 
       elapsed_times[i] = 0;
       if (i == 0) {
         Nop();
@@ -351,7 +348,7 @@ static void InitTimer4(void) {
   T4InterruptUserFunction=T4_ISR;
   T4CONbits.TON = 0;        // turn off the timer while we configure it
   T4CONbits.TCS = 0;        // use the internal, system clock
-  T4CONbits.T32 = 0;
+  T4CONbits.T32 = 0;        // make explicit that we are not using 32 bit timer function
   PR4 = 0x0fd0;
   T4CONbits.TCKPS = 0b00;   // configure prescaler to divide-by-1
   _T4IF = 0;                // begin with the interrupt flag cleared
@@ -369,7 +366,7 @@ static void InitIC1(const uint8_t RPn) {
   //IC1CON1bits.ICTSEL = 0;   // use Timer3 as the time base
   IC1CON1bits.ICTSEL = 0b011;   // use Timer5 as the time base
   IC1CON1bits.ICI = 0b00;   // fire the interrupt every capture event
-  IC1CON1bits.ICM = 0b001;  // capture event on every edge
+  IC1CON1bits.ICM = 0b001;  // capture event on EVERY edge (not just every rising anymore)
   //IPC0bits.IC1IP2 = 0; //set lower priority
   
   //PPS_MapPeripheral(RPn, INPUT, FN_IC1);
@@ -389,7 +386,7 @@ static void InitIC2(const uint8_t RPn) {
 //  IC2CON1bits.ICTSEL = 0;
   IC2CON1bits.ICTSEL = 0b011;   // use Timer5 as the time base
   IC2CON1bits.ICI = 0b00;
-  IC2CON1bits.ICM = 0b001;
+  IC2CON1bits.ICM = 0b001;      // capture event on EVERY edge (not just every rising anymore)
   //IPC1bits.IC2IP2 = 0; //set lower priority
 
   IC2InterruptUserFunction=IC2_ISR;

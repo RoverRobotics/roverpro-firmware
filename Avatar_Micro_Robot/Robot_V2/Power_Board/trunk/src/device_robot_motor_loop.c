@@ -73,8 +73,9 @@ void closed_loop_control_init(void)
 {
   Nop();
   Nop();
-IC_Init(kIC01, M1_TACHO_RPN, 5000);
-IC_Init(kIC02, M2_TACHO_RPN, 5000);
+IC_Init(kIC01, M1_TACHO_RPN, 5000); //1000 was TOO aggressive. If robot was moving slowly, the IC_Updateperiods()
+                                    // function was actually zeroing out speeds while the robot was moving!!!!!
+IC_Init(kIC02, M2_TACHO_RPN, 5000); // same notes....
  	PID_Init(LEFT_CONTROLLER, MAX_EFFORT, MIN_EFFORT, K_P, K_I, K_D);
  	PID_Init(RIGHT_CONTROLLER, MAX_EFFORT, MIN_EFFORT, K_P, K_I, K_D);
 
@@ -217,9 +218,7 @@ float DT_speed(const kMotor motor) {
       break;
     }
     case kMotorRight: {
-      
       period = IC_period(kIC02);
-    
       if (period != 0) {
         if (M2_DIRO) return (HZ_16US / period);
         else return -(HZ_16US / period);

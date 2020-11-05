@@ -72,8 +72,6 @@ float IC_period(const kICModule module);
 int MotorDirection(int Channel);
 
 
-
-
 /*******************************************************************************
 Function: IC_Deinit
 Description: Deinitializes this module, restoring any resources and/or pins 
