@@ -310,7 +310,8 @@ void DeviceRobotMotorInit()
   	TMPSensorICIni();
  	FANCtrlIni();
 
-
+	//this is a dead end that causes code not to build.
+	//It feeds REG_ROBOT_BOARD_DATA which is not used
 	//read_EEPROM_string();
 
 
