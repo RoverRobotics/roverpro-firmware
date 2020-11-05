@@ -30,6 +30,8 @@ If the direction bit is oscillating, the capture routine will keep outputting lo
 This is remarkably effective at ensuring that 0 speed is output during stall conditions (as opposed to some highly
 outrageous speed).
 
+Also, for this fix to work at maximal effectiveness, every capture edge needs to be interrupted upon instead of only rising edges. This is effectively saying that using 100% of the tachometer data is better than using 50% of the tachometer data, which makes intuitive sense.
+
 This drastic improvement allows a fundamentally different approach to the openrover stack. The openrover stack used to be filled with
 all kinds of logic, filtering, slope-checking, and other compensation methods for dealing with this highly suboptimal
 device behavior. Now the openrover stack can rely more on the data from the device, and potentially be more responsive/accurate 
@@ -47,8 +49,20 @@ While the intent was good here, the implementation lacked logic to deal with the
 variable was overflowing unsafely, and as a result, the elapsed_time tracking had unpredictable behavior. Because elapsed_time
 on the capture data was not reliable, this code would randomly zero out period data (making the odometry data unreliable).
 This issue would
-manifest itself as intermittently clearing all period data, sometimes while the robot was moving! At low speeds (~0.3 m/s)
-thgdsag
+manifest itself as intermittently clearing all period data, sometimes while the robot was moving! This issue was most prevalent at low-speeds (~0.3 m/s) where the elapsed time between capture events was long, and could be seen as 'blips to 
+zero' in the odometry data.
+
+The fix for this issue was also simple. Handle the rollover condition on the meta-timer variable and all is well.
+
+# Other cleanup areas.
+
+The encoder count feature was not supported in 1.0.3. The variables piped into this serial message were not being updated by any ISR. Rather than allowing those variables to be a random value (whatever was in RAM at startup), those values were explicitly set to 0. This should avoid any confusion there.
+
+The GetRPM() function is now supported. This data is returned as a SIGNED 16-bit int, meaning the direction of the motors is ACTUALLY RETURNED FROM THE ROBOT. Having the robot report both it's motor speed **and** motor direction instead of just tachomoter period without direction means we can **stop assuming** the direction of the robot in the driver and start actually allowing the robot to report its current direction.
+
+
+
+
 
 
 
