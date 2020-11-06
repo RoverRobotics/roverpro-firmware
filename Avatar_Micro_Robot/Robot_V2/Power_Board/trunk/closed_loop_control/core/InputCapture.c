@@ -97,8 +97,8 @@ void IC1_ISR(void) {
   if(recentMotorDirReading == measuredMotorDirection[0] && protectionTimeout==0){
     
     unsigned int newvalue = UINT_MAX;
-    if (last_value < current_value) newvalue = (current_value - last_value)<<1;
-    else newvalue = ((UINT_MAX - last_value) + current_value)<<1;
+    if (last_value < current_value) newvalue = (current_value - last_value);
+    else newvalue = ((UINT_MAX - last_value) + current_value);
 
     if(newvalue==0) newvalue = UINT_MAX;
     periods[0] = newvalue;
@@ -130,8 +130,8 @@ void IC2_ISR(void) {
   if(recentMotorDirReading == measuredMotorDirection[1] && protectionTimeout==0){
     
     unsigned int newvalue = UINT_MAX;
-    if (last_value < current_value) newvalue = ((current_value - last_value))<<1;
-    else newvalue = ((UINT_MAX - last_value) + current_value)<<1;
+    if (last_value < current_value) newvalue = ((current_value - last_value));
+    else newvalue = ((UINT_MAX - last_value) + current_value);
 
     if (newvalue==0) newvalue = UINT_MAX;
     periods[1] = newvalue;
