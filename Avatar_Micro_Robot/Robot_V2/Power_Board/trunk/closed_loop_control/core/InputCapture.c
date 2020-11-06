@@ -28,7 +28,7 @@ File: InputCapture.c
 #define T4_TICKS_PER_MS           4        // milliseconds per timer4 tick 
                                            // TODO: IS THIS RIGHT????
 
-#define STALL_PROTECTION_CYCLES     20    // number of tacho commutations required in a constant direction before 
+#define STALL_PROTECTION_CYCLES     5    // number of tacho commutations required in a constant direction before 
                                           // ISR will actually return period read (useful because motor stalls cause fast oscillations
                                           // of TACHO and DIRO signals!!!!!!!!!!!)
 
@@ -298,7 +298,7 @@ void IC_UpdatePeriods(void) {
   static uint32_t last_time = 0;
 
   //disable interrupts for 7 cycles since time is not guaranteed to be atomicS
-  __builtin_disi(7)
+  __builtin_disi(7);
   uint32_t current_time = time;
   uint8_t i;
   int32_t delta_time;
