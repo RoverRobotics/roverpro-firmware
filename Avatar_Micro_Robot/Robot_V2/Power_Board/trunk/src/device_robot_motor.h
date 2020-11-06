@@ -113,7 +113,7 @@
 //#define USBTimeOutTimer 3333 	//0.3Hz--3333ms
 #define SwitchDirectionTimer 10 	//10ms
 #define StateMachineTimer 1 	//1KHz
-#define RPMTimer 1 			//1KHz
+#define RPMTimer 10 			//100Hz
 #define CurrentFBTimer 1 		//1KHz
 #define M3_POSFB_Timer 1 		//1KHz
 #define CurrentProtectionTimer 1  //1KHz
@@ -125,6 +125,8 @@
 #define BATRecoveryTimer 100 	//100ms
 #define MotorOffTimer 35 		//35ms motor off if there is a surge
 
+#define RatioCommutationPeriodToMotorRpm 1376235
+#define CommutationPeriodToMotorRpmOffset 21
 #define CurrentLimit 2300
 #define MotorSpeedTargetCoefficient_Normal 40
 #define MotorSpeedTargetCoefficient_Turn 4

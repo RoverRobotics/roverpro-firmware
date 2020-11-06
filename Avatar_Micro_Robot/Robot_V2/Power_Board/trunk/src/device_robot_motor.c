@@ -14,6 +14,7 @@
 #define BATProtectionON
 #define XbeeTest_TX_Enable
 
+
 //variables
 //sub system variables
 static long int Period1;
@@ -114,7 +115,7 @@ long RealTimeCurrent[3]={0,0,0};
 long Current4Control[3][8]={{0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0}};
 int Current4ControlPointer[3]={0,0,0};
 long ControlCurrent[3]={0,0,0};
-long CurrentRPM[3]={0,0,0};
+int16_t CurrentRPM[3]={0,0,0};
 long RPM4Control[3][8]={{0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0},{0,0,0,0,0,0,0,0}};
 int RPM4ControlPointer[3]={0,0,0};
 long ControlRPM[3]={0,0,0};
@@ -210,7 +211,7 @@ unsigned int adc_test_reg = 0;
 	int Xbee_gNewData=0;
 	uint8_t Xbee_StartBit=253;
 	uint16_t EncoderInterval[3];// Encoder time interval
-	uint16_t BuildNO=40621;
+	uint16_t BuildNO=10007;
 	uint8_t Xbee_SIDE_FAN_SPEED=0;
 	uint8_t Xbee_SIDE_FAN_NEW=0; // if there is a cmd or no
 	#define P1_Read_Register 10
@@ -309,8 +310,9 @@ void DeviceRobotMotorInit()
   	TMPSensorICIni();
  	FANCtrlIni();
 
-
-	read_EEPROM_string();
+	//this is a dead end that causes code not to build.
+	//It feeds REG_ROBOT_BOARD_DATA which is not used
+	//read_EEPROM_string();
 
 
 
@@ -376,201 +378,26 @@ void GetControlRPM(int Channel)
 }
 
 void GetRPM(int Channel)
-{
+{	
+	if(Channel==0 && MotorDirection(0)>0){
+		CurrentRPM[0] = (RatioCommutationPeriodToMotorRpm / IC_period(0)) - CommutationPeriodToMotorRpmOffset;
+		CurrentRPM[0] = -CurrentRPM[0];
+	}
 
- 	static long ENRPM=0;
- 	static int ENDIR=0;
-
- 	static long BemfRPM=0;
- 	static int BemfDIR=0;
- 	static long ltemp1=0;
- 	static long ltemp2=0;
- 	static long ltemp3=0;
- 	static long ltemp4=0;
- 	static long temp=0;
- 	static long ltemp5=0;//save the Bemf AD value
- 	static int i,j;
- 	static long LastEnCount[3]={0,0,0};
-
-	ENRPM=0;
- 	ENDIR=0;
-	BemfRPM=0;
- 	BemfDIR=0;
- 	ltemp1=0;
- 	ltemp2=0;
- 	ltemp3=0;
- 	ltemp4=0;
- 	temp=0;
- 	ltemp5=0;//save the Bemf AD value
- 	i=0;
- 	j=0;
- 	
-//T1
-
- 	//RPM Calculation
- 	//encoder RPM Calculation
- 	for(j=0;j<SampleLength;j++)
- 	{
- 	 	ltemp1+=EncoderFBInterval[Channel][j];
- 		ltemp2+=DIR[Channel][j];
-// 		ltemp3+=BackEMF[Channel][ChannelA][j];
-// 		ltemp4+=BackEMF[Channel][ChannelB][j];
- 	}
-
-
- 	if(ltemp1>0)
- 	{
- 	 	ENRPM=24000000/(ltemp1>>ShiftBits);
-		//T4
-
- 	}
- 	else
- 	{
- 		ENRPM=0;
- 	}
 	
-	if(Channel == 0)
-	{
-		if(M1_DIRO)
-			ENDIR = -1;
-		else
-			ENDIR = 1;
-	}
-	else if(Channel == 1)
-	{
-
-		if(M2_DIRO)
-			ENDIR = 1;
-		else
-			ENDIR = -1;
-
+	if(Channel==0 && MotorDirection(0)==0){
+		CurrentRPM[0] = (RatioCommutationPeriodToMotorRpm / IC_period(0)) - CommutationPeriodToMotorRpmOffset;
+		
 	}
 
-
-	CurrentRPM[Channel]=ENRPM*ENDIR;
-
-	//if the input capture interrupt hasn't been called, the motors are not moving
- 	if(Encoder_Interrupt_Counter[Channel] == LastEnCount[Channel])
- 	{
- 	 	CurrentRPM[Channel]=0;		
- 	}
-	//otherwise, update the RPM
-	else
-	{
-
-		if(Channel == 0)
-		{
-			REG_MOTOR_FB_RPM.left=CurrentRPM[LMotor];
-		}
-		else if(Channel == 1)
-		{
-			REG_MOTOR_FB_RPM.right=CurrentRPM[RMotor];
-		}
-
-			
+	if(Channel==1 && MotorDirection(1)>0){
+		CurrentRPM[1] = (RatioCommutationPeriodToMotorRpm / IC_period(1)) - CommutationPeriodToMotorRpmOffset;
+		
 	}
-
-	LastEnCount[Channel] = Encoder_Interrupt_Counter[Channel];
-
-//T3
-/*
- 	//printf("1- %d\n",temp1);
- 	if(ltemp2>=0)
- 	{
- 		ENDIR=1;
- 	}else
- 	{
- 		ENDIR=-1;
- 	}
- 	ltemp1>>=ShiftBits;// divided by 4
- 	//printf("2- %d\n",temp1);
-//T2
-
- 	if(ltemp1>0)
- 	{
- 	 	ENRPM=24000000/ltemp1;
- 	}
- 	else
- 	{
- 		ENRPM=0;
- 	}
- 	BackEmfTemp3[Channel]=ltemp3;
- 	BackEmfTemp4[Channel]=ltemp4;
- 	if(ltemp3>ltemp4)
- 	{
- 		BemfDIR=1;
- 		ltemp3>>=ShiftBits;
- 		BemfRPM=((ltemp3*BackEMFCOEF[Channel])>>7);
- 		ltemp5=ltemp3;
- 	}
- 	else
- 	{
- 		BemfDIR=-1;
- 		ltemp4>>=ShiftBits;
- 		BemfRPM=((ltemp4*BackEMFCOEF[Channel]))>>7;
- 		ltemp5=ltemp4;
- 	}
- 	BackEmfRPM[Channel]=BemfRPM; 	
- 	//if RPM by Backemf < ThresholdRPM, use backemf as RPM
- 	//if RPM by Backemf > ThresholdRPM, use encoder as RPM
-	
- 	if(BemfRPM<ThresholdRPM)
- 	{
- 		CurrentRPM[Channel]=BemfRPM*BemfDIR;	
- 	}
- 	else
- 	{
- 		CurrentRPM[Channel]=ENRPM*ENDIR;
- 	}
-
-
- 	if(EnCount[Channel]==LastEnCount[Channel])
- 	//if(ltemp5<100 && EnCount[Channel]==LastEnCount[Channel])
- 	{
- 	 	CurrentRPM[Channel]=0;
- 		//printf("%ld\n",ltemp5); 			
- 	}
- 	LastEnCount[Channel]=EnCount[Channel];
- 	//CurrentRPM[Channel]=ENRPM*ENDIR;
- 	//if RPM>2000, update the coefficient
- 	RPM4Control[Channel][RPM4ControlPointer[Channel]]=CurrentRPM[Channel];
- 	RPM4ControlPointer[Channel]++;
- 	RPM4ControlPointer[Channel]&=7;
- 	if(CurrentRPM[Channel]>=2000 || CurrentRPM[Channel]<-2000)
- 	{
- 	 	temp=0;
- 		BackEMFCOE[Channel][BackEMFCOEPointer]=(ENRPM<<7)/ltemp5;
- 		BackEMFCOEPointer++;
- 		BackEMFCOEPointer&=(SampleLength-1);
- 	 	for(i=0;i<SampleLength;i++)
- 		{
- 			temp+=BackEMFCOE[Channel][i];
- 			//printf("%d,%ld\n",i,BackEMFCOE[Channel][i]);
- 		}
- 	 	ltemp6=temp>>ShiftBits;
- 	 	if(ltemp6>2500 && ltemp6<=5500)
- 		{
- 	 		BackEMFCOEF[Channel]=ltemp6;
- 		}
- 	}*/
-
-}
-
-//reads PCB information from the EEPROM.  This is pretty inefficient, but it should only run once, while the COM Express
-//is booting.
-void read_EEPROM_string(void)
-{
-	unsigned int i;
-
-	for(i=0;i<79;i++)
-	{
-		REG_MOTOR_BOARD_DATA.data[i] = readI2C2_Reg(EEPROM_ADDRESS,i);
-		block_ms(5);
-    ClrWdt();
-
+	if(Channel==1 && MotorDirection(1)==0){
+		CurrentRPM[1] = (RatioCommutationPeriodToMotorRpm / IC_period(1)) - CommutationPeriodToMotorRpmOffset;
+		CurrentRPM[1] = -CurrentRPM[1];
 	}
-
-
 }
 
 
@@ -722,8 +549,8 @@ void Device_MotorController_Process()
  	if(RPMTimerCount>=RPMTimer)
  	{
  	 	RPMTimerExpired=True;
- 	 	RPMTimerCount=0;
- 	 	RPMTimerEnabled=False;
+ 	 	//RPMTimerCount=0;
+ 	 	//RPMTimerEnabled=False;
  	}
  	if(CurrentFBTimerCount>=CurrentFBTimer)
  	{
@@ -806,7 +633,9 @@ void Device_MotorController_Process()
 
  	if(RPMTimerExpired==True)
  	{
- 	 	RPMTimerEnabled=True;
+ 	 	//RPMTimerEnabled=True;
+		RPMTimerCount = 0;
+		RPMTimerExpired=True;
  	 	RPMTimerExpired=False;
  		for(i=0;i<2;i++)//only two driving motors, no flipper
  		{
@@ -860,8 +689,8 @@ void Device_MotorController_Process()
  		SFREGUpdateTimerExpired=False;
 	 	//update all the software registers
  		//
- 		/*REG_MOTOR_FB_RPM.left=CurrentRPM[LMotor];
- 		REG_MOTOR_FB_RPM.right=CurrentRPM[RMotor];*/
+ 		REG_MOTOR_FB_RPM.left=CurrentRPM[LMotor];
+ 		REG_MOTOR_FB_RPM.right=CurrentRPM[RMotor];
  		//update flipper motor position
  		temp1=0;
  		temp2=0;
@@ -872,14 +701,16 @@ void Device_MotorController_Process()
  		}
  		REG_FLIPPER_FB_POSITION.pot1=temp1>>ShiftBits;
  		REG_FLIPPER_FB_POSITION.pot2=temp2>>ShiftBits;
-    REG_MOTOR_FLIPPER_ANGLE = return_calibrated_pot_angle(temp1>>ShiftBits, temp2>>ShiftBits);
+    	REG_MOTOR_FLIPPER_ANGLE = return_calibrated_pot_angle(temp1>>ShiftBits, temp2>>ShiftBits);
  		//update current for all three motors
  		REG_MOTOR_FB_CURRENT.left=ControlCurrent[LMotor];
  		REG_MOTOR_FB_CURRENT.right=ControlCurrent[RMotor];
  		REG_MOTOR_FB_CURRENT.flipper=ControlCurrent[Flipper];
  		//update the encodercount for two driving motors
- 		REG_MOTOR_ENCODER_COUNT.left=Encoder_Interrupt_Counter[LMotor];
- 		REG_MOTOR_ENCODER_COUNT.right=Encoder_Interrupt_Counter[RMotor];
+ 		//REG_MOTOR_ENCODER_COUNT.left=Encoder_Interrupt_Counter[LMotor];
+		REG_MOTOR_ENCODER_COUNT.left=0;
+		//REG_MOTOR_ENCODER_COUNT.right=Encoder_Interrupt_Counter[RMotor];
+ 		REG_MOTOR_ENCODER_COUNT.right=0;
  		//update the mosfet driving fault flag pin 1-good 2-fault
  		REG_MOTOR_FAULT_FLAG.left=PORTDbits.RD1;
  		REG_MOTOR_FAULT_FLAG.right=PORTEbits.RE5;
@@ -2084,6 +1915,9 @@ void MC_Ini(void)//initialzation for the whole program
 	M3_MODE=1;
 	//*******************************************
  	InterruptIni();
+	//initialize interrupt on change
+
+
  	//initialize AD
  	IniAD();
 	//initialize timer
@@ -2111,16 +1945,11 @@ void MC_Ini(void)//initialzation for the whole program
  	I2C2Ini();
  	I2C3Ini();
 
-
  	#ifdef XbeeTest
  	UART1Ini();
  	#endif
 
 	set_firmware_build_time();
-
-
-
-
 
 }
 
@@ -2699,12 +2528,21 @@ void UART1Ini()
 
 
 /*****************************************************************************/
+//*-----------------------------------UART------------------------------------*/
+
+
+
+
+
+/*****************************************************************************/
 
 
 
 
 
 /***************************Interrupt routines***********************************/
+
+
 
 void  Motor_IC1Interrupt(void)
 {

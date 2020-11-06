@@ -69,6 +69,7 @@ Description: Returns the last-computed period in units of 16-microseconds.
   chosen timeout time.
 *******************************************************************************/
 float IC_period(const kICModule module);
+int MotorDirection(int Channel);
 
 
 /*******************************************************************************
@@ -79,3 +80,8 @@ Description: Deinitializes this module, restoring any resources and/or pins
 void IC_Deinit(void);
 
 #endif
+
+#define MAX_NUM_IC_PINS           9
+
+static volatile uint16_t periods[MAX_NUM_IC_PINS];
+static volatile int measuredMotorDirection[2];

@@ -5,6 +5,7 @@ File: InputCapture.c
 /*---------------------------Dependencies-------------------------------------*/
 #include "./InputCapture.h"
 #include "./PPS.h"
+#include "../../src/device_robot_motor.h"
 #include <limits.h>           // for UINT_MAX macro
 #include <stdbool.h>      // for 'bool' boolean data type
 #include "stdhdr.h"
@@ -19,7 +20,6 @@ File: InputCapture.c
 
 
 /*---------------------------Macros-------------------------------------------*/
-#define MAX_NUM_IC_PINS           9
 #define US_PER_TICK               16.0      // microseconds per timer tick
 
 // time_per_tick = ((f_osc/2)/prescaler)^-1 => ((32MHz/2)/256)^-1 => 16us
@@ -27,6 +27,10 @@ File: InputCapture.c
 
 #define T4_TICKS_PER_MS           4        // milliseconds per timer4 tick 
                                            // TODO: IS THIS RIGHT????
+
+#define STALL_PROTECTION_CYCLES     5    // number of tacho commutations required in a constant direction before 
+                                          // ISR will actually return period read (useful because motor stalls cause fast oscillations
+                                          // of TACHO and DIRO signals!!!!!!!!!!!)
 
 /*---------------------------Helper Function Prototypes-----------------------*/
 static void InitTimer4(void);
@@ -48,7 +52,8 @@ static volatile bool is_timer3_running = NO;
 static volatile uint8_t RPns[MAX_NUM_IC_PINS] = {0};
 static volatile uint32_t timeouts[MAX_NUM_IC_PINS] = {0}; // in units of [ms]
 static volatile uint32_t elapsed_times[MAX_NUM_IC_PINS] = {0};
-static volatile float periods[MAX_NUM_IC_PINS] = {0};
+static volatile uint16_t periods[MAX_NUM_IC_PINS] = {0};
+static volatile int measuredMotorDirection[2] = {0};
 static volatile uint32_t time = 0;  // running number of timer3 ticks
 
 /*---------------------------Test Harness-------------------------------------*/
@@ -83,13 +88,32 @@ void IC1_ISR(void) {
   elapsed_times[0] = 0;
   
   static uint16_t last_value = 0;
+  static int protectionTimeout = 0;
   uint16_t current_value = IC1BUF; // current running Timer3 tick value
                                    // (you must subtract off last value)
   
-	// handle rollover, remove old offset
-  if (last_value < current_value) periods[0] = current_value - last_value;
-  else periods[0] = (UINT_MAX - last_value) + current_value;
-  last_value = current_value;
+	// handle rollover, remove old 
+  int recentMotorDirReading = M1_DIRO;
+  if(recentMotorDirReading == measuredMotorDirection[0] && protectionTimeout==0){
+    
+    unsigned int newvalue = UINT_MAX;
+    if (last_value < current_value) newvalue = (current_value - last_value)<<1;
+    else newvalue = ((UINT_MAX - last_value) + current_value)<<1;
+
+    if(newvalue==0) newvalue = UINT_MAX;
+    periods[0] = newvalue;
+    last_value = current_value;
+    
+  }
+  else if(recentMotorDirReading != measuredMotorDirection[0]){
+    protectionTimeout = STALL_PROTECTION_CYCLES;
+    periods[0]= UINT_MAX;
+  }
+  else{
+    protectionTimeout--;
+    periods[0]= UINT_MAX;
+  }
+  measuredMotorDirection[0] = recentMotorDirReading;
 }
 
 
@@ -98,11 +122,30 @@ void IC2_ISR(void) {
   elapsed_times[1] = 0;
   
   static uint16_t last_value = 0;
+  static int protectionTimeout = 0;
   uint16_t current_value = IC2BUF;
-  
-  if (last_value < current_value) periods[1] = (current_value - last_value);
-  else periods[1] = (UINT_MAX - last_value) + current_value;
-  last_value = current_value;
+
+  // handle rollover, remove old
+  int recentMotorDirReading = M2_DIRO;
+  if(recentMotorDirReading == measuredMotorDirection[1] && protectionTimeout==0){
+    
+    unsigned int newvalue = UINT_MAX;
+    if (last_value < current_value) newvalue = ((current_value - last_value))<<1;
+    else newvalue = ((UINT_MAX - last_value) + current_value)<<1;
+
+    if (newvalue==0) newvalue = UINT_MAX;
+    periods[1] = newvalue;
+    last_value = current_value;
+  }
+  else if(recentMotorDirReading != measuredMotorDirection[1]){
+    protectionTimeout = STALL_PROTECTION_CYCLES;
+    periods[1] = UINT_MAX;
+  }
+  else{
+    protectionTimeout--;
+    periods[1] = UINT_MAX;
+  }
+  measuredMotorDirection[1] = recentMotorDirReading;
 }
 
 
@@ -246,19 +289,34 @@ float IC_period(const kICModule module) {
   return periods[module];
 }
 
+int MotorDirection(int Channel){
+  return measuredMotorDirection[Channel];
+}
 
 void IC_UpdatePeriods(void) {
-  // reset any periods if it has been too long
+  // reset any periods if it has been too long 
   static uint32_t last_time = 0;
+
+  //disable interrupts for 7 cycles since time is not guaranteed to be atomicS
+  __builtin_disi(7);
   uint32_t current_time = time;
   uint8_t i;
   int32_t delta_time;
   for (i = 0; i < MAX_NUM_IC_PINS; i++) {
-    delta_time = (current_time - last_time); // OK ON ROLLOVER?
+    //handle rollover
+    if (last_time > current_time){
+      //32-bit 
+      delta_time = (0xFFFFFFFF - last_time) + current_time;
+    }
+    else{
+      delta_time = current_time - last_time;
+    }
+    //delta_time = (current_time - last_time); // not OK ON ROLLOVER!
     elapsed_times[i] += delta_time;
     // NB: be consistent in units of timer4 ticks
     if ((timeouts[i] * T4_TICKS_PER_MS) < elapsed_times[i]) {
-      periods[i] = 0;
+      //The value chosen (65534) is useful for debugging. Still means 0 speed.
+      periods[i] = UINT_MAX - 1; 
       elapsed_times[i] = 0;
       if (i == 0) {
         Nop();
@@ -293,6 +351,7 @@ static void InitTimer4(void) {
   T4InterruptUserFunction=T4_ISR;
   T4CONbits.TON = 0;        // turn off the timer while we configure it
   T4CONbits.TCS = 0;        // use the internal, system clock
+  T4CONbits.T32 = 0;        // make explicit that we are not using 32 bit timer function
   PR4 = 0x0fd0;
   T4CONbits.TCKPS = 0b00;   // configure prescaler to divide-by-1
   _T4IF = 0;                // begin with the interrupt flag cleared
@@ -310,7 +369,8 @@ static void InitIC1(const uint8_t RPn) {
   //IC1CON1bits.ICTSEL = 0;   // use Timer3 as the time base
   IC1CON1bits.ICTSEL = 0b011;   // use Timer5 as the time base
   IC1CON1bits.ICI = 0b00;   // fire the interrupt every capture event
-  IC1CON1bits.ICM = 0b011;  // capture event on every rising edge
+  IC1CON1bits.ICM = 0b001;  // capture event on EVERY edge (not just every rising anymore)
+  //IPC0bits.IC1IP2 = 0; //set lower priority
   
   //PPS_MapPeripheral(RPn, INPUT, FN_IC1);
   _IC1R = RPn;
@@ -329,7 +389,8 @@ static void InitIC2(const uint8_t RPn) {
 //  IC2CON1bits.ICTSEL = 0;
   IC2CON1bits.ICTSEL = 0b011;   // use Timer5 as the time base
   IC2CON1bits.ICI = 0b00;
-  IC2CON1bits.ICM = 0b011;
+  IC2CON1bits.ICM = 0b001;      // capture event on EVERY edge (not just every rising anymore)
+  //IPC1bits.IC2IP2 = 0; //set lower priority
 
   IC2InterruptUserFunction=IC2_ISR;
   

@@ -73,8 +73,9 @@ void closed_loop_control_init(void)
 {
   Nop();
   Nop();
-IC_Init(kIC01, M1_TACHO_RPN, 1000);
-IC_Init(kIC02, M2_TACHO_RPN, 1000);
+IC_Init(kIC01, M1_TACHO_RPN, 5000); //1000 was TOO aggressive. If robot was moving slowly, the IC_Updateperiods()
+                                    // function was actually zeroing out speeds while the robot was moving!!!!!
+IC_Init(kIC02, M2_TACHO_RPN, 5000); // same notes....
  	PID_Init(LEFT_CONTROLLER, MAX_EFFORT, MIN_EFFORT, K_P, K_I, K_D);
  	PID_Init(RIGHT_CONTROLLER, MAX_EFFORT, MIN_EFFORT, K_P, K_I, K_D);
 
