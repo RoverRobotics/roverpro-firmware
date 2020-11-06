@@ -125,8 +125,10 @@
 #define BATRecoveryTimer 100 	//100ms
 #define MotorOffTimer 35 		//35ms motor off if there is a surge
 
+
 #define RatioCommutationPeriodToMotorRpm 688117
 #define CommutationPeriodToMotorRpmOffset 10
+
 #define CurrentLimit 2300
 #define MotorSpeedTargetCoefficient_Normal 40
 #define MotorSpeedTargetCoefficient_Turn 4
