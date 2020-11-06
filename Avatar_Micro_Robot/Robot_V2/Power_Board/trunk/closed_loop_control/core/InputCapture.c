@@ -52,7 +52,7 @@ static volatile bool is_timer3_running = NO;
 static volatile uint8_t RPns[MAX_NUM_IC_PINS] = {0};
 static volatile uint32_t timeouts[MAX_NUM_IC_PINS] = {0}; // in units of [ms]
 static volatile uint32_t elapsed_times[MAX_NUM_IC_PINS] = {0};
-static volatile float periods[MAX_NUM_IC_PINS] = {UINT_MAX};
+static volatile uint16_t periods[MAX_NUM_IC_PINS] = {0};
 static volatile int measuredMotorDirection[2] = {0};
 static volatile uint32_t time = 0;  // running number of timer3 ticks
 
@@ -95,8 +95,8 @@ void IC1_ISR(void) {
 	// handle rollover, remove old 
   int recentMotorDirReading = M1_DIRO;
   if(recentMotorDirReading == measuredMotorDirection[0] && protectionTimeout==0){
-    // update the 
-    int newvalue = UINT_MAX;
+    
+    unsigned int newvalue = UINT_MAX;
     if (last_value < current_value) newvalue = (current_value - last_value)<<1;
     else newvalue = ((UINT_MAX - last_value) + current_value)<<1;
 
@@ -128,8 +128,8 @@ void IC2_ISR(void) {
   // handle rollover, remove old
   int recentMotorDirReading = M2_DIRO;
   if(recentMotorDirReading == measuredMotorDirection[1] && protectionTimeout==0){
-    // update the period
-    int newvalue = UINT_MAX;
+    
+    unsigned int newvalue = UINT_MAX;
     if (last_value < current_value) newvalue = ((current_value - last_value))<<1;
     else newvalue = ((UINT_MAX - last_value) + current_value)<<1;
 
@@ -296,6 +296,9 @@ int MotorDirection(int Channel){
 void IC_UpdatePeriods(void) {
   // reset any periods if it has been too long 
   static uint32_t last_time = 0;
+
+  //disable interrupts for 7 cycles since time is not guaranteed to be atomicS
+  __builtin_disi(7)
   uint32_t current_time = time;
   uint8_t i;
   int32_t delta_time;
