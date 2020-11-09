@@ -126,8 +126,18 @@
 #define MotorOffTimer 35 		//35ms motor off if there is a surge
 
 
-#define RatioCommutationPeriodToMotorRpm 688117
-#define CommutationPeriodToMotorRpmOffset 10
+//at 16MHz, TMR4 prescale 256:1, its .000016 seconds/ timer count
+//so the math works for motor RPMs works out as follows...
+// X (counts/edge) * .000016 (seconds/count) * 3 (edges/ motor rotation) * 0.01666667 (minutes/second)
+// taking the inversion of this, one gets 1,250,000 * (1/X) where X in the TMR4 measurement of the tacho period.
+#define RatioCommutationPeriodToMotorRpm 1250000
+
+// to deal with the fact that the longest effective period we can measure is bound by a 16-bit unsigned, 
+// we must add an offset factor. For example, 1250000 / 65535 = 19
+// thus at rest the rpm would indicate 19 or -19 instead of 0, which is obviously suboptimal.
+// simply subtracting this offest so that the robot reports 0 rpm at rest is a fine solution; 
+// it overall adds almost no error.
+#define CommutationPeriodToMotorRpmOffset 19
 
 #define CurrentLimit 2300
 #define MotorSpeedTargetCoefficient_Normal 40
