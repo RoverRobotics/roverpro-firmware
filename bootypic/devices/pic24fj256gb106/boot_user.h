@@ -100,4 +100,3 @@ void writeRow(uint32_t address, uint32_t *words);
  */
 void writeMax(uint32_t address, uint32_t *progData);
 
-#pragma once

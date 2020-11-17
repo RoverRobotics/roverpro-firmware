@@ -66,15 +66,20 @@ You can create a combo image in several ways. Below are instructions via MPLAB 8
 
 1. Install the `intelhex` Python package, which contains `hexmerge.py`, a utility for combining hex files:
    
-   ```
+   ```shell
    python3 -m pip install intelhex --force --no-binary :all:
    ```
    
-2. Now create a hex image of both the bootloader and the powerboard:
+2. Now create a hex image of both the bootloader and the powerboard.[^1]
    
+   ```shell
+   app=PowerBoard-1.11.1.hex
+   boot=bootypic-1.11.1.hex
+   out=combined-1.11.1.hex
+   hexmerge.py -o $out $boot::03 $app:04:01ff $boot:0400:1fff $app:2000:02ABF9 $boot:02ABFA:
    ```
-   hexmerge.py PowerBoard-1.11.1.hex bootypic-1.11.1.hex -o combo-1.11.1.hex --overlap=replace
-   ```
+   
+[^1]:You probably noticed the addresses after the file name. These are necessary because the bootloader and the application have conflicting opinions about what should go where in parts of memory. These values may change with different versions of the firmware. [See below][addresses] for more.
 
 ### Installing a combo image
 
@@ -94,13 +99,11 @@ For debugging, use MPLAB 8. MPLAB X (5.30) has numerous bugs. Even its bugs have
 2. Generate build files with CMake
 3. Build it!
 
-```
+```shell
 cd roverpro-firmware
-cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="cmake/PowerBoard_toolchain.cmake" 
+cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="cmake/PowerBoard_toolchain.cmake"
 cmake --build build
 ```
-
-Note that ABI detection can fail due to [a bug in the XC16 compiler](https://www.microchip.com/forums/m1126857.aspx). I have not found this to cause a problem beyond some scary-looking warnings and failure of code autocomplete in CLion.
 
 ### IDE iteration
 
@@ -114,6 +117,50 @@ You can build in the MPLAB IDE using the project files in the MPLAB subfolder, t
 4. F10 (or Project -> Make). This will build and run the project.
 
 Note either the Bootloader or PowerBoard can be run in this way (though the bootloader will crash when trying to run the app and the PowerBoard will skip the bootloader)
+
+### Bootloader and Application addresses <span id='addresses'></span>
+
+The bootloader and application must live on the same chip, so they coexist in the same address space. Note that the below addresses may change in different versions of the firmware.
+
+| Addresses       | Meaning                              | Notes                                                        |
+| --------------- | ------------------------------------ | ------------------------------------------------------------ |
+| 000000:0x000003 | Reset vector; go to start of program | Both application and bootloader define this. **When both exist, the Bootloader should win** |
+| 000004:0001ff   | Interrupt table                      | Reserved for application - by design the bootloader uses no interrupts |
+| 000200:0003ff   | Program memory unused                | This is normal program memory, but due to how RTSP works on the PIC, erasing the interrupt table also erases this memory. So it's not used by the bootloader. |
+| 000400:001fff   | Program memory - bootloader          |                                                              |
+| 002000:02ABF9   | Program memory - application         |                                                              |
+| 02ABFA:02ABFF   | PIC config words                     | Both application and bootloader define this. **They should be the same for application and bootloader.** |
+
+To disassemble, you can use `xc16-objdump`. The beginning of the bootloader might look like:
+
+```
+xc16=/opt/microchip/xc16/v1.60/
+objdump=$xc16/bin/xc16-objdump
+$objdump build/clion/bootypic/bootypic.elf -d | head -n 15
+
+build/clion/bootypic/bootypic.elf:     file format elf32-pic30
+
+Disassembly of section .reset:
+
+00000000 <.reset>:
+   0:	00 04 04    	goto      0x400 <__reset>
+   2:	00 00 00 
+Disassembly of section .text:
+
+00000400 <__reset>:
+ 400:	6f 26 21    	mov.w     #0x1266, w15
+ 402:	0e 7f 24    	mov.w     #0x47f0, w14
+ 404:	0e 01 88    	mov.w     w14, 0x20
+ 406:	00 00 00    	nop       
+```
+
+A couple things to note:
+
+1. Instructions are aligned at addresses divisible by 2 and consist of 24 bytes.
+2. Every even address has 2 bytes, and every odd address has 1 byte.
+3. Reading hex can be a little weird. Numbers are little-endian, so the bytes `00 04` means 0x0400; i.e. 1024.
+
+In the above code, we `goto __reset`. The `__reset` subroutine, defined in `libpic30`, initializes the heap, the stack, and runtime constants, then calls `main()`.
 
 ### Code style tools
 

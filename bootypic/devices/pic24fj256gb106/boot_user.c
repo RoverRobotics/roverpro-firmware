@@ -17,10 +17,7 @@ bool pre_boot() {
     return should_run_bootloader;
 }
 
-void initOsc(void) {
-    CLKDIV = 0;
-    return;
-}
+void initOsc(void) { CLKDIV = 0; }
 
 void initPins(void) {
     /* no analog, all digital */
@@ -136,9 +133,6 @@ uint32_t getTimeTicks() {
 }
 
 bool should_abort_boot() {
-    if (readAddress(APPLICATION_START_ADDRESS) == 0xffffff) {
-        return false;
-    }
     static const uint32_t BOOTLOADER_TIMEOUT_TICKS = (FCY / 256.0 * BOOT_LOADER_TIME);
     if (getTimeTicks() > BOOTLOADER_TIMEOUT_TICKS) {
         return true;
@@ -248,4 +242,16 @@ void writeMax(uint32_t address, uint32_t *progData) {
     }
 }
 
-void startApp(uint16_t applicationAddress) { asm("goto w0"); }
+void __attribute__((noload, noreturn, address(APPLICATION_START_ADDRESS))) app_entry_point(void) {
+    __builtin_unreachable();
+}
+
+void tryStartApp() {
+    switch (readAddress(APPLICATION_START_ADDRESS) >> 16) {
+    case 0x00: // nop, don't do anything
+    case 0xff: // nopr, don't do anything, but with more r
+        return;
+    default:
+        app_entry_point();
+    }
+}
