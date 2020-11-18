@@ -145,28 +145,3 @@ uint16_t fletcher16Accum(uint8_t byte);
  * @return the fletcher16 value
  */
 uint16_t fletcher16(uint8_t* data, uint16_t length);
-
-/**
- * @brief starts the application
- */
-void app_entry_point() __attribute__((noreturn));
-
-/**
- * @brief initializes the oscillator
- */
-extern void initOsc(void);
-
-/**
- * @brief initializes the pins
- */
-extern void initPins(void);
-
-/**
- * @brief initializes the UART
- */
-extern void initUart(void);
-
-/**
- * @brief initializes timers for bootloader timeout
- */
-extern void initTimers(void);

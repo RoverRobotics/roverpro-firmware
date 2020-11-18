@@ -4,20 +4,6 @@
 #include "power.h"
 #include <xc.h>
 
-void pre_bootload() {
-    i2c_enable(I2C_BUS2);
-    i2c_enable(I2C_BUS3);
-    power_init();
-}
-
-void initOsc(void) { CLKDIV = 0; }
-
-void initPins(void) {
-    /* no analog, all digital */
-    AD1PCFGL = 0xffff;
-    AD1PCFGH = 0x3;
-}
-
 void uart_map_rx(uint16_t rpn) {
     // map that pin to UART RX
     _U1RXR = rpn;
@@ -67,6 +53,23 @@ static __attribute__((always_inline)) void uart_map_tx(uint16_t rpn) {
 #undef _RPxR
 }
 
+/**
+ * @brief initializes the oscillator
+ */
+void initOsc(void) { CLKDIV = 0; }
+
+/**
+ * @brief initializes the pins
+ */
+void initPins(void) {
+    /* no analog, all digital */
+    AD1PCFGL = 0xffff;
+    AD1PCFGH = 0x3;
+}
+
+/**
+ * @brief initializes the UART
+ */
 void initUart(void) {
     U1MODE = 0;
     U1STA = 0x2000;
@@ -101,6 +104,54 @@ void initTimers(void) {
     T2CONbits.TON = 1;
 }
 
+void pre_bootload_hook() {
+    // set up power bus
+    i2c_enable(I2C_BUS2);
+    i2c_enable(I2C_BUS3);
+    power_init();
+
+    // EXTR = reset pin
+    // SWR =  software reset
+    if (!RCONbits.EXTR && !RCONbits.SWR) {
+        try_start_app_hook();
+    }
+
+    // initialize peripherals needed for bootloader
+    initOsc();
+    initPins();
+    initUart();
+    initTimers();
+}
+
+void __attribute__((noload, noreturn, address(APPLICATION_START_ADDRESS))) app_entry_point() {
+    __builtin_unreachable();
+}
+
+void try_start_app_hook() {
+    uint16_t save_tblpag = TBLPAG;
+    bool seen_valid_opcode = false;
+    int i;
+    // Pre-read the program and see if it appears to be executable code
+    for (i = 0; i < 8; ++i) {
+        uint32_t address = APPLICATION_START_ADDRESS + 2 * i;
+        TBLPAG = address >> 16;
+        uint8_t opcode = __builtin_tblrdhb((uint16_t)address);
+        // 0x00 = NOP and 0xff = NOPR
+        // they both do nothing.
+        if (opcode != 0x00 && opcode != 0xff) {
+            seen_valid_opcode = true;
+            break;
+        }
+    }
+    TBLPAG = save_tblpag;
+
+    if (seen_valid_opcode) {
+        RCONbits.SWR = 0;
+        RCONbits.EXTR = 0;
+        app_entry_point();
+    }
+}
+
 uint32_t get_idle_time_ticks() {
     uint32_t n_ticks = 0;
     n_ticks |= (uint32_t)TMR2;
@@ -112,42 +163,19 @@ inline uint32_t timer_ticks_from_milliseconds(uint32_t milliseconds) {
     return FCY / 256 / 1000 * milliseconds;
 }
 
-/// Pre-read the program and see if it appears to be executable code
-inline bool program_looks_ok(){
-    uint16_t save_tblpag = TBLPAG;
-    bool seen_valid_opcode = false;
-    int i;
-    for (i=0; i<8; ++i){
-        uint32_t address = APPLICATION_START_ADDRESS + 2*i;
-        TBLPAG = (address)>>16;
-        uint8_t opcode = __builtin_tblrdhb((uint16_t)address);
-        // 0x00 = NOP and 0xff = NOPR
-        // they both do nothing.
-        if (opcode != 0x00 && opcode != 0xff) {
-            seen_valid_opcode = true;
-        }
-    }
-    TBLPAG = save_tblpag;
-    return seen_valid_opcode;
-}
-
-bool should_start_bootloader() {
-    if (!program_looks_ok()){
-        return true;
-    }
-    RCONBITS rcon = RCONbits;
-    return rcon.EXTR || rcon.SWR;
-}
-
-bool should_continue_bootloader() {
-    if (!program_looks_ok())
-        return true;
-
+void bootload_loop_hook() {
     // If there was a hardware reset, allow the user extra time to bootload
-    uint32_t bootload_duration_ms =
-        (RCONbits.EXTR ? BOOTLOAD_LONG_TIMEOUT_MS : BOOTLOAD_SHORT_TIMEOUT_MS);
-
-    return (get_idle_time_ticks() < timer_ticks_from_milliseconds(bootload_duration_ms));
+    const uint32_t long_timeout_ticks = timer_ticks_from_milliseconds(BOOTLOAD_LONG_TIMEOUT_MS);
+	const uint32_t short_timeout_ticks = timer_ticks_from_milliseconds(BOOTLOAD_SHORT_TIMEOUT_MS);
+	
+	uint32_t idle_time_ticks = get_idle_time_ticks();
+	uint32_t timeout_ticks = (RCONbits.EXTR ? long_timeout_ticks : short_timeout_ticks);
+	
+    if (idle_time_ticks < timeout_ticks) {
+        return;
+    } else {
+        try_start_app_hook();
+    }
 }
 
 bool tryRxByte(uint8_t *outbyte) {
@@ -160,79 +188,62 @@ bool tryRxByte(uint8_t *outbyte) {
 }
 
 /// Device-specific implementations of bootloader operations
-void eraseByAddress(uint32_t address) {
+void erase_page(uint32_t address) {
     uint16_t offset;
-    uint16_t tempTblPag = TBLPAG;
-    TBLPAG = (uint16_t)((address & 0x00ff0000) >> 16); // initialize PM Page Boundary
-    offset = (uint16_t)((address & 0x0000ffff) >> 0);
+    uint16_t temp_tblpag = TBLPAG;
+    TBLPAG = (uint16_t)(address >> 16); // initialize PM Page Boundary
+    offset = (uint16_t)(address >> 0);
     NVMCON = 0x4042; // page erase operation
     __builtin_tblwtl(offset, 0);
     __builtin_disi(5);
     __builtin_write_NVM();
 
-    TBLPAG = tempTblPag;
+    TBLPAG = temp_tblpag;
 }
 
-uint32_t readAddress(uint32_t address) {
-    uint16_t offset;
-    uint16_t tempTblPag = TBLPAG;
-    uint32_t result = 0;
-    // Set up pointer to the first memory location to be written
-    TBLPAG = (uint16_t)((address & 0x00ff0000) >> 16); // initialize PM Page Boundary
-    offset = (uint16_t)((address & 0x0000ffff) >> 0);  // initialize lower word of address
+void read_words(uint32_t *words, uint32_t start_address, unsigned n_words) {
+    uint16_t temp_tblpag = TBLPAG;
+    uint32_t i;
 
-    result |= (((uint32_t)__builtin_tblrdh(offset)) << 16); // read from address high word
-    result |= (((uint32_t)__builtin_tblrdl(offset)) << 0);  // read from address low word
-
-    TBLPAG = tempTblPag;
-    return result;
-}
-
-void writeInstr(uint32_t address, uint32_t instruction) {
-    uint16_t tempTblPag = TBLPAG;
-
-    uint16_t offset = (uint16_t)(address & 0x0000ffff);
-    TBLPAG = (uint16_t)((address & 0xffff0000) >> 16); /* initialize PM Page Boundary */
-
-    NVMCON = 0x4003; // Memory word program operation
-
-    __builtin_tblwtl(offset, (uint16_t)((instruction & 0x0000ffff) >> 0));
-    __builtin_tblwth(offset, (uint16_t)((instruction & 0x00ff0000) >> 16));
-    __builtin_disi(5);
-    __builtin_write_NVM();
-
-    TBLPAG = tempTblPag;
-}
-
-void writeRow(uint32_t address, uint32_t *words) {
-
-    // see "Row Programming in C with Built-in Functions (Unmapped Latches)"
-    uint16_t i;
-    uint16_t tempTblPag = TBLPAG;
-    uint16_t offset = (uint16_t)(address & 0x0000ff80);
-    TBLPAG = (uint16_t)((address & 0x00ff0000) >> 16); /* initialize PM Page Boundary */
-
-    NVMCON = 0x4001; // Memory row program operation
-    for (i = 0; i < _FLASH_ROW; i++) {
-        __builtin_tblwtl(offset + i * 2, (uint16_t)((words[i] & 0x0000ffff) >> 0));
-        __builtin_tblwth(offset + i * 2, (uint16_t)((words[i] & 0x00ff0000) >> 16));
+    for (i = 0; i < n_words; ++i) {
+        TBLPAG = (start_address + 2 * i) >> 16;
+        uint16_t offset = (start_address + 2 * i) & 0xffff;
+        words[i] =
+            ((uint32_t)__builtin_tblrdh(offset) << 16 | (uint32_t)__builtin_tblrdl(offset) << 0);
     }
-    __builtin_disi(5);
-    __builtin_write_NVM();
 
-    TBLPAG = tempTblPag;
+    TBLPAG = temp_tblpag;
 }
 
-void doubleWordWrite(uint32_t address, uint32_t *progDataArray) {
-    writeInstr(address, progDataArray[0]);
-    writeInstr(address + 2, progDataArray[1]);
-}
+void write_words(const uint32_t *words, uint32_t start_address, unsigned n_words) {
+    uint16_t temp_tblpag = TBLPAG;
+    uint32_t i = 0;
+    while (i < n_words) {
+        TBLPAG = (start_address + 2 * i) >> 16;
 
-void writeMax(uint32_t address, uint32_t *progData) {
-    uint16_t i;
-    uint16_t length = (uint16_t)(MAX_PROG_SIZE / _FLASH_ROW);
+        // fill the write latches with data
+        if ((start_address + 2 * i) % (2 * _FLASH_ROW) == 0 && i + _FLASH_ROW - 1 < n_words) {
+            NVMCON = 0x4001;
+            int j;
+            for (j = 0; j < _FLASH_ROW; ++j) {
+                uint16_t offset = (start_address + 2 * i) & 0x0000ffff;
+                __builtin_tblwth(offset, (uint16_t)(words[i] >> 16));
+                __builtin_tblwtl(offset, (uint16_t)(words[i] >> 0));
 
-    for (i = 0; i < length; i++) {
-        writeRow(address + ((i * _FLASH_ROW) << 1), &progData[i * _FLASH_ROW]);
+                ++i;
+            }
+        } else {
+            NVMCON = 0x4003;
+            uint16_t offset = (start_address + 2 * i) & 0x0000ffff;
+            __builtin_tblwth(offset, (uint16_t)(words[i] >> 16));
+            __builtin_tblwtl(offset, (uint16_t)(words[i] >> 0));
+
+            ++i;
+        }
+
+        // write it out to NVM
+        __builtin_disi(5);
+        __builtin_write_NVM();
     }
+    TBLPAG = temp_tblpag;
 }

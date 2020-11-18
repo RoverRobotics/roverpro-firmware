@@ -30,80 +30,67 @@
  */
 #define BOOTLOAD_LONG_TIMEOUT_MS 10000
 
-/* @brief this is the maximum size that can be programmed into the microcontroller
+/// Where to jump when bootloader is done
+#define APPLICATION_START_ADDRESS 0x2000
+
+/// Instruction clock frequency, in HZ
+#define FCY (16000000UL)
+
+/// instructions per erase
+#define _FLASH_PAGE 512
+/// instructions per row write
+#define _FLASH_ROW 64
+
+/** @brief this is the maximum size that can be programmed into the microcontroller
  * as part of one transaction using the CMD_WRITE_MAX_PROG_SIZE command
  *
  * A value of 0x80 should work on all microcontrollers.  Larger values will
  * allow faster programming operations, but will consume more RAM.
  */
-#define MAX_PROG_SIZE 0x80
-#define APPLICATION_START_ADDRESS 0x2000
-#define FCY (16000000UL) /* instruction clock frequency, in Hz */
-
-#define _FLASH_PAGE 512 /* _FLASH_PAGE should be the maximum page (in instructions) */
-#define _FLASH_ROW 64   /* _FLASH_ROW = maximum write row (in instructions) */
+#define MAX_PROG_SIZE (2 * _FLASH_ROW)
 
 /**
  * @brief run the very first initialization
  */
-void pre_bootload();
+void pre_bootload_hook();
 
 /**
- * @brief check whether we should run the bootloader at all
- * @return true if the bootloader should continue
- *         false if we should jump to the application
+ * @brief hook to run when the app is requested to start
+ *
+ * This function should either return, handing control back to the bootloader, or end the bootloader
+ * and start the firmware.
  */
-bool should_start_bootloader();
+void try_start_app_hook();
 
 /**
- * @brief determines if the bootloader should stay running
- * @return true if the bootloader should continue
- *         false if we should jump to the application
+ * @brief hook to run inside bootload main loop
+ *
+ * This function should run any loop checks and return if the bootload should continue to run.
  */
-bool should_continue_bootloader();
+void bootload_loop_hook();
 
 /**
- * @brief reads the value at the address
- * @param address
- * @return the value of the address
+ * @brief reads instructions from the given address
+ *
+ * @param words buffer to put the data into
+ * @param start_address first address to read
+ * @param n_words how many instructions to read
  */
-uint32_t readAddress(uint32_t address);
+void read_words(uint32_t *words, uint32_t start_address, unsigned n_words);
 
 /**
  * @brief erases the flash page starting at the address
+ *
  * @param address
  */
-void eraseByAddress(uint32_t address);
+void erase_page(uint32_t address);
 
 /**
- * @brief writes one instruction, at the address
- * @param address the address of the instruction (must be even)
- * @param progDataArray the instruction to write
- * words to be written to flash
+ * @brief write instructions to the given address, using the most appropriate NVM operations
+ * available
+ *
+ * @param words buffer containing the data to write
+ * @param start_address first address to write
+ * @param n_words how many instructions to write
  */
-void writeInstr(uint32_t address, uint32_t instruction);
-
-/**
- * @brief writes two instructions, starting at the address
- * @param address the starting address (must be even)
- * @param progDataArray a 32-bit, 2-element array containing the instructions
- * words to be written to flash
- */
-void doubleWordWrite(uint32_t address, uint32_t *progDataArray);
-
-/**
- * @brief writes an entire row of instructions, starting at the address
- * @param address the starting address (must start a flash row)
- * @param words a buffer containing the _FLASH_ROW instructions to write
- */
-void writeRow(uint32_t address, uint32_t *words);
-
-/**
- * @brief writes the maximum number of instructions
- * @param address the starting address
- * @param progData a 32-bit, MAX_PROG_SIZE-element array containing the instruction words
- * to be written to flash
- */
-void writeMax(uint32_t address, uint32_t *progData);
-
-inline bool program_looks_ok();
+void write_words(const uint32_t *words, uint32_t start_address, unsigned n_words);

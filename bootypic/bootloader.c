@@ -19,15 +19,12 @@ extern unsigned _CODE_LENGTH;
 static uint8_t message[RX_BUF_LEN] = {0};
 static uint8_t f16_sum1 = 0, f16_sum2 = 0;
 
-void __attribute__((noload, noreturn, address(APPLICATION_START_ADDRESS))) app_entry_point(void) {
-    __builtin_unreachable();
-}
 
 inline bool address_within_bootloader(uint32_t address){
     return BOOTLOADER_START_ADDRESS <= address && address < BOOTLOADER_END_ADDRESS;
 }
 inline bool address_within_reset_vector(uint32_t address){
-    return __RESET_BASE <= address && address < __RESET_LENGTH;
+    return __RESET_BASE <= address && address < __RESET_BASE + __RESET_LENGTH/2;
 }
 
 inline bool address_is_row_aligned(uint32_t address){ return address % (_FLASH_ROW * 2) == 0; }
@@ -35,23 +32,13 @@ inline bool address_is_row_aligned(uint32_t address){ return address % (_FLASH_R
 inline bool address_is_page_aligned(uint32_t address){ return address % (_FLASH_PAGE * 2) == 0; }
 
 int main(void) {
-    pre_bootload();
+    pre_bootload_hook();
 
-    if (! should_start_bootloader()){
-        app_entry_point();
-    }
-    /* initialize the peripherals from the user-supplied initialization functions */
-    initPins();
-    initOsc();
-    initUart();
-    initTimers();
-    do
-     {
+    while (1){
         ClrWdt();
         receiveBytes();
-    } while (should_continue_bootloader());
-
-    app_entry_point();
+        bootload_loop_hook();
+    }
 }
 
 typedef enum ParseState {
@@ -192,12 +179,11 @@ void processCommand(uint8_t* data){
                 break;
 
             if (address == __RESET_BASE) {
-                progData[0] = readAddress(address);
-                progData[1] = readAddress(address+2);
-                eraseByAddress(address);
-                doubleWordWrite(address, progData);
+                read_words(progData, address, __RESET_LENGTH/2);
+                erase_page(address);
+                write_words(progData, address, __RESET_LENGTH/2);
             } else {
-                eraseByAddress(address);
+                erase_page(address);
             }
 
             break;
@@ -205,7 +191,7 @@ void processCommand(uint8_t* data){
         case CMD_READ_ADDR:
             address = from_lendian_uint32(data + 3);
             progData[0] = address;
-            progData[1] = readAddress(address);
+            read_words(progData+1, address, 1);
 
             txArray32bit(cmd, progData, 2);
             break;
@@ -214,10 +200,7 @@ void processCommand(uint8_t* data){
             address = from_lendian_uint32(data + 3);
 
             progData[0] = address;
-
-            for(i=0; i<MAX_PROG_SIZE; i++){
-                progData[i+1] = readAddress(address + 2*i);
-            }
+            read_words(progData+1, address, MAX_PROG_SIZE);
 
             txArray32bit(cmd, progData, MAX_PROG_SIZE + 1);
 
@@ -230,46 +213,39 @@ void processCommand(uint8_t* data){
                 break;
 
             for(i=0; i<_FLASH_ROW; i++){
-                progData[i] = from_lendian_uint32(data + 7 + i * 4);
-                /* do not allow the bootloader to be overwritten */
+                /* do not allow the bootloader or reset vector to be written here */
                 if (address_within_bootloader(address + 2 * i)||
                     address_within_reset_vector(address + 2 * i)) {
                     progData[i] = UNCHANGED_WORD;
+                } else {
+                    progData[i] = from_lendian_uint32(data + 7 + i * 4);
                 }
             }
-            /* do not allow the reset vector to be changed by the application */
-            if(address==__RESET_BASE){
-                progData[0] = progData[1] = UNCHANGED_WORD;
-            }
 
-            writeRow(address, progData);
+            write_words(progData, address, _FLASH_ROW);
             break;
 
         case CMD_WRITE_MAX_PROG_SIZE:
             address = from_lendian_uint32(data + 3);
+
             if (!address_is_row_aligned(address))
                 break;
 
-            /* fill the progData array */
             for(i=0; i<MAX_PROG_SIZE; i++){
-		progData[i] = from_lendian_uint32(data + 7 + i * 4);
-                /* do not allow the bootloader to be overwritten */
+                /* do not allow the bootloader or reset vector to be written here */
                 if (address_within_bootloader(address + 2 * i)||
                     address_within_reset_vector(address + 2 * i)) {
                     progData[i] = UNCHANGED_WORD;
+                } else {
+                    progData[i] = from_lendian_uint32(data + 7 + i * 4);
                 }
             }
 
-            /* write to flash memory, one row at a time */
-            for (i=0; i*_FLASH_ROW<MAX_PROG_SIZE; i++){
-                     writeRow(address + i * _FLASH_ROW * 2, progData + i*_FLASH_ROW);
-            }
+            write_words(progData, address, MAX_PROG_SIZE);
             break;
 
         case CMD_START_APP:
-            if (program_looks_ok()) {
-                app_entry_point();
-            }
+            try_start_app_hook();
             break;
 
         default:

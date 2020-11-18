@@ -39,22 +39,18 @@ The Power Board firmware is designed to run either alone or on top of the bootlo
 
 Depending on the reason the board was reset, the rover will run a different startup procedure.
 
- * The bootloader brings up the power bus.
- * Under most circumstances, the bootloader ends and the firmware launches
+ * The bootloader energizes the power bus.
+ * If we restarted due to either a power on or error, and the rover has any firmware[^2], start the firmware.
  * Otherwise, the bootloader starts listening for commands.
     * If the bootloader receives a command[^1], it reads/writes/erases the requested data.
-    * If no command is received for a period (1s), the bootloader ends and firmware launches.
+    * If no command is received for a period (1 second after a software reset, 10 seconds after a hardware reset) and the rover has any firmware[^2] the bootloader ends and firmware launches.
 
-The two circumstances that will trigger the bootloader are:
- * Firmware reset (reset command from pitstop via the rover protocol): 1 second
- * Hardware reset: 10 seconds.
+If the firmware is working, a flash request from `pitstop` will issue a software reset request over UART.
 
-If the firmware is corrupt or missing, perform a hardware reset by shorting the RESET pins (P6) on the interface board. The bootloader will then remain active for an extended period of time (10s), during which you can flash it with `pitstop`.
-
-Note that a firmware crash or a power-on will not trigger bootload mode.
-Further, before ending the bootloader, it will check whether the program is present. If not, it will not proceed to the firmware.
+If the firmware is corrupt or nonresponsive, perform a hardware reset by shorting the RESET pins (P6) on the interface board. The bootloader will then remain active for an extended period of time (10s), during which you can flash it with `pitstop`.
 
 [^1]: Note that the bootloader uses a different communication protocol from the main powerboard firmware.
+[^2]: The check for firmware  is very cursory. If a rover has a partial firmware image due to being interrupted during bootload, it may still attempt to boot into that firmware.
 
 ### Troubleshooting bootloader
 
