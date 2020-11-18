@@ -149,7 +149,7 @@ uint16_t fletcher16(uint8_t* data, uint16_t length);
 /**
  * @brief starts the application
  */
-void tryStartApp() __attribute__((noreturn));
+void app_entry_point() __attribute__((noreturn));
 
 /**
  * @brief initializes the oscillator

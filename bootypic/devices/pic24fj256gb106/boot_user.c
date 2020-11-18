@@ -4,17 +4,10 @@
 #include "power.h"
 #include <xc.h>
 
-bool pre_boot() {
+void pre_bootload() {
     i2c_enable(I2C_BUS2);
     i2c_enable(I2C_BUS3);
     power_init();
-
-    bool should_run_bootloader;
-    // In a normal power-on boot, we don't need to run the bootloader
-    // if the firmware is corrupt, it will reset for an IOPUWR
-    should_run_bootloader = (RCON & ~_RCON_POR_MASK & ~_RCON_BOR_MASK);
-    RCON = 0;
-    return should_run_bootloader;
 }
 
 void initOsc(void) { CLKDIV = 0; }
@@ -23,23 +16,6 @@ void initPins(void) {
     /* no analog, all digital */
     AD1PCFGL = 0xffff;
     AD1PCFGH = 0x3;
-
-#if defined(BOOT_PORT_NONE)
-#elif defined(BOOT_PORT_B)
-    TRISB |= (1 << BOOT_PIN);
-#elif defined(BOOT_PORT_C)
-    TRISC |= (1 << BOOT_PIN);
-#elif defined(BOOT_PORT_D)
-    TRISD |= (1 << BOOT_PIN);
-#elif defined(BOOT_PORT_E)
-    TRISE |= (1 << BOOT_PIN);
-#elif defined(BOOT_PORT_F)
-    TRISF |= (1 << BOOT_PIN);
-#elif defined(BOOT_PORT_G)
-    TRISG |= (1 << BOOT_PIN);
-#else
-#error "boot port not specified or invalid"
-#endif
 }
 
 void uart_map_rx(uint16_t rpn) {
@@ -97,7 +73,7 @@ void initUart(void) {
     uart_map_rx(RX_PIN);
     uart_map_tx(TX_PIN);
 
-    if (UART_BAUD_RATE < FCY / 4.0f) {
+    if (UART_BAUD_RATE * 4 < FCY) {
         U1MODEbits.BRGH = 0; // High Baud Rate Select bit = off
         U1BRG = FCY / 16 / UART_BAUD_RATE - 1;
     } else {
@@ -118,41 +94,60 @@ void initUart(void) {
 void initTimers(void) {
     T2CON = T3CON = 0;
     TMR2 = TMR3 = 0;
-    PR2 = PR3 = 0xffff;
+    PR2 = PR3 = 0xffff; // each timer will count up to this value
 
     T2CONbits.T32 = 1;      // merge timer 2 and timer 3 into a 32 bit timer
     T2CONbits.TCKPS = 0b11; // 256 prescale
     T2CONbits.TON = 1;
 }
 
-uint32_t getTimeTicks() {
+uint32_t get_idle_time_ticks() {
     uint32_t n_ticks = 0;
     n_ticks |= (uint32_t)TMR2;
-    n_ticks |= ((uint32_t)TMR3HLD) << 16;
+    n_ticks |= ((uint32_t)TMR3HLD) << 16; // the value of TMR3 when TMR2 was read
     return n_ticks;
 }
 
-bool should_abort_boot() {
-    static const uint32_t BOOTLOADER_TIMEOUT_TICKS = (FCY / 256.0 * BOOT_LOADER_TIME);
-    if (getTimeTicks() > BOOTLOADER_TIMEOUT_TICKS) {
+inline uint32_t timer_ticks_from_milliseconds(uint32_t milliseconds) {
+    return FCY / 256 / 1000 * milliseconds;
+}
+
+/// Pre-read the program and see if it appears to be executable code
+inline bool program_looks_ok(){
+    uint16_t save_tblpag = TBLPAG;
+    bool seen_valid_opcode = false;
+    int i;
+    for (i=0; i<8; ++i){
+        uint32_t address = APPLICATION_START_ADDRESS + 2*i;
+        TBLPAG = (address)>>16;
+        uint8_t opcode = __builtin_tblrdhb((uint16_t)address);
+        // 0x00 = NOP and 0xff = NOPR
+        // they both do nothing.
+        if (opcode != 0x00 && opcode != 0xff) {
+            seen_valid_opcode = true;
+        }
+    }
+    TBLPAG = save_tblpag;
+    return seen_valid_opcode;
+}
+
+bool should_start_bootloader() {
+    if (!program_looks_ok()){
         return true;
     }
+    RCONBITS rcon = RCONbits;
+    return rcon.EXTR || rcon.SWR;
+}
 
-#if defined(BOOT_PORT_NONE)
-#elif defined(BOOT_PORT_A)
-    if (PORTA & (1 << BOOT_PIN))
+bool should_continue_bootloader() {
+    if (!program_looks_ok())
         return true;
-#elif defined(BOOT_PORT_B)
-    if (PORTB & (1 << BOOT_PIN))
-        return true;
-#elif defined(BOOT_PORT_C)
-    if (PORTC & (1 << BOOT_PIN))
-        return true;
-#else
-#error "boot port not specified"
-#endif
 
-    return false;
+    // If there was a hardware reset, allow the user extra time to bootload
+    uint32_t bootload_duration_ms =
+        (RCONbits.EXTR ? BOOTLOAD_LONG_TIMEOUT_MS : BOOTLOAD_SHORT_TIMEOUT_MS);
+
+    return (get_idle_time_ticks() < timer_ticks_from_milliseconds(bootload_duration_ms));
 }
 
 bool tryRxByte(uint8_t *outbyte) {
@@ -239,19 +234,5 @@ void writeMax(uint32_t address, uint32_t *progData) {
 
     for (i = 0; i < length; i++) {
         writeRow(address + ((i * _FLASH_ROW) << 1), &progData[i * _FLASH_ROW]);
-    }
-}
-
-void __attribute__((noload, noreturn, address(APPLICATION_START_ADDRESS))) app_entry_point(void) {
-    __builtin_unreachable();
-}
-
-void tryStartApp() {
-    switch (readAddress(APPLICATION_START_ADDRESS) >> 16) {
-    case 0x00: // nop, don't do anything
-    case 0xff: // nopr, don't do anything, but with more r
-        return;
-    default:
-        app_entry_point();
     }
 }

@@ -1,5 +1,5 @@
 #include "xc.h"
-#include "config.h" 
+#include "config.h"
 #include "bootloader.h"
 
 
@@ -13,38 +13,52 @@ extern unsigned _CODE_BASE;
 extern unsigned _CODE_LENGTH;
 
 #define BOOTLOADER_START_ADDRESS (_CODE_BASE)
-#define BOOTLOADER_END_ADDRESS (_CODE_BASE+_CODE_LENGTH)
-
+#define BOOTLOADER_END_ADDRESS (_CODE_BASE + _CODE_LENGTH)
+#define UNCHANGED_WORD (0xFFFFFF)
 
 static uint8_t message[RX_BUF_LEN] = {0};
 static uint8_t f16_sum1 = 0, f16_sum2 = 0;
 
-int main(void) {
-    if (!pre_boot())
-    {
-        tryStartApp();
-    }
+void __attribute__((noload, noreturn, address(APPLICATION_START_ADDRESS))) app_entry_point(void) {
+    __builtin_unreachable();
+}
 
+inline bool address_within_bootloader(uint32_t address){
+    return BOOTLOADER_START_ADDRESS <= address && address < BOOTLOADER_END_ADDRESS;
+}
+inline bool address_within_reset_vector(uint32_t address){
+    return __RESET_BASE <= address && address < __RESET_LENGTH;
+}
+
+inline bool address_is_row_aligned(uint32_t address){ return address % (_FLASH_ROW * 2) == 0; }
+
+inline bool address_is_page_aligned(uint32_t address){ return address % (_FLASH_PAGE * 2) == 0; }
+
+int main(void) {
+    pre_bootload();
+
+    if (! should_start_bootloader()){
+        app_entry_point();
+    }
     /* initialize the peripherals from the user-supplied initialization functions */
     initPins();
     initOsc();
     initUart();
     initTimers();
-
-    while (true){
+    do
+     {
         ClrWdt();
         receiveBytes();
-        if (should_abort_boot()){
-            tryStartApp();
-        }
-    }
+    } while (should_continue_bootloader());
+
+    app_entry_point();
 }
 
 typedef enum ParseState {
 	STATE_WAIT_FOR_START, ///< Have not yet received a start byte.
 	STATE_READ_ESCAPED,   ///< Have received an escape byte, next data byte must be decoded
 	STATE_READ_VERBATIM,  ///< Have not received an escape byte, next data byte should be read as-is
-	STATE_END_OF_MESSAGE, 
+	STATE_END_OF_MESSAGE,
 } ParseState;
 
 void receiveBytes(void){
@@ -61,7 +75,7 @@ void receiveBytes(void){
 
 		if (!tryRxByte(&a_byte))
 			return;
-			
+
 		switch (state){
 		case STATE_WAIT_FOR_START:
 			if (a_byte == START_OF_FRAME){
@@ -85,9 +99,9 @@ void receiveBytes(void){
 		default:
 			break;
 		}
-		
+
 		if (state == STATE_END_OF_MESSAGE) {
-			uint16_t fletcher = (uint16_t)message[messageIndex - 2] 
+			uint16_t fletcher = (uint16_t)message[messageIndex - 2]
 	                + ((uint16_t)message[messageIndex - 1] << 8);
 	        if(fletcher == fletcher16(message, messageIndex - 2)){
 	            processCommand(message);
@@ -117,14 +131,14 @@ uint32_t from_lendian_uint32(const void * data){
 
 void processCommand(uint8_t* data){
     uint16_t i;
-    
+
     /* length is the length of the data block only, not including the command */
     uint8_t cmd = data[2];
     uint32_t address;
     uint16_t word;
     uint32_t longWord;
     uint32_t progData[MAX_PROG_SIZE + 1] = {0};
-    
+
     char strVersion[16] = VERSION_STRING;
     char strPlatform[20] = PLATFORM_STRING;
 
@@ -132,130 +146,132 @@ void processCommand(uint8_t* data){
         case CMD_READ_PLATFORM:
             txString(cmd, strPlatform);
             break;
-        
+
         case CMD_READ_VERSION:
             txString(cmd, strVersion);
             break;
-            
+
         case CMD_READ_ROW_LEN:
             word = _FLASH_ROW;
             txArray16bit(cmd, &word, 1);
             break;
-            
+
         case CMD_READ_PAGE_LEN:
             word = _FLASH_PAGE;
             txArray16bit(cmd, &word, 1);
             break;
-            
+
         case CMD_READ_PROG_LEN:
             longWord = __PROGRAM_LENGTH;
             txArray32bit(cmd, &longWord, 1);
             break;
-            
+
         case CMD_READ_MAX_PROG_SIZE:
             word = MAX_PROG_SIZE;
             txArray16bit(cmd, &word, 1);
             break;
-            
+
         case CMD_READ_APP_START_ADDR:
             word = APPLICATION_START_ADDRESS;
             txArray16bit(cmd, &word, 1);
             break;
-            
+
         case CMD_READ_BOOT_START_ADDR:
             word = BOOTLOADER_START_ADDRESS;
             txArray16bit(cmd, &word, 1);
             break;
-            
+
         case CMD_ERASE_PAGE:
-            /* should correspond to a border */
             address = from_lendian_uint32(data + 3);
-            
-            /* do not allow the bootloader to be erased */
-            if((address >= BOOTLOADER_START_ADDRESS) && (address < APPLICATION_START_ADDRESS))
+
+            if (!address_is_page_aligned(address))
                 break;
-            
-			eraseByAddress(address);
-            
-            /* re-initialize the bootloader start address */
-            if(address == 0){
-                /* this is the GOTO BOOTLOADER instruction */
-                progData[0] = 0x040000 | BOOTLOADER_START_ADDRESS;
-                progData[1] = 0x000000;
-                
-                /* write the data */
+
+            /* do not allow the bootloader to be erased */
+            if(address_within_bootloader(address))
+                break;
+
+            if (address == __RESET_BASE) {
+                progData[0] = readAddress(address);
+                progData[1] = readAddress(address+2);
+                eraseByAddress(address);
                 doubleWordWrite(address, progData);
+            } else {
+                eraseByAddress(address);
             }
-            
+
             break;
-            
+
         case CMD_READ_ADDR:
             address = from_lendian_uint32(data + 3);
             progData[0] = address;
             progData[1] = readAddress(address);
-            
+
             txArray32bit(cmd, progData, 2);
             break;
-            
+
         case CMD_READ_MAX:
             address = from_lendian_uint32(data + 3);
-            
+
             progData[0] = address;
-            
+
             for(i=0; i<MAX_PROG_SIZE; i++){
                 progData[i+1] = readAddress(address + 2*i);
             }
-            
+
             txArray32bit(cmd, progData, MAX_PROG_SIZE + 1);
-            
+
             break;
-            
+
         case CMD_WRITE_ROW:
             address = from_lendian_uint32(data + 3);
-            
-			/* do not allow the bootloader to be overwritten */
-            if((address >= BOOTLOADER_START_ADDRESS) && (address < APPLICATION_START_ADDRESS))
+
+            if (!address_is_row_aligned(address))
                 break;
 
             for(i=0; i<_FLASH_ROW; i++){
                 progData[i] = from_lendian_uint32(data + 7 + i * 4);
+                /* do not allow the bootloader to be overwritten */
+                if (address_within_bootloader(address + 2 * i)||
+                    address_within_reset_vector(address + 2 * i)) {
+                    progData[i] = UNCHANGED_WORD;
+                }
             }
-        
             /* do not allow the reset vector to be changed by the application */
-            if(address < __IVT_BASE)
-                break;
+            if(address==__RESET_BASE){
+                progData[0] = progData[1] = UNCHANGED_WORD;
+            }
 
-			writeRow(address, progData);
+            writeRow(address, progData);
             break;
-            
-        case CMD_WRITE_MAX_PROG_SIZE:
-			address = from_lendian_uint32(data + 3);
 
-			/* do not allow the bootloader to be overwritten */
-            if((address >= BOOTLOADER_START_ADDRESS) && (address < APPLICATION_START_ADDRESS))
+        case CMD_WRITE_MAX_PROG_SIZE:
+            address = from_lendian_uint32(data + 3);
+            if (!address_is_row_aligned(address))
                 break;
-           	
+
             /* fill the progData array */
             for(i=0; i<MAX_PROG_SIZE; i++){
-				progData[i] = from_lendian_uint32(data + 7 + i * 4);
-			}
-
-		    /* the zero address should always go to the bootloader */
-            if(address == 0){
-	            progData[0] = 0x040000 | BOOTLOADER_START_ADDRESS;
-	            progData[1] = 0x000000;
+		progData[i] = from_lendian_uint32(data + 7 + i * 4);
+                /* do not allow the bootloader to be overwritten */
+                if (address_within_bootloader(address + 2 * i)||
+                    address_within_reset_vector(address + 2 * i)) {
+                    progData[i] = UNCHANGED_WORD;
+                }
             }
 
-			/* write to flash memory, one row at a time */
-			for (i=0; i*_FLASH_ROW<MAX_PROG_SIZE; i++){
-				 writeRow(address + i * _FLASH_ROW * 2, progData + i*_FLASH_ROW);
-			}
+            /* write to flash memory, one row at a time */
+            for (i=0; i*_FLASH_ROW<MAX_PROG_SIZE; i++){
+                     writeRow(address + i * _FLASH_ROW * 2, progData + i*_FLASH_ROW);
+            }
             break;
-            
+
         case CMD_START_APP:
-            tryStartApp();
+            if (program_looks_ok()) {
+                app_entry_point();
+            }
             break;
-            
+
         default:
         	break;
     }
@@ -263,7 +279,7 @@ void processCommand(uint8_t* data){
 
 void txStart(void){
     f16_sum1 = f16_sum2 = 0;
-    
+
     while(U1STAbits.UTXBF); /* wait for tx buffer to empty */
     U1TXREG = START_OF_FRAME;
 }
@@ -272,14 +288,14 @@ void txByte(uint8_t byte){
     if((byte == START_OF_FRAME) || (byte == END_OF_FRAME) || (byte == ESC)){
         while(U1STAbits.UTXBF); /* wait for tx buffer to empty */
         U1TXREG = ESC;          /* send escape character */
-        
+
         while(U1STAbits.UTXBF); /* wait */
         U1TXREG = ESC_XOR ^ byte;
     }else{
         while(U1STAbits.UTXBF); /* wait */
         U1TXREG = byte;
     }
-    
+
     fletcher16Accum(byte);
 }
 
@@ -287,26 +303,26 @@ void txEnd(void){
     /* append checksum */
     uint8_t sum1 = f16_sum1;
     uint8_t sum2 = f16_sum2;
-    
+
     txByte(sum1);
     txByte(sum2);
-    
+
     while(U1STAbits.UTXBF); /* wait for tx buffer to empty */
     U1TXREG = END_OF_FRAME;
 }
 
 void txBytes(uint8_t cmd, uint8_t* bytes, uint16_t len){
     uint16_t i;
-    
+
     txStart();
     txByte((uint8_t)(len & 0x00ff));
     txByte((uint8_t)((len & 0xff00) >> 8));
     txByte(cmd);
-    
+
     for(i=0; i<len; i++){
         txByte(bytes[i]);
     }
-    
+
     txEnd();
 }
 
@@ -322,17 +338,17 @@ void txArray32bit(uint8_t cmd, uint32_t* words, uint16_t len){
 
 void txString(uint8_t cmd, char* str){
     uint16_t i, length = 0;
-    
+
     /* find the length of the version string */
     while(str[length] != 0)  length++;
     length++;       /* be sure to get the string terminator */
-    
+
     txStart();
 
     /* begin transmitting */
     txByte((uint8_t)(length & 0xff));
     txByte((uint8_t)((length & 0xff00) >> 8));
-    
+
     txByte(cmd);
 
     for(i=0; i<length; i++){
@@ -350,15 +366,15 @@ uint16_t fletcher16Accum(uint8_t byte){
 
 uint16_t fletcher16(uint8_t* data, uint16_t length){
 	uint16_t sum1 = 0, sum2 = 0, checksum;
-    
+
     uint16_t i = 0;
     while(i < length){
         sum1 = (sum1 + (uint16_t)data[i]) & 0xff;
         sum2 = (sum2 + sum1) & 0xff;
         i++;
     }
-    
+
     checksum = (sum2 << 8) | sum1;
-    
+
 	return checksum;
 }

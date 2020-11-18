@@ -33,6 +33,29 @@ python3 -m pip install --upgrade roverpro
 pitstop flash %newhex%
 ```
 
+### Bootloader expected behavior
+
+The Power Board firmware is designed to run either alone or on top of the bootloader.
+
+Depending on the reason the board was reset, the rover will run a different startup procedure.
+
+ * The bootloader brings up the power bus.
+ * Under most circumstances, the bootloader ends and the firmware launches
+ * Otherwise, the bootloader starts listening for commands.
+    * If the bootloader receives a command[^1], it reads/writes/erases the requested data.
+    * If no command is received for a period (1s), the bootloader ends and firmware launches.
+
+The two circumstances that will trigger the bootloader are:
+ * Firmware reset (reset command from pitstop via the rover protocol): 1 second
+ * Hardware reset: 10 seconds.
+
+If the firmware is corrupt or missing, perform a hardware reset by shorting the RESET pins (P6) on the interface board. The bootloader will then remain active for an extended period of time (10s), during which you can flash it with `pitstop`.
+
+Note that a firmware crash or a power-on will not trigger bootload mode.
+Further, before ending the bootloader, it will check whether the program is present. If not, it will not proceed to the firmware.
+
+[^1]: Note that the bootloader uses a different communication protocol from the main powerboard firmware.
+
 ### Troubleshooting bootloader
 
  * If booty says "device not responding", it means that either the rover has no booted or the rover is no longer in bootloader mode:

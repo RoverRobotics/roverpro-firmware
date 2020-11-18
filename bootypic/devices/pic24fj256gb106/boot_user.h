@@ -8,14 +8,6 @@
 #endif
 #define PLATFORM_STRING "pic24fj256gb106"
 
-/**
- * @brief these defines will determine the boot pin to be utilized
- *
- * When the boot pin is pulled low, then bootloader will start, otherwise
- * the application will start on reset.
- */
-#define BOOT_PORT_NONE
-
 // UART communication baud rate, in Hz
 #define UART_BAUD_RATE 57600
 
@@ -25,10 +17,18 @@
 #define TX_PIN 7
 
 /**
- * @brief this is an approximation of the time that the bootloader will remain
- * active at startup before moving on to the application
+ * @brief How long may the bootloader idle before starting, in milliseconds,
+ *    under normal start conditions?
+ * Long enough to provide a window of opportunity for software.
  */
-#define BOOT_LOADER_TIME (0.5f)
+#define BOOTLOAD_SHORT_TIMEOUT_MS 1000
+
+/**
+ * @brief How long may the bootloader idle before starting, in milliseconds?
+ * active at startup before moving on to the application if a reset was requested.
+ * Long enough for the user to start manual bootload
+ */
+#define BOOTLOAD_LONG_TIMEOUT_MS 10000
 
 /* @brief this is the maximum size that can be programmed into the microcontroller
  * as part of one transaction using the CMD_WRITE_MAX_PROG_SIZE command
@@ -45,16 +45,22 @@
 
 /**
  * @brief run the very first initialization
- * @return true if we should continue with the bootloader
- *         false if we should jump directly to the application
  */
-bool pre_boot();
+void pre_bootload();
 
 /**
- * @brief determines if the bootloader should abort
- * @return true if the bootloader should abort, else false
+ * @brief check whether we should run the bootloader at all
+ * @return true if the bootloader should continue
+ *         false if we should jump to the application
  */
-bool should_abort_boot();
+bool should_start_bootloader();
+
+/**
+ * @brief determines if the bootloader should stay running
+ * @return true if the bootloader should continue
+ *         false if we should jump to the application
+ */
+bool should_continue_bootloader();
 
 /**
  * @brief reads the value at the address
@@ -100,3 +106,4 @@ void writeRow(uint32_t address, uint32_t *words);
  */
 void writeMax(uint32_t address, uint32_t *progData);
 
+inline bool program_looks_ok();
