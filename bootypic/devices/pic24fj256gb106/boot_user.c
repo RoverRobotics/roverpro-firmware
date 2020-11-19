@@ -222,7 +222,7 @@ void write_words(const uint32_t *words, uint32_t start_address, unsigned n_words
         TBLPAG = (start_address + 2 * i) >> 16;
 
         // fill the write latches with data
-        if ((start_address + 2 * i) % (2 * _FLASH_ROW) == 0 && i + _FLASH_ROW - 1 < n_words) {
+        if (address_is_row_aligned(start_address + 2 * i) && i + _FLASH_ROW - 1 < n_words) {
             NVMCON = 0x4001;
             int j;
             for (j = 0; j < _FLASH_ROW; ++j) {

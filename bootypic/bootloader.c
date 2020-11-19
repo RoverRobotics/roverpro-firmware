@@ -8,12 +8,12 @@
 #endif
 
 /* bootloader starting address (cannot write to addresses between
- * BOOTLOADER_START_ADDRESS and APPLICATION_START_ADDRESS) */
-extern unsigned _CODE_BASE;
-extern unsigned _CODE_LENGTH;
+ * BOOTLOADER_START_ADDRESS and BOOTLOADER_END_ADDRESS) */
 
-#define BOOTLOADER_START_ADDRESS (_CODE_BASE)
-#define BOOTLOADER_END_ADDRESS (_CODE_BASE + _CODE_LENGTH)
+#define BOOTLOADER_START_ADDRESS (0x400)
+#define BOOTLOADER_END_ADDRESS (0x2000)
+
+/// writing this value to nvm doesn't change its value
 #define UNCHANGED_WORD (0xFFFFFF)
 
 static uint8_t message[RX_BUF_LEN] = {0};
@@ -23,13 +23,10 @@ static uint8_t f16_sum1 = 0, f16_sum2 = 0;
 inline bool address_within_bootloader(uint32_t address){
     return BOOTLOADER_START_ADDRESS <= address && address < BOOTLOADER_END_ADDRESS;
 }
+
 inline bool address_within_reset_vector(uint32_t address){
-    return __RESET_BASE <= address && address < __RESET_BASE + __RESET_LENGTH/2;
+    return RESET_VECTOR_START_ADDRESS <= address && address < RESET_VECTOR_WORDS*2;
 }
-
-inline bool address_is_row_aligned(uint32_t address){ return address % (_FLASH_ROW * 2) == 0; }
-
-inline bool address_is_page_aligned(uint32_t address){ return address % (_FLASH_PAGE * 2) == 0; }
 
 int main(void) {
     pre_bootload_hook();
@@ -178,10 +175,11 @@ void processCommand(uint8_t* data){
             if(address_within_bootloader(address))
                 break;
 
-            if (address == __RESET_BASE) {
-                read_words(progData, address, __RESET_LENGTH/2);
+            if (address == RESET_VECTOR_START_ADDRESS) {
+				// Preserve the reset vector
+                read_words(progData, address, RESET_VECTOR_WORDS);
                 erase_page(address);
-                write_words(progData, address, __RESET_LENGTH/2);
+                write_words(progData, address, RESET_VECTOR_WORDS);
             } else {
                 erase_page(address);
             }
@@ -209,9 +207,6 @@ void processCommand(uint8_t* data){
         case CMD_WRITE_ROW:
             address = from_lendian_uint32(data + 3);
 
-            if (!address_is_row_aligned(address))
-                break;
-
             for(i=0; i<_FLASH_ROW; i++){
                 /* do not allow the bootloader or reset vector to be written here */
                 if (address_within_bootloader(address + 2 * i)||
@@ -227,9 +222,6 @@ void processCommand(uint8_t* data){
 
         case CMD_WRITE_MAX_PROG_SIZE:
             address = from_lendian_uint32(data + 3);
-
-            if (!address_is_row_aligned(address))
-                break;
 
             for(i=0; i<MAX_PROG_SIZE; i++){
                 /* do not allow the bootloader or reset vector to be written here */

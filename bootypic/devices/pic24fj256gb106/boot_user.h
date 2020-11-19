@@ -31,7 +31,9 @@
 #define BOOTLOAD_LONG_TIMEOUT_MS 10000
 
 /// Where to jump when bootloader is done
-#define APPLICATION_START_ADDRESS 0x2000
+#define APPLICATION_START_ADDRESS (0x002000)
+#define RESET_VECTOR_START_ADDRESS (0x000000)
+#define RESET_VECTOR_WORDS (2)
 
 /// Instruction clock frequency, in HZ
 #define FCY (16000000UL)
@@ -48,6 +50,10 @@
  * allow faster programming operations, but will consume more RAM.
  */
 #define MAX_PROG_SIZE (2 * _FLASH_ROW)
+
+static inline bool address_is_row_aligned(uint32_t address){ return address % (_FLASH_ROW * 2) == 0; }
+
+static inline bool address_is_page_aligned(uint32_t address){ return address % (_FLASH_PAGE * 2) == 0; }
 
 /**
  * @brief run the very first initialization
