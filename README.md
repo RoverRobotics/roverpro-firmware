@@ -89,16 +89,18 @@ You can create a combo image in several ways. Below are instructions via MPLAB 8
    python3 -m pip install intelhex --force --no-binary :all:
    ```
    
-2. Now create a hex image of both the bootloader and the powerboard.[^1]
+2. Now create a hex image of both the bootloader and the powerboard.[^1][^2]
    
    ```shell
    app=PowerBoard-1.11.1.hex
    boot=bootypic-1.11.1.hex
    out=combined-1.11.1.hex
-   hexmerge.py -o $out $boot::03 $app:04:01ff $boot:0400:1fff $app:2000:02ABF9 $boot:02ABFA:
+   hexmerge.py -o $out $boot::7 $app:8:3ff $boot:800:3fff $app:4000:0x557F3 $boot:0x557F4:
    ```
    
 [^1]:You probably noticed the addresses after the file name. These are necessary because the bootloader and the application have conflicting opinions about what should go where in parts of memory. These values may change with different versions of the firmware. [See below][addresses] for more.
+
+[^2]: If you read the first footnote you may have even noticed that the hex addresses *don't match* the table :-). This is because (1) `hexmerge` addresses by *byte* instead of by 16-bit datum or 24-bit word and (2) hexmerge address ranges *include* both start and end addresses.
 
 ### Installing a combo image
 
@@ -137,27 +139,33 @@ You can build in the MPLAB IDE using the project files in the MPLAB subfolder, t
 
 Note either the Bootloader or PowerBoard can be run in this way (though the bootloader will crash when trying to run the app and the PowerBoard will skip the bootloader)
 
-### Bootloader and Application addresses <span id='addresses'></span>
+### Addresses <span id='addresses'></span>
 
 The bootloader and application must live on the same chip, so they coexist in the same address space. Note that the below addresses may change in different versions of the firmware.
 
-| Addresses       | Meaning                              | Notes                                                        |
-| --------------- | ------------------------------------ | ------------------------------------------------------------ |
-| 000000:0x000003 | Reset vector; go to start of program | Both application and bootloader define this. **When both exist, the Bootloader should win** |
-| 000004:0001ff   | Interrupt table                      | Reserved for application - by design the bootloader uses no interrupts |
-| 000200:0003ff   | Program memory unused                | This is normal program memory, but due to how RTSP works on the PIC, erasing the interrupt table also erases this memory. So it's not used by the bootloader. |
-| 000400:001fff   | Program memory - bootloader          |                                                              |
-| 002000:02ABF9   | Program memory - application         |                                                              |
-| 02ABFA:02ABFF   | PIC config words                     | Both application and bootloader define this. **They should be the same for application and bootloader.** |
+| Address (PIC24F) | Meaning                              | Notes                                                        |
+| ---------------- | ------------------------------------ | ------------------------------------------------------------ |
+| 000000:000004    | Reset vector; go to start of program | Both application and bootloader define this. **When both exist, the Bootloader should win** |
+| 000004:000200    | Interrupt table                      | Reserved for application - by design the bootloader uses no interrupts |
+| 000200:000400    | Program memory unused                | This is normal program memory, but due to how RTSP works on the PIC, erasing the interrupt table also erases this memory. So it's not used by the bootloader. |
+| 000400:002000    | Program memory - bootloader          |                                                              |
+| 002000:02ABFA    | Program memory - application         |                                                              |
+| 02ABFA:02ABFF    | PIC config words                     | Both application and bootloader define this. **They should be the same for application and bootloader.** |
+
+### Addressing gotchas
 
 To disassemble, you can use `xc16-objdump`. The beginning of the bootloader might look like:
 
-```
+```shell
 xc16=/opt/microchip/xc16/v1.60/
 objdump=$xc16/bin/xc16-objdump
-$objdump build/clion/bootypic/bootypic.elf -d | head -n 15
+$objdump build/clion/bootypic/bootypic.elf -d | less
+```
 
-build/clion/bootypic/bootypic.elf:     file format elf32-pic30
+These are two different representations of the same program section:
+
+```
+C:\Users\dan\Documents\RoverPro-firmware\build\bootypic\bootypic.elf:     file format elf32-pic30
 
 Disassembly of section .reset:
 
@@ -171,15 +179,43 @@ Disassembly of section .text:
  402:	0e 7f 24    	mov.w     #0x47f0, w14
  404:	0e 01 88    	mov.w     w14, 0x20
  406:	00 00 00    	nop       
+ 408:	00 00 20    	mov.w     #0x0, w0
+ 40a:	00 00 e0    	cp0.w     w0
+ 40c:	02 00 32    	bra       Z, 0x412 <CORCON_RESET>
+ 40e:	00 01 20    	mov.w     #0x10, w0
+ 410:	20 02 88    	mov.w     w0, 0x44
+ 
+ 00000412 <CORCON_RESET>:
+ 412:	14 00 07    	rcall     0x43c <__psv_init>
+ 414:	59 00 07    	rcall     0x4c8 <__crt_start_mode> <__crt_start_mode_normal>
+ 416:	00 00 e0    	cp0.w     w0
 ```
 
-A couple things to note:
+```intelhex
+:020000040000fa
+:080000000004040000000000f0
+:020000040000fa
+:100800006f2621000e7f24000e01880000000000ea
+:10081000000020000000e000020032000001200083
+:100820002002880014000700590007000000e000c3
+```
 
-1. Instructions are aligned at addresses divisible by 2 and consist of 24 bytes.
-2. Every even address has 2 bytes, and every odd address has 1 byte.
-3. Reading hex can be a little weird. Numbers are little-endian, so the bytes `00 04` means 0x0400; i.e. 1024.
+Reading hex can be a little weird. Numbers are *little-endian*, so on the first line, the bytes `00 04` means 0x0400; i.e. 1024.
 
-In the above code, we `goto __reset`. The `__reset` subroutine, defined in `libpic30`, initializes the heap, the stack, and runtime constants, then calls `main()`.
+In PIC24F, the memory addressing scheme is a little wonky since data is organized into 24-bit words but the architecture likes dealing in 16-bit ints.
+
+Typically, Microchip tools will show 2-word pairs starting at even addresses to adjust for this. Things get a little hairy when accounting for PSV data in memory (where even addresses refer to the low byte, odd refer to the middle byte, and the high byte is left unused).
+
+<table>
+<thead>
+<tr><th>Data</th><th>byte</th><th>byte</th><th>byte</th><th>0</th><th>byte</th><th>byte</th><th>byte</th><th>0</th></tr></thead>
+<tbody><tr><td>PC address</td><td colspan=3>n</td><td>(no address)</td><td colspan=3>n+2</td><td>(no address)</td></tr><tr><td>PSV address</td><td>n</td><td>n+1</td><td colspan=2>(no address)</td><td>n+2</td><td>n+3</td><td colspan=2>(no address)</td></tr><tr><td>Intel Hex address</td><td>2n</td><td>2n+1</td><td>2n+2</td><td>2n+3</td><td>2n+4</td><td>2n+5</td><td>2n+6</td><td>2n+7</td></tr></tbody>
+</table>
+
+Note that PSV and Intel hex addressing take opposite approaches; PSV leaves 1/3 of the physical memory unusable in return for having a fully usable address space, whereas Intel Hex leaves 1/4 of the address space unusable in return for having a fully addressable physical memory.
+
+Also take care that addresses in Intel Hex format are *twice* those in, e.g. the linker script and source code and the HEX file contains extra bytes (set to zero) in these addresses.
+
 
 ### Code style tools
 
