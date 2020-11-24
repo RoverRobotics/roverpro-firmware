@@ -164,13 +164,13 @@ inline uint32_t timer_ticks_from_milliseconds(uint32_t milliseconds) {
 }
 
 void bootload_loop_hook() {
+    const uint32_t LONG_TIMEOUT_TICKS = timer_ticks_from_milliseconds(BOOTLOAD_LONG_TIMEOUT_MS);
+    const uint32_t SHORT_TIMEOUT_TICKS = timer_ticks_from_milliseconds(BOOTLOAD_SHORT_TIMEOUT_MS);
+
+    uint32_t idle_time_ticks = get_idle_time_ticks();
     // If there was a hardware reset, allow the user extra time to bootload
-    const uint32_t long_timeout_ticks = timer_ticks_from_milliseconds(BOOTLOAD_LONG_TIMEOUT_MS);
-	const uint32_t short_timeout_ticks = timer_ticks_from_milliseconds(BOOTLOAD_SHORT_TIMEOUT_MS);
-	
-	uint32_t idle_time_ticks = get_idle_time_ticks();
-	uint32_t timeout_ticks = (RCONbits.EXTR ? long_timeout_ticks : short_timeout_ticks);
-	
+    uint32_t timeout_ticks = RCONbits.EXTR ? LONG_TIMEOUT_TICKS : SHORT_TIMEOUT_TICKS;
+
     if (idle_time_ticks < timeout_ticks) {
         return;
     } else {

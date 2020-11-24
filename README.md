@@ -1,6 +1,8 @@
 Firmware
 ========
 
+[TOC]
+
 ## Release files
 
 The latest release may be acquired from https://github.com/RoverRobotics/roverpro-firmware/releases/latest
@@ -40,10 +42,10 @@ The Power Board firmware is designed to run either alone or on top of the bootlo
 Depending on the reason the board was reset, the rover will run a different startup procedure.
 
  * The bootloader energizes the power bus.
- * If we restarted due to either a power on or error, and the rover has any firmware[^2], start the firmware.
+ * If we restarted due to either a power on or error, and the rover has any firmware[^1], start the firmware.
  * Otherwise, the bootloader starts listening for commands.
-    * If the bootloader receives a command[^1], it reads/writes/erases the requested data.
-    * If no command is received for a period (1 second after a software reset, 10 seconds after a hardware reset) and the rover has any firmware[^2] the bootloader ends and firmware launches.
+    * If the bootloader receives a command[^2], it reads/writes/erases the requested data.
+    * If no command is received for a period (1 second after a software reset, 10 seconds after a hardware reset) and the rover has any firmware[^5] the bootloader ends and firmware launches.
 
 If the firmware is working, a flash request from `pitstop` will issue a software reset request over UART.
 
@@ -89,7 +91,7 @@ You can create a combo image in several ways. Below are instructions via MPLAB 8
    python3 -m pip install intelhex --force --no-binary :all:
    ```
    
-2. Now create a hex image of both the bootloader and the powerboard.[^1][^2]
+2. Now create a hex image of both the bootloader and the powerboard.[^3]
    
    ```shell
    app=PowerBoard-1.11.1.hex
@@ -98,9 +100,7 @@ You can create a combo image in several ways. Below are instructions via MPLAB 8
    hexmerge.py -o $out $boot::7 $app:8:3ff $boot:800:3fff $app:4000:0x557F3 $boot:0x557F4:
    ```
    
-[^1]:You probably noticed the addresses after the file name. These are necessary because the bootloader and the application have conflicting opinions about what should go where in parts of memory. These values may change with different versions of the firmware. [See below][addresses] for more.
-
-[^2]: If you read the first footnote you may have even noticed that the hex addresses *don't match* the table :-). This is because (1) `hexmerge` addresses by *byte* instead of by 16-bit datum or 24-bit word and (2) hexmerge address ranges *include* both start and end addresses.
+[^3]:You probably noticed the addresses after the file name. These are necessary because the bootloader and the application have conflicting opinions about what should go where in parts of memory. These values may change with different versions of the firmware. [See below][addresses] for more.
 
 ### Installing a combo image
 
@@ -110,9 +110,69 @@ Install this image just as you would the Bootloader or the pre-bootloader firmwa
 
 ### IDE and build tools
 
+#### XC16
+
+The [Microchip XC16 Toolsuite](https://www.microchip.com/mplab/compilers) is the compiler I use for all firmware builds. This toolsuite contains a compiler/linker/assembler and also standard libraries for the PIC24F MCU's. I recommend installing this to the path "C:/opt/Microchip/xc16", since the default (in "Program Files (x86)") contains spaces, which can cause `make` and other build tools to complain.
+
+Prior to 1.60, the compiler had some issues with the `--verbose` flag, which caused problems with CMake, so I recommend using v1.60.
+
+
+#### MPLab 8.92
+
+This IDE is Windows-only but is pretty good for debugging the PIC. Download from here:
+
+http://ww1.microchip.com/downloads/en/DeviceDoc/MPLAB_IDE_8_92.zip
+
+
+* To allow loading multiple projects in the same IDE window: Configure -> Settings -> Projects -> Use one-to-one project-workspace model  (uncheck).
+
+* In the Watch window, expand SFR bitfields: (right click on Watch window) -> Properties -> Preferences -> Expand SFR Bitfields
+
+* Note that the output type should be `elf`: (right click project) -> Build Options -> XC16 ASM/C Suite -> Output File Format -> ELF/DWARF.
+  ELF has the benefit that you can isolate each function in a section and remove unused sections to get a smaller build size.
+
+* You may need to tell MPLab where to find the compiler: Project -> Select Language Toolchain -> Microchip XC16 Toolsuite
+
+
+Code tips for debuggability as of MPLAB v8.92:
+
+* Turn off `-ffunction-sections`: (right click project) -> XC16 C -> Isolate each function in a section (uncheck).
+  This prevents MPLab from properly showing the call stack and locals.
+
+* If you have an array with the length as a `const`, MPLAB will be unable to infer the size of the array. The debugger will only show the first element of the array by default.
+  Instead use a `#define` or `typedef`.
+
+  ```c
+  const CSIZE = 3;
+  int bad_ar1[CSIZE]; // < Debugger will have trouble
+  typedef int ArType[CSIZE];
+  ArType bad_ar2;     // < Debugger will have trouble with this too.
+
+  int ok_ar1[3];     // < This will work
+  #define DSIZE 3
+  int ok_ar2[DSIZE]; // < This will work too
+  typedef int ArType[DSIZE];
+  ArType ok_ar3;     // < So will this
+  ```
+
+#### ~~MPLAB X~~
+
+USE AT YOUR OWN RISK.
+
+MPLAB X (5.30) has numerous bugs. Even its bugs have bugs.
+
+Also, using MPLAB with PICKit 3 installs a firmware onto the PICKit that has trouble flashing a PIC and is difficult to uninstall.
+If you have done this, use the [PICKit 3 tools](http://ww1.microchip.com/downloads/en/DeviceDoc/PICkit3%20Programmer%20Application%20v3.10.zip) to reset the PICKit's firmware.
+
+#### CLion
+
 I recommend using a CMake-aware IDE like CLion for development.
 
-For debugging, use MPLAB 8. MPLAB X (5.30) has numerous bugs. Even its bugs have bugs.
+For debugging, use MPLAB 8. 
+
+#### CMake
+
+
 
 ### Building with CMake
 
@@ -143,14 +203,16 @@ Note either the Bootloader or PowerBoard can be run in this way (though the boot
 
 The bootloader and application must live on the same chip, so they coexist in the same address space. Note that the below addresses may change in different versions of the firmware.
 
-| Address (PIC24F) | Meaning                              | Notes                                                        |
-| ---------------- | ------------------------------------ | ------------------------------------------------------------ |
-| 000000:000004    | Reset vector; go to start of program | Both application and bootloader define this. **When both exist, the Bootloader should win** |
-| 000004:000200    | Interrupt table                      | Reserved for application - by design the bootloader uses no interrupts |
-| 000200:000400    | Program memory unused                | This is normal program memory, but due to how RTSP works on the PIC, erasing the interrupt table also erases this memory. So it's not used by the bootloader. |
-| 000400:002000    | Program memory - bootloader          |                                                              |
-| 002000:02ABFA    | Program memory - application         |                                                              |
-| 02ABFA:02ABFF    | PIC config words                     | Both application and bootloader define this. **They should be the same for application and bootloader.** |
+| Address       | Meaning                              | Notes                                                        |
+| ------------- | ------------------------------------ | ------------------------------------------------------------ |
+| 000000:000004 | Reset vector; go to start of program | Both application and bootloader define this. **When both exist, the Bootloader should win** |
+| 000004:000200 | Interrupt table                      | Reserved for application - by design the bootloader uses no interrupts |
+| 000200:000400 | Program memory unused                | This is normal program memory, but due to how RTSP works on the PIC, erasing the interrupt table also erases this memory. So it's not used by the bootloader. |
+| 000400:002000 | Program memory - bootloader          |                                                              |
+| 002000:02ABFA | Program memory - application         |                                                              |
+| 02ABFA:02ABFF | PIC config words                     | Both application and bootloader define this. **They should be the same for application and bootloader.** |
+
+[^4]:These are PC (program counter) addresses. To use with Intel Hex files, double the values.
 
 ### Addressing gotchas
 
@@ -191,7 +253,7 @@ Disassembly of section .text:
  416:	00 00 e0    	cp0.w     w0
 ```
 
-```intelhex
+```ihex
 :020000040000fa
 :080000000004040000000000f0
 :020000040000fa
@@ -248,24 +310,6 @@ git diff HEAD --name-only --relative --diff-filter=d -- **.h **.c | xargs clang-
 
 This will tidy up all locally modified files. You can make this a precommit hook if you like.
 
-Code tips for debuggability as of MPLAB v8.92:
-
-* You can build the executable as either an ELF or COF (Project -> Build Options ... -> Project -> XC16 ASM/C Suite -> Output-File Format). ELF has the benefit that you can isolate each function in a section and remove unused sections to get a smaller build size. COF has the benefit that the debugger works more reliably and you can use the "Locate Headers" tool to find headers you've included not mentioned in the mcp file. If you cannot view local variables, try switching to COF.
-
-* Typedef'd types should have a name anyway. It looks redundant, but the debugger will display the value as an enum instead of an int without that first "my_enum".
-
-  ```C
-  typedef my_enum1 {\*...*\} my_enum1; //< Don't do this
-  typedef enum my_enum2 {\*...*\} my_enum2; //< Do this instead
-  ```
-
-* Similarly, if you have a magic size array, declare the size as a defined value, not a constant. Otherwise, the debugger will show the array as an opaque pointer instead of as an array.
-
-  ```c
-  static const SIZE = 10; //< Don't do this
-  #define SIZE 10; //< Do this instead
-  unsigned int my_array[SIZE];
-  ```
 
 ### Deployment instructions with MPLAB
 

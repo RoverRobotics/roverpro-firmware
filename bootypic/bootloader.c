@@ -8,10 +8,9 @@
 #endif
 
 /* bootloader starting address (cannot write to addresses between
- * BOOTLOADER_START_ADDRESS and BOOTLOADER_END_ADDRESS) */
+ * BOOTLOADER_START_ADDRESS and APPLICATION_START_ADDRESS) */
 
 #define BOOTLOADER_START_ADDRESS (0x400)
-#define BOOTLOADER_END_ADDRESS (0x2000)
 
 /// writing this value to nvm doesn't change its value
 #define UNCHANGED_WORD (0xFFFFFF)
@@ -21,7 +20,7 @@ static uint8_t f16_sum1 = 0, f16_sum2 = 0;
 
 
 inline bool address_within_bootloader(uint32_t address){
-    return BOOTLOADER_START_ADDRESS <= address && address < BOOTLOADER_END_ADDRESS;
+    return BOOTLOADER_START_ADDRESS <= address && address < APPLICATION_START_ADDRESS;
 }
 
 inline bool address_within_reset_vector(uint32_t address){
@@ -29,12 +28,12 @@ inline bool address_within_reset_vector(uint32_t address){
 }
 
 int main(void) {
-    pre_bootload_hook();
+    pre_bootload_hook(); // might jump to app
 
     while (1){
-        ClrWdt();
-        receiveBytes();
-        bootload_loop_hook();
+        __builtin_clrwdt();
+        receiveBytes(); // might jump to app
+        bootload_loop_hook(); // might jump to app
     }
 }
 
