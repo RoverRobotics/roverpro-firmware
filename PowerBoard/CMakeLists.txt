@@ -57,18 +57,6 @@ target_link_options(PowerBoard
   "LINKER:--heap=2048"
   )
 
-install(TARGETS PowerBoard)
-
-set(POWERBOARD_HEX "PowerBoard.hex")
-add_custom_target(PowerBoardHex ALL
-  DEPENDS "${POWERBOARD_HEX}"
-)
-add_custom_command(OUTPUT "${POWERBOARD_HEX}"
-  COMMAND "${XC16_bin2hex_EXECUTABLE}" "$<TARGET_FILE:PowerBoard>"
-  DEPENDS PowerBoard
-)
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${POWERBOARD_HEX}" DESTINATION ".")
-
 find_package(Doxygen)
 set(DOXYGEN_PROJECT_NAME "Rover Pro Firmware")
 set(DOXYGEN_MULTILINE_CPP_IS_BRIEF YES)
