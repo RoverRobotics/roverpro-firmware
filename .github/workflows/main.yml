@@ -62,17 +62,19 @@ jobs:
           cmake --build build
           cmake --install build --prefix install
 
-      - name: Upload build folder (for debuggirg)
-        uses: actions/upload-artifact@v2
-        with:
-          name: build
-          path: build
-
-      - name: Upload install folder
+      - name: Upload install folder on success
+        if: success()
         uses: actions/upload-artifact@v2
         with:
           name: install
           path: install
+
+      - name: Upload workspace folder on failure
+        if: failure()
+        uses: actions/upload-artifact@v2
+        with:
+          name: workspace
+          path: ${{ github.workspace }}
 
   test-bootload:
     runs-on: [self-hosted, roverpro]
