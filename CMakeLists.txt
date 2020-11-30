@@ -27,10 +27,11 @@ bin2hex(PowerBoard powerboard)
 set(boot bootypic.hex)
 set(app powerboard.hex)
 
+find_program("HEXMERGE_EXECUTABLE" NAMES hexmerge hexmerge.py)
 add_custom_command(
   OUTPUT combined.hex
-  COMMAND hexmerge --output=combined.hex ${boot}::7 ${app}:8:3ff ${boot}:800:3fff ${app}:4000:0x557F3 ${boot}:0x557F4:
-  DEPENDS "bootypic.hex" "powerboard.hex"
+  COMMAND "${HEXMERGE_EXECUTABLE}" --output=combined.hex ${boot}::7 ${app}:8:3ff ${boot}:800:3fff ${app}:4000:0x557F3 ${boot}:0x557F4:
+  DEPENDS "bootypic.hex" "powerboard.hex" "${HEXMERGE_EXECUTABLE}"
 )
 add_custom_target(Combined ALL
   DEPENDS combined.hex)
