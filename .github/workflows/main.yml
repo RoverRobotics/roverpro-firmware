@@ -47,7 +47,7 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt install doxygen graphviz
-          pip install intelhex
+          pip3 install intelhex --force --no-binary :all:
 
       - name: Get firmware source code
         uses: actions/checkout@v2
