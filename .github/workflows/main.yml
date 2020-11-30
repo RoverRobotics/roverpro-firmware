@@ -39,9 +39,15 @@ jobs:
             # stupid installer requires stupid admin rights and only properly installs to global opt
             sudo "$XC16_INSTALLER_PATH" --mode unattended --ModifyAll 0 --netservername ""
           fi
+      
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
 
       - name: Install Dependencies
-        run: sudo apt install doxygen graphviz python3-intelhex
+        run: |
+          sudo apt install doxygen graphviz
+          pip install intelhex
 
       - name: Get firmware source code
         uses: actions/checkout@v2
