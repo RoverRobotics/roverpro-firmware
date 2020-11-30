@@ -14,7 +14,7 @@ function(bin2hex target filename)
 
   add_custom_command(
     OUTPUT "${outfile}"
-    COMMAND cmake -E create_hardlink "$<TARGET_FILE:${target}>" "${bin2hex_staging}"
+    COMMAND cmake -E create_symlink "$<TARGET_FILE:${target}>" "${bin2hex_staging}"
     COMMAND "${XC16_bin2hex_EXECUTABLE}" "${bin2hex_staging}"
     DEPENDS "${target}"
   )
