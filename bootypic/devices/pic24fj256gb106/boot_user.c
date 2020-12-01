@@ -123,6 +123,10 @@ void pre_bootload_hook() {
     initTimers();
 }
 
+void __attribute__((noload, noreturn, address(APPLICATION_START_ADDRESS))) app_entry_point() {
+    __builtin_unreachable();
+}
+
 void try_start_app_hook() {
     uint16_t save_tblpag = TBLPAG;
     bool seen_valid_opcode = false;
@@ -141,12 +145,11 @@ void try_start_app_hook() {
     }
     TBLPAG = save_tblpag;
 
-    if (!seen_valid_opcode)
-		return;
-
-    RCONbits.SWR = 0;
-    RCONbits.EXTR = 0;
-	__asm__ volatile("goto %0"::"i" (APPLICATION_START_ADDRESS));
+    if (seen_valid_opcode) {
+        RCONbits.SWR = 0;
+        RCONbits.EXTR = 0;
+        app_entry_point();
+    }
 }
 
 uint32_t get_idle_time_ticks() {
