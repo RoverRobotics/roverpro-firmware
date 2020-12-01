@@ -48,8 +48,8 @@ static bool try_turn_on_power_bus_adaptive() {
 	        I2C_BUS3, i2c_op_read_word(BATTERY_ADDRESS, SB_REG_SPECIFICATION_INFO, &spec_info[1]));
 		
 		if (
-			(result[0] != I2C_OKAY || ((spec_info[0] & 0xF) != 0x1)) &&
-			(result[1] != I2C_OKAY || ((spec_info[0] & 0xF) != 0x1))
+			result[0] != I2C_OKAY || (spec_info[0] & 0xF) != 0x1 ||
+			result[1] != I2C_OKAY || (spec_info[1] & 0xF) != 0x1
 		)
 		{
 			// I2C communication isn't working, or the battery doesn't speak smartbattery
