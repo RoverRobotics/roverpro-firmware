@@ -94,7 +94,7 @@ enable=0
 transport=0
 format=0
 [CUSTOM_BUILD]
-Pre-Build=cmake -S ".." -B "../build" -DCMAKE_TOOLCHAIN_FILE=../cmake/PowerBoard_toolchain.cmake 
+Pre-Build=cmake -S ".." -B "../build" -DCMAKE_TOOLCHAIN_FILE=../cmake/PowerBoard_toolchain.cmake;
 Pre-BuildEnabled=1
 Post-Build=
 Post-BuildEnabled=1
