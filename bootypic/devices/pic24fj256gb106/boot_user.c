@@ -123,9 +123,7 @@ void pre_bootload_hook() {
     initTimers();
 }
 
-void __attribute__((noload, noreturn, address(APPLICATION_START_ADDRESS))) app_entry_point() {
-    __builtin_unreachable();
-}
+void __attribute__((address(APPLICATION_START_ADDRESS), noload, noinline)) app_entry_point() { __builtin_unreachable(); }
 
 void try_start_app_hook() {
     uint16_t save_tblpag = TBLPAG;
