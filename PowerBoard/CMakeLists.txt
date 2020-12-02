@@ -57,7 +57,7 @@ target_link_options(PowerBoard
   "LINKER:--heap=2048"
   )
 
-find_package(Doxygen)
+find_package(Doxygen 1.8.17)
 set(DOXYGEN_PROJECT_NAME "Rover Pro Firmware")
 set(DOXYGEN_MULTILINE_CPP_IS_BRIEF YES)
 set(DOXYGEN_OPTIMIZE_OUTPUT_FOR_C YES)

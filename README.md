@@ -7,15 +7,24 @@ Firmware
 
 The latest release may be acquired from https://github.com/RoverRobotics/roverpro-firmware/releases/latest
 
-The following files are included.
+The following files are most important
 
 * `bootypic.hex` - Bootloader. This is responsible for bringing up the device and installing new firmware
 * `PowerBoard.hex` - Power Board firmware. This is responsible for driving the motors, providing hardware feedback, and more. It is expected to run on top of the bootloader, but can handle the device on its own.
-* `docs` - Documentation generated from the source code. This is mostly useful only for developers.
+* `docs/` - Documentation generated from the source code.
+  * `index.html` is the main entry point for the documentation
+
+A [HEX file](https://en.wikipedia.org/wiki/Intel_HEX) is the basic binary file format for compiled programs on a PIC. Note that a HEX file does not necessarily cover the entire program space - the bootloader and power board firmware have minimal overlap.
+
+The released files also contain [ELF files](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format). These have program data and potentially useful debugging info, but the tools for programming a rover don't directly understand this format, requiring the file first be converted to a HEX.
 
 ## Installing the bootloader
 
-The bootloader image is called `bootypic.hex`. This must be installed with a developer tool like the PICKit 3. To quick install with the `PK3CMD` command line utility:
+Part of the firmware is a bootloader, based on the [booty project](https://booty.readthedocs.io/en/latest/index.html). This is responsible for minimal robot operation (bringing up the power bus to power an onboard computer) and rewriting the firmware on the robot.
+
+The bootloader image is called `bootypic.hex`. This must be installed with a developer tool like the [PICKit 3 In-Circuit Debugger](https://www.microchip.com/DevelopmentTools/ProductDetails/PG164130), as the bootloader cannot overwrite itself.
+
+To quick install with the `PK3CMD` command line utility (Windows only):
 
 ```cmd
 set pk3cmd="C:\opt\Microchip\MPLAB IDE\Programmer Utilities\PICkit3\PK3CMD.exe"
@@ -25,12 +34,12 @@ set newhex="%USERPROFILE%\Documents\roverpro-firmware\build\clion\bootypic\booty
 %pk3cmd% -P%part% -GF%oldhex% -R%newhex%
 ```
 
-## Installing firmware on top of the bootloader
+## Using the bootloader to install firmware
 
-Assuming the bootloader is installed, you don't need the PICKit to install the firmware. With a header board attached to the computer via USB:
+With the bootloader installed, you don't need the PICKit to install the firmware. With a header board attached to the computer via USB:
 
 ```cmd
-set %newhex%="%USERPROFILE%\Documents\roverpro-firmware\build\clion\PowerBoard\PowerBoard.hex"
+set %newhex%="%USERPROFILE%\Downloads\install\PowerBoard.hex"
 python3 -m pip install --upgrade roverpro
 pitstop flash %newhex%
 ```
@@ -104,7 +113,7 @@ You can create a combo image in several ways. Below are instructions via MPLAB 8
 
 ### Installing a combo image
 
-Install this image just as you would the Bootloader or the pre-bootloader firmware.
+Install this image just as you would the bootloader or the pre-bootloader firmware.
 
 ## Development
 
@@ -176,8 +185,8 @@ For debugging, use MPLAB 8.
 
 ### Building with CMake
 
-1. Install XC16 the [Microchip XC16 Toolsuite](https://www.microchip.com/mplab/compilers). This toolsuite contains a compiler/linker/assembler and also standard libraries for the PIC24F MCU's. I recommend installing this to the path "C:/opt/Microchip/xc16", since the default (in "Program Files (x86)" contains spaces, which can cause some build tools to complain)
-2. Generate build files with CMake
+1. Ensure you have XC16
+2. Generate build files with CMake with the toolchain file `cmake/PowerBoard_toolchain.cmake`
 3. Build it!
 
 ```shell
@@ -190,7 +199,9 @@ cmake --build build
 
 On Windows, you can attach a debugger to the powerboard in order to debug.
 
-You can build in the MPLAB IDE using the project files in the MPLAB subfolder, though there may be some gotchas. Due to difficulties with XC16 and how MPLAB handles command line arguments, it is likely that the projects will build with the legacy libc and pic32 libraries. (in the `*.map` file this looks like `lega-pic30-elf` and `lega-c-elf` instead of `pic30-elf` and `c-elf`).
+MPLAB Project files can be found in the `MPLAB` directory.
+
+You can build in the MPLAB IDE using the project files (\*.mcp) in the MPLAB subfolder, though there may be some gotchas. Due to difficulties with XC16 and how MPLAB handles command line arguments, it is likely that the projects will build with the legacy libc and pic32 libraries. (in the `*.map` file this looks like `lega-pic30-elf` and `lega-c-elf` instead of `pic30-elf` and `c-elf`).
 
 1. Install MPLAB IDE 8.92 and XC16 toolsuite, and plug in your PICKit
 2. Open MPLAB/PowerBoard.mcp
@@ -283,10 +294,6 @@ Also take care that addresses in Intel Hex format are *twice* those in, e.g. the
 
 To tidy up code, I like using **[clang-format](https://clang.llvm.org/docs/ClangFormat.html)**, and have provided a .clang-format file.
 
-### Debugging
-
-Load the .elf file into Microchip MPLAB X. (using the elf file instead of the hex will allow you to see debugging info)
-
 #### Ubuntu installation of clang-format
 
 ```bash
@@ -319,9 +326,3 @@ Given a released hex file, you can deploy to the robot power board with MPLAB in
 2. Programmer -> Select Programmer -> PICKit 3
 3. (Only needed if the target rover has no battery. If it has a power source, this step will fail) Programmer -> Settings -> Power tab -> Power Target circuit from PICKit3 -> OK
 4. Programmer -> Program
-
-## Power Board Firmware Development
-
-The main robot firmware code is the Power Board. This is responsible for communicating with the motors / batteries / fans / serial port.
-
-firmware.mcp = main project file. Open this with MPLab IDE v8, not MPLAB X
