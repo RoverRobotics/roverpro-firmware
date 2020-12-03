@@ -289,7 +289,7 @@ void IC_Init(const kICModule module,
 }
 
 
-float IC_period(const kICModule module) {
+unsigned int IC_period(const kICModule module) {
   return periods[module];
 }
 

@@ -68,7 +68,7 @@ Description: Returns the last-computed period in units of 16-microseconds.
   Returns zero (0) if no rising edges have been detected for more than the 
   chosen timeout time.
 *******************************************************************************/
-float IC_period(const kICModule module);
+unsigned int IC_period(const kICModule module);
 int MotorDirection(int Channel);
 
 
