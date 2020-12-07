@@ -59,21 +59,10 @@ typedef enum{
 }CommCommand;
 
 
-
-/**
- * @brief initializes the pins
- */
-void initPins(void);
-
 /**
  * @brief receives data from the UART
  */
 void receiveBytes(void);
-
-/**
- * @brief processes the rx buffer into commands with parameters from packets
- */
-void processReceived(void);
 
 /**
  * @brief processes commands
@@ -109,15 +98,6 @@ void txByte(uint8_t byte);
  * @param len the number of bytes to transmit from the array
  */
 void txBytes(uint8_t cmd, uint8_t* bytes, uint16_t len);
-
-/**
- * @brief convenience function for transmitting an array of bytes with the
- * associated command
- * @param cmd the type of message
- * @param bytes an array of bytes to transmit
- * @param len the number of bytes to transmit from the array
- */
-void txArray8bit(uint8_t cmd, uint8_t* bytes, uint16_t len);
 
 /**
  * @brief convenience function for transmitting an array of 16-bit words
@@ -165,29 +145,3 @@ uint16_t fletcher16Accum(uint8_t byte);
  * @return the fletcher16 value
  */
 uint16_t fletcher16(uint8_t* data, uint16_t length);
-
-/**
- * @brief starts the application
- * @param applicationAddress
- */
-void startApp(uint16_t applicationAddress);
-
-/**
- * @brief initializes the oscillator
- */
-extern void initOsc(void);
-
-/**
- * @brief initializes the pins
- */
-extern void initPins(void);
-
-/**
- * @brief initializes the UART
- */
-extern void initUart(void);
-
-/**
- * @brief initializes timers for bootloader timeout
- */
-extern void initTimers(void);

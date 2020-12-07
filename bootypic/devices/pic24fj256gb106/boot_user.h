@@ -8,14 +8,6 @@
 #endif
 #define PLATFORM_STRING "pic24fj256gb106"
 
-/**
- * @brief these defines will determine the boot pin to be utilized
- *
- * When the boot pin is pulled low, then bootloader will start, otherwise
- * the application will start on reset.
- */
-#define BOOT_PORT_NONE
-
 // UART communication baud rate, in Hz
 #define UART_BAUD_RATE 57600
 
@@ -25,79 +17,86 @@
 #define TX_PIN 7
 
 /**
- * @brief this is an approximation of the time that the bootloader will remain
- * active at startup before moving on to the application
+ * @brief How long may the bootloader idle before starting, in milliseconds,
+ *    under normal start conditions?
+ * Long enough to provide a window of opportunity for software.
  */
-#define BOOT_LOADER_TIME (0.5f)
+#define BOOTLOAD_SHORT_TIMEOUT_MS 1000
 
-/* @brief this is the maximum size that can be programmed into the microcontroller
+/**
+ * @brief How long may the bootloader idle before starting, in milliseconds?
+ * active at startup before moving on to the application if a reset was requested.
+ * Long enough for the user to start manual bootload
+ */
+#define BOOTLOAD_LONG_TIMEOUT_MS 10000
+
+/// Where to jump when bootloader is done
+#define APPLICATION_START_ADDRESS (0x002000)
+#define RESET_VECTOR_START_ADDRESS (0x000000)
+#define RESET_VECTOR_WORDS (2)
+
+/// Instruction clock frequency, in HZ
+#define FCY (16000000UL)
+
+/// instructions per erase
+#define _FLASH_PAGE 512
+/// instructions per row write
+#define _FLASH_ROW 64
+
+/** @brief this is the maximum size that can be programmed into the microcontroller
  * as part of one transaction using the CMD_WRITE_MAX_PROG_SIZE command
  *
  * A value of 0x80 should work on all microcontrollers.  Larger values will
  * allow faster programming operations, but will consume more RAM.
  */
-#define MAX_PROG_SIZE 0x80
-#define APPLICATION_START_ADDRESS 0x2000
-#define FCY (16000000UL) /* instruction clock frequency, in Hz */
+#define MAX_PROG_SIZE (2 * _FLASH_ROW)
 
-#define _FLASH_PAGE 512 /* _FLASH_PAGE should be the maximum page (in instructions) */
-#define _FLASH_ROW 64   /* _FLASH_ROW = maximum write row (in instructions) */
+static inline bool address_is_row_aligned(uint32_t address){ return address % (_FLASH_ROW * 2) == 0; }
+
+static inline bool address_is_page_aligned(uint32_t address){ return address % (_FLASH_PAGE * 2) == 0; }
 
 /**
  * @brief run the very first initialization
- * @return true if we should continue with the bootloader
- *         false if we should jump directly to the application
  */
-bool pre_boot();
+void pre_bootload_hook();
 
 /**
- * @brief determines if the bootloader should abort
- * @return true if the bootloader should abort, else false
+ * @brief hook to run when the app is requested to start
+ *
+ * This function should either return, handing control back to the bootloader, or end the bootloader
+ * and start the firmware.
  */
-bool should_abort_boot();
+void try_start_app_hook();
 
 /**
- * @brief reads the value at the address
- * @param address
- * @return the value of the address
+ * @brief hook to run inside bootload main loop
+ *
+ * This function should run any loop checks and return if the bootload should continue to run.
  */
-uint32_t readAddress(uint32_t address);
+void bootload_loop_hook();
+
+/**
+ * @brief reads instructions from the given address
+ *
+ * @param words buffer to put the data into
+ * @param start_address first address to read
+ * @param n_words how many instructions to read
+ */
+void read_words(uint32_t *words, uint32_t start_address, unsigned n_words);
 
 /**
  * @brief erases the flash page starting at the address
+ *
  * @param address
  */
-void eraseByAddress(uint32_t address);
+void erase_page(uint32_t address);
 
 /**
- * @brief writes one instruction, at the address
- * @param address the address of the instruction (must be even)
- * @param progDataArray the instruction to write
- * words to be written to flash
+ * @brief write instructions to the given address, using the most appropriate NVM operations
+ * available
+ *
+ * @param words buffer containing the data to write
+ * @param start_address first address to write
+ * @param n_words how many instructions to write
  */
-void writeInstr(uint32_t address, uint32_t instruction);
-
-/**
- * @brief writes two instructions, starting at the address
- * @param address the starting address (must be even)
- * @param progDataArray a 32-bit, 2-element array containing the instructions
- * words to be written to flash
- */
-void doubleWordWrite(uint32_t address, uint32_t *progDataArray);
-
-/**
- * @brief writes an entire row of instructions, starting at the address
- * @param address the starting address (must start a flash row)
- * @param words a buffer containing the _FLASH_ROW instructions to write
- */
-void writeRow(uint32_t address, uint32_t *words);
-
-/**
- * @brief writes the maximum number of instructions
- * @param address the starting address
- * @param progData a 32-bit, MAX_PROG_SIZE-element array containing the instruction words
- * to be written to flash
- */
-void writeMax(uint32_t address, uint32_t *progData);
-
-#pragma once
+void write_words(const uint32_t *words, uint32_t start_address, unsigned n_words);

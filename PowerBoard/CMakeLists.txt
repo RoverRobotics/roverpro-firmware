@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(PowerBoard VERSION 1.11.1 LANGUAGES C)
+project(PowerBoard VERSION 1.11.2 LANGUAGES C)
 
 # assumes LINKER_SCRIPT
 # but making this an OPTION breaks the script
@@ -56,18 +56,6 @@ target_link_options(PowerBoard
   # add a heap for malloc
   "LINKER:--heap=2048"
   )
-
-install(TARGETS PowerBoard)
-
-set(POWERBOARD_HEX "PowerBoard.hex")
-add_custom_target(PowerBoardHex ALL
-  DEPENDS "${POWERBOARD_HEX}"
-)
-add_custom_command(OUTPUT "${POWERBOARD_HEX}"
-  COMMAND "${XC16_bin2hex_EXECUTABLE}" "$<TARGET_FILE:PowerBoard>"
-  DEPENDS PowerBoard
-)
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${POWERBOARD_HEX}" DESTINATION ".")
 
 find_package(Doxygen 1.8.17)
 set(DOXYGEN_PROJECT_NAME "Rover Pro Firmware")

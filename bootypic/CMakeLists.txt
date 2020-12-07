@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(bootypic VERSION 1.11.1 LANGUAGES C)
+project(bootypic VERSION 1.11.2 LANGUAGES C)
 
 STRING(TOLOWER "pic${CMAKE_SYSTEM_PROCESSOR}" MCU_NAME)
 STRING(TOLOWER "p${CMAKE_SYSTEM_PROCESSOR}" MCU_NAME_2)
@@ -34,14 +34,3 @@ target_link_options(bootypic
   "LINKER:--heap=2048"
   "LINKER:--script=${BOOT_LINKER_SCRIPT},-Map=${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_PROPERTY:NAME>.map,--no-isr,-D__DEFINE_RESET"
   )
-install(TARGETS bootypic)
-
-set(BOOTYPIC_HEX "bootypic.hex")
-add_custom_target(bootypicHex ALL
-  DEPENDS "${BOOTYPIC_HEX}"
-)
-add_custom_command(OUTPUT "${BOOTYPIC_HEX}"
-  COMMAND "${XC16_bin2hex_EXECUTABLE}" "$<TARGET_FILE:bootypic>"
-  DEPENDS bootypic
-)
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${BOOTYPIC_HEX}" DESTINATION ".")

@@ -112,7 +112,7 @@ typedef enum UARTCommand {
     UART_COMMAND_CLEAR_SYSTEM_FAULT = 232,
     /// @deprecated
     UART_COMMAND_SET_DRIVE_MODE = 240,
-    /// If arg = 230, calibrate the flipper and save the results to NVM. Note the robot must be
+    /// If arg = 250, calibrate the flipper and save the results to NVM. Note the robot must be
     /// manually cycled before it will accept additional commands.
     UART_COMMAND_FLIPPER_CALIBRATE = 250,
     /// Forget settings and reload default startup values from NVM

@@ -1,3 +1,8 @@
+Firmware
+========
+
+[TOC]
+
 ## Release files
 
 The latest release may be acquired from https://github.com/RoverRobotics/roverpro-firmware/releases/latest
@@ -39,7 +44,26 @@ python3 -m pip install --upgrade roverpro
 pitstop flash %newhex%
 ```
 
-### Troubleshooting the bootloader
+### Bootloader expected behavior
+
+The Power Board firmware is designed to run either alone or on top of the bootloader.
+
+Depending on the reason the board was reset, the rover will run a different startup procedure.
+
+ * The bootloader energizes the power bus.
+ * If we restarted due to either a power on or error, and the rover has any firmware[^1], start the firmware.
+ * Otherwise, the bootloader starts listening for commands.
+    * If the bootloader receives a command[^2], it reads/writes/erases the requested data.
+    * If no command is received for a period (1 second after a software reset, 10 seconds after a hardware reset) and the rover has any firmware[^5] the bootloader ends and firmware launches.
+
+If the firmware is working, a flash request from `pitstop` will issue a software reset request over UART.
+
+If the firmware is corrupt or nonresponsive, perform a hardware reset by shorting the RESET pins (P6) on the interface board. The bootloader will then remain active for an extended period of time (10s), during which you can flash it with `pitstop`.
+
+[^1]: Note that the bootloader uses a different communication protocol from the main powerboard firmware.
+[^2]: The check for firmware  is very cursory. If a rover has a partial firmware image due to being interrupted during bootload, it may still attempt to boot into that firmware.
+
+### Troubleshooting bootloader
 
  * If booty says "device not responding", it means that either the rover has no booted or the rover is no longer in bootloader mode:
    * If the green serial board LED is **off**, the rover has not yet run its boot sequence. Make sure the battery has charge.
@@ -63,24 +87,29 @@ You can create a combo image in several ways. Below are instructions via MPLAB 8
 
 1. configure -> Settings -> Program Loading
 2. Uncheck all the checkboxes (Clear program memory upon loading a program, Clear configuration bits upon loading a program, ...)
-3. File -> Import ...; Choose the application hex file, e.g. `PowerBoard-1.11.1.hex`
-4. File -> Import ...; Choose the bootloader hex file, e.g. `bootypic-1.11.1.hex`
-5. File -> Export (The defaults should be correct: Program memory = `0 : 0x2abf6`, Configuration bits checked, File Format Intel 32-bit Hex)
-6. Name your new combo image, e.g. `combo-1.11.1.hex`
+3. File -> Import ...; Choose the application hex file, e.g. `PowerBoard-1.11.2.hex`
+4. File -> Import ...; Choose the bootloader hex file, e.g. `bootypic-1.11.2.hex`
+5. File -> Export (The defaults should be correct: Program memory = 0 : 0x2abf6, Configuration bits checked, File Format Intel 32-bit Hex)
+6. Name your new combo image, e.g. `combo-1.11.2.hex`
 
 ### Creating a combo image with HexMerge
 
 1. Install the `intelhex` Python package, which contains `hexmerge.py`, a utility for combining hex files:
    
-   ```
+   ```shell
    python3 -m pip install intelhex --force --no-binary :all:
    ```
    
-2. Now create a hex image of both the bootloader and the powerboard:
+2. Now create a hex image of both the bootloader and the powerboard.[^3]
    
+   ```shell
+   app=PowerBoard-1.11.1.hex
+   boot=bootypic-1.11.1.hex
+   out=combined-1.11.1.hex
+   hexmerge.py -o $out $boot::7 $app:8:3ff $boot:800:3fff $app:4000:557F3 $boot:557F4:
    ```
-   hexmerge.py PowerBoard-1.11.1.hex bootypic-1.11.1.hex -o combo-1.11.1.hex --overlap=replace
-   ```
+   
+[^3]:You probably noticed the addresses after the file name. These are necessary because the bootloader and the application have conflicting opinions about what should go where in parts of memory. These values may change with different versions of the firmware. [See below][addresses] for more.
 
 ### Installing a combo image
 
@@ -90,11 +119,69 @@ Install this image just as you would the bootloader or the pre-bootloader firmwa
 
 ### IDE and build tools
 
-I recommend using a CMake-aware IDE like [CLion](https://www.jetbrains.com/clion/download) for development.
+#### XC16
 
-Get [MPLAB XC16 Compiler v1.60](https://www.microchip.com/en-us/development-tools-tools-and-software/mplab-xc-compilers). Other versions may work, but v1.60 fixes major interoperability issues with CMake. On Windows, I recommend installing this to the path "C:/opt/Microchip/xc16", since the default (in "Program Files (x86)" contains spaces, which can cause `make` (a build tool used by MPLab) to complain.
+The [Microchip XC16 Toolsuite](https://www.microchip.com/mplab/compilers) is the compiler I use for all firmware builds. This toolsuite contains a compiler/linker/assembler and also standard libraries for the PIC24F MCU's. I recommend installing this to the path "C:/opt/Microchip/xc16", since the default (in "Program Files (x86)") contains spaces, which can cause `make` and other build tools to complain.
 
-While not the best for active development, for interactive debugging, use MPLAB 8 (Windows only). Don't use MPLAB X. MPLAB X (5.30) has numerous bugs. Even its bugs have bugs.
+Prior to 1.60, the compiler had some issues with the `--verbose` flag, which caused problems with CMake, so I recommend using v1.60.
+
+
+#### MPLab 8.92
+
+This IDE is Windows-only but is pretty good for debugging the PIC. Download from here:
+
+http://ww1.microchip.com/downloads/en/DeviceDoc/MPLAB_IDE_8_92.zip
+
+
+* To allow loading multiple projects in the same IDE window: Configure -> Settings -> Projects -> Use one-to-one project-workspace model  (uncheck).
+
+* In the Watch window, expand SFR bitfields: (right click on Watch window) -> Properties -> Preferences -> Expand SFR Bitfields
+
+* Note that the output type should be `elf`: (right click project) -> Build Options -> XC16 ASM/C Suite -> Output File Format -> ELF/DWARF.
+  ELF has the benefit that you can isolate each function in a section and remove unused sections to get a smaller build size.
+
+* You may need to tell MPLab where to find the compiler: Project -> Select Language Toolchain -> Microchip XC16 Toolsuite
+
+
+Code tips for debuggability as of MPLAB v8.92:
+
+* Turn off `-ffunction-sections`: (right click project) -> XC16 C -> Isolate each function in a section (uncheck).
+  This prevents MPLab from properly showing the call stack and locals.
+
+* If you have an array with the length as a `const`, MPLAB will be unable to infer the size of the array. The debugger will only show the first element of the array by default.
+  Instead use a `#define` or `typedef`.
+
+  ```c
+  const CSIZE = 3;
+  int bad_ar1[CSIZE]; // < Debugger will have trouble
+  typedef int ArType[CSIZE];
+  ArType bad_ar2;     // < Debugger will have trouble with this too.
+
+  int ok_ar1[3];     // < This will work
+  #define DSIZE 3
+  int ok_ar2[DSIZE]; // < This will work too
+  typedef int ArType[DSIZE];
+  ArType ok_ar3;     // < So will this
+  ```
+
+#### ~~MPLAB X~~
+
+USE AT YOUR OWN RISK.
+
+MPLAB X (5.30) has numerous bugs. Even its bugs have bugs.
+
+Also, using MPLAB with PICKit 3 installs a firmware onto the PICKit that has trouble flashing a PIC and is difficult to uninstall.
+If you have done this, use the [PICKit 3 tools](http://ww1.microchip.com/downloads/en/DeviceDoc/PICkit3%20Programmer%20Application%20v3.10.zip) to reset the PICKit's firmware.
+
+#### CLion
+
+I recommend using a CMake-aware IDE like CLion for development.
+
+For debugging, use MPLAB 8. 
+
+#### CMake
+
+
 
 ### Building with CMake
 
@@ -104,11 +191,11 @@ While not the best for active development, for interactive debugging, use MPLAB 
 
 ```shell
 cd roverpro-firmware
-cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="cmake/PowerBoard_toolchain.cmake" 
+cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="cmake/PowerBoard_toolchain.cmake"
 cmake --build build
 ```
 
-### Interactive debugging
+### IDE iteration
 
 On Windows, you can attach a debugger to the powerboard in order to debug.
 
@@ -123,9 +210,85 @@ You can build in the MPLAB IDE using the project files (\*.mcp) in the MPLAB sub
 
 Note either the Bootloader or PowerBoard can be run in this way (though the bootloader will crash when trying to run the app and the PowerBoard will skip the bootloader)
 
-### Continuous Integration
+### Addresses <span id='addresses'></span>
 
-This [project uses Github Actions](https://github.com/RoverRobotics/roverpro-firmware/actions) to build every commit. Whenever you push code, it attempts to build it and makes sure `pitstop` can load the PowerBoard firmware. Note that this uses the bootloader already on the robot --- changes to the bootloader aren't immediately reflected in CI.
+The bootloader and application must live on the same chip, so they coexist in the same address space. Note that the below addresses may change in different versions of the firmware.
+
+Note that the below addresses are expressed in 2 ways. The **PC address** counts double-byte, and is half-open (end address is not *in* the range), as used by XC16 and Microchip. The **HEX address** is a byte-oriented range and is closed (end address is part of the range), as used by intelhex files.
+
+| PC Address  | HEX Address | Meaning                             | Notes                                                        |
+| ----------- | ----------- | ----------------------------------- | ------------------------------------------------------------ |
+| 0:4         | 0:7         | Reset vector; goto start of program | Both application and bootloader define this. **When both exist, the Bootloader should win** |
+| 4:200       | 8:3FF       | Interrupt table                     | Reserved for application - by design the bootloader uses no interrupts |
+| 200:400     | 400:7FF     | Program memory unused               | This is normal program memory, but due to how RTSP works on the PIC, erasing the interrupt table also erases this memory. So it's not used by the bootloader. |
+| 400:2000    | 800:3FFF    | Program memory - bootloader         |                                                              |
+| 2000:2ABFA  | 4000:557F3  | Program memory - application        |                                                              |
+| 2ABFA:2ABFE | 557F4:557FB | PIC config words                    | Both application and bootloader define this. **They should be the same for application and bootloader.** |
+
+### Addressing gotchas
+
+To disassemble, you can use `xc16-objdump`. The beginning of the bootloader might look like:
+
+```shell
+xc16=/opt/microchip/xc16/v1.60/
+objdump=$xc16/bin/xc16-objdump
+$objdump build/clion/bootypic/bootypic.elf -d | less
+```
+
+These are two different representations of the same program section:
+
+```
+C:\Users\dan\Documents\RoverPro-firmware\build\bootypic\bootypic.elf:     file format elf32-pic30
+
+Disassembly of section .reset:
+
+00000000 <.reset>:
+   0:	00 04 04    	goto      0x400 <__reset>
+   2:	00 00 00 
+Disassembly of section .text:
+
+00000400 <__reset>:
+ 400:	6f 26 21    	mov.w     #0x1266, w15
+ 402:	0e 7f 24    	mov.w     #0x47f0, w14
+ 404:	0e 01 88    	mov.w     w14, 0x20
+ 406:	00 00 00    	nop       
+ 408:	00 00 20    	mov.w     #0x0, w0
+ 40a:	00 00 e0    	cp0.w     w0
+ 40c:	02 00 32    	bra       Z, 0x412 <CORCON_RESET>
+ 40e:	00 01 20    	mov.w     #0x10, w0
+ 410:	20 02 88    	mov.w     w0, 0x44
+ 
+ 00000412 <CORCON_RESET>:
+ 412:	14 00 07    	rcall     0x43c <__psv_init>
+ 414:	59 00 07    	rcall     0x4c8 <__crt_start_mode> <__crt_start_mode_normal>
+ 416:	00 00 e0    	cp0.w     w0
+```
+
+```ihex
+:020000040000fa
+:080000000004040000000000f0
+:020000040000fa
+:100800006f2621000e7f24000e01880000000000ea
+:10081000000020000000e000020032000001200083
+:100820002002880014000700590007000000e000c3
+```
+
+Reading hex can be a little weird. Numbers are *little-endian*, so on the first line, the bytes `00 04` means 0x0400; i.e. 1024.
+
+In PIC24F, the memory addressing scheme is a little wonky since data is organized into 24-bit words but the architecture likes dealing in 16-bit ints.
+
+Typically, Microchip tools will show 2-word pairs starting at even addresses to adjust for this. Things get a little hairy when accounting for PSV data in memory (where even addresses refer to the low byte, odd refer to the middle byte, and the high byte is left unused).
+
+<table>
+<thead>
+<tr><th>Data</th><th>byte</th><th>byte</th><th>byte</th><th>0</th><th>byte</th><th>byte</th><th>byte</th><th>0</th></tr></thead>
+<tbody><tr><td>PC address</td><td colspan=3>n</td><td>(no address)</td><td colspan=3>n+2</td><td>(no address)</td></tr><tr><td>PSV address</td><td>n</td><td>n+1</td><td colspan=2>(no address)</td><td>n+2</td><td>n+3</td><td colspan=2>(no address)</td></tr><tr><td>Intel Hex address</td><td>2n</td><td>2n+1</td><td>2n+2</td><td>2n+3</td><td>2n+4</td><td>2n+5</td><td>2n+6</td><td>2n+7</td></tr></tbody>
+</table>
+
+Note that PSV and Intel hex addressing take opposite approaches; PSV leaves 1/3 of the physical memory unusable in return for having a fully usable address space, whereas Intel Hex leaves 1/4 of the address space unusable in return for having a fully addressable physical memory.
+
+Also take care that addresses in Intel Hex format are *twice* those in, e.g. the linker script and source code and the HEX file contains extra bytes (set to zero) in these addresses.
+
 
 ### Code style tools
 
@@ -154,26 +317,6 @@ git diff HEAD --name-only --relative --diff-filter=d -- **.h **.c | xargs clang-
 
 This will tidy up all locally modified files. You can make this a precommit hook if you like.
 
-Code tips for debuggability as of MPLAB v8.92:
-
-* You can build the executable as either an ELF or COF (Project -> Build Options ... -> Project -> XC16 ASM/C Suite -> Output-File Format). ELF has the benefit that you can isolate each function in a section and remove unused sections to get a smaller build size. COF has the benefit that the debugger works more reliably and you can use the "Locate Headers" tool to find headers you've included not mentioned in the mcp file. If you cannot view local variables, try switching to COF.
-
-* The xc16 elf option `--gc-sections`  may interfere with debugging.
-
-* Typedef'd types should have a name anyway. It looks redundant, but the debugger will display the value as an enum instead of an int without that first "my_enum".
-
-  ```C
-  typedef my_enum1 {\*...*\} my_enum1; //< Don't do this
-  typedef enum my_enum2 {\*...*\} my_enum2; //< Do this instead
-  ```
-
-* Similarly, if you have a magic size array, declare the size as a defined value, not a constant. Otherwise, the debugger will show the array as an opaque pointer instead of as an array.
-
-  ```c
-  static const SIZE = 10; //< Don't do this
-  #define SIZE 10; //< Do this instead
-  unsigned int my_array[SIZE];
-  ```
 
 ### Deployment instructions with MPLAB
 

@@ -39,9 +39,15 @@ jobs:
             # stupid installer requires stupid admin rights and only properly installs to global opt
             sudo "$XC16_INSTALLER_PATH" --mode unattended --ModifyAll 0 --netservername ""
           fi
+      
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
 
       - name: Install Dependencies
-        run: sudo apt install doxygen graphviz
+        run: |
+          sudo apt install doxygen graphviz
+          pip install intelhex --force --no-binary :all:
 
       - name: Get firmware source code
         uses: actions/checkout@v2
@@ -56,17 +62,19 @@ jobs:
           cmake --build build
           cmake --install build --prefix install
 
-      - name: Upload build folder (for debuggirg)
+      - name: Upload install folder on success
+        if: success()
         uses: actions/upload-artifact@v2
         with:
-          name: build
-          path: build
-
-      - name: Upload install folder
-        uses: actions/upload-artifact@v2
-        with:
-          name: install
+          name: autobuild-${{ github.run_id }}
           path: install
+
+      - name: Upload workspace folder on failure
+        if: failure()
+        uses: actions/upload-artifact@v2
+        with:
+          name: autobuild-FAILED-${{ github.run_id }}
+          path: ${{ github.workspace }}
 
   test-bootload:
     runs-on: [self-hosted, roverpro]
@@ -75,8 +83,8 @@ jobs:
       - name: Download install folder
         uses: actions/download-artifact@v2
         with:
-          name: install
-          path: install
+          name: autobuild-${{ github.run_id }}
+          path: build-result
       - name: Install Rover Pro for Python
         run: |
           which python3
@@ -90,6 +98,6 @@ jobs:
         run: |
           source ./venv/bin/activate
           # note this requires permission: sudo usermod -a -G dialout $(whoami)
-          pitstop flash install/PowerBoard.hex
+          pitstop flash build-result/powerboard.hex
           sleep 10
           pitstop checkversion 1.11
