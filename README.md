@@ -87,10 +87,10 @@ You can create a combo image in several ways. Below are instructions via MPLAB 8
 
 1. configure -> Settings -> Program Loading
 2. Uncheck all the checkboxes (Clear program memory upon loading a program, Clear configuration bits upon loading a program, ...)
-3. File -> Import ...; Choose the application hex file, e.g. `PowerBoard-1.11.1.hex`
-4. File -> Import ...; Choose the bootloader hex file, e.g. `bootypic-1.11.1.hex`
+3. File -> Import ...; Choose the application hex file, e.g. `PowerBoard-1.11.2.hex`
+4. File -> Import ...; Choose the bootloader hex file, e.g. `bootypic-1.11.2.hex`
 5. File -> Export (The defaults should be correct: Program memory = 0 : 0x2abf6, Configuration bits checked, File Format Intel 32-bit Hex)
-6. Name your new combo image, e.g. `combo-1.11.1.hex`
+6. Name your new combo image, e.g. `combo-1.11.2.hex`
 
 ### Creating a combo image with HexMerge
 
@@ -106,7 +106,7 @@ You can create a combo image in several ways. Below are instructions via MPLAB 8
    app=PowerBoard-1.11.1.hex
    boot=bootypic-1.11.1.hex
    out=combined-1.11.1.hex
-   hexmerge.py -o $out $boot::7 $app:8:3ff $boot:800:3fff $app:4000:0x557F3 $boot:0x557F4:
+   hexmerge.py -o $out $boot::7 $app:8:3ff $boot:800:3fff $app:4000:557F3 $boot:557F4:
    ```
    
 [^3]:You probably noticed the addresses after the file name. These are necessary because the bootloader and the application have conflicting opinions about what should go where in parts of memory. These values may change with different versions of the firmware. [See below][addresses] for more.
@@ -214,16 +214,16 @@ Note either the Bootloader or PowerBoard can be run in this way (though the boot
 
 The bootloader and application must live on the same chip, so they coexist in the same address space. Note that the below addresses may change in different versions of the firmware.
 
-| Address       | Meaning                              | Notes                                                        |
-| ------------- | ------------------------------------ | ------------------------------------------------------------ |
-| 000000:000004 | Reset vector; go to start of program | Both application and bootloader define this. **When both exist, the Bootloader should win** |
-| 000004:000200 | Interrupt table                      | Reserved for application - by design the bootloader uses no interrupts |
-| 000200:000400 | Program memory unused                | This is normal program memory, but due to how RTSP works on the PIC, erasing the interrupt table also erases this memory. So it's not used by the bootloader. |
-| 000400:002000 | Program memory - bootloader          |                                                              |
-| 002000:02ABFA | Program memory - application         |                                                              |
-| 02ABFA:02ABFF | PIC config words                     | Both application and bootloader define this. **They should be the same for application and bootloader.** |
+Note that the below addresses are expressed in 2 ways. The **PC address** counts double-byte, and is half-open (end address is not *in* the range), as used by XC16 and Microchip. The **HEX address** is a byte-oriented range and is closed (end address is part of the range), as used by intelhex files.
 
-[^4]:These are PC (program counter) addresses. To use with Intel Hex files, double the values.
+| PC Address  | HEX Address | Meaning                             | Notes                                                        |
+| ----------- | ----------- | ----------------------------------- | ------------------------------------------------------------ |
+| 0:4         | 0:7         | Reset vector; goto start of program | Both application and bootloader define this. **When both exist, the Bootloader should win** |
+| 4:200       | 8:3FF       | Interrupt table                     | Reserved for application - by design the bootloader uses no interrupts |
+| 200:400     | 400:7FF     | Program memory unused               | This is normal program memory, but due to how RTSP works on the PIC, erasing the interrupt table also erases this memory. So it's not used by the bootloader. |
+| 400:2000    | 800:3FFF    | Program memory - bootloader         |                                                              |
+| 2000:2ABFA  | 4000:557F3  | Program memory - application        |                                                              |
+| 2ABFA:2ABFE | 557F4:557FB | PIC config words                    | Both application and bootloader define this. **They should be the same for application and bootloader.** |
 
 ### Addressing gotchas
 
