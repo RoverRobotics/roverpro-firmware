@@ -66,14 +66,14 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v2
         with:
-          name: install
+          name: autobuild-${{ github.run_id }}
           path: install
 
       - name: Upload workspace folder on failure
         if: failure()
         uses: actions/upload-artifact@v2
         with:
-          name: workspace
+          name: autobuild-FAILED-${{ github.run_id }}
           path: ${{ github.workspace }}
 
   test-bootload:
@@ -81,10 +81,10 @@ jobs:
     needs: build
     steps:
       - name: Download install folder
+        id: download
         uses: actions/download-artifact@v2
         with:
-          name: install
-          path: install
+          name: autobuild-${{ github.run_id }}
       - name: Install Rover Pro for Python
         run: |
           which python3
@@ -98,6 +98,6 @@ jobs:
         run: |
           source ./venv/bin/activate
           # note this requires permission: sudo usermod -a -G dialout $(whoami)
-          pitstop flash install/PowerBoard.hex
+          pitstop flash ${{steps.download.outputs.download-path}}/PowerBoard.hex
           sleep 10
           pitstop checkversion 1.11
