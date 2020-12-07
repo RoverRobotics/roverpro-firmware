@@ -81,10 +81,10 @@ jobs:
     needs: build
     steps:
       - name: Download install folder
-        id: download
         uses: actions/download-artifact@v2
         with:
           name: autobuild-${{ github.run_id }}
+          path: build-result
       - name: Install Rover Pro for Python
         run: |
           which python3
@@ -98,6 +98,6 @@ jobs:
         run: |
           source ./venv/bin/activate
           # note this requires permission: sudo usermod -a -G dialout $(whoami)
-          pitstop flash ${{steps.download.outputs.download-path}}/PowerBoard.hex
+          pitstop flash build-result/powerboard.hex
           sleep 10
           pitstop checkversion 1.11
