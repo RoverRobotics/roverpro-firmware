@@ -295,8 +295,11 @@
 #define EEPROM_ADDRESS            0x50
 #define BATTERY_CHARGER_ADDRESS 0x0c
 
-#define Fan1LowTemp 45// 45C fan1 start temperature
-#define Fan2LowTemp 45// 45C fan2 start temperature
+#define FAN_START_TEMP 40.0// 
+#define FAN_MAX_TEMP 50.0
+#define FAN_MAX_DUTY 240 //per datasheet
+#define FAN_LO_DUTY_FACTOR 0.5
+#define FAN_HI_DUTY_FACTOR 1.0
 
 //Subsystem control
 #define Available 0

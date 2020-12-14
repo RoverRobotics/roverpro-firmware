@@ -9,6 +9,7 @@
 #include "DEE Emulation 16-bit.h"
 #include "device_robot_motor_loop.h"
 #include "../closed_loop_control/core/InputCapture.h"
+#include <math.h>
 
 #define XbeeTest
 #define BATProtectionON
@@ -211,7 +212,7 @@ unsigned int adc_test_reg = 0;
 	int Xbee_gNewData=0;
 	uint8_t Xbee_StartBit=253;
 	uint16_t EncoderInterval[3];// Encoder time interval
-	uint16_t BuildNO=10007;
+	uint16_t BuildNO=10008;
 	uint8_t Xbee_SIDE_FAN_SPEED=0;
 	uint8_t Xbee_SIDE_FAN_NEW=0; // if there is a cmd or no
 	#define P1_Read_Register 10
@@ -2027,30 +2028,52 @@ void FANCtrlIni()
   	block_ms(250);
   	ClrWdt();
   }
-	//writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x0B,0);
+	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x0B,0);
 
 	block_ms(20);
 	ClrWdt();
 
- 	//for FAN1 starting temperature
- /*	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x0F,10);
+	//FAN is now controlled by temperature profile...
+	uint8_t fan_lo_duty_cycle = (uint8_t)(FAN_MAX_DUTY * FAN_LO_DUTY_FACTOR);
+    writeI2C2Reg(FAN_CONTROLLER_ADDRESS, 0x07, fan_lo_duty_cycle);
+	block_ms(20);
+	writeI2C2Reg(FAN_CONTROLLER_ADDRESS, 0x08, fan_lo_duty_cycle);
+	block_ms(20);
 
- 	//for FAN2 starting temperature
- 	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x10,Fan2LowTemp);
+    uint8_t fan_hi_duty_cycle = (uint8_t)(FAN_MAX_DUTY * FAN_HI_DUTY_FACTOR);
+	writeI2C2Reg(FAN_CONTROLLER_ADDRESS, 0x09, fan_hi_duty_cycle);
+	block_ms(20);
+	writeI2C2Reg(FAN_CONTROLLER_ADDRESS, 0x0a, fan_hi_duty_cycle);
+	block_ms(20);
 
- 	//for duty-cycle step
- 	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x13,0b11111111);
+	uint8_t fan_start_temp = (uint8_t)FAN_START_TEMP;
+	writeI2C2Reg(FAN_CONTROLLER_ADDRESS, 0x0F, fan_start_temp);
+	block_ms(20);
+	writeI2C2Reg(FAN_CONTROLLER_ADDRESS, 0x10, fan_start_temp);
+	block_ms(20);
 
- 	//for duty-cycle change rate
- 	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x12,0b00100100);
+	// set fan update rate
+    uint8_t fan_duty_rate_of_change = 0b01001000;
+	writeI2C2Reg(FAN_CONTROLLER_ADDRESS, 0x12, fan_duty_rate_of_change);
+    block_ms(20);
 
-	ClrWdt();
-	block_ms(1000);
-	ClrWdt();
- 	//for FAN1 starting temperature
- 	writeI2C2Reg(FAN_CONTROLLER_ADDRESS,0x0F,Fan1LowTemp);
-	*/
-	
+	// configure which temperature sensors to use
+    uint8_t fan_config =
+        0b00111100; // set both temperature inputs - it will use whichever is higher
+    writeI2C2Reg(FAN_CONTROLLER_ADDRESS, 0x11, fan_config);
+
+	float duty_cycle_step =
+        FAN_MAX_DUTY *
+        (FAN_HI_DUTY_FACTOR - FAN_LO_DUTY_FACTOR) /
+        (FAN_MAX_TEMP - FAN_START_TEMP) / 2;
+	duty_cycle_step = ceil(duty_cycle_step);
+	(duty_cycle_step > 255) ? duty_cycle_step = 255 : duty_cycle_step;
+	(duty_cycle_step < 0) ? duty_cycle_step = 0 : duty_cycle_step;
+    uint8_t duty_cycle_step_uint4 = (uint8_t)duty_cycle_step & 0xF;
+
+    uint8_t duty_cycle_step_sizes = duty_cycle_step_uint4 << 4 | duty_cycle_step_uint4;
+	writeI2C2Reg(FAN_CONTROLLER_ADDRESS, 0x13, duty_cycle_step_sizes);
+    block_ms(20);
 	
 }
 

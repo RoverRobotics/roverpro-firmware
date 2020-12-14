@@ -34,6 +34,9 @@ void I2C2Update(void)
  	switch(StepNumber)
  	{
  	 	case 1://make sure the module is idle
+		  	StepNumber = 8; //skip manual fan write control
+			break;
+			/*
  			if(CheckI2C2Idle()==True)
  			{
  				StepNumber++;//run second step
@@ -84,7 +87,7 @@ void I2C2Update(void)
  			{
  				StepNumber++;
  			}
- 			break;
+ 			break;*/
  		case 8://make sure the module is idle
  			if(CheckI2C2Idle()==True)//make sure the module is idle
  			{
@@ -115,10 +118,14 @@ void I2C2Update(void)
  			}
  			break;
  		case 12://stop the module
+
  			I2C2CONbits.PEN=1;	// initiate Stop on SDA and SCL pins
- 			StepNumber++;
+ 			//StepNumber++;  //skip manual fan control
  			break;
  	 	case 13://make sure the module is idle
+		  	StepNumber = 20; //skip manual fan control
+			break;
+			/*
  			if(CheckI2C2Idle()==True)
  			{
  				StepNumber++;//run second step
@@ -168,7 +175,7 @@ void I2C2Update(void)
  			{
  				StepNumber++;
  			}
- 			break;
+ 			break;*/
  		case 20://make sure the module is idle
  			if(CheckI2C2Idle()==True)//make sure the module is idle
  			{
@@ -313,21 +320,24 @@ void I2C2Update(void)
  			StepNumber++;
  			break;
  		case 39://Make sure the module is idle
+
  			if(CheckI2C2Idle()==True)
  			{
  				StepNumber++;//run second step
  				//StepNumber=1;//cycle ends, go to the first step
  				//I2C2TimerExpired=False;//reset the I2C2 update timer
  			}
+			//skip manual fan control
+			StepNumber = 1;
  			break;
-
+		/*
 		case 40://make sure the module is idle
-					if(CheckI2C2Idle()==True)
-					{
-						StepNumber++;//run second step
-						I2C2CONbits.SEN=1;	// initiate Start on SDA and SCL pins
-					}
-				 	break;
+			if(CheckI2C2Idle()==True)
+			{
+				StepNumber++;//run second step
+				I2C2CONbits.SEN=1;	// initiate Start on SDA and SCL pins
+			}
+			break;
 		case 41://wait until start is complete, then transmit data
 			if(I2C2CONbits.SEN==0)
 			{
@@ -435,6 +445,7 @@ void I2C2Update(void)
 
  			}
 			break;
+		*/
 
  	}
 
