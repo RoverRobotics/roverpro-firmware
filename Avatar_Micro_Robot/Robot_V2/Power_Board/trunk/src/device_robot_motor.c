@@ -382,7 +382,7 @@ void GetRPM(int Channel)
 {	
 	uint32_t temp;
 	if(Channel==0 && MotorDirection(0)>0){
-		temp = IC_period(0));
+		temp = IC_period(0);
 		temp = RatioCommutationPeriodToMotorRpm / temp - CommutationPeriodToMotorRpmOffset;
 		temp = temp >> 1;
 // 		CurrentRPM[0] = (RatioCommutationPeriodToMotorRpm / IC_period(0)) - CommutationPeriodToMotorRpmOffset;
@@ -392,7 +392,7 @@ void GetRPM(int Channel)
 
 	
 	if(Channel==0 && MotorDirection(0)==0){
-		temp = IC_period(0));
+		temp = IC_period(0);
 		temp = RatioCommutationPeriodToMotorRpm / temp - CommutationPeriodToMotorRpmOffset;
 		temp = temp >> 1;
 		CurrentRPM[0] = (int16_t)temp;
@@ -401,7 +401,7 @@ void GetRPM(int Channel)
 	}
 
 	if(Channel==1 && MotorDirection(1)>0){
-		temp = IC_period(1));
+		temp = IC_period(1);
 		temp = RatioCommutationPeriodToMotorRpm / temp - CommutationPeriodToMotorRpmOffset;
 		temp = temp >> 1;
 		CurrentRPM[1] = (int16_t) temp;
@@ -409,7 +409,7 @@ void GetRPM(int Channel)
 		
 	}
 	if(Channel==1 && MotorDirection(1)==0){
-		temp = IC_period(1));
+		temp = IC_period(1);
 // 		CurrentRPM[1] = (RatioCommutationPeriodToMotorRpm / IC_period(1)) - CommutationPeriodToMotorRpmOffset;
 // 		CurrentRPM[1] = -CurrentRPM[1];
 		temp = RatioCommutationPeriodToMotorRpm / temp - CommutationPeriodToMotorRpmOffset;
