@@ -212,7 +212,7 @@ unsigned int adc_test_reg = 0;
 	int Xbee_gNewData=0;
 	uint8_t Xbee_StartBit=253;
 	uint16_t EncoderInterval[3];// Encoder time interval
-	uint16_t BuildNO=10008;
+	uint16_t BuildNO=10009;
 	uint8_t Xbee_SIDE_FAN_SPEED=0;
 	uint8_t Xbee_SIDE_FAN_NEW=0; // if there is a cmd or no
 	#define P1_Read_Register 10
@@ -380,24 +380,41 @@ void GetControlRPM(int Channel)
 
 void GetRPM(int Channel)
 {	
+	uint32_t temp;
 	if(Channel==0 && MotorDirection(0)>0){
-		CurrentRPM[0] = (RatioCommutationPeriodToMotorRpm / IC_period(0)) - CommutationPeriodToMotorRpmOffset;
-		CurrentRPM[0] = -CurrentRPM[0];
+		temp = IC_period(0);
+		temp = RatioCommutationPeriodToMotorRpm / temp - CommutationPeriodToMotorRpmOffset;
+		temp = temp >> 1;
+// 		CurrentRPM[0] = (RatioCommutationPeriodToMotorRpm / IC_period(0)) - CommutationPeriodToMotorRpmOffset;
+// 		CurrentRPM[0] = -CurrentRPM[0];
+		CurrentRPM[0] = - (int16_t)temp;
 	}
 
 	
 	if(Channel==0 && MotorDirection(0)==0){
-		CurrentRPM[0] = (RatioCommutationPeriodToMotorRpm / IC_period(0)) - CommutationPeriodToMotorRpmOffset;
+		temp = IC_period(0);
+		temp = RatioCommutationPeriodToMotorRpm / temp - CommutationPeriodToMotorRpmOffset;
+		temp = temp >> 1;
+		CurrentRPM[0] = (int16_t)temp;
+// 		CurrentRPM[0] = (RatioCommutationPeriodToMotorRpm / IC_period(0)) - CommutationPeriodToMotorRpmOffset;
 		
 	}
 
 	if(Channel==1 && MotorDirection(1)>0){
-		CurrentRPM[1] = (RatioCommutationPeriodToMotorRpm / IC_period(1)) - CommutationPeriodToMotorRpmOffset;
+		temp = IC_period(1);
+		temp = RatioCommutationPeriodToMotorRpm / temp - CommutationPeriodToMotorRpmOffset;
+		temp = temp >> 1;
+		CurrentRPM[1] = (int16_t) temp;
+// 		CurrentRPM[1] = (RatioCommutationPeriodToMotorRpm / IC_period(1)) - CommutationPeriodToMotorRpmOffset;
 		
 	}
 	if(Channel==1 && MotorDirection(1)==0){
-		CurrentRPM[1] = (RatioCommutationPeriodToMotorRpm / IC_period(1)) - CommutationPeriodToMotorRpmOffset;
-		CurrentRPM[1] = -CurrentRPM[1];
+		temp = IC_period(1);
+// 		CurrentRPM[1] = (RatioCommutationPeriodToMotorRpm / IC_period(1)) - CommutationPeriodToMotorRpmOffset;
+// 		CurrentRPM[1] = -CurrentRPM[1];
+		temp = RatioCommutationPeriodToMotorRpm / temp - CommutationPeriodToMotorRpmOffset;
+		temp = temp >> 1;
+		CurrentRPM[1] = -(int16_t) temp;
 	}
 }
 
