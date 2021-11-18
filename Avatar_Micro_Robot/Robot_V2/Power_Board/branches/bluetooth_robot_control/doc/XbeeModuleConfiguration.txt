@@ -1,5 +1,0 @@
-Channel: D
-PAN ID: 123
-Address1: 0A
-Address2: 0B
-BD: 57600 bps
