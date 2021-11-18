@@ -1,4 +1,4 @@
-firmware
+rover pro firmware
 ========
 
 ## Repository Structure
@@ -7,10 +7,10 @@ firmware
 roverpro-firmware
 ├── bootypic                        # Bootloader (not implemented currently)
 ├── Common                          # Common libraries
-└── Rover_Pro                       # Rover Pro firware files                
+└── Rover_Pro                       # Rover Pro firmware files                
     ├──Internal Charger             # Firmware for controlling battery charging
     ├──Motor Controller             # Deprecated
-    └──Power Board                  # primary firware that runs the robot
+    └──Power Board                  # Primary firware that runs the robot
         ├──closed_loop_control      # PID loop for controlling motor RPM instead of current
         ├──doc                      # Useful documents
         ├──empia_eeprom             # Deprecated
@@ -36,6 +36,6 @@ Open MPLab, and set the programmer to PIckKit3, configure it to power the chip u
 Program the firmware
 
 ## Compiling from Source
-If you have made a custom modification to the firware and want to compile is from source, follow these instructions
+If you have made a custom modification to the firmware and want to compile it from source, follow these instructions
 
 Use MPLab (not MPLabX) to compile firmware into a .hex file
