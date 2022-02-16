@@ -1,15 +1,12 @@
 /*==============================================================================
 File: InternalCharger.c
 
-Description: Application-level file for the internal battery charger.  This is
-  the quick, first-prototype version.
+Description: Application-level file for the internal battery charger.
 
 Notes:
   - intended for BB-2590
     two (2) cells in parallel each comprised of four (4) modules in series
-  
-  
-Responsible Engineer: Stellios Leventis (sleventis@robotex.com)
+
 ==============================================================================*/
 #define TEST_INTERNALCHARGER
 /*---------------------------Dependencies-------------------------------------*/
