@@ -95,7 +95,7 @@ void IC1_ISR(void) {
 	// handle rollover, remove old 
   int recentMotorDirReading = M1_DIRO;
   if(recentMotorDirReading == measuredMotorDirection[0] && protectionTimeout==0){
-    
+
     unsigned int newvalue = UINT_MAX;
 
     if (last_value < current_value) newvalue = (current_value - last_value);
@@ -105,7 +105,7 @@ void IC1_ISR(void) {
     if(newvalue==0) newvalue = UINT_MAX;
     periods[0] = newvalue;
     last_value = current_value;
-    
+
   }
   else if(recentMotorDirReading != measuredMotorDirection[0]){
     protectionTimeout = STALL_PROTECTION_CYCLES;
@@ -130,7 +130,7 @@ void IC2_ISR(void) {
   // handle rollover, remove old
   int recentMotorDirReading = M2_DIRO;
   if(recentMotorDirReading == measuredMotorDirection[1] && protectionTimeout==0){
-    
+
     unsigned int newvalue = UINT_MAX;
 
     if (last_value < current_value) newvalue = ((current_value - last_value));
@@ -246,7 +246,7 @@ void __attribute__((__interrupt__, auto_psv)) _IC9Interrupt(void) {
 /*---------------------------Public Function Definitions----------------------*/
 void IC_Init(const kICModule module,
              const uint8_t RPn,
-             const uint8_t timeout) {
+             const uint16_t timeout) {
   timeouts[module] = timeout;
   RPns[module] = RPn;
   
@@ -373,7 +373,7 @@ static void InitIC1(const uint8_t RPn) {
   //IC1CON1bits.ICTSEL = 0;   // use Timer3 as the time base
   IC1CON1bits.ICTSEL = 0b011;   // use Timer5 as the time base
   IC1CON1bits.ICI = 0b00;   // fire the interrupt every capture event
-  IC1CON1bits.ICM = 0b001;  // capture event on EVERY edge (not just every rising anymore)
+  IC1CON1bits.ICM = 0b011;  // capture event on every rising edge
   //IPC0bits.IC1IP2 = 0; //set lower priority
   
   //PPS_MapPeripheral(RPn, INPUT, FN_IC1);
@@ -393,7 +393,7 @@ static void InitIC2(const uint8_t RPn) {
 //  IC2CON1bits.ICTSEL = 0;
   IC2CON1bits.ICTSEL = 0b011;   // use Timer5 as the time base
   IC2CON1bits.ICI = 0b00;
-  IC2CON1bits.ICM = 0b001;      // capture event on EVERY edge (not just every rising anymore)
+  IC2CON1bits.ICM = 0b011;      // capture event on every rising edge
   //IPC1bits.IC2IP2 = 0; //set lower priority
 
   IC2InterruptUserFunction=IC2_ISR;

@@ -321,6 +321,9 @@ extern int gNewData;
 
 /////function
 
+void PWM1Ini(void);//initialize PWM channel 1
+void PWM1Duty(int Duty);//set duty cycle for PWM channel 1
+
 void PWM2Ini(void);//initialize PWM chnnel 2
 void PWM2Duty(int Duty);//set duty cycle for PWM channel 2
 //Duty is 0~1024, 1024-100% duty cycle,0-0% duty cycle

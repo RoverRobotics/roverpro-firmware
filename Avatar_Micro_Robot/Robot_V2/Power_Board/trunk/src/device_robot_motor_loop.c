@@ -23,17 +23,24 @@ typedef enum {
 
 /*---------------------------Helper Function Prototypes-----------------------*/
 /*---------------------------IC Related---------------------------------------*/
-#define MAX_NUM_IC_PINS 2
-static volatile uint32_t timeouts[MAX_NUM_IC_PINS] = {0};
+// #define NUM_MOTOR_TACHO_PINS 2
+// static volatile uint32_t timeouts[NUM_MOTOR_TACHO_PINS] = {0};
 
 /*---------------------------PID Related--------------------------------------*/
 /*---------------------------Filter Related-----------------------------------*/
 float IIRFilter(const uint8_t i, const float x, const float alpha,
                 const bool should_reset);
 
-#define ALPHA               0.8
+// Desired-speed smoothing filter (indices 0,1)
+#define ALPHA               0.5         // was 0.8: faster command response (~14ms vs 45ms lag)
 #define LMOTOR_FILTER       0
 #define RMOTOR_FILTER       1
+
+// Actual-speed measurement filter (indices 2,3) - smooths raw IC tachometer noise
+#define ALPHA_ACTUAL        0.5
+#define ACTUAL_LMOTOR_FILTER 2
+#define ACTUAL_RMOTOR_FILTER 3
+
 /*---------------------------Controller Related-------------------------------*/
 
 // PID controller values
@@ -43,19 +50,26 @@ float IIRFilter(const uint8_t i, const float x, const float alpha,
 #define MAX_EFFORT          1.00        // maximum control effort magnitude (can also be -1000)
 #define MIN_EFFORT          -1.00
 #define K_P                 0.0005      // proportional gain
-#define K_I                 0.00003     // integral gain
+#define K_I                 0.0001      // integral gain (increased 3.3x to reduce steady-state error)
 #define K_D                 0.000000    // differential gain
 
-// filters
-#define ALPHA               0.8
-#define LMOTOR_FILTER       0
-#define RMOTOR_FILTER       1
+// Speed scale factor: IC tachometer (DT_speed) gives values ~11x larger than
+// the desired speed units from GetDesiredSpeed(). Data confirms:
+//   cmd=0.31 m/s -> desired=32, actual=350  (350/32 = 10.94)
+//   cmd=0.62 m/s -> desired=62, actual=699  (699/62 = 11.27)
+//   cmd=0.94 m/s -> desired=94, actual=1035 (1035/94 = 11.01)
+// Dividing actual by this factor aligns both signals for the PID.
+#define SPEED_SCALE_FACTOR  11.0f
+
+// Cross-coupled synchronization gain (operates in scaled units, range 0-250)
+#define K_SYNC              0.005f      // scaled up from 0.0001 since units now match (0-250 range)
+#define SYNC_DEADBAND       2.0f        // scaled units: ~22 DT_raw = ~2 RPM threshold
 
 #define XbeeTest
 
 // OCU speed filter-related values
 #define MAX_DESIRED_SPEED   900         // [au], caps incoming signal from OCU
-#define MIN_ACHEIVABLE_SPEED 50
+#define MIN_ACHEIVABLE_SPEED 10  // was 50: old value blocked all cmds below 0.62 m/s
 
 float DT_speed(const kMotor motor);
 static float GetNominalDriveEffort(const float desired_speed);
@@ -67,6 +81,8 @@ static float closed_loop_effort[3] = {0,0,0};
 static int desired_velocity_left = 0;
 static int desired_velocity_right = 0;
 static int desired_velocity_flipper = 0;
+
+
 
 
 void closed_loop_control_init(void)
@@ -138,9 +154,11 @@ void handle_closed_loop_control(unsigned int OverCurrent)
     PID_Reset_Integral(kMotorLeft);
     PID_Reset_Integral(kMotorRight);
 
-    //If user releases joystick, reset the IIR filter
-    IIRFilter(LMOTOR_FILTER, 0, ALPHA, YES);
-    IIRFilter(RMOTOR_FILTER, 0, ALPHA, YES);
+    //If user releases joystick, reset the IIR filters (desired and actual)
+    IIRFilter(LMOTOR_FILTER,        0, ALPHA,        YES);
+    IIRFilter(RMOTOR_FILTER,        0, ALPHA,        YES);
+    IIRFilter(ACTUAL_LMOTOR_FILTER, 0, ALPHA_ACTUAL, YES);
+    IIRFilter(ACTUAL_RMOTOR_FILTER, 0, ALPHA_ACTUAL, YES);
     desired_speed_left = 0;
     desired_speed_right = 0;
 
@@ -156,22 +174,38 @@ void handle_closed_loop_control(unsigned int OverCurrent)
 
  
   // update the left drive motor
+  // actual speed is divided by SPEED_SCALE_FACTOR to match desired units (both in 0-250 range)
   float nominal_effort_left = GetNominalDriveEffort(desired_speed_left);
-  float actual_speed_left = DT_speed(kMotorLeft);
+  float actual_speed_left  = IIRFilter(ACTUAL_LMOTOR_FILTER, DT_speed(kMotorLeft),  ALPHA_ACTUAL, NO) / SPEED_SCALE_FACTOR;
   float effort_left = PID_ComputeEffort(LEFT_CONTROLLER, desired_speed_left, actual_speed_left, nominal_effort_left);
-	//printf("%f",effort_left);
-  //DT_set_speed(kMotorLeft, effort_left);
-  closed_loop_effort[kMotorLeft] = effort_left;
-	//printf("%d",closed_loop_effort[kMotorLeft]);
-  //DT_set_speed(kMotorLeft, nominal_effort_left);
-  
+
   // update the right drive motor
   float nominal_effort_right = GetNominalDriveEffort(desired_speed_right);
-  float actual_speed_right = DT_speed(kMotorRight);
+  float actual_speed_right = IIRFilter(ACTUAL_RMOTOR_FILTER, DT_speed(kMotorRight), ALPHA_ACTUAL, NO) / SPEED_SCALE_FACTOR;
   float effort_right = PID_ComputeEffort(RIGHT_CONTROLLER, desired_speed_right, actual_speed_right, nominal_effort_right);
-  //DT_set_speed(kMotorRight, effort_right);
+
+  // Cross-coupled synchronization (Koren 1980 tracking-error approach)
+  // Uses the DIFFERENCE in tracking errors, not raw speed difference.
+  // This is safe during turns: if both motors deviate from their own targets
+  // equally, sync_error = 0 and no correction is applied.
+  //   sync_error > 0: left overshoots more than right -> slow left / boost right
+  //   sync_error < 0: right overshoots more than left -> slow right / boost left
+  if (desired_speed_left != 0.0f || desired_speed_right != 0.0f) {
+    float track_err_left  = actual_speed_left  - desired_speed_left;
+    float track_err_right = actual_speed_right - desired_speed_right;
+    float sync_error = track_err_left - track_err_right;
+    if (sync_error >  SYNC_DEADBAND) { effort_left  -= K_SYNC * sync_error; }
+    if (sync_error < -SYNC_DEADBAND) { effort_right -= K_SYNC * sync_error; }  // negative - negative = boost
+    if (effort_left  >  MAX_EFFORT) effort_left  =  MAX_EFFORT;
+    if (effort_left  < -MAX_EFFORT) effort_left  = -MAX_EFFORT;
+    if (effort_right >  MAX_EFFORT) effort_right =  MAX_EFFORT;
+    if (effort_right < -MAX_EFFORT) effort_right = -MAX_EFFORT;
+  }
+
+  closed_loop_effort[kMotorLeft]  = effort_left;
   closed_loop_effort[kMotorRight] = effort_right;
   //DT_set_speed(kMotorRight, nominal_effort_right);
+
 
   /*i++;
   if(i>=100)
@@ -200,7 +234,7 @@ void handle_closed_loop_control(unsigned int OverCurrent)
 int return_closed_loop_control_effort(unsigned char motor)
 {
   //if(motor==1) return 300;
-  return (int)(closed_loop_effort[motor]*1000.0);
+  return (int)(closed_loop_effort[motor]*1000.0f);
   //return 0;
 }
 
@@ -253,8 +287,8 @@ static float GetNominalDriveEffort(const float desired_speed) {
 //   - special-cases turning in place to higher values to overcome
 //     the additional torque b/c software change has too much overhead right now
 static int16_t GetDesiredSpeed(const kMotor motor) {
-  int16_t temp_left = desired_velocity_left/4;
-  int16_t temp_right = desired_velocity_right/4;
+  int16_t temp_left = desired_velocity_left;
+  int16_t temp_right = desired_velocity_right;
   
   switch (motor) {
     case kMotorLeft:

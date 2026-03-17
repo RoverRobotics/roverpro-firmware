@@ -16,6 +16,7 @@
 #include "stdhdr.h"
 
 #include "device_robot_motor.h"
+#include "debug_uart.h"
 
 
 #include "SA1xLibrary/SA_API.h"

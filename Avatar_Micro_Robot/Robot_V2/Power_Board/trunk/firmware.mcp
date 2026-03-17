@@ -8,8 +8,8 @@ dir_src=
 dir_bin=./bin
 dir_tmp=./obj
 dir_sin=
-dir_inc=.\src;.\src\robotex;.;.\microchip
-dir_lib=C:\Program Files\Microchip\MPLAB C30\lib
+dir_inc=.\src;.\src\robotex;.;.\microchip;C:\Program Files (x86)\Microchip\xc16\v1.24\support\peripheral_24F
+dir_lib=C:\Program Files (x86)\Microchip\xc16\v1.24\lib
 dir_lkr=
 [CAT_FILTERS]
 filter_src=*.s;*.c
@@ -222,15 +222,15 @@ file_044=closed_loop_control\Filters.h
 file_045=closed_loop_control\core\InputCapture.h
 file_046=src\device_robot_motor_loop.h
 file_047=src\p24FJ256GB106.h
-file_048=C:\Users\john\Documents\rover\git\roverpro-firmware\bootypic\bootypic\devices\pic24fj256gb106\p24FJ256GB106_app.gld
+file_048=C:\Users\adhav\Documents\roverpro-firmware-old-1.0.9\bootypic\bootypic\devices\pic24fj256gb106\p24FJ256GB106_app.gld
 [SUITE_INFO]
-suite_guid={479DDE59-4D56-455E-855E-FFF59A3DB57E}
-suite_state=
+suite_guid={9BCCB495-CD65-480A-BA76-63D8E78B117F}
+suite_state=-omf=elf
 [TOOL_SETTINGS]
-TS{7D9C6ECE-785D-44CB-BA22-17BF2E119622}=-g
-TS{25AC22BD-2378-4FDB-BFB6-7345A15512D3}=-g -Wall
-TS{7DAC9A1D-4C45-45D6-B25A-D117C74E8F5A}=-Map="$(BINDIR_)$(TARGETBASE).map" --report-mem -o"$(BINDIR_)$(TARGETBASE).$(TARGETSUFFIX)"
-TS{509E5861-1E2A-483B-8B6B-CA8DB7F2DD78}=
+TS{8493B2ED-D539-4951-86C9-24D5331F0393}=-g
+TS{F9CE474D-6A6C-401D-A11E-BEE01B244D79}=-g -Wall
+TS{21A8AA9B-E75C-40B6-B3AE-9CBC16FF2EF9}=--heap=255 --stack=255 -Map="$(BINDIR_)$(TARGETBASE).map" --report-mem -o"$(BINDIR_)$(TARGETBASE).$(TARGETSUFFIX)"
+TS{45B3B6E0-6DAF-4E40-8D20-CFB1B620134D}=
 [INSTRUMENTED_TRACE]
 enable=0
 transport=0

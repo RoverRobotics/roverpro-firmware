@@ -255,5 +255,8 @@ REGISTER( REG_REPEATER_POSITIONS,	DEVICE_READ,	DEVICE_INITIATOR,	SYNC,	uint8_t )
 //REG_MOTOR_SLOW_SPEED is 0 for normal drive motor operation, and 1 for slow drive motor operation
 REGISTER( REG_MOTOR_SLOW_SPEED,	DEVICE_WRITE,	DEVICE_MOTOR,	SYNC,	uint8_t )
 
+// Firmware version ID — change FW_VERSION_ID in device_robot_motor.c each flash
+REGISTER( REG_FW_VERSION,         DEVICE_READ, DEVICE_MOTOR, SYNC, int16_t )
+
 REGISTER_END()
 

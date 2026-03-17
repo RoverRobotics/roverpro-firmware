@@ -162,7 +162,7 @@ int MotorDuty[3]={0,0,0};
 int CurrentSurgeTimes=0;
 int MotorSpeedTargetCoefficient[3];
 float MotorCurrentTargetCoefficient=MotorCurrentTargetCoefficient_Normal;
-float MaxDuty=1000.0;
+float MaxDuty=900.0;
 int MotorRecovering=False;
 int CurrentTooHigh=False;
 long TargetDifference=0;
@@ -212,7 +212,7 @@ unsigned int adc_test_reg = 0;
 	int Xbee_gNewData=0;
 	uint8_t Xbee_StartBit=253;
 	uint16_t EncoderInterval[3];// Encoder time interval
-	uint16_t BuildNO=10009;
+	uint16_t BuildNO=10009;  // DO NOT CHANGE - ROS2 driver checks this value
 	uint8_t Xbee_SIDE_FAN_SPEED=0;
 	uint8_t Xbee_SIDE_FAN_NEW=0; // if there is a cmd or no
 	#define P1_Read_Register 10
@@ -222,6 +222,7 @@ unsigned int adc_test_reg = 0;
 	#define P1_Restart 230
 	uint8_t Xbee_Low_Speed_mode=0;
 	uint8_t Xbee_Calibration=0;
+
 #endif
 
 
@@ -334,6 +335,9 @@ void DeviceRobotMotorInit()
 
   //init variables for closed loop control
   closed_loop_control_init();
+
+  //default to open-loop mode (HIGH_SPEED)
+  REG_MOTOR_SLOW_SPEED = 0;
 
 }
 
@@ -1404,6 +1408,7 @@ void ServoInput()
 int speed_control_loop(unsigned char i, int desired_speed)
 {
 	static int motor_speed[3] = {0,0,0};
+	static unsigned int dwell_counter[3] = {0,0,0};
 //	static int motor_rpm[3] = {0,0,0};
 
 //	return desired_speed;
@@ -1458,18 +1463,64 @@ int speed_control_loop(unsigned char i, int desired_speed)
 		if(desired_speed == 0)
 		{
 			motor_speed[i] = 0;
+			dwell_counter[i] = 0;
 			return 0;
 		}
-	
+
+		// Ramp ±2 per call (~3 second ramp from 0 to full speed)
+		#define RAMP_STEP 2
+		// Dwell at zero for DWELL_LOOPS iterations before reversing direction
+		// This lets the motor physically stop, preventing back-EMF overcurrent
+		#define DWELL_LOOPS 50  // 50 * ~5ms = ~250ms pause at zero
+
+		// Direction reversal detection: desired and current have opposite signs
+		int reversing = (motor_speed[i] > 0 && desired_speed < 0) ||
+		                (motor_speed[i] < 0 && desired_speed > 0);
+
+		if (reversing)
+		{
+			// First, ramp down to zero
+			if (motor_speed[i] > 0)
+			{
+				motor_speed[i] -= RAMP_STEP;
+				if (motor_speed[i] <= 0) motor_speed[i] = 0;
+			}
+			else
+			{
+				motor_speed[i] += RAMP_STEP;
+				if (motor_speed[i] >= 0) motor_speed[i] = 0;
+			}
+
+			// If we've reached zero, dwell before allowing reversal
+			if (motor_speed[i] == 0)
+			{
+				dwell_counter[i]++;
+				if (dwell_counter[i] < DWELL_LOOPS)
+					return 0;  // hold at zero, motor is still spinning down
+				// Dwell complete — fall through to normal ramp on next call
+				dwell_counter[i] = 0;
+			}
+			else
+			{
+				dwell_counter[i] = 0;
+				// Still ramping down to zero
+			}
+		}
+		else
+		{
+			dwell_counter[i] = 0;
+		}
+
+		// Normal ramp toward desired speed (same direction)
 		if(motor_speed[i] < desired_speed)
 		{
-			motor_speed[i]++;
+			motor_speed[i] += RAMP_STEP;
 			if(motor_speed[i] >= desired_speed)
 				motor_speed[i] = desired_speed;
 		}
 		else if (motor_speed[i] > desired_speed)
 		{
-			motor_speed[i]--;
+			motor_speed[i] -= RAMP_STEP;
 			if(motor_speed[i] <= desired_speed)
 				motor_speed[i] = desired_speed;
 		}
@@ -1504,7 +1555,15 @@ void USBInput()
   } motor_speed_state;
 
   static motor_speed_state state = HIGH_SPEED;
-    
+  static int16_t sync_correction = 0;  // tracks sync adjustment for debug logging
+  static int16_t sync_tick_error = 0;  // RPM error for debug
+  static int16_t sync_delta_ticks_l = 0;  // CurrentRPM left for logging
+  static int16_t sync_delta_ticks_r = 0;  // CurrentRPM right for logging
+  static long sync_integral = 0;       // integral accumulator for PI mode
+
+  // Firmware version ID: change this number each time you flash new code
+  // Sent via dedicated REG_FW_VERSION register (always on robot_status)
+  #define FW_VERSION_ID  211  // SYNC_MAX_CORR 25, ramp 2.9
 
 //Motors must decelerate upon switching speeds (if they're not already stopped.
 //Failure to do so could cause large current spikes which will trigger the 
@@ -1529,6 +1588,70 @@ void USBInput()
 				Robot_Motor_TargetSpeedUSB[0]=speed_control_loop(0,Xbee_MOTOR_VELOCITY[0]);
 				Robot_Motor_TargetSpeedUSB[1]=speed_control_loop(1,Xbee_MOTOR_VELOCITY[1]);
 				//printf("L%d,R%d\n",Robot_Motor_TargetSpeedUSB[0],Robot_Motor_TargetSpeedUSB[1]);
+
+				// --- RPM-based motor sync ---
+				// Below SYNC_VEL_THRESHOLD: PI controller (integral tracks persistent bias)
+				// Above SYNC_VEL_THRESHOLD: P-only (avoids integral windup from RPM noise)
+				// Positive rpm_error = left is faster → slow left, speed right.
+				#define SYNC_VEL_THRESHOLD  500  // ~1.25 m/s in Xbee velocity units
+				#define SYNC_KP_HIGH_DEN    4    // P gain for high speed: 1/4
+				#define SYNC_KP_LOW_DEN     16   // P gain for low speed: 1/16 (less noise jitter)
+				#define SYNC_KI_DEN         512L // I gain: 1/512 (slow integral, filters noise)
+				#define SYNC_MAX_CORR       15   // hard cap on correction magnitude
+				#define SYNC_INTEGRAL_MAX   (SYNC_MAX_CORR * SYNC_KI_DEN)  // anti-windup = ±7680
+
+				{
+					sync_correction = 0;
+					sync_tick_error = 0;
+
+					// Only sync when both motors commanded same direction and moving
+					if (Xbee_MOTOR_VELOCITY[0] != 0 && Xbee_MOTOR_VELOCITY[1] != 0
+					    && ((Xbee_MOTOR_VELOCITY[0] > 0) == (Xbee_MOTOR_VELOCITY[1] > 0)))
+					{
+						int16_t rpm_error = CurrentRPM[LMotor] - CurrentRPM[RMotor];
+						sync_tick_error = rpm_error;
+
+						if (abs(Xbee_MOTOR_VELOCITY[0]) < SYNC_VEL_THRESHOLD)
+						{
+							// --- PI mode for low speed ---
+							// P term: small gain to reduce noise-driven jitter
+							int16_t p_term = rpm_error / SYNC_KP_LOW_DEN;
+
+							// I term: accumulate error, noise averages out over time
+							sync_integral += (long)rpm_error;
+							if (sync_integral > SYNC_INTEGRAL_MAX)  sync_integral = SYNC_INTEGRAL_MAX;
+							if (sync_integral < -SYNC_INTEGRAL_MAX) sync_integral = -SYNC_INTEGRAL_MAX;
+							int16_t i_term = (int16_t)(sync_integral / SYNC_KI_DEN);
+
+							sync_correction = p_term + i_term;
+						}
+						else
+						{
+							// --- P-only for high speed ---
+							sync_integral = 0;  // reset integral when switching modes
+							sync_correction = rpm_error / SYNC_KP_HIGH_DEN;
+						}
+
+						// Hard clamp
+						if (sync_correction > SYNC_MAX_CORR)  sync_correction = SYNC_MAX_CORR;
+						if (sync_correction < -SYNC_MAX_CORR) sync_correction = -SYNC_MAX_CORR;
+					}
+					else
+					{
+						// Motors stopped or turning — reset everything
+						sync_integral = 0;
+					}
+
+					if (sync_correction != 0)
+					{
+						Robot_Motor_TargetSpeedUSB[0] -= sync_correction;
+						Robot_Motor_TargetSpeedUSB[1] += sync_correction;
+					}
+
+					// Store RPM values in debug registers for logging
+					sync_delta_ticks_l = CurrentRPM[LMotor];
+					sync_delta_ticks_r = CurrentRPM[RMotor];
+				}
 			#endif
     	}
     
@@ -1543,14 +1666,19 @@ void USBInput()
 				//printf();
 			#endif
     	}
-	#ifdef XbeeTest
-      if(REG_MOTOR_SLOW_SPEED == 1 )
-        state = DECEL_AFTER_HIGH_SPEED;
-	#endif
-	#ifdef XbeeTest
-      if( Xbee_Low_Speed_mode==1)
-        state = DECEL_AFTER_HIGH_SPEED;
-	#endif
+	REG_FW_VERSION        = FW_VERSION_ID;     // firmware version (always visible)
+
+	// Closed-loop transitions disabled — stay in open-loop permanently
+	// Serial corruption can set Xbee_Low_Speed_mode=1 via weak checksum,
+	// causing brief unwanted closed-loop bursts
+	// #ifdef XbeeTest
+	//   if(REG_MOTOR_SLOW_SPEED == 1 )
+	//     state = DECEL_AFTER_HIGH_SPEED;
+	// #endif
+	// #ifdef XbeeTest
+	//   if( Xbee_Low_Speed_mode==1)
+	//     state = DECEL_AFTER_HIGH_SPEED;
+	// #endif
 
     break;
   
@@ -1838,31 +1966,28 @@ void Cell_Ctrl(int Channel, int state)
 
 void set_firmware_build_time(void)
 {
-
-	const unsigned char build_date[12] = __DATE__; 
+	// Firmware version tag + build timestamp (24 bytes total)
+	// Change fw_tag each time you modify and reflash the firmware
+	// e.g. "TS1 " = Tick Sync v1, "TS2 " = Tick Sync v2, etc.
+	const char fw_tag[] = "TS1 ";
+	const unsigned char build_date[12] = __DATE__;
 	const unsigned char build_time[12] = __TIME__;
 	unsigned int i;
 
-	for(i=0;i<12;i++)
-	{
-		if((build_date[i] == 0))
-		{
-			REG_MOTOR_FIRMWARE_BUILD.data[i] = ' ';
-		}
-		else
-		{
-			REG_MOTOR_FIRMWARE_BUILD.data[i] = build_date[i];
-		}
-		if(build_time[i] == 0)
-		{
-			REG_MOTOR_FIRMWARE_BUILD.data[i+12] = ' ';
-		}
-		else
-		{
-			REG_MOTOR_FIRMWARE_BUILD.data[i+12] = build_time[i];
-		}
-	}
+	// Bytes 0-3: version tag
+	for(i=0; i<4; i++)
+		REG_MOTOR_FIRMWARE_BUILD.data[i] = fw_tag[i];
 
+	// Bytes 4-14: build date (e.g. "Mar  5 2026")
+	for(i=0; i<11; i++)
+		REG_MOTOR_FIRMWARE_BUILD.data[i+4] = (build_date[i] == 0) ? ' ' : build_date[i];
+
+	// Byte 15: separator
+	REG_MOTOR_FIRMWARE_BUILD.data[15] = ' ';
+
+	// Bytes 16-23: build time (e.g. "11:26:20")
+	for(i=0; i<8; i++)
+		REG_MOTOR_FIRMWARE_BUILD.data[i+16] = (build_time[i] == 0) ? ' ' : build_time[i];
 }
 
 
@@ -2394,7 +2519,7 @@ void IniTimer5()
 {
 	T5CON=0x0010;//stops timer3,1:8 prescale,16 bit timer,internal clock (Fosc/2)
 	TMR5=0;//clear timer1 register
- 	PR5=Period67Hz;// timer 5 -> 15ms
+ 	PR5=Period67Hz;// timer 5 -> 15ms (note: 319999 truncates to 57855 in 16-bit)
  	IFS1bits.T5IF=CLEAR; //clear interrupt flag
  	IEC1bits.T5IE=CLEAR;//disenable the interrupt
 	T5CONbits.TON=CLEAR;//stop clock
@@ -2794,7 +2919,7 @@ void  Motor_ADC1Interrupt(void)
  		//XbeeTest_UART_Buffer[2]=XbeeTest_Temp_u16;
 		//XbeeTest_UART_Buffer[1]=REG_MOTOR_ENCODER_COUNT.left;//load the buffer
  		//XbeeTest_UART_Buffer[2]=REG_MOTOR_ENCODER_COUNT.right;
- 		switch (XbeeTest_UART_DataNO%60)
+ 		switch (XbeeTest_UART_DataNO)
  		{ 
  		 	case 0:		//0-REG_PWR_TOTAL_CURRENT HI
  		 		XbeeTest_UART_Buffer[1]=REG_PWR_TOTAL_CURRENT>>8;
@@ -2938,10 +3063,14 @@ void  Motor_ADC1Interrupt(void)
  				XbeeTest_UART_Buffer[1]=Xbee_SIDE_FAN_SPEED>>8;
 				XbeeTest_UART_Buffer[2]=Xbee_SIDE_FAN_SPEED;
  				break;
- 			case 50:	//46-REG_MOTOR_FLIPPER_ANGLE
+ 			case 50:	//50-Xbee_Low_Speed_mode
  				XbeeTest_UART_Buffer[1]=Xbee_Low_Speed_mode>>8;
 				XbeeTest_UART_Buffer[2]=Xbee_Low_Speed_mode;
  				break;
+			case 88:	//88-REG_FW_VERSION
+				XbeeTest_UART_Buffer[1]=REG_FW_VERSION>>8;
+				XbeeTest_UART_Buffer[2]=REG_FW_VERSION;
+				break;
  		}
 		//add checksum of the package
 		XbeeTest_UART_Buffer[3]=255-(XbeeTest_UART_Buffer[0]+XbeeTest_UART_Buffer[1]+XbeeTest_UART_Buffer[2])%255;
@@ -3101,14 +3230,8 @@ static unsigned int return_calibrated_pot_angle(unsigned int pot_1_value, unsign
 
   calibrated_pot_angle = combined_pot_angle - flipper_angle_offset;
 
-  if(calibrated_pot_angle < 0)
-  {
-    calibrated_pot_angle+=360;
-  }
-  else if(calibrated_pot_angle >= 360)
-  {
-    calibrated_pot_angle-=360;
-  }
+  //normalize to 0-359 using modulo (handles any out-of-range value)
+  calibrated_pot_angle = ((calibrated_pot_angle % 360) + 360) % 360;
   
   return calibrated_pot_angle;
 
@@ -3124,6 +3247,10 @@ static unsigned int return_combined_pot_angle(unsigned int pot_1_value, unsigned
   int temp2 = 0;
   float scale_factor = 0;
   int temp_pot1_value = 0;
+  int angle_diff = 0;
+  int diff1 = 0;
+  int diff2 = 0;
+  static int prev_combined_angle = 0xFFFF; //no previous reading on first call
   
   //correct for pot 2 turning the opposite direction
   pot_2_value = 1023-pot_2_value;
@@ -3165,39 +3292,71 @@ static unsigned int return_combined_pot_angle(unsigned int pot_1_value, unsigned
 
     if(pot_angle_1 < 0) pot_angle_1+=360;
     if(pot_angle_2 < 0) pot_angle_2+=360;
-  
-    //if pot1 is closer to the end of range
-    if(abs(temp1) > abs(temp2) )
-    {
-      scale_factor = ( 512-abs(temp1) )/ 512.0;
-      //combined_pot_value = (pot_1_value*scale_factor + pot_2_value*(1-scale_factor));
-      combined_pot_angle = pot_angle_1*scale_factor + pot_angle_2*(1-scale_factor);
 
+    //check if both pots agree (circular distance)
+    //when a pot crosses its dead zone, it jumps to the wrong side of its
+    //rotation and reads ~270 degrees off — detect this and reject the bad pot
+    angle_diff = abs(pot_angle_1 - pot_angle_2);
+    if(angle_diff > 180) angle_diff = 360 - angle_diff;
+
+    if(angle_diff > 40)
+    {
+      //pots disagree — one just crossed its dead zone
+      if(prev_combined_angle == 0xFFFF)
+      {
+        //no previous reading yet (first call) — use pot closer to center as fallback
+        if(abs(temp1) < abs(temp2))
+          combined_pot_angle = pot_angle_1;
+        else
+          combined_pot_angle = pot_angle_2;
+      }
+      else
+      {
+        //use the pot whose angle is closest to the previous reading
+        diff1 = abs(pot_angle_1 - prev_combined_angle);
+        if(diff1 > 180) diff1 = 360 - diff1;
+        diff2 = abs(pot_angle_2 - prev_combined_angle);
+        if(diff2 > 180) diff2 = 360 - diff2;
+
+        if(diff1 < diff2)
+          combined_pot_angle = pot_angle_1;
+        else
+          combined_pot_angle = pot_angle_2;
+      }
     }
-    //if pot2 is closer to the end of range
     else
     {
+      //pots agree — blend as normal
 
-      scale_factor = (512-abs(temp2) )/ 512.0;
-      //combined_pot_value = (pot_2_value*scale_factor + pot_1_value*(1-scale_factor));
-      combined_pot_angle = pot_angle_2*scale_factor + pot_angle_1*(1-scale_factor);
+      //unwrap angles before interpolation to handle 0/360 boundary
+      //if the two angles are on opposite sides of the wrap point (difference > 180),
+      //add 360 to the smaller one so linear interpolation works correctly
+      if(pot_angle_1 - pot_angle_2 > 180)
+        pot_angle_2 += 360;
+      else if(pot_angle_2 - pot_angle_1 > 180)
+        pot_angle_1 += 360;
 
+      //if pot1 is closer to the end of range
+      if(abs(temp1) > abs(temp2) )
+      {
+        scale_factor = ( 512-abs(temp1) )/ 512.0;
+        combined_pot_angle = pot_angle_1*scale_factor + pot_angle_2*(1-scale_factor);
+      }
+      //if pot2 is closer to the end of range
+      else
+      {
+        scale_factor = (512-abs(temp2) )/ 512.0;
+        combined_pot_angle = pot_angle_2*scale_factor + pot_angle_1*(1-scale_factor);
+      }
     }
-
-    //333.3 degrees, 1023 total counts, 333.3/1023 = .326
-    //combined_pot_angle = combined_pot_value*.326+13.35;
 
   }
 
-    if(combined_pot_angle > 360)
-    {
-      combined_pot_angle-=360;
-    }
-    else if(combined_pot_angle < 0)
-    {
-      combined_pot_angle  += 360;
-    }
+    //normalize to 0-359 using modulo (handles any out-of-range value)
+    combined_pot_angle = ((combined_pot_angle % 360) + 360) % 360;
 
+    //store for next call — used to detect which pot crossed its dead zone
+    prev_combined_angle = combined_pot_angle;
 
   return (unsigned int)combined_pot_angle;
 

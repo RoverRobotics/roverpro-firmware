@@ -47,9 +47,9 @@ Notes:
   - BUG ALERT: ensure you do NOT overflow whatever stores the number of events
     for your chosen   
 *******************************************************************************/
-void IC_Init(const kICModule module, 
-             const uint8_t RPn, 
-             const uint8_t timeout);
+void IC_Init(const kICModule module,
+             const uint8_t RPn,
+             const uint16_t timeout);
 
 
 /*******************************************************************************
